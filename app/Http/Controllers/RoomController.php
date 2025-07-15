@@ -16,6 +16,17 @@ class RoomController extends Controller
         return view("rooms.index");
     }
 
+    public function selectRoom(Request $request)
+    {
+        $request->validate([
+            'room_id' => 'required|exists:rooms,id',
+        ]);
+
+        session(['room_id' => $request->room_id]);
+
+        return response()->json(['message' => 'Room selected successfully.']);
+    }
+
     /**
      * Show the form for creating a new resource.
      */

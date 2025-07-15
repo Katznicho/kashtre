@@ -61,6 +61,8 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::resource("service-points", ServicePointController::class);
 
     
+    Route::post('/select-room', [RoomController::class, 'selectRoom'])->name('room.select');
+
 
 
 
