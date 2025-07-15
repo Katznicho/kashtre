@@ -95,7 +95,7 @@
                             <li><a href="{{ route('dashboard') }}"
                                     class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Contractor
                                     Services</a></li>
-                            <li><a href="{{ route('dashboard') }}"
+                            <li><a href="{{ route('roles.index') }}"
                                     class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Roles</a></li>
                             <li><a href="{{ route('dashboard') }}"
                                     class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Staff
@@ -204,6 +204,39 @@
                             </li>
                         </ul>
                     </li>
+
+                    {{-- <!-- Settings --}}
+                    <li>
+                        <button @click="openGroup === 'settings' ? openGroup = '' : openGroup = 'settings'"
+                            :class="openGroup === 'settings' ? 'border border-blue-500 text-blue-700 bg-blue-50' :
+                                'text-gray-700 hover:text-blue-700'"
+                            class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
+                            <span>⚙️ <span class="ml-3">Settings</span></span>
+                            <svg class="w-4 h-4 transform transition-transform duration-200"
+                                :class="{ 'rotate-180': openGroup === 'settings' }" fill="none"
+                                stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <ul x-show="openGroup === 'settings'" x-collapse class="mt-1 space-y-1 pl-10">
+                            <li><a href="{{ route('service-points.index') }}"
+                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Service Points</a>
+                            </li>
+                            <li><a href="{{ route('departments.index') }}"
+                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Departments</a>
+                            </li>
+                            <li><a href="{{ route('qualifications.index') }}"
+                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Qualifications</a>
+                            </li>
+                            <li><a href="{{ route('titles.index') }}"
+                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Titles</a>
+                            </li>
+                            <li><a href="{{ route('rooms.index') }}"
+                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Rooms</a>
+                            </li>
+                        </ul>
+                    </li> 
+                    {{-- Settings --}}
 
                 </ul>
 
