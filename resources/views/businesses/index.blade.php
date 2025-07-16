@@ -69,7 +69,7 @@
                         <div>
                             <label for="phone"
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone</label>
-                            <input type="tel" name="phone" id="phone"
+                            <input type="tel" name="phone" id="phone" required
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                             @error('phone')
                                 <span class="text-red-500 text-sm">{{ $message }}</span>
@@ -79,7 +79,7 @@
                         <div>
                             <label for="address"
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-300">Address</label>
-                            <input type="text" name="address" id="address"
+                            <input type="text" name="address" id="address" required
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                             @error('address')
                                 <span class="text-red-500 text-sm">{{ $message }}</span>

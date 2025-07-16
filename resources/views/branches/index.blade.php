@@ -50,7 +50,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="md:col-span-2">
                             <label for="business_id"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Business</label>
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Business <span class="text-red-500">*</span></label>
                             <select name="business_id" id="business_id" required
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                                 <option value="" disabled selected>Select a Business</option>
@@ -65,7 +65,7 @@
 
                         <div>
                             <label for="name"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Branch Name</label>
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Branch Name <span class="text-red-500">*</span></label>
                             <input type="text" name="name" id="name" placeholder="e.g. Head Office" required
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                             @error('name')

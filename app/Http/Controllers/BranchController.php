@@ -41,9 +41,9 @@ class BranchController extends Controller
     {
         $request->validate([
             'name'    => 'required|string|max:255',
-            'email'   => 'nullable|email|max:255',
-            'phone'   => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:255',
+            'email'   => 'required|email|max:255',
+            'phone'   => 'required|string|max:20',
+            'address' => 'required|string|max:255',
             'business_id' => 'required|exists:businesses,id', // Uncomment if you want to allow branch creation for specific businesses
         ]);
 
@@ -105,9 +105,9 @@ class BranchController extends Controller
     {
         $request->validate([
             'name'    => 'required|string|max:255',
-            'email'   => 'nullable|email|max:255',
-            'phone'   => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:255',
+            'email'   => 'required|email|max:255',
+            'phone'   => 'required|string|max:20',
+            'address' => 'required|string|max:255',
         ]);
 
         try {
