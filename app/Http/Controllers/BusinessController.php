@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Business;
+use App\Mail\BusinessCreatedMail;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -54,7 +56,10 @@ class BusinessController extends Controller
             //dd($validated); // For debugging purposes, remove in production
 
             // Create business
-            Business::create($validated);
+            $business = Business::create($validated);
+
+            // Send welcome email
+            Mail::to($business->email)->send(new BusinessCreatedMail($business));
 
             return redirect()->back()->with('success', 'Business created successfully!');
 
