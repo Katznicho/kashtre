@@ -6,62 +6,95 @@ trait AccessTrait
 {
     public static $admin = [
         "Dashboard" => [
-            "View Dashboard", "View Dashboard Cards",
+            "View Dashboard", "View Dashboard Cards", "View Dashboard Charts", "View Dashboard Tables",
+            // "View Only Assigned",
         ]
     ];
 
-    public static $station = [
-        "Module" => ['Station Management'],
-        "Stations" => ['View Station', 'Edit Station', 'Add Statiom', 'Delete Station'],
+    //entities
+    public static $entities = [
+        // "Module" => ['Entities Management'],
+        "Entities" => ['View Entities', 'Edit Entities', 'Add Entities', 'Delete Entities'],
     ];
 
-    public static $stages = [
-        "Module" => ['Stage Management'],
-        "Stages" => ['View Stages', 'Edit Stages', 'Add Stages', 'Delete Stages', 'Activate Stage', 'Deactivate Stage'],
-    ];
-    public static $bodas = [
-        "Module" => ['Boda Management'],
-        "Boda" => ['View Bodas', 'Edit Bodas', 'Add Bodas', 'Delete Bodas', 'Activate Boda Riders', 'Deactivate Boda Riders'],
+
+    public static $departments = [
+        // "Module" => ['Departments Management'],
+        "Departments" => ['View Departments', 'Edit Departments', 'Add Departments', 'Delete Departments'],
     ];
 
-    public static $taxis = [
-        "Module" => ['Taxi Management'],
-        "Taxi"=>['View Taxis' , 'Edit Taxis', 'Add Taxis', 'Delete Taxis'],
-    ];
 
+ 
+
+    public static $staff = [
+        // "Module" => ['Staff Management'],
+        "Staff" => ['View Staff', 'Edit Staff', 'Add Staff', 'Delete Staff', 'Assign Roles'],
+    ];
 
     public static $reports = [
-        "Module" => ['Report Management'],
-        "Report" => ['View Report', 'Edit Report', 'Add Report', 'Delete Report'],
+        // "Module" => ['Reports Management'],
+        "Reports" => ['View Report', 'Edit Report', 'Add Report', 'Delete Report'],
+
     ];
 
 
 
+    // public static $logs = [
+    //     "Module" => ['Logs Management'],
+    //     "Logs" => ['View Logs', 'Edit Logs', 'Add Logs', 'Delete Logs'],
+    // ];
+
     public static $logs = [
-        "Module" => ['Log Management'],
-        "Logs" => ['View Logs', 'Edit Logs', 'Add Logs', 'Delete Logs'],
+        // "Module" => ['Logs Management'],
+        "Logs" => ['View Logs'],
     ];
 
     //roles
-    public static $roles = [
-        "Module" => ['Role Management'],
-        "Role" => ['View Roles', 'Edit Roles', 'Add Roles', 'Delete Roles'],
+    public static $contractor = [
+        // "Module" => ['Contractor Management'],
+        "Contractor" => ["View Contractor", "Edit Contractor", "Add Contractor"],
     ];
 
     
 
-    public static $auditLogs = [
-        "Module" => ['Audit Logs Management'],
-        "Audit Logs" => ['View Audit Logs', 'Edit Audit Logs', 'Add Audit Logs', 'Delete Audit Logs'],
-
+    //products
+    public static $products = [
+        // "Module" => ['Products Management'],
+        "Products" => ['View Products', 'Edit Products', 'Add Products', 'Delete Products'],
     ];
 
-    public static $staff = [
-        "Module" => ['Staff Management'],
-        "Staff" => ['View Staff', 'Edit Staff', 'Add Staff', 'Delete Staff', 'Assign Roles'],
+    //sales
+    public static $sales = [
+        // "Module" => ['Sales Management'],
+        "Sales" => ['View Sales', 'Edit Sales', 'Add Sales', 'Delete Sales'],
     ];
 
 
+    public static $clients = [
+        // "Module" => ['Clients Management'],
+        "Clients" => ['View Clients', 'Edit Clients', 'Add Clients', 'Delete Clients'],
+    ];
+
+
+    public static $queues = [
+        // "Module" => ['Queues Management'],
+        "Customers" => ['View Queues'],
+    ];
+
+    public static  $withdrawaal = [
+        // "Module" => ['Withdrawals Management'],
+        "Withdrawals" => ['View Withdrawals', 'Edit Withdrawals', 'Add Withdrawals', 'Delete Withdrawals'],
+    ];
+
+    public static $modules = [
+        // "Module" => ['Modules Management'],
+        "Modules" => ['View Modules', 'Edit Modules', 'Add Modules', 'Delete Modules'],
+    ];
+
+    public static  $stock = [
+        // "Module" => ['Stock Management'],
+        "Stock" => ['View Stock', 'Edit Stock', 'Add Stock', 'Delete Stock'],
+    ];
 
 
 
@@ -89,14 +122,33 @@ trait AccessTrait
         $roles = static::spreadArrayKeys(
             array_merge(
                 static::$admin,
-                static::$station,
-                static::$stages,
-                static::$bodas,
-                static::$taxis,
+
+                static::$entities,
+
+                static::$departments,
+
                 static::$staff,
+                
+                static::$reports,
+              
+                
+               
                 static::$logs,
-                static::$roles,
-                static::$auditLogs,
+
+                static::$contractor,
+             
+                static::$products,
+
+                static::$sales,
+
+                static::$clients,
+
+                static::$queues
+
+                
+
+
+
 
             )
         );
@@ -107,13 +159,31 @@ trait AccessTrait
 
         $access = [
             "Dashboard" => self::$admin,
-            "Station" => self::$station,
-            "Stages" => self::$stages,
-            "Bodas" => self::$bodas,
-            "Taxis" => self::$taxis,
+
+            "Entities" => self::$entities,
+
+            "Departments" =>self::$departments,
+           
             "Staff" => self::$staff,
-            "Roles" => self::$roles,
-            "Audit Logs" => self::$auditLogs,
+
+            "Reports" =>  self::$reports,
+      
+            "Logs" => self::$logs,
+
+            "Contractor" => self::$contractor,
+           
+            "Products" => self::$products,
+            
+            "Sales" => self::$sales,
+
+            "Clients" => self::$clients,
+            "Queues" => self::$queues,
+            "Withdrawals" => self::$withdrawaal,
+            "Modules" => self::$modules,
+            "Stock" => self::$stock,
+
+           
+
 
             // "Accounting" => static::$accounting
         ];

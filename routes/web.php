@@ -13,6 +13,7 @@ use App\Http\Controllers\TitleController;
 use App\Http\Controllers\QualificationController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\ServicePointController;
+use App\Http\Controllers\SectionController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -59,17 +60,17 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::resource("qualifications", QualificationController::class);
     Route::resource("rooms", RoomController::class);
     Route::resource("service-points", ServicePointController::class);
+    Route::resource("sections", SectionController::class);
 
-    
     Route::post('/select-room', [RoomController::class, 'selectRoom'])->name('room.select');
 
 
 
 
 
-    Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+    // Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
     // routes/web.php
-    Route::get('/users/{user:uuid}', [UserController::class, 'show']);
+    // Route::get('/users/{user:uuid}', [UserController::class, 'show']);
 
 
 

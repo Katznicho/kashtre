@@ -20,23 +20,18 @@
 
 <body class="font-inter antialiased bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400">
 
-    <main class="min-h-screen flex">
-        <!-- Left: Form -->
-        <div class="w-full md:w-1/2 flex flex-col justify-center px-6 lg:px-24 py-12 bg-white dark:bg-gray-900">
-            <div class="mb-8">
+    <main class="min-h-screen flex items-start justify-center pt-16">
+        <!-- Centered Form -->
+        <div class="w-full max-w-md flex flex-col justify-center px-6 lg:px-24 py-12 bg-white dark:bg-gray-900 rounded">
+            <div class="mb-8 flex justify-center">
                 <a href="{{ url('/') }}">
-                    <img src="{{ asset('images/logo.png') }}" alt="MarzPay Logo" class="h-12 mx-auto">
+                    <img src="{{ asset('images/kashtre_logo.svg') }}" alt="kashtre Logo">
                 </a>
             </div>
 
-            <div class="w-full max-w-md mx-auto">
+            <div class="w-full mx-auto">
                 {{ $slot }}
             </div>
-        </div>
-
-        <!-- Right: Illustration -->
-        <div class="hidden md:flex md:w-1/2 bg-gray-50 dark:bg-gray-800 items-center justify-center">
-            <img src="{{ asset('images/auth.jpeg') }}" alt="Login Illustration" class="w-full h-full object-cover" />
         </div>
     </main>
 

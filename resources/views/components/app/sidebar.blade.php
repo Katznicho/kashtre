@@ -234,6 +234,9 @@
                             <li><a href="{{ route('rooms.index') }}"
                                     class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Rooms</a>
                             </li>
+                            <li><a href="{{ route('sections.index') }}"
+                                class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Sections</a>
+                        </li>
                         </ul>
                     </li> 
                     {{-- Settings --}}

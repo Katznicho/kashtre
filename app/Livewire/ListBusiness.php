@@ -37,7 +37,8 @@ class ListBusiness extends Component implements HasForms, HasTable
                 Tables\Columns\ImageColumn::make('logo')
                     ->label('Logo')
                     ->circular()
-                    ->defaultImageUrl(url('path/to/default/image.jpg')),
+                    // ->defaultImageUrl(url('path/to/default/image.jpg'))
+                    ,
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
                     ->sortable(),

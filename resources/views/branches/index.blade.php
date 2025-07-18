@@ -49,8 +49,7 @@
                     @csrf
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="md:col-span-2">
-                            <label for="business_id"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Business <span class="text-red-500">*</span></label>
+                            <label for="business_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Business <span class="text-red-500">*</span></label>
                             <select name="business_id" id="business_id" required
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                                 <option value="" disabled selected>Select a Business</option>
@@ -64,8 +63,7 @@
                         </div>
 
                         <div>
-                            <label for="name"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Branch Name <span class="text-red-500">*</span></label>
+                            <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Branch Name <span class="text-red-500">*</span></label>
                             <input type="text" name="name" id="name" placeholder="e.g. Head Office" required
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                             @error('name')
@@ -74,8 +72,7 @@
                         </div>
 
                         <div>
-                            <label for="email"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                            <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email <span class="text-red-500">*</span></label>
                             <input type="email" name="email" id="email" placeholder="e.g. branch@domain.com" required
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                             @error('email')
@@ -84,9 +81,8 @@
                         </div>
 
                         <div>
-                            <label for="phone"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone</label>
-                            <input type="tel" name="phone" id="phone" placeholder="e.g. 256700000000"
+                            <label for="phone" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone <span class="text-red-500">*</span></label>
+                            <input type="tel" name="phone" id="phone" placeholder="e.g. 256700000000" required
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                             @error('phone')
                                 <span class="text-red-500 text-sm">{{ $message }}</span>
@@ -94,9 +90,8 @@
                         </div>
 
                         <div class="md:col-span-2">
-                            <label for="address"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Address</label>
-                            <input type="text" name="address" id="address" placeholder="e.g. Kampala, Uganda"
+                            <label for="address" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Address <span class="text-red-500">*</span></label>
+                            <input type="text" name="address" id="address" placeholder="e.g. Kampala, Uganda" required
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                             @error('address')
                                 <span class="text-red-500 text-sm">{{ $message }}</span>

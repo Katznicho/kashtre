@@ -98,6 +98,16 @@ class ListUsers extends Component implements HasForms, HasTable
                     ->multiple(),
             ])
             ->actions([
+                Tables\Actions\Action::make('show')
+                    ->label('Show')
+                    ->url(fn(User $record): string => route('users.show', $record->id))
+                    ->icon('heroicon-o-eye')
+                    ->color('info'),
+                Tables\Actions\Action::make('edit')
+                    ->label('Edit')
+                    ->url(fn(User $record): string => route('users.edit', $record->id))
+                    ->icon('heroicon-o-pencil')
+                    ->color('primary'),
                 Tables\Actions\Action::make('update_status')
                     ->label('Change Status')
                     ->form([

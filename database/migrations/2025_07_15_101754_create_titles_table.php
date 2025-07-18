@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->uuid('uuid')->index();
             $table->foreignId('business_id')->constrained()->onDelete('cascade');
-            $table->string('name')->unique();
+            $table->string('name');
             $table->string('description')->nullable();
             $table->timestamps();
             $table->softDeletes(); // Allows for soft deletion of titles

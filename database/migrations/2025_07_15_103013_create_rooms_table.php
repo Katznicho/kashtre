@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('rooms', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique()->index();
-            $table->string('name')->unique();
+            $table->string('name');
             $table->string('description')->nullable();
             $table->foreignId('business_id')->constrained()->onDelete('cascade');
             //branch_id is nullable to allow rooms to be created without a specific branch

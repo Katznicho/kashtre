@@ -16,6 +16,7 @@ class ServicePoint extends Model
         'name',
         'description',
         'business_id',
+        'branch_id',
     ];
 
     protected $casts = [
@@ -33,5 +34,10 @@ class ServicePoint extends Model
         static::creating(function ($servicePoint) {
             $servicePoint->uuid = (string) Str::uuid();
         });
+    }
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
     }
 }

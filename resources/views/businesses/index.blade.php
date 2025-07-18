@@ -47,9 +47,8 @@
                     @csrf
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label for="name"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
-                            <input type="text" name="name" id="name" required
+                            <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name <span class="text-red-500">*</span></label>
+                            <input type="text" name="name" id="name" required placeholder="Enter business name"
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                             @error('name')
                                 <span class="text-red-500 text-sm">{{ $message }}</span>
@@ -57,9 +56,8 @@
                         </div>
 
                         <div>
-                            <label for="email"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
-                            <input type="email" name="email" id="email" required
+                            <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email <span class="text-red-500">*</span></label>
+                            <input type="email" name="email" id="email" required placeholder="Enter business email"
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                             @error('email')
                                 <span class="text-red-500 text-sm">{{ $message }}</span>
@@ -67,9 +65,8 @@
                         </div>
 
                         <div>
-                            <label for="phone"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone</label>
-                            <input type="tel" name="phone" id="phone" required
+                            <label for="phone" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone <span class="text-red-500">*</span></label>
+                            <input type="tel" name="phone" id="phone" required placeholder="Enter business phone"
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                             @error('phone')
                                 <span class="text-red-500 text-sm">{{ $message }}</span>
@@ -77,9 +74,8 @@
                         </div>
 
                         <div>
-                            <label for="address"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Address</label>
-                            <input type="text" name="address" id="address" required
+                            <label for="address" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Address <span class="text-red-500">*</span></label>
+                            <input type="text" name="address" id="address" required placeholder="Enter business address"
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                             @error('address')
                                 <span class="text-red-500 text-sm">{{ $message }}</span>
@@ -87,9 +83,8 @@
                         </div>
 
                         <div>
-                            <label for="logo"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Logo</label>
-                            <input type="file" name="logo" id="logo" accept="image/*"
+                            <label for="logo" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Logo <span class="text-red-500">*</span></label>
+                            <input type="file" name="logo" id="logo" accept="image/*" required placeholder="Upload business logo"
                                 class="mt-1 block w-full text-gray-700 dark:text-gray-300">
                             @error('logo')
                                 <span class="text-red-500 text-sm">{{ $message }}</span>

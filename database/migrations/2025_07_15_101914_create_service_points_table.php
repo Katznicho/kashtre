@@ -14,9 +14,10 @@ return new class extends Migration
         Schema::create('service_points', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique()->index();
-            $table->string('name')->unique();
+            $table->string('name');
             $table->string('description')->nullable();
             $table->foreignId('business_id')->constrained()->onDelete('cascade');
+            $table->foreignId('branch_id')->nullable()->constrained('branches')->onDelete('set null');
             $table->timestamps();
             $table->softDeletes(); // Allows for soft deletion of service points
         });

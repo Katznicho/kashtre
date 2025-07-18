@@ -96,13 +96,20 @@ class ListRooms extends Component implements HasForms, HasTable
                             ->placeholder('Select a business')
                             ->options(Business::pluck('name', 'id'))
                             ->required()
-                            ->disabled(fn() => Auth::user()->business_id !== 1),
+                            ->disabled(fn() => Auth::user()->business_id !== 1)
+                            ->reactive(),
 
                         Select::make('branch_id')
                             ->label('Branch')
                             ->placeholder('Select a branch')
-                            ->options(Branch::pluck('name', 'id'))
-                            ->required(),
+                            ->options(function ($get) {
+                                $businessId = $get('business_id');
+                                return $businessId
+                                    ? Branch::where('business_id', $businessId)->pluck('name', 'id')
+                                    : [];
+                            })
+                            ->required()
+                            ->reactive(),
 
                         TextInput::make('name')
                             ->label('Room Name')
@@ -138,13 +145,20 @@ class ListRooms extends Component implements HasForms, HasTable
                             ->options(Business::pluck('name', 'id'))
                             ->required()
                             ->default(Auth::user()->business_id)
-                            ->disabled(fn() => Auth::user()->business_id !== 1),
+                            ->disabled(fn() => Auth::user()->business_id !== 1)
+                            ->reactive(),
 
                         Select::make('branch_id')
                             ->label('Branch')
                             ->placeholder('Select a branch')
-                            ->options(Branch::pluck('name', 'id'))
-                            ->required(),
+                            ->options(function ($get) {
+                                $businessId = $get('business_id');
+                                return $businessId
+                                    ? Branch::where('business_id', $businessId)->pluck('name', 'id')
+                                    : [];
+                            })
+                            ->required()
+                            ->reactive(),
 
                         TextInput::make('name')
                             ->label('Room Name')

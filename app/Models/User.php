@@ -12,6 +12,9 @@ use Laravel\Sanctum\HasApiTokens;
 use Lab404\Impersonate\Models\Impersonate;
 use Illuminate\Support\Str;
 
+
+
+
 class User extends Authenticatable
 {
     use HasApiTokens;
@@ -32,7 +35,20 @@ class User extends Authenticatable
         'password',
         'status',
         'business_id',
-        'branch_id', // Uncomment if you want to allow branch assignment
+        'branch_id', // Uncomment if you want to allow branch assignment,
+        'service_points',
+        'permissions',
+        'allowed_branches',
+        'qualification_id',
+        'department_id',
+        'section_id',
+        'title_id',
+        'gender',
+        'phone',
+        'nin',
+        'profile_photo_path',
+        'email_verified_at',
+        'remember_token',
     ];
 
     /**
@@ -54,6 +70,16 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'service_points' => 'array',
+        'permissions' => 'array',
+        'allowed_branches' => 'array',
+        'gender' => 'string',
+        'phone' => 'string',
+        'nin' => 'string',
+        'profile_photo_path' => 'string',
+        'email_verified_at' => 'datetime',
+        'remember_token' => 'string',
+        'status' => 'string',
     ];
 
     /**

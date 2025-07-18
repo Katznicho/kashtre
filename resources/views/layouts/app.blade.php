@@ -6,27 +6,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ config('app.name', 'Laravel') }}</title>
-    <title>{{ env('APP_NAME') }} – Smart Payments and Collections Platform</title>
-    <meta name="title" content="MarzPay – Smart Payments and Collections Platform">
+    <title>{{ config('app.name', 'Kashtre') }}</title>
+    <title>{{ env('APP_NAME', 'Kashtre') }} – Smart Payments and Collections Platform</title>
+    <meta name="title" content="Kashtre – Smart Payments and Collections Platform">
     <meta name="description"
-        content="MarzPay is a powerful platform for managing digital transactions, collections, and payouts with ease. Trusted by businesses across Africa.">
+        content="Kashtre is a powerful platform for managing digital transactions, collections, and payouts with ease. Trusted by businesses across Africa.">
     <meta name="keywords"
-        content="MarzPay, payments, digital wallet, collections, payouts, mobile money, financial platform, business payments, bulk payments, Uganda fintech">
-    <meta name="author" content="Marz Innovations Ltd">
+        content="Kashtre, payments, digital wallet, collections, payouts, mobile money, financial platform, business payments, bulk payments, Uganda fintech">
+    <meta name="author" content="Kashtre Ltd">
     <meta name="robots" content="index, follow">
     <meta name="language" content="en">
     <meta name="theme-color" content="#011478" />
-    <meta property="og:title" content="MarzPay – Smart Payments and Collections Platform" />
+    <meta property="og:title" content="Kashtre – Smart Payments and Collections Platform" />
     <meta property="og:description"
-        content="MarzPay enables businesses to send and receive payments securely through mobile money and bank integrations." />
+        content="Kashtre enables businesses to send and receive payments securely through mobile money and bank integrations." />
     <meta property="og:image" content="{{ asset('images/logo.png') }}" />
     <meta property="og:url" content="{{ url()->current() }}" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="MarzPay – Smart Payments and Collections Platform">
+    <meta name="twitter:title" content="Kashtre – Smart Payments and Collections Platform">
     <meta name="twitter:description"
-        content="MarzPay simplifies business payments and collections for growing organizations.">
+        content="Kashtre simplifies business payments and collections for growing organizations.">
     <meta name="twitter:image" content="{{ asset('images/logo.png') }}">
 
 
@@ -73,8 +73,8 @@
             <!-- Footer -->
             <footer class="w-full bg-gray-100 text-gray-600 py-2 border-t border-gray-200">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                    <p class="text-sm text-gray-500">© Copyright {{ date('Y') }} {{ env('APP_NAME') }}. All Rights Reserved</p>
-                    <p class="text-sm text-gray-500">{{ env('APP_NAME') }} is a product of {{ env('APP_COMPANY_NAME') }}</p>
+                    <p class="text-sm text-gray-500">© Copyright {{ date('Y') }} Kashtre. All Rights Reserved</p>
+                    <p class="text-sm text-gray-500">Kashtre is a product of Kashtre Ltd</p>
                 </div>
             </footer>
 
