@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Mail;
+use App\Models\Business;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -20,7 +21,21 @@ class BusinessCreatedMail extends Mailable
      */
     public function __construct($business)
     {
+        if (!$business) {
+            throw new \InvalidArgumentException('Business cannot be null');
+        }
+
         $this->business = $business;
+
+        // Add debug information to the business object
+        $this->business->debug = [
+            'initial' => $initial,
+            'final' => [
+                'id' => $this->business->id ?? 'none',
+                'email' => $this->business->email ?? 'none',
+                'account_number' => $this->business->account_number ?? 'none'
+            ]
+        ];
     }
 
     /**
@@ -29,7 +44,7 @@ class BusinessCreatedMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Business Created Mail',
+            subject: 'Welcome to ' . config('app.name') . ' - Your Business Account is Ready',
         );
     }
 
@@ -38,6 +53,12 @@ class BusinessCreatedMail extends Mailable
      */
     public function content(): Content
     {
+        \Log::info('BusinessCreatedMail rendering content with:', [
+            'business_id' => $this->business->id ?? 'none',
+            'email' => $this->business->email ?? 'none',
+            'account_number' => $this->business->account_number ?? 'none'
+        ]);
+        
         return new Content(
             view: 'emails.business_created',
             with: [

@@ -14,7 +14,9 @@ use App\Http\Controllers\QualificationController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\ServicePointController;
 
+
 use Illuminate\Support\Facades\Route;
+use App\Livewire\ItemManager;
 
 
 
@@ -34,10 +36,31 @@ use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', 'login');
 
+// Debug route to check user state
+Route::get('/debug-user', function () {
+    $user = Auth::user();
+    if (!$user) {
+        return 'No authenticated user';
+    }
+    return [
+        'user_id' => $user->id,
+        'name' => $user->name,
+        'email' => $user->email,
+        'business_id' => $user->business_id,
+        'branch_id' => $user->branch_id,
+        'has_business' => $user->business ? true : false,
+        'has_branch' => $user->branch ? true : false,
+    ];
+})->middleware(['auth:sanctum']);
 
 // Route::get("makePayment",[PaymentController::class,"makePayment"])->name("makePayment");    
 
 Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+
+    // Items Manager Livewire route
+    Route::get('/items-manager', function() {
+        return view('items.index');
+    })->name('items-manager');
 
     // Route for the getting the data feed
     // Route::get('/json-data-feed', [DataFeedController::class, 'getDataFeed'])->name('json_data_feed');
@@ -59,6 +82,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::resource("qualifications", QualificationController::class);
     Route::resource("rooms", RoomController::class);
     Route::resource("service-points", ServicePointController::class);
+    
 
     
     Route::post('/select-room', [RoomController::class, 'selectRoom'])->name('room.select');

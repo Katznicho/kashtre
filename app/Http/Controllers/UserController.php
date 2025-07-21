@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
@@ -91,6 +92,34 @@ class UserController extends Controller
             return redirect()->back()->with('success', 'User created successfully. A password setup link has been sent to their email.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Failed to create user: ' . $e->getMessage());
+        }
+    }
+
+    // Add this new method for updating user profile including photo
+    public function updateProfile(Request $request, User $user)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $user->id,
+            'profile_photo_path' => 'nullable|image|max:2048',
+        ]);
+
+        try {
+            // Handle profile photo upload if provided
+            if ($request->hasFile('profile_photo_path')) {
+                // Delete old photo if exists
+                if ($user->profile_photo_path && Storage::disk('public')->exists($user->profile_photo_path)) {
+                    Storage::disk('public')->delete($user->profile_photo_path);
+                }
+                $path = $request->file('profile_photo_path')->store('profile_photos', 'public');
+                $validated['profile_photo_path'] = $path;
+            }
+
+            $user->update($validated);
+
+            return redirect()->back()->with('success', 'User profile updated successfully!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to update user profile: ' . $e->getMessage());
         }
     }
 

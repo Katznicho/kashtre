@@ -45,8 +45,14 @@ class Business extends Model
 
     protected static function booted()
     {
-        static::creating(function ($user) {
-            $user->uuid = (string) Str::uuid();
+        static::creating(function ($business) {
+            $business->uuid = (string) Str::uuid();
+        });
+
+        // Clear any cached instances when creating a new business
+        static::created(function ($business) {
+            // Force refresh the model
+            $business->refresh();
         });
     }
 
@@ -58,5 +64,14 @@ class Business extends Model
     public function branches()
     {
         return $this->hasMany(Branch::class);
+    }
+
+    public static function getByEmailAndPhone($email, $phone)
+    {
+        return static::where('email', $email)
+                    ->where('phone', $phone)
+                    ->orderBy('created_at', 'desc')
+                    ->first()
+                    ->fresh();  // This ensures we get fresh data from the database
     }
 }

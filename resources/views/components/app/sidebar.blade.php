@@ -160,8 +160,10 @@
                             </svg>
                         </button>
                         <ul x-show="openGroup === 'module'" x-collapse class="mt-1 space-y-1 pl-10">
-                            <li><a href="{{ route('dashboard') }}"
-                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Modules</a></li>
+        <li><a href="{{ route('dashboard') }}"
+                class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Modules</a></li>
+        <li><a href="{{ route('items-manager') }}"
+                class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">📝 Manage Items</a></li>
                         </ul>
                     </li>
 

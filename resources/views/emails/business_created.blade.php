@@ -15,15 +15,22 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
+                <div class="header">
             <h2>Welcome to {{ config('app.name') }}</h2>
         </div>
         <p>Hello <strong>{{ $business->name }}</strong>,</p>
         <p>Your business account has been created successfully!</p>
         <div class="details">
-            <p><strong>Account Number:</strong> {{ $business->account_number }}</p>
+            <p><strong>Account Number:</strong> <code>{{ $business->account_number }}</code></p>
+            <p><strong>Business Name:</strong> {{ $business->name }}</p>
             <p><strong>Email:</strong> {{ $business->email }}</p>
             <p><strong>Phone:</strong> {{ $business->phone }}</p>
+            <p><strong>Address:</strong> {{ $business->address }}</p>
+            @if($business->logo)
+                <p><strong>Logo:</strong><br>
+                    <img src="{{ asset('storage/' . $business->logo) }}" alt="Business Logo" style="max-width: 150px; max-height: 150px; margin-top: 8px; border-radius: 8px; border: 1px solid #eee;">
+                </p>
+            @endif
         </div>
         <p>Thank you for joining us.</p>
         <div class="footer">

@@ -28,8 +28,25 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
+        
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
         $business = $user->business;
+        
+        if (!$business) {
+            // If no business is associated, you might want to redirect to a setup page
+            return redirect()->route('login')->with('error', 'No business associated with this account.');
+        }
+
         $branch = $user->branch;
+        
+        if (!$branch) {
+            // If no branch is associated, you might want to redirect to a branch selection page
+            return redirect()->route('login')->with('error', 'No branch associated with this account.');
+        }
+
         $rooms = Room::where('branch_id', $branch->id)->get();
 
         // Handle POST to set room_id in session
