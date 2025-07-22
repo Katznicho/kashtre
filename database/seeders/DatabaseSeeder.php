@@ -17,7 +17,7 @@ class DatabaseSeeder extends Seeder
     {
 
         $this->call([
-            MarzPaySeeder::class,
+            KashtreSeeder::class,
         ]);
     }
 }

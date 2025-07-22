@@ -17,7 +17,6 @@ return new class extends Migration
             $table->foreignId('business_id')->constrained()->onDelete('cascade');
             $table->foreignId('branch_id')->constrained('branches')->onDelete('cascade');
             $table->foreignId('item_id')->constrained('items')->onDelete('cascade');
-            
             $table->string('price')->default(0);
             $table->timestamps();
             $table->softDeletes(); // Allows for soft deletion of branch item prices

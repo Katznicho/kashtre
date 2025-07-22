@@ -13,7 +13,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
-class MarzPaySeeder extends Seeder
+class KashtreSeeder extends Seeder
 {
     public function run(): void
     {
@@ -23,7 +23,7 @@ class MarzPaySeeder extends Seeder
             'email' => 'katznicho@gmail.com',
             'phone' => '256700000001',
             'address' => 'Kampala, Uganda',
-            'logo' => 'logos/marzpay.png',
+            'logo' => 'logos/kashtre.png',
             'account_number' => 'KS12345678',
         ]);
 
@@ -133,4 +133,4 @@ class MarzPaySeeder extends Seeder
             'gender' => 'male',
         ]);
     }
-}
+} 

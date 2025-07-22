@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content="{{ csrf_token() }}" />
 
-    <title>Login – MarzPay</title>
-    <meta name="description" content="Secure login to MarzPay – your trusted payment management platform.">
-    <meta name="author" content="Marz Innovations Ltd">
+    <title>Login – Kashtre</title>
+    <meta name="description" content="Secure login to Kashtre – your trusted payment management platform.">
+    <meta name="author" content="Kashtre Ltd">
 
     <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap" rel="stylesheet" />
@@ -25,7 +25,7 @@
         <div class="w-full max-w-md flex flex-col justify-center px-6 lg:px-24 py-12 bg-white dark:bg-gray-900 rounded">
             <div class="mb-8 flex justify-center">
                 <a href="{{ url('/') }}">
-                    <img src="{{ asset('images/kashtre_logo.svg') }}" alt="kashtre Logo">
+                    <img src="{{ asset('images/kashtre_logo.svg') }}" alt="Kashtre Logo">
                 </a>
             </div>
 
