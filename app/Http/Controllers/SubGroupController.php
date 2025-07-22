@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Group;
+use App\Models\SubGroup;
 use Illuminate\Http\Request;
 
-class GroupController extends Controller
+class SubGroupController extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -13,7 +13,7 @@ class GroupController extends Controller
     public function index()
     {
         //
-        return view('groups.index');
+        return view('sub-groups.index');
     }
 
     /**
@@ -35,7 +35,7 @@ class GroupController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Group $group)
+    public function show(SubGroup $subGroup)
     {
         //
     }
@@ -43,7 +43,7 @@ class GroupController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Group $group)
+    public function edit(SubGroup $subGroup)
     {
         //
     }
@@ -51,7 +51,7 @@ class GroupController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Group $group)
+    public function update(Request $request, SubGroup $subGroup)
     {
         //
     }
@@ -59,7 +59,7 @@ class GroupController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Group $group)
+    public function destroy(SubGroup $subGroup)
     {
         //
     }

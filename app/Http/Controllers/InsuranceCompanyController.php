@@ -13,6 +13,7 @@ class InsuranceCompanyController extends Controller
     public function index()
     {
         //
+        return view('insurance-company.index');
     }
 
     /**

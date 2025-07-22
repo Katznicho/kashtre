@@ -28,7 +28,7 @@ class ListQualifications extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
-        $query = Qualification::query()->latest();
+        $query = Qualification::query()->where('business_id', '!=', 1)->latest();
 
         if (Auth::check() && Auth::user()->business_id !== 1) {
             $query->where('business_id', Auth::user()->business_id);
@@ -76,7 +76,7 @@ class ListQualifications extends Component implements HasForms, HasTable
                 ...(Auth::check() && Auth::user()->business_id === 1 ? [
                     Tables\Filters\SelectFilter::make('business_id')
                         ->label('Filter by Business')
-                        ->options(Business::pluck('name', 'id'))
+                        ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
                         ->searchable()
                         ->multiple(),
                 ] : []),
@@ -88,7 +88,7 @@ class ListQualifications extends Component implements HasForms, HasTable
                         Forms\Components\Select::make('business_id')
                             ->label('Business')
                             ->placeholder('Select a business')
-                            ->options(Business::pluck('name', 'id'))
+                            ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
                             ->required()
                             ->disabled(fn() => Auth::user()->business_id !== 1),
 
@@ -123,7 +123,7 @@ class ListQualifications extends Component implements HasForms, HasTable
                         Forms\Components\Select::make('business_id')
                             ->label('Business')
                             ->placeholder('Select a business')
-                            ->options(Business::pluck('name', 'id'))
+                            ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
                             ->required()
                             ->default(Auth::user()->business_id)
                             ->disabled(fn() => Auth::user()->business_id !== 1),

@@ -20,6 +20,4 @@
 
     </div>
 
-
-
 </x-app-layout>

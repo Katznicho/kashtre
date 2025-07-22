@@ -16,6 +16,13 @@ use App\Http\Controllers\ServicePointController;
 use App\Http\Controllers\SectionController;
 use App\Http\Controllers\ItemUnitController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\GroupController;
+use App\Http\Controllers\PatientCategoryController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\ContractorProfileController;
+use App\Http\Controllers\InsuranceCompanyController;
+use App\Http\Controllers\StoreController;
+use App\Http\Controllers\SubGroupController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -65,6 +72,15 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::resource("sections", SectionController::class);
     Route::resource("item-units", ItemUnitController::class);
     Route::resource("items", ItemController::class);
+    Route::resource("groups", GroupController::class);
+    Route::resource("patient-categories", PatientCategoryController::class);
+    Route::resource("suppliers", SupplierController::class);
+    Route::resource("contractor-profiles", ContractorProfileController::class);
+    Route::resource("insurance-companies", InsuranceCompanyController::class);
+    Route::resource("stores", StoreController::class);
+    Route::resource("suppliers", SupplierController::class);
+    Route::resource("contractor-profiles", ContractorProfileController::class);
+    Route::resource("sub-groups", SubGroupController::class);
 
     Route::post('/select-room', [RoomController::class, 'selectRoom'])->name('room.select');
 

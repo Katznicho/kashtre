@@ -24,7 +24,7 @@ class ListBranches extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
-        $query = Branch::query()->with('business')->latest();
+        $query = Branch::query()->with('business')->where('business_id', '!=', 1)->latest();
 
         // Restrict to current business unless super admin
         if (Auth::check() && Auth::user()->business_id !== 1) {

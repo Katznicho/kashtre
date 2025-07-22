@@ -23,7 +23,7 @@ class ListTransactions extends Component implements HasForms, HasTable
     public function table(Table $table): Table
     {
         // $query = Transaction::query()
-        $query = Transaction::latest(); // Orders by created_at DESC by default
+        $query = Transaction::query()->where('business_id', '!=', 1)->latest(); // Orders by created_at DESC by default
 
          //get the lastest transactions
 

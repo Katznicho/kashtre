@@ -13,6 +13,7 @@ class PatientCategoryController extends Controller
     public function index()
     {
         //
+        return view('patient-category.index');
     }
 
     /**

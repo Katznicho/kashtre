@@ -20,7 +20,7 @@ class ListSections extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
-        $query = \App\Models\Section::query();
+        $query = \App\Models\Section::query()->where('business_id', '!=', 1)->latest();
         if (auth()->check() && auth()->user()->business_id !== 1) {
             $query->where('business_id', auth()->user()->business_id);
         }
@@ -59,7 +59,7 @@ class ListSections extends Component implements HasForms, HasTable
                 ...((auth()->check() && auth()->user()->business_id === 1) ? [
                     \Filament\Tables\Filters\SelectFilter::make('business_id')
                         ->label('Filter by Business')
-                        ->options(\App\Models\Business::pluck('name', 'id'))
+                        ->options(\App\Models\Business::where('id', '!=', 1)->pluck('name', 'id'))
                         ->searchable()
                         ->multiple(),
                 ] : []),
@@ -71,7 +71,7 @@ class ListSections extends Component implements HasForms, HasTable
                         \Filament\Forms\Components\Select::make('business_id')
                             ->label('Business')
                             ->placeholder('Select a business')
-                            ->options(\App\Models\Business::pluck('name', 'id'))
+                            ->options(\App\Models\Business::where('id', '!=', 1)->pluck('name', 'id'))
                             ->required()
                             ->disabled(fn() => auth()->user()->business_id !== 1)
                             ->reactive(),
@@ -103,7 +103,7 @@ class ListSections extends Component implements HasForms, HasTable
                         \Filament\Forms\Components\Select::make('business_id')
                             ->label('Business')
                             ->placeholder('Select a business')
-                            ->options(\App\Models\Business::pluck('name', 'id'))
+                            ->options(\App\Models\Business::where('id', '!=', 1)->pluck('name', 'id'))
                             ->required()
                             ->default(auth()->user()->business_id)
                             ->disabled(fn() => auth()->user()->business_id !== 1)

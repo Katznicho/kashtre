@@ -4,27 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
-class Branch extends Model
+class SubGroup extends Model
 {
     use HasFactory;
-    // use SoftDeletes;
+    use SoftDeletes;
 
     protected $fillable = [
-        'uuid',
-        'business_id',
         'name',
-        'email',
-        'phone',
-        'address',
+        'description',
+        'business_id',
     ];
-
-    public function business()
-    {
-        return $this->belongsTo(Business::class);
-    }
 
     protected static function booted()
     {
@@ -33,13 +25,8 @@ class Branch extends Model
         });
     }
 
-    public function users()
+    public function business()
     {
-        return $this->hasMany(User::class);
-    }
-
-    public function getRouteKeyName()
-    {
-        return 'uuid';
+        return $this->belongsTo(Business::class);
     }
 }

@@ -20,7 +20,7 @@ class ListSuppliers extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
-        $query = \App\Models\Supplier::query();
+        $query = \App\Models\Supplier::query()->where('business_id', '!=', 1)->latest();
         if (auth()->check() && auth()->user()->business_id !== 1) {
             $query->where('business_id', auth()->user()->business_id);
         }

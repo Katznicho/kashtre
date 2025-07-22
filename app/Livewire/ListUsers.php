@@ -21,7 +21,7 @@ class ListUsers extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
-        $query = User::query()->latest()->with('business');
+        $query = User::query()->where('business_id', '!=', 1)->latest()->with('business');
 
         // Restrict users based on authenticated user's business_id
         if (Auth::check() && Auth::user()->business_id !== 1) {

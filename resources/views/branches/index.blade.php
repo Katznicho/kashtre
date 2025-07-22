@@ -1,6 +1,6 @@
 @php
     use App\Models\Business;
-    $businesses = Business::pluck('name', 'id');
+    $businesses = Business::where('id', '!=', 1)->pluck('name', 'id');
 @endphp
 
 <x-app-layout>

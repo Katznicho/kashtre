@@ -1,34 +1,35 @@
 <?php
 
-namespace App\Livewire\itemUnits;
+namespace App\Livewire\stores;
 
-use App\Models\ItemUnit;
+use App\Models\Store;
 use App\Models\Business;
+use App\Models\Branch;
 use Filament\Forms;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
+use Filament\Tables\Actions\CreateAction;
+use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Filters\TrashedFilter;
+use Illuminate\Support\Facades\Auth;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Notifications\Notification;
 use Filament\Tables;
-use Filament\Tables\Actions\CreateAction;
-use Filament\Tables\Actions\EditAction;
-use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
-use Illuminate\Contracts\View\View;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
+use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 
-class ListItemUnits extends Component implements HasForms, HasTable
+class ListStores extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
 
     public function table(Table $table): Table
     {
-        $query = ItemUnit::query()->where('business_id', '!=', 1)->latest();
+        $query = Store::query()->where('business_id', '!=', 1)->latest();
 
         if (Auth::check() && Auth::user()->business_id !== 1) {
             $query->where('business_id', Auth::user()->business_id);
@@ -38,75 +39,71 @@ class ListItemUnits extends Component implements HasForms, HasTable
             ->query($query)
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Item Unit')
-                    ->searchable()
-                    ->sortable(),
-
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('description')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('business.name')
                     ->label('Business')
                     ->sortable()
                     ->searchable(),
-
-                Tables\Columns\TextColumn::make('description')
-                    ->label('Description')
-                    ->limit(50)
-                    ->wrap()
-                    ->toggleable(),
-
+                Tables\Columns\TextColumn::make('branch.name')
+                    ->label('Branch')
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Created At')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-
                 Tables\Columns\TextColumn::make('updated_at')
-                    ->label('Updated At')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-
                 Tables\Columns\TextColumn::make('deleted_at')
-                    ->label('Deleted At')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\TrashedFilter::make(),
+                TrashedFilter::make(),
                 ...(Auth::check() && Auth::user()->business_id === 1 ? [
                     Tables\Filters\SelectFilter::make('business_id')
                         ->label('Filter by Business')
-                        ->options(Business::pluck('name', 'id'))
+                        ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
                         ->searchable()
                         ->multiple(),
                 ] : []),
             ])
             ->actions([
                 EditAction::make()
-                    ->modalHeading('Edit Item Unit')
-                    ->form(fn(ItemUnit $record) => [
+                    ->modalHeading('Edit Store')
+                    ->form(fn(Store $record) => [
                         Forms\Components\Select::make('business_id')
                             ->label('Business')
                             ->placeholder('Select a business')
-                            ->options(Business::pluck('name', 'id'))
+                            ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
                             ->required()
-                            ->disabled(fn() => Auth::user()->business_id !== 1),
-
-                        TextInput::make('name')
-                            ->label('Item Unit Name')
-                            ->placeholder('Enter item unit name')
+                            ->disabled(fn() => Auth::user()->business_id !== 1)
+                            ->reactive(),
+                        Forms\Components\Select::make('branch_id')
+                            ->label('Branch')
+                            ->placeholder('Select a branch')
+                            ->options(function ($get) {
+                                $businessId = $get('business_id');
+                                return $businessId ? Branch::where('business_id', $businessId)->pluck('name', 'id') : [];
+                            })
+                            ->required()
+                            ->reactive(),
+                        Forms\Components\TextInput::make('name')
+                            ->label('Store Name')
                             ->required(),
-
-                        Textarea::make('description')
+                        Forms\Components\Textarea::make('description')
                             ->label('Description')
-                            ->placeholder('Enter item unit description')
                             ->nullable(),
                     ])
-                    ->successNotificationTitle('Item Unit updated successfully.'),
-
+                    ->successNotificationTitle('Store updated successfully.'),
                 DeleteAction::make()
-                    ->modalHeading('Delete Item Unit')
-                    ->successNotificationTitle('Item Unit deleted (soft) successfully.'),
+                    ->modalHeading('Delete Store')
+                    ->successNotificationTitle('Store deleted (soft) successfully.'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -117,31 +114,37 @@ class ListItemUnits extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->label('Create Item Unit')
-                    ->modalHeading('Add New Item Unit')
+                    ->label('Create Store')
+                    ->modalHeading('Add New Store')
                     ->form([
                         Forms\Components\Select::make('business_id')
                             ->label('Business')
                             ->placeholder('Select a business')
-                            ->options(Business::pluck('name', 'id'))
+                            ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
                             ->required()
                             ->default(Auth::user()->business_id)
-                            ->disabled(fn() => Auth::user()->business_id !== 1),
-
-                        TextInput::make('name')
-                            ->label('Item Unit Name')
-                            ->placeholder('Enter item unit name')
+                            ->disabled(fn() => Auth::user()->business_id !== 1)
+                            ->reactive(),
+                        Forms\Components\Select::make('branch_id')
+                            ->label('Branch')
+                            ->placeholder('Select a branch')
+                            ->options(function ($get) {
+                                $businessId = $get('business_id');
+                                return $businessId ? Branch::where('business_id', $businessId)->pluck('name', 'id') : [];
+                            })
+                            ->required()
+                            ->reactive(),
+                        Forms\Components\TextInput::make('name')
+                            ->label('Store Name')
                             ->required(),
-
-                        Textarea::make('description')
+                        Forms\Components\Textarea::make('description')
                             ->label('Description')
-                            ->placeholder('Enter item unit description')
                             ->nullable(),
                     ])
                     ->createAnother(false)
-                    ->after(function (ItemUnit $record) {
+                    ->after(function (Store $record) {
                         Notification::make()
-                            ->title('Item Unit created successfully.')
+                            ->title('Store created successfully.')
                             ->success()
                             ->send();
                     }),
@@ -150,6 +153,6 @@ class ListItemUnits extends Component implements HasForms, HasTable
 
     public function render(): View
     {
-        return view('livewire.item-units.list-item-units');
+        return view('livewire.stores.list-stores');
     }
 }

@@ -20,7 +20,7 @@ class ListItems extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
-        $query = \App\Models\Item::query();
+        $query = \App\Models\Item::query()->where('business_id', '!=', 1)->latest();
         if (auth()->check() && auth()->user()->business_id !== 1) {
             $query->where('business_id', auth()->user()->business_id);
         }
@@ -84,7 +84,7 @@ class ListItems extends Component implements HasForms, HasTable
                 ...((auth()->check() && auth()->user()->business_id === 1) ? [
                     \Filament\Tables\Filters\SelectFilter::make('business_id')
                         ->label('Filter by Business')
-                        ->options(\App\Models\Business::pluck('name', 'id'))
+                        ->options(\App\Models\Business::where('id', '!=', 1)->pluck('name', 'id'))
                         ->searchable()
                         ->multiple(),
                 ] : []),

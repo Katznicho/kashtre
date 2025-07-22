@@ -1,12 +1,13 @@
 <?php
 
-namespace App\Livewire\itemUnits;
+namespace App\Livewire\InsuranceCompany;
 
-use App\Models\ItemUnit;
+use App\Models\InsuranceCompany;
 use App\Models\Business;
 use Filament\Forms;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
@@ -21,14 +22,14 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
-class ListItemUnits extends Component implements HasForms, HasTable
+class ListInsuranceCompanies extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
 
     public function table(Table $table): Table
     {
-        $query = ItemUnit::query()->where('business_id', '!=', 1)->latest();
+        $query = InsuranceCompany::query()->where('business_id', '!=', 1)->latest();
 
         if (Auth::check() && Auth::user()->business_id !== 1) {
             $query->where('business_id', Auth::user()->business_id);
@@ -38,7 +39,7 @@ class ListItemUnits extends Component implements HasForms, HasTable
             ->query($query)
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Item Unit')
+                    ->label('Company Name')
                     ->searchable()
                     ->sortable(),
 
@@ -76,37 +77,37 @@ class ListItemUnits extends Component implements HasForms, HasTable
                 ...(Auth::check() && Auth::user()->business_id === 1 ? [
                     Tables\Filters\SelectFilter::make('business_id')
                         ->label('Filter by Business')
-                        ->options(Business::pluck('name', 'id'))
+                        ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
                         ->searchable()
                         ->multiple(),
                 ] : []),
             ])
             ->actions([
                 EditAction::make()
-                    ->modalHeading('Edit Item Unit')
-                    ->form(fn(ItemUnit $record) => [
-                        Forms\Components\Select::make('business_id')
+                    ->modalHeading('Edit Insurance Company')
+                    ->form(fn(InsuranceCompany $record) => [
+                        Select::make('business_id')
                             ->label('Business')
                             ->placeholder('Select a business')
-                            ->options(Business::pluck('name', 'id'))
+                            ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
                             ->required()
                             ->disabled(fn() => Auth::user()->business_id !== 1),
 
                         TextInput::make('name')
-                            ->label('Item Unit Name')
-                            ->placeholder('Enter item unit name')
+                            ->label('Company Name')
+                            ->placeholder('Enter company name')
                             ->required(),
 
                         Textarea::make('description')
                             ->label('Description')
-                            ->placeholder('Enter item unit description')
+                            ->placeholder('Enter company description')
                             ->nullable(),
                     ])
-                    ->successNotificationTitle('Item Unit updated successfully.'),
+                    ->successNotificationTitle('Insurance company updated successfully.'),
 
                 DeleteAction::make()
-                    ->modalHeading('Delete Item Unit')
-                    ->successNotificationTitle('Item Unit deleted (soft) successfully.'),
+                    ->modalHeading('Delete Insurance Company')
+                    ->successNotificationTitle('Insurance company deleted (soft) successfully.'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -117,31 +118,31 @@ class ListItemUnits extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->label('Create Item Unit')
-                    ->modalHeading('Add New Item Unit')
+                    ->label('Create Insurance Company')
+                    ->modalHeading('Add New Insurance Company')
                     ->form([
-                        Forms\Components\Select::make('business_id')
+                        Select::make('business_id')
                             ->label('Business')
                             ->placeholder('Select a business')
-                            ->options(Business::pluck('name', 'id'))
+                            ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
                             ->required()
                             ->default(Auth::user()->business_id)
                             ->disabled(fn() => Auth::user()->business_id !== 1),
 
                         TextInput::make('name')
-                            ->label('Item Unit Name')
-                            ->placeholder('Enter item unit name')
+                            ->label('Company Name')
+                            ->placeholder('Enter company name')
                             ->required(),
 
                         Textarea::make('description')
                             ->label('Description')
-                            ->placeholder('Enter item unit description')
+                            ->placeholder('Enter company description')
                             ->nullable(),
                     ])
                     ->createAnother(false)
-                    ->after(function (ItemUnit $record) {
+                    ->after(function (InsuranceCompany $record) {
                         Notification::make()
-                            ->title('Item Unit created successfully.')
+                            ->title('Insurance company created successfully.')
                             ->success()
                             ->send();
                     }),
@@ -150,6 +151,6 @@ class ListItemUnits extends Component implements HasForms, HasTable
 
     public function render(): View
     {
-        return view('livewire.item-units.list-item-units');
+        return view('livewire.insurance-company.list-insurance-companies');
     }
 }

@@ -25,7 +25,7 @@ class ListBusiness extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
-        $query = Business::query()->latest();
+        $query = Business::query()->where('id', '!=', 1)->latest();
 
         if (Auth::check() && Auth::user()->business_id !== 1) {
             $query->where('id', Auth::user()->business_id);

@@ -15,6 +15,7 @@ class Store extends Model
     protected $fillable = [
         'uuid',
         'business_id',
+        'branch_id',
         'name',
         'description',
     ];

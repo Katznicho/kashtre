@@ -20,16 +20,16 @@ class ListGroups extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
-        $query = \App\Models\Group::query();
+        $query = \App\Models\Group::query()->where('business_id', '!=', 1)->latest();
         if (auth()->check() && auth()->user()->business_id !== 1) {
             $query->where('business_id', auth()->user()->business_id);
         }
         return $table
             ->query($query)
             ->columns([
-                \Filament\Tables\Columns\TextColumn::make('uuid')
-                    ->label('UUID')
-                    ->searchable(),
+                // \Filament\Tables\Columns\TextColumn::make('uuid')
+                //     ->label('UUID')
+                //     ->searchable(),
                 \Filament\Tables\Columns\TextColumn::make('name')
                     ->searchable(),
                 \Filament\Tables\Columns\TextColumn::make('description')
@@ -55,7 +55,7 @@ class ListGroups extends Component implements HasForms, HasTable
                 ...((auth()->check() && auth()->user()->business_id === 1) ? [
                     \Filament\Tables\Filters\SelectFilter::make('business_id')
                         ->label('Filter by Business')
-                        ->options(\App\Models\Business::pluck('name', 'id'))
+                        ->options(\App\Models\Business::where('id', '!=', 1)->pluck('name', 'id'))
                         ->searchable()
                         ->multiple(),
                 ] : []),
@@ -67,7 +67,7 @@ class ListGroups extends Component implements HasForms, HasTable
                         \Filament\Forms\Components\Select::make('business_id')
                             ->label('Business')
                             ->placeholder('Select a business')
-                            ->options(\App\Models\Business::pluck('name', 'id'))
+                            ->options(\App\Models\Business::where('id', '!=', 1)->pluck('name', 'id'))
                             ->required()
                             ->disabled(fn() => auth()->user()->business_id !== 1),
                         \Filament\Forms\Components\TextInput::make('name')
@@ -87,7 +87,7 @@ class ListGroups extends Component implements HasForms, HasTable
                         \Filament\Forms\Components\Select::make('business_id')
                             ->label('Business')
                             ->placeholder('Select a business')
-                            ->options(\App\Models\Business::pluck('name', 'id'))
+                            ->options(\App\Models\Business::where('id', '!=', 1)->pluck('name', 'id'))
                             ->required()
                             ->default(auth()->user()->business_id)
                             ->disabled(fn() => auth()->user()->business_id !== 1),
