@@ -5,10 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Business extends Model
 {
     use HasFactory;
+    use SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -38,10 +40,7 @@ class Business extends Model
     }
 
     //a business has many payment links
-    public function paymentLinks()
-    {
-        return $this->hasMany(PaymentLink::class);
-    }
+   
 
     protected static function booted()
     {

@@ -5,7 +5,7 @@
 
     <!-- Sidebar -->
     <div id="sidebar"
-        class="flex flex-col absolute z-40 left-0 top-0 lg:static lg:left-auto lg:top-auto lg:translate-x-0 h-[100dvh] overflow-y-scroll lg:overflow-y-auto no-scrollbar w-64 lg:w-64 shrink-0 bg-white dark:bg-gray-800 p-4 transition-all duration-200 ease-in-out {{ $variant === 'v2' ? 'border-r border-gray-200 dark:border-gray-700/60' : 'rounded-r-2xl shadow-xs' }}"
+        class="flex flex-col absolute z-40 left-0 top-0 lg:static lg:left-auto lg:top-auto lg:translate-x-0 h-[100dvh] overflow-y-scroll lg:overflow-y-auto no-scrollbar w-64 lg:w-20 lg:sidebar-expanded:!w-64 2xl:!w-64 shrink-0 bg-white dark:bg-gray-800 p-4 transition-all duration-200 ease-in-out {{ $variant === 'v2' ? 'border-r border-gray-200 dark:border-gray-700/60' : 'rounded-r-2xl shadow-xs' }}"
         :class="sidebarOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-64'" @click.outside="sidebarOpen = false"
         @keydown.escape.window="sidebarOpen = false">
 
@@ -69,7 +69,7 @@
                     <li>
                         <a href="{{ route('dashboard') }}"
                             class="flex items-center pl-4 pr-3 py-2 rounded-lg bg-blue-100 text-blue-900 font-semibold">
-                            🏠 <span class="ml-3">Dashboard</span>
+                            🏠 <span class="text-sm font-medium ml-3 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">Dashboard</span>
                         </a>
                     </li>
 
@@ -126,6 +126,25 @@
                         </ul>
                     </li>
 
+                    <!-- Items -->
+                    <li>
+                        <button @click="openGroup === 'items' ? openGroup = '' : openGroup = 'items'"
+                            :class="openGroup === 'items' ? 'border border-blue-500 text-blue-700 bg-blue-50' :
+                                'text-gray-700 hover:text-blue-700'"
+                            class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
+                            <span>📦 <span class="ml-3">Items</span></span>
+                            <svg class="w-4 h-4 transform transition-transform duration-200"
+                                :class="{ 'rotate-180': openGroup === 'items' }" fill="none" stroke="currentColor"
+                                stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <ul x-show="openGroup === 'items'" x-collapse class="mt-1 space-y-1 pl-10">
+                            <li><a href="{{ route('items.index') }}"
+                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Items</a></li>
+                        </ul>
+                    </li>
+
                     <!-- Manage Finance -->
                     <li>
                         <button @click="openGroup === 'finance' ? openGroup = '' : openGroup = 'finance'"
@@ -143,25 +162,6 @@
                             <li><a href="{{ route('dashboard') }}"
                                     class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Finance Dashboard</a>
                             </li>
-                        </ul>
-                    </li>
-
-                    <!-- Module Management -->
-                    <li>
-                        <button @click="openGroup === 'module' ? openGroup = '' : openGroup = 'module'"
-                            :class="openGroup === 'module' ? 'border border-blue-500 text-blue-700 bg-blue-50' :
-                                'text-gray-700 hover:text-blue-700'"
-                            class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
-                            <span>🧩 <span class="ml-3">Module Management</span></span>
-                            <svg class="w-4 h-4 transform transition-transform duration-200"
-                                :class="{ 'rotate-180': openGroup === 'module' }" fill="none"
-                                stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </button>
-                        <ul x-show="openGroup === 'module'" x-collapse class="mt-1 space-y-1 pl-10">
-                            <li><a href="{{ route('dashboard') }}"
-                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Modules</a></li>
                         </ul>
                     </li>
 
@@ -237,6 +237,10 @@
                             <li><a href="{{ route('sections.index') }}"
                                 class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Sections</a>
                         </li>
+                        <li><a href="{{ route('item-units.index') }}"
+                            class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Item Units</a>
+                        </li>
+                        
                         </ul>
                     </li> 
                     {{-- Settings --}}

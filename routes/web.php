@@ -14,6 +14,8 @@ use App\Http\Controllers\QualificationController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\ServicePointController;
 use App\Http\Controllers\SectionController;
+use App\Http\Controllers\ItemUnitController;
+use App\Http\Controllers\ItemController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -61,6 +63,8 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::resource("rooms", RoomController::class);
     Route::resource("service-points", ServicePointController::class);
     Route::resource("sections", SectionController::class);
+    Route::resource("item-units", ItemUnitController::class);
+    Route::resource("items", ItemController::class);
 
     Route::post('/select-room', [RoomController::class, 'selectRoom'])->name('room.select');
 

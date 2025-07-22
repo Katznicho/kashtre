@@ -2,17 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ItemUnit;
 use Illuminate\Http\Request;
 
-class ItemUnitController extends Controller
+class ItemController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        return view('units.index');
+        //
     }
 
     /**
@@ -34,7 +33,7 @@ class ItemUnitController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(ItemUnit $itemUnit)
+    public function show(string $id)
     {
         //
     }
@@ -42,7 +41,7 @@ class ItemUnitController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(ItemUnit $itemUnit)
+    public function edit(string $id)
     {
         //
     }
@@ -50,7 +49,7 @@ class ItemUnitController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, ItemUnit $itemUnit)
+    public function update(Request $request, string $id)
     {
         //
     }
@@ -58,7 +57,7 @@ class ItemUnitController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(ItemUnit $itemUnit)
+    public function destroy(string $id)
     {
         //
     }
