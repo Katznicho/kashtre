@@ -1,5 +1,5 @@
 <x-mail::message>
-<img src="{{ asset("images/kashtre_logo.svg") }}" alt="{{ config('app.name') }}" style="width: 150px; margin-bottom: 20px;">
+<img src="https://staging.kashtre.com/images/kashtre_logo.svg" alt="{{ config('app.name') }}" style="width: 150px; margin-bottom: 20px;">
 
 # Welcome to {{ config('app.name') }}
 

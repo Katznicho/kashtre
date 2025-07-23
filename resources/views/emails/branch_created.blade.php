@@ -1,4 +1,6 @@
 <x-mail::message>
+<img src="https://staging.kashtre.com/images/kashtre_logo.svg" alt="{{ config('app.name') }}" style="width: 150px; margin-bottom: 20px;">
+
 # New Branch Created
 
 Dear {{ $company->name }},
