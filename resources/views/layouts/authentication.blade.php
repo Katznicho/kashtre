@@ -20,18 +20,17 @@
 
 <body class="font-inter antialiased bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400">
 
-    <main class="min-h-screen flex items-start justify-center pt-16">
-        <!-- Centered Form -->
-        <div class="w-full max-w-md flex flex-col justify-center px-6 lg:px-24 py-12 bg-white dark:bg-gray-900 rounded">
-            <div class="mb-8 flex justify-center">
+    <main class="min-h-screen flex items-center justify-center px-4">
+        <div class="w-full max-w-md bg-white dark:bg-gray-900 p-8 rounded-lg shadow-lg">
+            <div class="mb-6 text-center">
                 <a href="{{ url('/') }}">
-                    <img src="{{ asset('images/kashtre_logo.svg') }}" alt="Kashtre Logo">
+                    {{-- <img src="{{ asset('images/kashtre_logo.svg') }}" alt="Kashtre Logo" class="mx-auto h-48"> --}}
+                    <img src="{{ asset('images/kashtre_logo.svg') }}" alt="Kashtre Logo" class="mx-auto h-48 rounded-lg">
+
                 </a>
             </div>
 
-            <div class="w-full mx-auto">
-                {{ $slot }}
-            </div>
+            {{ $slot }}
         </div>
     </main>
 
