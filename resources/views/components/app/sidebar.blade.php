@@ -51,11 +51,7 @@
         <div class="space-y-8">
             <!-- Pages group -->
             <div>
-                {{-- <h3 class="text-xs uppercase text-gray-400 dark:text-gray-500 font-semibold pl-3">
-                    <span class="hidden lg:block lg:sidebar-expanded:hidden 2xl:hidden text-center w-6"
-                        aria-hidden="true">•••</span>
-                    <span class="lg:hidden lg:sidebar-expanded:block 2xl:block">Pages</span>
-                </h3> --}}
+
                 <ul class="mt-3 space-y-2" x-data="{ openGroup: '' }">
 
                     <!-- Dashboard -->
@@ -64,6 +60,27 @@
                             🏠 <span class="text-sm font-medium ml-3 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">Dashboard</span>
                         </a>
                     </li>
+
+                    <!-- Admins -->
+
+                    <!-- Admin -->
+                    @if (Auth::user()->business_id == 1)
+                    <li>
+                        <button @click="openGroup === 'admin' ? openGroup = '' : openGroup = 'admin'" :class="openGroup === 'admin' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
+                            <span>🛡️ <span class="ml-3">Admin</span></span>
+                            <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'admin' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <ul x-show="openGroup === 'admin'" x-collapse class="mt-1 space-y-1 pl-10">
+                            <li><a href="{{ route('admins.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Admin Users</a></li>
+                            <li><a href="{{ route('audit-logs.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Audit Logs</a></li>
+                            <li><a href="{{ route('admins.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">System Settings</a></li>
+                        </ul>
+                    </li>
+                    @endif
+
+
 
                     <!-- Staff -->
                     <li>

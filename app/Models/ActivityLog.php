@@ -25,7 +25,8 @@ class ActivityLog extends Model
         'user_agent',
         'action_type',
         'description',
-        'date'
+        'date',
+        'branch_id'
     ];
 
     //cast

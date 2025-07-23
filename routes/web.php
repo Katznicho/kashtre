@@ -23,7 +23,8 @@ use App\Http\Controllers\ContractorProfileController;
 use App\Http\Controllers\InsuranceCompanyController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\SubGroupController;
-
+use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AuditLogController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -81,7 +82,8 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::resource("suppliers", SupplierController::class);
     Route::resource("contractor-profiles", ContractorProfileController::class);
     Route::resource("sub-groups", SubGroupController::class);
-
+    Route::resource("admins", AdminController::class);
+    Route::resource("audit-logs", AuditLogController::class);
     Route::post('/select-room', [RoomController::class, 'selectRoom'])->name('room.select');
 
 
