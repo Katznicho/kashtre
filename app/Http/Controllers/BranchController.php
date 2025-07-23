@@ -8,6 +8,8 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use App\Models\Business;
+use App\Mail\BranchCreatedMail;
+use Illuminate\Support\Facades\Mail;
 
 class BranchController extends Controller
 {
@@ -38,31 +40,35 @@ class BranchController extends Controller
      * Store a newly created branch in storage.
      */
     public function store(Request $request)
-    {
-        $request->validate([
-            'name'    => 'required|string|max:255',
-            'email'   => 'required|email|max:255',
-            'phone'   => 'required|string|max:20',
-            'address' => 'required|string|max:255',
-            'business_id' => 'required|exists:businesses,id', // Uncomment if you want to allow branch creation for specific businesses
+{
+    $request->validate([
+        'name'    => 'required|string|max:255',
+        'email'   => 'required|email|max:255',
+        'phone'   => 'required|string|max:20',
+        'address' => 'required|string|max:255',
+        'business_id' => 'required|exists:businesses,id',
+    ]);
+
+    try {
+        $branch = Branch::create([
+            'uuid'        => Str::uuid(),
+            'business_id' => $request->business_id,
+            'name'        => $request->name,
+            'email'       => $request->email,
+            'phone'       => $request->phone,
+            'address'     => $request->address,
         ]);
 
-        try {
-            Branch::create([
-                'uuid'        => Str::uuid(),
-                'business_id' => $request->business_id,
-                'name'        => $request->name,
-                'email'       => $request->email,
-                'phone'       => $request->phone,
-                'address'     => $request->address,
-            ]);
+        $company = Business::find($request->business_id);
 
-            return redirect()->route('branches.index')->with('success', 'Branch created successfully.');
-        } catch (\Exception $e) {
-            Log::error('Branch store error: ' . $e->getMessage());
-            return back()->with('error', 'Failed to create branch.')->withInput();
-        }
+        Mail::send(new BranchCreatedMail($branch, $company));
+
+        return redirect()->route('branches.index')->with('success', 'Branch created successfully.');
+    } catch (\Exception $e) {
+        Log::error('Branch store error: ' . $e->getMessage());
+        return back()->with('error', 'Failed to create branch.')->withInput();
     }
+}
 
     /**
      * Display the specified branch.

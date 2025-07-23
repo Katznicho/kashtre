@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Business;
-use App\Mail\BusinessCreatedMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use App\Mail\NewBusinessCreatedMail;
 
 class BusinessController extends Controller
 {
@@ -58,8 +58,19 @@ class BusinessController extends Controller
             // Create business
             $business = Business::create($validated);
 
+            // dd($business->email);
+
             // Send welcome email
-            Mail::to($business->email)->send(new BusinessCreatedMail($business));
+            // Mail::to($business->email)->send(new BusinessCreatedMail($business));
+            Mail::to($business->email)->send(new NewBusinessCreatedMail($business));
+
+
+            Log::info('BusinessCreatedMail details:', [
+                'name' => $business->name,
+                'phone' => $business->phone,
+                'email' => $business->email,
+                'account_number' => $business->account_number,
+            ]);
 
             return redirect()->back()->with('success', 'Business created successfully!');
 
@@ -71,6 +82,7 @@ class BusinessController extends Controller
             // Log::error('DB error while creating business: ' . $e->getMessage());
             // return redirect()->back()->with('error', 'A database error occurred. Please contact support.');
         } catch (\Exception $e) {
+            dd($e);
             Log::error('General error while creating business: ' . $e->getMessage());
             return redirect()->back()->with('error', 'An unexpected error occurred. Please try again.');
         }
