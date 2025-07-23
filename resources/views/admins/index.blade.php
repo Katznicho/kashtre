@@ -7,7 +7,7 @@
                     <h2 class="text-xl font-bold text-gray-800 dark:text-white">Manage Admins</h2>
 
                     @if(Auth::user()->business_id == 1)
-                    <a href="{{ route('users.create') }}" class="inline-flex items-center px-4 py-2 bg-[#011478] text-white text-sm font-semibold rounded-md hover:bg-[#011478]/90 transition duration-150">
+                    <a href="{{ route('admins.create') }}" class="inline-flex items-center px-4 py-2 bg-[#011478] text-white text-sm font-semibold rounded-md hover:bg-[#011478]/90 transition duration-150">
                         ➕ Create Admin
                     </a>
                     @endif

@@ -103,11 +103,11 @@ class ListUsers extends Component implements HasForms, HasTable
                     ->url(fn(User $record): string => route('users.show', $record->id))
                     ->icon('heroicon-o-eye')
                     ->color('info'),
-                Tables\Actions\Action::make('edit')
-                    ->label('Edit')
-                    ->url(fn(User $record): string => route('users.edit', $record->id))
-                    ->icon('heroicon-o-pencil')
-                    ->color('primary'),
+                // Tables\Actions\Action::make('edit')
+                //     ->label('Edit')
+                //     ->url(fn(User $record): string => route('users.edit', $record->id))
+                //     ->icon('heroicon-o-pencil')
+                //     ->color('primary'),
                 Tables\Actions\Action::make('update_status')
                     ->label('Change Status')
                     ->form([
@@ -129,13 +129,13 @@ class ListUsers extends Component implements HasForms, HasTable
                     ->icon('heroicon-o-pencil')
                     ->color('primary')
                     ->visible(fn (User $record): bool => Auth::user()->business_id === 1 || $record->business_id === Auth::user()->business_id),
-                Tables\Actions\Action::make('impersonate')
-                    ->label('Impersonate')
-                    ->url(fn (User $record): string => route('impersonate', $record->id))
-                    ->color('warning')
-                    ->icon('heroicon-o-user')
-                    ->visible(fn (User $record): bool => Auth::user()->business_id === 1 && Auth::user()->id !== $record->id)
-                    ->requiresConfirmation(),
+                // Tables\Actions\Action::make('impersonate')
+                //     ->label('Impersonate')
+                //     ->url(fn (User $record): string => route('impersonate', $record->id))
+                //     ->color('warning')
+                //     ->icon('heroicon-o-user')
+                //     ->visible(fn (User $record): bool => Auth::user()->business_id === 1 && Auth::user()->id !== $record->id)
+                //     ->requiresConfirmation(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
