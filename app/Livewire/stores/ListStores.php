@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\stores;
+namespace App\Livewire\Stores;
 
 use App\Models\Store;
 use App\Models\Business;
