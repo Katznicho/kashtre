@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\subGroups;
+namespace App\Livewire\SubGroups;
 
 use App\Models\SubGroup;
 use App\Models\Business;

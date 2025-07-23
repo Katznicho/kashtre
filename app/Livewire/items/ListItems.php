@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\items;
+namespace App\Livewire\Items;
 
 use App\Models\Item;
 use Filament\Forms\Concerns\InteractsWithForms;

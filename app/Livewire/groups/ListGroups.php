@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\groups;
+namespace App\Livewire\Groups;
 
 use App\Models\Group;
 use Filament\Forms\Concerns\InteractsWithForms;

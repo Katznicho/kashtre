@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\suppliers;
+namespace App\Livewire\Suppliers;
 
 use App\Models\Supplier;
 use App\Models\Business;

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\sections;
+namespace App\Livewire\Sections;
 
 use App\Models\Section;
 use Filament\Forms\Concerns\InteractsWithForms;

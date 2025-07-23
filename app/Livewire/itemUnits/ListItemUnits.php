@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\itemUnits;
+namespace App\Livewire\ItemUnits;
 
 use App\Models\ItemUnit;
 use App\Models\Business;
