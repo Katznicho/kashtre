@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Stores;
 
+
 use App\Models\Store;
 use App\Models\Business;
 use App\Models\Branch;
@@ -26,6 +27,7 @@ class ListStores extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    
 
     public function table(Table $table): Table
     {
