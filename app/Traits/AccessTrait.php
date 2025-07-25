@@ -4,169 +4,199 @@ namespace App\Traits;
 
 trait AccessTrait
 {
-    // All permissions flat by module name
-    public static $permissions = [
+    public static $admin = [
         "Dashboard" => [
-            "View Dashboard",
-            "View Dashboard Cards",
-            "View Dashboard Charts",
-            "View Dashboard Tables",
-        ],
-
-        "Entities" => [
-            'View Entities', 'Edit Entities', 'Add Entities', 'Delete Entities',
-        ],
-
-        "Staff" => [
-            'View Staff', 'Edit Staff', 'Add Staff', 'Delete Staff', 'Assign Roles',
-        ],
-
-        "Reports" => [
-            'View Report', 'Edit Report', 'Add Report', 'Delete Report',
-        ],
-
-        "Logs" => [
-            'View Logs',
-        ],
-
-        "Contractor" => [
-            "View Contractor", "Edit Contractor", "Add Contractor",
-        ],
-
-        "Products" => [
-            'View Products', 'Edit Products', 'Add Products', 'Delete Products',
-        ],
-
-        "Sales" => [
-            'View Sales', 'Edit Sales', 'Add Sales', 'Delete Sales',
-        ],
-
-        "Clients" => [
-            'View Clients', 'Edit Clients', 'Add Clients', 'Delete Clients',
-        ],
-
-        "Customers" => [
-            'View Queues',
-        ],
-
-        "Withdrawals" => [
-            'View Withdrawals', 'Edit Withdrawals', 'Add Withdrawals', 'Delete Withdrawals',
-        ],
-
-        "Modules" => [
-            'View Modules', 'Edit Modules', 'Add Modules', 'Delete Modules',
-        ],
-
-        "Stock" => [
-            'View Stock', 'Edit Stock', 'Add Stock', 'Delete Stock',
-        ],
-
-        "Service Points" => [
-            'View Service Points', 'Edit Service Points', 'Add Service Points', 'Delete Service Points', 'Bulky Update Service Points',
-        ],
-
-        "Departments" => [
-            'View Departments', 'Edit Departments', 'Add Departments', 'Delete Departments', 'Bulky Update Departments',
-        ],
-
-        "Qualifications" => [
-            'View Qualifications', 'Edit Qualifications', 'Add Qualifications', 'Delete Qualifications', 'Bulky Update Qualifications',
-        ],
-
-        "Titles" => [
-            'View Titles', 'Edit Titles', 'Add Titles', 'Delete Titles', 'Bulky Update Titles',
-        ],
-
-        "Rooms" => [
-            'View Rooms', 'Edit Rooms', 'Add Rooms', 'Delete Rooms', 'Bulky Update Rooms',
-        ],
-
-        "Sections" => [
-            'View Sections', 'Edit Sections', 'Add Sections', 'Delete Sections', 'Bulky Update Sections',
-        ],
-
-        "Item Units" => [
-            'View Item Units', 'Edit Item Units', 'Add Item Units', 'Delete Item Units', 'Bulky Update Item Units',
-        ],
-
-        "Groups" => [
-            'View Groups', 'Edit Groups', 'Add Groups', 'Delete Groups', 'Bulky Update Groups',
-        ],
-
-        "Patient Categories" => [
-            'View Patient Categories', 'Edit Patient Categories', 'Add Patient Categories', 'Delete Patient Categories', 'Bulky Update Patient Categories',
-        ],
-
-        "Suppliers" => [
-            'View Suppliers', 'Edit Suppliers', 'Add Suppliers', 'Delete Suppliers', 'Bulky Update Suppliers',
-        ],
-
-        "Stores" => [
-            'View Stores', 'Edit Stores', 'Add Stores', 'Delete Stores', 'Bulky Update Stores',
-        ],
-
-        "Insurance Companies" => [
-            'View Insurance Companies', 'Edit Insurance Companies', 'Add Insurance Companies', 'Delete Insurance Companies', 'Bulky Update Insurance Companies',
-        ],
-
-        "Sub Groups" => [
-            'View Sub Groups', 'Edit Sub Groups', 'Add Sub Groups', 'Delete Sub Groups', 'Bulky Update Sub Groups',
-        ],
-
-        "Admin Users" => [
-            'View Admin Users', 'Edit Admin Users', 'Add Admin Users', 'Delete Admin Users', 'Assign Roles',
-        ],
-
-        "Audit Logs" => [
-            'View Audit Logs',
-        ],
-
-        "System Settings" => [
-            'View System Settings', 'Edit System Settings',
-        ],
-
-        "Business" => [
-            'View Business', 'Edit Business', 'Add Business', 'Delete Business',
-        ],
-
-        "Branches" => [
-            'View Branches', 'Edit Branches', 'Add Branches', 'Delete Branches',
-        ],
-
-        "Report Access" => [
-            'View Reports', 'Export Reports', 'Filter Reports',
-        ],
+            "View Dashboard", "View Dashboard Cards", "View Dashboard Charts", "View Dashboard Tables",
+        ]
     ];
 
-    /**
-     * Get all permissions, optionally excluding some modules
-     * 
-     * @param array $exclude List of module keys to exclude
-     * @return array Filtered permissions array
-     */
-    public static function getAccessControl(array $exclude = []): array
-    {
-        if (empty($exclude)) {
-            return self::$permissions;
-        }
+    public static $entities = [
+        "Entities" => ['View Entities', 'Edit Entities', 'Add Entities', 'Delete Entities'],
+    ];
 
-        return array_filter(
-            self::$permissions,
-            fn($key) => !in_array($key, $exclude),
-            ARRAY_FILTER_USE_KEY
-        );
+    public static $departments = [
+        "Departments" => ['View Departments', 'Edit Departments', 'Add Departments', 'Delete Departments'],
+    ];
+
+    public static $staff = [
+        "Staff" => ['View Staff', 'Edit Staff', 'Add Staff', 'Delete Staff', 'Assign Roles'],
+    ];
+
+    public static $reports = [
+        "Reports" => ['View Report', 'Edit Report', 'Add Report', 'Delete Report'],
+    ];
+
+    public static $logs = [
+        "Logs" => ['View Logs'],
+    ];
+
+    public static $contractor = [
+        "Contractor" => ["View Contractor", "Edit Contractor", "Add Contractor"],
+    ];
+
+    public static $products = [
+        "Products" => ['View Products', 'Edit Products', 'Add Products', 'Delete Products'],
+    ];
+
+    public static $sales = [
+        "Sales" => ['View Sales', 'Edit Sales', 'Add Sales', 'Delete Sales'],
+    ];
+
+    public static $clients = [
+        "Clients" => ['View Clients', 'Edit Clients', 'Add Clients', 'Delete Clients'],
+    ];
+
+    public static $queues = [
+        "Customers" => ['View Queues'],
+    ];
+
+    public static $withdrawaal = [
+        "Withdrawals" => ['View Withdrawals', 'Edit Withdrawals', 'Add Withdrawals', 'Delete Withdrawals'],
+    ];
+
+    public static $modules = [
+        "Modules" => ['View Modules', 'Edit Modules', 'Add Modules', 'Delete Modules'],
+    ];
+
+    public static $stock = [
+        "Stock" => ['View Stock', 'Edit Stock', 'Add Stock', 'Delete Stock'],
+    ];
+
+    public static $masters = [
+        "Service Points" => ['View Service Points', 'Edit Service Points', 'Add Service Points', 'Delete Service Points', 'Bulky Update Service Points'],
+        "Departments" => ['View Departments', 'Edit Departments', 'Add Departments', 'Delete Departments', 'Bulky Update Departments'],
+        "Qualifications" => ['View Qualifications', 'Edit Qualifications', 'Add Qualifications', 'Delete Qualifications', 'Bulky Update Qualifications'],
+        "Titles" => ['View Titles', 'Edit Titles', 'Add Titles', 'Delete Titles', 'Bulky Update Titles'],
+        "Rooms" => ['View Rooms', 'Edit Rooms', 'Add Rooms', 'Delete Rooms', 'Bulky Update Rooms'],
+        "Sections" => ['View Sections', 'Edit Sections', 'Add Sections', 'Delete Sections', 'Bulky Update Sections'],
+        "Item Units" => ['View Item Units', 'Edit Item Units', 'Add Item Units', 'Delete Item Units', 'Bulky Update Item Units'],
+        "Groups" => ['View Groups', 'Edit Groups', 'Add Groups', 'Delete Groups', 'Bulky Update Groups'],
+        "Patient Categories" => ['View Patient Categories', 'Edit Patient Categories', 'Add Patient Categories', 'Delete Patient Categories', 'Bulky Update Patient Categories'],
+        "Suppliers" => ['View Suppliers', 'Edit Suppliers', 'Add Suppliers', 'Delete Suppliers', 'Bulky Update Suppliers'],
+        "Stores" => ['View Stores', 'Edit Stores', 'Add Stores', 'Delete Stores', 'Bulky Update Stores'],
+        "Insurance Companies" => ['View Insurance Companies', 'Edit Insurance Companies', 'Add Insurance Companies', 'Delete Insurance Companies', 'Bulky Update Insurance Companies'],
+        "Sub Groups" => ['View Sub Groups', 'Edit Sub Groups', 'Add Sub Groups', 'Delete Sub Groups', 'Bulky Update Sub Groups'],
+    ];
+
+    public static $adminAccess = [
+        "Admin Users" => ['View Admin Users', 'Edit Admin Users', 'Add Admin Users', 'Delete Admin Users', 'Assign Roles'],
+        "Audit Logs" => ['View Audit Logs'],
+        "System Settings" => ['View System Settings', 'Edit System Settings'],
+    ];
+
+    public static $businessAccess = [
+        "Business" => ['View Business', 'Edit Business', 'Add Business', 'Delete Business'],
+        "Branches" => ['View Branches', 'Edit Branches', 'Add Branches', 'Delete Branches'],
+    ];
+
+    public static $clientAccess = [
+        "Clients" => ['View Clients', 'Edit Clients', 'Add Clients', 'Delete Clients'],
+    ];
+
+    public static $staffAccess = [
+        "Staff" => ['View Staff', 'Edit Staff', 'Add Staff', 'Delete Staff', 'Assign Roles'],
+    ];
+
+    public static $reportAccess = [
+        "Reports" => ['View Reports', 'Export Reports', 'Filter Reports'],
+    ];
+
+    public static function spreadArrayKeys($assocArray)
+    {
+        $result = [];
+        foreach ($assocArray as $key => $value) {
+            if (is_string($key)) {
+                $result[] = $key;
+            }
+            if (is_array($value)) {
+                $result = array_merge($result, static::spreadArrayKeys($value));
+            } else {
+                $result[] = $value;
+            }
+        }
+        return $result;
     }
 
-    /**
-     * Check if a user has a permission.
-     *
-     * @param string $permission Permission string to check
-     * @param string $userPermissionsJson JSON-encoded string of user permissions
-     * @return bool True if user has permission
-     */
-    public static function userCan(string $permission, string $userPermissionsJson): bool
+    public static function getAllPermissions()
     {
-        $userPermissions = json_decode($userPermissionsJson, true) ?: [];
-        return in_array($permission, $userPermissions);
+        $roles = static::spreadArrayKeys(
+            array_merge(
+                static::$admin,
+                static::$entities,
+                static::$departments,
+                static::$staff,
+                static::$reports,
+                static::$logs,
+                static::$contractor,
+                static::$products,
+                static::$sales,
+                static::$clients,
+                static::$queues,
+                static::$withdrawaal,
+                static::$modules,
+                static::$stock,
+                static::$masters,
+                static::$adminAccess,
+                static::$businessAccess,
+                static::$clientAccess,
+                static::$staffAccess,
+                static::$reportAccess
+            )
+        );
+        return $roles;
+    }
+
+    public static function getAccessControl(array $exclude = [])
+{
+    $permissions = [
+        "Dashboard" => self::$admin,
+        "Entities" => self::$entities,
+        "Departments" => self::$departments,
+        "Staff" => self::$staff,
+        "Reports" => self::$reports,
+        "Logs" => self::$logs,
+        "Contractor" => self::$contractor,
+        "Products" => self::$products,
+        "Sales" => self::$sales,
+        "Clients" => self::$clients,
+        "Queues" => self::$queues,
+        "Withdrawals" => self::$withdrawaal,
+        "Modules" => self::$modules,
+        "Stock" => self::$stock,
+        "Masters" => self::$masters,
+        "Admin" => self::$adminAccess,
+        "Business" => self::$businessAccess,
+        "Client" => self::$clientAccess,
+        "Staff Access" => self::$staffAccess,
+        "Report Access" => self::$reportAccess,
+    ];
+
+    if (!empty($exclude)) {
+        $permissions = collect($permissions)->reject(function ($_, $key) use ($exclude) {
+            return in_array($key, $exclude);
+        })->toArray();
+    }
+
+    return $permissions;
+}
+
+
+    public static function userCan($pageRole, $permissions)
+    {
+        $permissions = json_decode($permissions);
+        return in_array($pageRole, $permissions);
+    }
+
+    public static function user_can($page_role)
+    {
+        $actions1 = $_SESSION['actions'];
+        $actions = json_decode($actions1);
+        return in_array($page_role, $actions);
+    }
+
+    public static function is_assoc(array $array)
+    {
+        $keys = array_keys($array);
+        return array_keys($keys) !== $keys;
     }
 }

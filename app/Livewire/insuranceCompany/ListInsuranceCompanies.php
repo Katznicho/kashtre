@@ -84,6 +84,7 @@ class ListInsuranceCompanies extends Component implements HasForms, HasTable
             ])
             ->actions([
                 EditAction::make()
+                    ->visible(fn() => in_array('Edit Insurance Company', Auth::user()->permissions))
                     ->modalHeading('Edit Insurance Company')
                     ->form(fn(InsuranceCompany $record) => [
                         Select::make('business_id')
@@ -106,6 +107,7 @@ class ListInsuranceCompanies extends Component implements HasForms, HasTable
                     ->successNotificationTitle('Insurance company updated successfully.'),
 
                 DeleteAction::make()
+                    ->visible(fn() => in_array('Delete Insurance Company', Auth::user()->permissions))
                     ->modalHeading('Delete Insurance Company')
                     ->successNotificationTitle('Insurance company deleted (soft) successfully.'),
             ])
@@ -118,6 +120,7 @@ class ListInsuranceCompanies extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 CreateAction::make()
+                    ->visible(fn() => in_array('Add Insurance Company', Auth::user()->permissions))
                     ->label('Create Insurance Company')
                     ->modalHeading('Add New Insurance Company')
                     ->form([

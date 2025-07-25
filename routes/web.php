@@ -25,6 +25,7 @@ use App\Http\Controllers\StoreController;
 use App\Http\Controllers\SubGroupController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\BulkUploadController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -85,6 +86,13 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::resource("admins", AdminController::class);
     Route::resource("audit-logs", AuditLogController::class);
     Route::post('/select-room', [RoomController::class, 'selectRoom'])->name('room.select');
+
+    Route::prefix('bulk-upload')->group(function () {
+        Route::get('/template', [BulkUploadController::class, 'generateTemplate'])->name('bulk.upload.template');
+        Route::get('/form', [BulkUploadController::class, 'showUploadForm'])->name('bulk.upload.form');
+        Route::post('/import-validations', [BulkUploadController::class, 'importTemplate'])->name('bulk.upload.import-validations');
+    });
+
 
 
 

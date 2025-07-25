@@ -89,6 +89,7 @@ class ListRooms extends Component implements HasForms, HasTable
             ])
             ->actions([
                 EditAction::make()
+                    ->visible(fn() => in_array('Edit Room', Auth::user()->permissions))
                     ->modalHeading('Edit Room')
                     ->form(fn(Room $record) => [
                         Select::make('business_id')
@@ -124,6 +125,7 @@ class ListRooms extends Component implements HasForms, HasTable
                     ->successNotificationTitle('Room updated successfully.'),
 
                 DeleteAction::make()
+                    ->visible(fn() => in_array('Delete Room', Auth::user()->permissions))
                     ->modalHeading('Delete Room')
                     ->successNotificationTitle('Room deleted (soft) successfully.'),
             ])
@@ -136,6 +138,7 @@ class ListRooms extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 CreateAction::make()
+                    ->visible(fn() => in_array('Add Room', Auth::user()->permissions))
                     ->label('Create Room')
                     ->modalHeading('Add New Room')
                     ->form([

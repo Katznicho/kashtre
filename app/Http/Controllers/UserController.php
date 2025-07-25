@@ -46,11 +46,11 @@ class UserController extends Controller
 
         $businesses = Business::all();
         // $permissions = $this->getAllPermissions();
-        $permissions = $this->getAccessControl();
+        $app_permissions = $this->getAccessControl(['Masters']);
 
         // dd($permissions);
 
-        return view('users.create', compact('businesses', 'permissions'));
+        return view('users.create', compact('businesses', 'app_permissions'));
     }
 
     /**
@@ -147,8 +147,8 @@ class UserController extends Controller
         }
         $businesses = Business::all();
         // $permissions = $this->getAllPermissions();
-        $permissions = $this->getAccessControl();
-        return view('users.show', compact('user', 'contractorProfile', 'businesses', 'permissions'));
+        $app_permissions = $this->getAccessControl(['Masters']);
+        return view('users.show', compact('user', 'contractorProfile', 'businesses', 'app_permissions'));
     }
 
     public function edit($id)
@@ -170,8 +170,8 @@ class UserController extends Controller
         $first_name = $nameParts[1] ?? '';
         $middle_name = $nameParts[2] ?? '';
 
-        $permissions = $this->getAccessControl(); 
-        return view('users.edit', compact('user', 'businesses', 'qualifications', 'departments', 'sections', 'titles', 'servicePoints', 'contractorProfile', 'surname', 'first_name', 'middle_name', 'permissions'));
+        $app_permissions = $this->getAccessControl(['Masters']); 
+        return view('users.edit', compact('user', 'businesses', 'qualifications', 'departments', 'sections', 'titles', 'servicePoints', 'contractorProfile', 'surname', 'first_name', 'middle_name', 'app_permissions'));
     }
 
     public function update(Request $request, $id)

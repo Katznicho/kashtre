@@ -70,6 +70,8 @@ class ListSubGroups extends Component implements HasForms, HasTable
             ])
             ->actions([
                 EditAction::make()
+                    ->label('Edit Subgroup')
+                    ->visible(fn() => in_array('Edit Subgroup', Auth::user()->permissions))
                     ->modalHeading('Edit Subgroup')
                     ->form(fn(SubGroup $record) => [
                         Forms\Components\Select::make('business_id')
@@ -87,6 +89,7 @@ class ListSubGroups extends Component implements HasForms, HasTable
                     ])
                     ->successNotificationTitle('Subgroup updated successfully.'),
                 DeleteAction::make()
+                    ->visible(fn() => in_array('Delete Subgroup', Auth::user()->permissions))
                     ->modalHeading('Delete Subgroup')
                     ->successNotificationTitle('Subgroup deleted (soft) successfully.'),
             ])
@@ -99,6 +102,7 @@ class ListSubGroups extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 CreateAction::make()
+                    ->visible(fn() => in_array('Add Subgroup', Auth::user()->permissions))
                     ->label('Create Subgroup')
                     ->modalHeading('Add New Subgroup')
                     ->form([

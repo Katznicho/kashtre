@@ -225,7 +225,7 @@
                         <div class="col-span-2">
                             <label class="block text-sm font-medium text-gray-700">Permissions <span class="text-red-500">*</span></label>
                             <div class="mt-2 space-y-2">
-                                @foreach($permissions as $module => $subModules)
+                                @foreach($app_permissions as $module => $subModules)
                                     <div class="pl-4">
                                         <label class="inline-flex items-center">
                                             <input type="checkbox" name="permissions_menu[]" value="{{ $module }}" class="module-checkbox form-checkbox h-5 w-5 text-indigo-600" {{ in_array($module, old('permissions_menu', $user->permissions ?? [])) ? 'checked' : '' }}>
@@ -295,8 +295,9 @@
         </div>
     </div>
 </div>
-<!-- Alpine.js and jQuery logic for dynamic filtering and permissions (reuse from create view) -->
-    <!-- jQuery -->
+
+<!-- jQuery logic reused -->
+
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script>
         $(document).ready(function() {
@@ -321,19 +322,10 @@
                 submoduleCheckbox.prop('checked', allChecked);
                 updateModuleCheckbox(submoduleCheckbox);
             });
-    
-            // Update the module checkbox based on submodule states
-            function updateModuleCheckbox(submoduleCheckbox) {
-                var moduleCheckbox = submoduleCheckbox.closest('div').closest('div').find('.module-checkbox');
-                var allSubmodules = moduleCheckbox.closest('div').find('.submodule-checkbox');
-                var allActions = moduleCheckbox.closest('div').find('.action-checkbox');
-                var allSubmodulesChecked = allSubmodules.length === allSubmodules.filter(':checked').length;
-                var anyActionChecked = allActions.filter(':checked').length > 0;
-    
-                moduleCheckbox.prop('checked', allSubmodulesChecked || anyActionChecked);
-            }
         });
     </script>
+
+
         <script>
             function userForm() {
                 return {

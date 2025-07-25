@@ -77,6 +77,8 @@ class ListStores extends Component implements HasForms, HasTable
             ])
             ->actions([
                 EditAction::make()
+                    ->label('Edit Store')
+                    ->visible(fn() => in_array('Edit Store', Auth::user()->permissions))
                     ->modalHeading('Edit Store')
                     ->form(fn(Store $record) => [
                         Forms\Components\Select::make('business_id')
@@ -104,6 +106,7 @@ class ListStores extends Component implements HasForms, HasTable
                     ])
                     ->successNotificationTitle('Store updated successfully.'),
                 DeleteAction::make()
+                    ->visible(fn() => in_array('Delete Store', Auth::user()->permissions))
                     ->modalHeading('Delete Store')
                     ->successNotificationTitle('Store deleted (soft) successfully.'),
             ])
@@ -116,6 +119,7 @@ class ListStores extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 CreateAction::make()
+                    ->visible(fn() => in_array('Add Store', Auth::user()->permissions))
                     ->label('Create Store')
                     ->modalHeading('Add New Store')
                     ->form([

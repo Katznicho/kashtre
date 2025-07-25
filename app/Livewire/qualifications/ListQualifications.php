@@ -83,6 +83,7 @@ class ListQualifications extends Component implements HasForms, HasTable
             ])
             ->actions([
                 EditAction::make()
+                    ->visible(fn() => in_array('Edit Qualification', Auth::user()->permissions))
                     ->modalHeading('Edit Qualification')
                     ->form(fn(Qualification $record) => [
                         Forms\Components\Select::make('business_id')
@@ -105,6 +106,7 @@ class ListQualifications extends Component implements HasForms, HasTable
                     ->successNotificationTitle('Qualification updated successfully.'),
 
                 DeleteAction::make()
+                    ->visible(fn() => in_array('Delete Qualification', Auth::user()->permissions))
                     ->modalHeading('Delete Qualification')
                     ->successNotificationTitle('Qualification deleted (soft) successfully.'),
             ])
@@ -117,6 +119,7 @@ class ListQualifications extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 CreateAction::make()
+                    ->visible(fn() => in_array('Add Qualification', Auth::user()->permissions))
                     ->label('Create Qualification')
                     ->modalHeading('Add New Qualification')
                     ->form([

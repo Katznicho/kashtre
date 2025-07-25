@@ -12,6 +12,7 @@ use Filament\Tables\Table;
 use Livewire\Component;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class ListSuppliers extends Component implements HasForms, HasTable
 {
@@ -62,6 +63,8 @@ class ListSuppliers extends Component implements HasForms, HasTable
             ])
             ->actions([
                 \Filament\Tables\Actions\EditAction::make()
+                    ->label('Edit Supplier')
+                    ->visible(fn() => in_array('Edit Supplier', Auth::user()->permissions))
                     ->modalHeading('Edit Supplier')
                     ->form(fn(\App\Models\Supplier $record) => [
                         \Filament\Forms\Components\Select::make('business_id')
@@ -82,6 +85,7 @@ class ListSuppliers extends Component implements HasForms, HasTable
             ->headerActions([
                 \Filament\Tables\Actions\CreateAction::make()
                     ->label('Create Supplier')
+                    ->visible(fn() => in_array('Add Supplier', Auth::user()->permissions))
                     ->modalHeading('Add New Supplier')
                     ->form([
                         \Filament\Forms\Components\Select::make('business_id')

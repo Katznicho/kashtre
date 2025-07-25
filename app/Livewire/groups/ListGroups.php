@@ -12,6 +12,7 @@ use Filament\Tables\Table;
 use Livewire\Component;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class ListGroups extends Component implements HasForms, HasTable
 {
@@ -62,6 +63,7 @@ class ListGroups extends Component implements HasForms, HasTable
             ])
             ->actions([
                 \Filament\Tables\Actions\EditAction::make()
+                    ->visible(fn() => in_array('Edit Group', Auth::user()->permissions))
                     ->modalHeading('Edit Group')
                     ->form(fn(\App\Models\Group $record) => [
                         \Filament\Forms\Components\Select::make('business_id')
@@ -82,6 +84,7 @@ class ListGroups extends Component implements HasForms, HasTable
             ->headerActions([
                 \Filament\Tables\Actions\CreateAction::make()
                     ->label('Create Group')
+                    ->visible(fn() => in_array('Add Group', Auth::user()->permissions))
                     ->modalHeading('Add New Group')
                     ->form([
                         \Filament\Forms\Components\Select::make('business_id')

@@ -73,6 +73,7 @@ class ListAdmins extends Component implements HasForms, HasTable
             ->actions([
                 Tables\Actions\Action::make('show')
                     ->label('Show')
+                    ->visible(fn() => in_array('View Admin Users', Auth::user()->permissions))
                     ->url(fn(User $record): string => route('admins.show', $record->id))
                     ->icon('heroicon-o-eye')
                     ->color('info'),
@@ -84,6 +85,7 @@ class ListAdmins extends Component implements HasForms, HasTable
                 //     ->color('primary'),
                 Tables\Actions\Action::make('update_status')
                     ->label('Change Status')
+                    ->visible(fn() => in_array('Update Status', Auth::user()->permissions))
                     ->form([
                         \Filament\Forms\Components\Select::make('status')
                             ->options([
@@ -100,6 +102,7 @@ class ListAdmins extends Component implements HasForms, HasTable
                     ->color('primary'),
                 Tables\Actions\Action::make('impersonate')
                     ->label('Impersonate')
+                    ->visible(fn() => in_array('Impersonate', Auth::user()->permissions))
                     ->url(fn (User $record): string => route('impersonate', $record->id))
                     ->color('warning')
                     ->icon('heroicon-o-user')
@@ -110,6 +113,7 @@ class ListAdmins extends Component implements HasForms, HasTable
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\BulkAction::make('update_status_bulk')
                         ->label('Update Status')
+                        ->visible(fn() => in_array('Update Status', Auth::user()->permissions))
                         ->form([
                             \Filament\Forms\Components\Select::make('status')
                                 ->options([

@@ -21,10 +21,11 @@ class AdminController extends Controller
 
     public function create()
     {
-        $permissions = $this->getAccessControl(['Contractor']);
+        $app_permissions = $this->getAccessControl(['Contractor']);
 
         //  dd($permissions);
-        return view('admins.create', compact('permissions'));
+         return view('admins.create', compact('app_permissions'));
+        //return view('admins.test', compact('app_permissions'));
     }
 
     public function store(Request $request)
@@ -72,8 +73,8 @@ class AdminController extends Controller
     {
         // dd('I am here');
         $admin = User::findOrFail($id);
-        $permissions = $this->getAccessControl();
-        return view('admins.show', compact('admin', 'permissions'));
+        $app_permissions = $this->getAccessControl();
+        return view('admins.show', compact('admin', 'app_permissions'));
     }
 
     public function edit($id)
@@ -83,8 +84,8 @@ class AdminController extends Controller
         $surname = $nameParts[0] ?? '';
         $first_name = $nameParts[1] ?? '';
         $middle_name = $nameParts[2] ?? '';
-        $permissions = $this->getAccessControl(['Contractor']);
-        return view('admins.edit', compact('admin', 'surname', 'first_name', 'middle_name', 'permissions'));
+        $app_permissions = $this->getAccessControl(['Contractor']);
+        return view('admins.edit', compact('admin', 'surname', 'first_name', 'middle_name', 'app_permissions'));
     }
 
     public function update(Request $request, $id)

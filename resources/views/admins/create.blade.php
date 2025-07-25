@@ -1,11 +1,11 @@
 @php
-    use App\Models\Business;
-    use App\Models\ServicePoint;
+use App\Models\Business;
+use App\Models\ServicePoint;
 
-    $businessId = 1;
-    $business = Business::with('branches')->findOrFail($businessId);
-    $branch = $business->branches->first();
-    $servicePoints = ServicePoint::where('business_id', $businessId)->get();
+$businessId = 1;
+$business = Business::with('branches')->findOrFail($businessId);
+$branch = $business->branches->first();
+$servicePoints = ServicePoint::where('business_id', $businessId)->get();
 @endphp
 
 <x-app-layout>
@@ -21,7 +21,8 @@
                     <div x-data="{ open: true }" class="mb-4 border rounded">
                         <button type="button" @click="open = !open" class="w-full flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-700 text-left text-lg font-semibold focus:outline-none">
                             <span>Bio</span>
-                            <svg :class="{'rotate-180': open}" class="h-5 w-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                            <svg :class="{'rotate-180': open}" class="h-5 w-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </button>
                         <div x-show="open" class="p-4 space-y-4">
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -83,41 +84,59 @@
                             <label class="block text-sm font-medium text-gray-700">
                                 Permissions <span class="text-red-500">*</span>
                             </label>
-                    
-                            <div class="mt-2 space-y-2">
-                                @foreach($permissions as $module => $actions)
-                                    <div class="pl-4">
-                                        {{-- Main module checkbox --}}
-                                        <label class="inline-flex items-center">
-                                            <input type="checkbox" name="permissions_menu[]" value="{{ $module }}" class="module-checkbox form-checkbox h-5 w-5 text-indigo-600"
-                                                {{ in_array($module, old('permissions_menu', [])) ? 'checked' : '' }}>
-                                            <span class="ml-2 font-bold text-lg text-gray-800">{{ $module }}</span>
+
+                            <!-- Permissions Section -->
+                            <div x-show="open" class="p-4 space-y-4">
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Permissions <span class="text-red-500">*</span>
+                                    </label>
+
+                                    @foreach ($app_permissions as $group => $categories)
+                                    <div class="mb-6 border p-4 rounded">
+                                        {{-- Group Checkbox --}}
+                                        <label class="inline-flex items-center mb-3">
+                                            <input type="checkbox" name="permissions_menu[]" value="{{ $group }}" class="module-checkbox form-checkbox h-5 w-5 text-indigo-600" {{ in_array($group, old('permissions_menu', [])) ? 'checked' : '' }}>
+                                            <span class="ml-2 font-bold text-lg text-gray-800">{{ $group }}</span>
                                         </label>
-                    
-                                        {{-- Action checkboxes --}}
-                                        @if(is_array($actions) && !empty($actions))
-                                            <div class="ml-8 mt-1 space-y-1">
-                                                @foreach($actions as $action)
-                                                    <div>
-                                                        <label class="inline-flex items-center">
-                                                            <input type="checkbox" name="permissions_menu[]" value="{{ $action }}" class="action-checkbox form-checkbox h-4 w-4 text-indigo-600"
-                                                                {{ in_array($action, old('permissions_menu', [])) ? 'checked' : '' }}>
-                                                            <span class="ml-2 text-sm text-gray-600">{{ $action }}</span>
-                                                        </label>
-                                                    </div>
+
+                                        {{-- Categories under Group --}}
+                                        @foreach ($categories as $category => $perms)
+                                        <div class="pl-8 mb-4 border-l-2 border-gray-300">
+                                            {{-- Category Checkbox --}}
+                                            <label class="inline-flex items-center mb-2">
+                                                <input type="checkbox" name="permissions_menu[]" value="{{ $category }}" class="submodule-checkbox form-checkbox h-4 w-4 text-indigo-600" {{ in_array($category, old('permissions_menu', [])) ? 'checked' : '' }}>
+                                                <span class="ml-2 font-semibold text-gray-700">{{ $category }}</span>
+                                            </label>
+
+                                            {{-- Permission checkboxes --}}
+                                            <div class="ml-6 space-y-1">
+                                                @foreach ($perms as $permission)
+                                                <label class="inline-flex items-center space-x-2">
+                                                    <input type="checkbox" name="permissions_menu[]" value="{{ $category }}:{{ $permission }}" class="action-checkbox form-checkbox h-3 w-3 text-indigo-600" {{ in_array($category . ':' . $permission, old('permissions_menu', [])) ? 'checked' : '' }}>
+                                                    <span>{{ $permission }}</span>
+                                                </label>
                                                 @endforeach
                                             </div>
-                                        @endif
+                                        </div>
+                                        @endforeach
                                     </div>
-                                @endforeach
+                                    @endforeach
+
+                                    @error('permissions_menu')
+                                    <div class="text-red-500 text-sm mt-1">{{ $message }}</div>
+                                    @enderror
+                                </div>
                             </div>
-                    
+
+
+
                             @error('permissions_menu')
-                                <div class="text-red-500 text-sm mt-1">{{ $message }}</div>
+                            <div class="text-red-500 text-sm mt-1">{{ $message }}</div>
                             @enderror
                         </div>
                     </div>
-                    
+
                     <!-- End Permissions Section -->
 
                     <input type="hidden" name="business_id" value="{{ $business->id }}">
@@ -131,32 +150,49 @@
             </div>
         </div>
     </div>
-        <!-- jQuery -->
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script>
-    $(document).ready(function() {
-        // Module checkbox: Check/uncheck all submodules and actions
-        $('.module-checkbox').on('change', function() {
-            $(this).closest('div').find('input[type="checkbox"]').prop('checked', this.checked);
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            // When module (group) checkbox changes
+            $('.module-checkbox').on('change', function() {
+                // Check/uncheck all submodules and actions under this group
+                $(this).closest('div.mb-6').find('input[type="checkbox"]').prop('checked', this.checked);
+            });
+
+            // When submodule (category) checkbox changes
+            $('.submodule-checkbox').on('change', function() {
+                // Check/uncheck all action checkboxes under this category
+                $(this).closest('div.pl-8').find('.action-checkbox').prop('checked', this.checked);
+
+                // Update group checkbox state (if all submodules checked => checked)
+                updateModuleCheckbox($(this));
+            });
+
+            // When action checkbox changes
+            $('.action-checkbox').on('change', function() {
+                var $categoryDiv = $(this).closest('div.pl-8');
+                var $submoduleCheckbox = $categoryDiv.find('.submodule-checkbox');
+                var allActions = $categoryDiv.find('.action-checkbox');
+                var allChecked = allActions.length === allActions.filter(':checked').length;
+
+                $submoduleCheckbox.prop('checked', allChecked);
+
+                updateModuleCheckbox($submoduleCheckbox);
+            });
+
+            function updateModuleCheckbox($element) {
+                var $groupDiv = $element.closest('div.mb-6');
+                var allSubmodules = $groupDiv.find('.submodule-checkbox');
+                var allChecked = allSubmodules.length === allSubmodules.filter(':checked').length;
+                var anyChecked = allSubmodules.filter(':checked').length > 0;
+                var $moduleCheckbox = $groupDiv.find('.module-checkbox').first();
+
+                $moduleCheckbox.prop('checked', allChecked);
+            }
         });
 
-        // Submodule checkbox: Check/uncheck all actions and update module checkbox
-        $('.submodule-checkbox').on('change', function() {
-            $(this).closest('div').find('.action-checkbox').prop('checked', this.checked);
-            updateModuleCheckbox($(this));
-        });
-
-        // Action checkbox: Update submodule and module checkboxes
-        $('.action-checkbox').on('change', function() {
-            var submoduleCheckbox = $(this).closest('div').closest('div').find('.submodule-checkbox');
-            var allActions = submoduleCheckbox.closest('div').find('.action-checkbox');
-            var allChecked = allActions.length === allActions.filter(':checked').length;
-            var anyChecked = allActions.filter(':checked').length > 0;
-
-            submoduleCheckbox.prop('checked', allChecked);
-            updateModuleCheckbox(submoduleCheckbox);
-        });
-    });
-</script>
+    </script>
 
 </x-app-layout>

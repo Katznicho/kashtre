@@ -12,6 +12,7 @@ use Filament\Tables\Table;
 use Livewire\Component;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class ListSections extends Component implements HasForms, HasTable
 {
@@ -66,6 +67,7 @@ class ListSections extends Component implements HasForms, HasTable
             ])
             ->actions([
                 \Filament\Tables\Actions\EditAction::make()
+                    ->visible(fn() => in_array('Edit Section', Auth::user()->permissions))
                     ->modalHeading('Edit Section')
                     ->form(fn(\App\Models\Section $record) => [
                         \Filament\Forms\Components\Select::make('business_id')
@@ -97,6 +99,7 @@ class ListSections extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 \Filament\Tables\Actions\CreateAction::make()
+                    ->visible(fn() => in_array('Add Section', Auth::user()->permissions))
                     ->label('Create Section')
                     ->modalHeading('Add New Section')
                     ->form([
