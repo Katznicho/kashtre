@@ -78,54 +78,47 @@
                     </div>
 
                     <!-- Permissions Section -->
-                    <div x-data="{ open: true }" class="mb-4 border rounded">
-                        <button type="button" @click="open = !open" class="w-full flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-700 text-left text-lg font-semibold focus:outline-none">
-                            <span>Permissions</span>
-                            <svg :class="{'rotate-180': open}" class="h-5 w-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                        </button>
-                        <div x-show="open" class="p-4 space-y-4">
-                            <div class="col-span-2">
-                                <label class="block text-sm font-medium text-gray-700">Permissions <span class="text-red-500">*</span></label>
-                                <div class="mt-2 space-y-2">
-                                    @foreach($permissions as $module => $subModules)
-                                        <div class="pl-4">
-                                            <label class="inline-flex items-center">
-                                                <input type="checkbox" name="permissions_menu[]" value="{{ $module }}" class="module-checkbox form-checkbox h-5 w-5 text-indigo-600" {{ in_array($module, old('permissions_menu', [])) ? 'checked' : '' }}>
-                                                <span class="ml-2 font-bold text-lg text-gray-800">{{ $module }}</span>
-                                            </label>
-                                            @if(is_array($subModules) && !empty($subModules))
-                                                <div class="ml-8 mt-1 space-y-1">
-                                                    @foreach($subModules as $subModule => $actions)
-                                                        <div>
-                                                            <label class="inline-flex items-center">
-                                                                <input type="checkbox" name="permissions_menu[]" value="{{ $subModule }}" class="submodule-checkbox form-checkbox h-5 w-5 text-indigo-600" {{ in_array($subModule, old('permissions_menu', [])) ? 'checked' : '' }}>
-                                                                <span class="ml-2 font-semibold text-base text-gray-700">{{ $subModule }}</span>
-                                                            </label>
-                                                            @if(is_array($actions) && !empty($actions))
-                                                                <div class="ml-8 mt-1 space-y-1">
-                                                                    @foreach($actions as $action)
-                                                                        <div>
-                                                                            <label class="inline-flex items-center">
-                                                                                <input type="checkbox" name="permissions_menu[]" value="{{ $action }}" class="action-checkbox form-checkbox h-4 w-4 text-indigo-600" {{ in_array($action, old('permissions_menu', [])) ? 'checked' : '' }}>
-                                                                                <span class="ml-2 text-sm text-gray-600">{{ $action }}</span>
-                                                                            </label>
-                                                                        </div>
-                                                                    @endforeach
-                                                                </div>
-                                                            @endif
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            @endif
-                                        </div>
-                                    @endforeach
-                                </div>
-                                @error('permissions_menu')
-                                    <div class="text-red-500 text-sm mt-1">{{ $message }}</div>
-                                @enderror
+                    <div x-show="open" class="p-4 space-y-4">
+                        <div class="col-span-2">
+                            <label class="block text-sm font-medium text-gray-700">
+                                Permissions <span class="text-red-500">*</span>
+                            </label>
+                    
+                            <div class="mt-2 space-y-2">
+                                @foreach($permissions as $module => $actions)
+                                    <div class="pl-4">
+                                        {{-- Main module checkbox --}}
+                                        <label class="inline-flex items-center">
+                                            <input type="checkbox" name="permissions_menu[]" value="{{ $module }}" class="module-checkbox form-checkbox h-5 w-5 text-indigo-600"
+                                                {{ in_array($module, old('permissions_menu', [])) ? 'checked' : '' }}>
+                                            <span class="ml-2 font-bold text-lg text-gray-800">{{ $module }}</span>
+                                        </label>
+                    
+                                        {{-- Action checkboxes --}}
+                                        @if(is_array($actions) && !empty($actions))
+                                            <div class="ml-8 mt-1 space-y-1">
+                                                @foreach($actions as $action)
+                                                    <div>
+                                                        <label class="inline-flex items-center">
+                                                            <input type="checkbox" name="permissions_menu[]" value="{{ $action }}" class="action-checkbox form-checkbox h-4 w-4 text-indigo-600"
+                                                                {{ in_array($action, old('permissions_menu', [])) ? 'checked' : '' }}>
+                                                            <span class="ml-2 text-sm text-gray-600">{{ $action }}</span>
+                                                        </label>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endforeach
                             </div>
+                    
+                            @error('permissions_menu')
+                                <div class="text-red-500 text-sm mt-1">{{ $message }}</div>
+                            @enderror
                         </div>
                     </div>
+                    
+                    <!-- End Permissions Section -->
 
                     <input type="hidden" name="business_id" value="{{ $business->id }}">
                     <input type="hidden" name="branch_id" value="{{ $branch->id }}">

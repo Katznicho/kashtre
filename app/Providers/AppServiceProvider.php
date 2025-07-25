@@ -30,8 +30,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // View::composer('*', function ($view) {
+        //     $view->with('business', Auth::check() ? Auth::user()->business : null);
+        // });
+
         View::composer('*', function ($view) {
-            $view->with('business', Auth::check() ? Auth::user()->business : null);
+            $user = Auth::user();
+        
+            $view->with('business', $user?->business);
+            $view->with('permissions', $user?->permissions ?? []);
         });
 
          // Register observers

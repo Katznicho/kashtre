@@ -122,7 +122,7 @@ class KashtreSeeder extends Seeder
             'branch_id' => $branch->id,
 
             'service_points' => json_encode([]),
-            'permissions' => json_encode(['*']),
+            'permissions' => json_encode([]),
             'allowed_branches' => json_encode([$branch->id]),
 
             'qualification_id' => $qualificationId,

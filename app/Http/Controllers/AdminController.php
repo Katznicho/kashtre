@@ -21,7 +21,9 @@ class AdminController extends Controller
 
     public function create()
     {
-        $permissions = $this->getAccessControl();
+        $permissions = $this->getAccessControl(['Contractor']);
+
+        //  dd($permissions);
         return view('admins.create', compact('permissions'));
     }
 
@@ -81,7 +83,7 @@ class AdminController extends Controller
         $surname = $nameParts[0] ?? '';
         $first_name = $nameParts[1] ?? '';
         $middle_name = $nameParts[2] ?? '';
-        $permissions = $this->getAccessControl();
+        $permissions = $this->getAccessControl(['Contractor']);
         return view('admins.edit', compact('admin', 'surname', 'first_name', 'middle_name', 'permissions'));
     }
 

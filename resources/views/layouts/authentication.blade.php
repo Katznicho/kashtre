@@ -10,7 +10,7 @@
     <meta name="description" content="Secure login to Kashtre – your trusted payment management platform.">
     <meta name="author" content="Kashtre Ltd">
 
-    <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
+    <link rel="icon" href="{{ asset('images/kashtre_logo.svg') }}" type="image/png" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap" rel="stylesheet" />
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
