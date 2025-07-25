@@ -243,9 +243,9 @@
                                 @if(in_array('View Sub Groups', $permissions))
                                 <li><a href="{{ route('sub-groups.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Sub Groups</a></li>
                                 @endif
-                                {{-- @if(in_array('View Bulk Upload', $permissions)) --}}
+                                 @if(in_array('Bulk Validations Upload', $permissions)) 
                                 <li><a href="{{ route('bulk.upload.form') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Bulk Upload</a></li>
-                                {{-- @endif --}}
+                                 @endif
                             </ul>
                         </li>
                     @endif

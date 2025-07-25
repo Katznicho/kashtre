@@ -101,6 +101,10 @@ trait AccessTrait
         "Reports" => ['View Reports', 'Export Reports', 'Filter Reports'],
     ];
 
+    public static $bulkUpload = [
+        "Bulk Upload" => ['Bulk Validations Upload'],
+    ];
+
     public static function spreadArrayKeys($assocArray)
     {
         $result = [];
@@ -140,7 +144,8 @@ trait AccessTrait
                 static::$businessAccess,
                 static::$clientAccess,
                 static::$staffAccess,
-                static::$reportAccess
+                static::$reportAccess,
+                static::$bulkUpload
             )
         );
         return $roles;
@@ -169,6 +174,7 @@ trait AccessTrait
         "Client" => self::$clientAccess,
         "Staff Access" => self::$staffAccess,
         "Report Access" => self::$reportAccess,
+        "Bulk Upload" => self::$bulkUpload,
     ];
 
     if (!empty($exclude)) {
