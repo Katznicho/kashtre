@@ -235,6 +235,7 @@
                                 @if(in_array('View Stores', $permissions))
                                 <li><a href="{{ route('stores.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Stores</a></li>
                                 @endif
+                                
 
                                 @if(in_array('View Insurance Companies', $permissions))
                                 <li><a href="{{ route('insurance-companies.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Insurance Companies</a></li>
