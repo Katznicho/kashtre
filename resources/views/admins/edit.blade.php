@@ -27,15 +27,15 @@ $branch = $business->branches->first();
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label for="surname">Surname</label>
-                                    <input type="text" name="surname" id="surname" class="form-input w-full" required value="{{ old('surname', $admin->surname) }}">
+                                    <input type="text" name="surname" id="surname" class="form-input w-full" required value="{{ old('surname', $surname) }}">
                                 </div>
                                 <div>
                                     <label for="first_name">First Name</label>
-                                    <input type="text" name="first_name" id="first_name" class="form-input w-full" required value="{{ old('first_name', $admin->first_name) }}">
+                                    <input type="text" name="first_name" id="first_name" class="form-input w-full" required value="{{ old('first_name', $first_name) }}">
                                 </div>
                                 <div>
                                     <label for="middle_name">Middle Name</label>
-                                    <input type="text" name="middle_name" id="middle_name" class="form-input w-full" value="{{ old('middle_name', $admin->middle_name) }}">
+                                    <input type="text" name="middle_name" id="middle_name" class="form-input w-full" value="{{ old('middle_name', $middle_name) }}">
                                 </div>
                             </div>
                             <div>
