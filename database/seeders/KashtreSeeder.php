@@ -9,6 +9,7 @@ use App\Models\Qualification;
 use App\Models\Department;
 use App\Models\Section;
 use App\Models\Title;
+use App\Traits\AccessTrait;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -108,6 +109,9 @@ class KashtreSeeder extends Seeder
         $sectionId       = Section::where('business_id', $business->id)->where('name', 'General Medicine')->value('id');
         $titleId         = Title::where('business_id', $business->id)->where('name', 'Dr.')->value('id');
 
+        // Get all available permissions for admin users
+        $allPermissions = AccessTrait::getAllPermissions();
+
         // 7. Create Default User (Admin)
         User::create([
             'uuid' => Str::uuid(),
@@ -122,7 +126,32 @@ class KashtreSeeder extends Seeder
             'branch_id' => $branch->id,
 
             'service_points' => json_encode([]),
-            'permissions' => json_encode([]),
+            'permissions' => $allPermissions, // All permissions for admin
+            'allowed_branches' => json_encode([$branch->id]),
+
+            'qualification_id' => $qualificationId,
+            'department_id'    => $departmentId,
+            'section_id'       => $sectionId,
+            'title_id'         => $titleId,
+
+            'gender' => 'male',
+        ]);
+
+        // 8. Create additional admin user
+        User::create([
+            'uuid' => Str::uuid(),
+            'name' => 'System Admin',
+            'email' => 'admin@kashtre.com',
+            'password' => Hash::make('password'),
+            'status' => 'active',
+            'phone' => '256700000004',
+            'nin' => 'CF123456789013',
+
+            'business_id' => $business->id,
+            'branch_id' => $branch->id,
+
+            'service_points' => json_encode([]),
+            'permissions' => $allPermissions, // All permissions for admin
             'allowed_branches' => json_encode([$branch->id]),
 
             'qualification_id' => $qualificationId,

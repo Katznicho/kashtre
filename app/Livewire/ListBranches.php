@@ -81,7 +81,14 @@ class ListBranches extends Component implements HasForms, HasTable
                 ] : []),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(), // Optional edit action
+                Tables\Actions\Action::make('edit')
+                    ->label('Edit')
+                    ->url(fn (Branch $record): string => route('branches.edit', $record))
+                    ->icon('heroicon-o-pencil-square')
+                    ->color('primary')
+                    ->visible(fn(Branch $record): bool => 
+                        Auth::user()->business_id === 1 || $record->business_id === Auth::user()->business_id
+                    ),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

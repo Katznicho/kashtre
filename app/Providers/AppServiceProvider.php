@@ -38,7 +38,12 @@ class AppServiceProvider extends ServiceProvider
             $user = Auth::user();
         
             $view->with('business', $user?->business);
-            $view->with('permissions', $user?->permissions ?? []);
+            $permissions = $user?->permissions;
+            // Ensure permissions is always an array
+            if (is_string($permissions)) {
+                $permissions = json_decode($permissions, true) ?? [];
+            }
+            $view->with('permissions', $permissions ?? []);
         });
 
          // Register observers

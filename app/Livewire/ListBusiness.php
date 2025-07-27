@@ -89,6 +89,14 @@ class ListBusiness extends Component implements HasForms, HasTable
 
             ])
             ->actions([
+                Tables\Actions\Action::make('edit')
+                    ->label('Edit')
+                    ->url(fn (Business $record): string => route('businesses.edit', $record))
+                    ->icon('heroicon-o-pencil-square')
+                    ->color('primary')
+                    ->visible(fn(Business $record): bool => 
+                        Auth::user()->business_id === 1 || $record->id === Auth::user()->business_id
+                    ),
 
                 Tables\Actions\Action::make('update_logo')
                     ->label('Update Logo')
