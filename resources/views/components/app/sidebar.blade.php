@@ -1,4 +1,3 @@
-
 <div class="min-w-fit">
     <!-- Sidebar backdrop (mobile only) -->
     <div class="fixed inset-0 bg-gray-900/30 z-40 lg:hidden lg:z-auto transition-opacity duration-200" :class="sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'" aria-hidden="true" x-cloak></div>
@@ -46,51 +45,65 @@
                     <!-- Dashboard: usually visible to all -->
                     <li>
                         <a href="{{ route('dashboard') }}" class="flex items-center pl-4 pr-3 py-2 rounded-lg bg-blue-100 text-blue-900 font-semibold">
-                            🏠 <span class="text-sm font-medium ml-3 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">Dashboard</span>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z"></path>
+                            </svg>
+                            <span class="text-sm font-medium ml-3 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">Dashboard</span>
                         </a>
                     </li>
 
                     <!-- Admin Group -->
                     @if(Auth::user()->business_id == 1)
-                        <li>
-                            <button @click="openGroup === 'admin' ? openGroup = '' : openGroup = 'admin'" :class="openGroup === 'admin' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
-                                <span>🛡️ <span class="ml-3">Admin</span></span>
-                                <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'admin' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path d="M19 9l-7 7-7-7" />
+                    <li>
+                        <button @click="openGroup === 'admin' ? openGroup = '' : openGroup = 'admin'" :class="openGroup === 'admin' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                                 </svg>
-                            </button>
-                            <ul x-show="openGroup === 'admin'" x-collapse class="mt-1 space-y-1 pl-10">
-                                {{-- @if(in_array('View Admin Users', $permissions)) --}}
-                                <li><a href="{{ route('admins.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Admin Users</a></li>
-                                {{-- @endif --}}
-                                @if(in_array('View Audit Logs', $permissions))
-                                <li><a href="{{ route('audit-logs.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Audit Logs</a></li>
-                                @endif
-                                @if(in_array('Manage System Settings', $permissions))
-                                <li><a href="{{ route('admins.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">System Settings</a></li>
-                                @endif
-                            </ul>
-                        </li>
+                                <span class="ml-3">Admin</span>
+                            </span>
+                            <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'admin' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <ul x-show="openGroup === 'admin'" x-collapse class="mt-1 space-y-1 pl-10">
+                            {{-- @if(in_array('View Admin Users', $permissions)) --}}
+                            <li><a href="{{ route('admins.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Admin Users</a></li>
+                            {{-- @endif --}}
+                            @if(in_array('View Audit Logs', $permissions))
+                            <li><a href="{{ route('audit-logs.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Audit Logs</a></li>
+                            @endif
+                            @if(in_array('Manage System Settings', $permissions))
+                            <li><a href="{{ route('admins.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>System Settings</a></li>
+                            @endif
+                        </ul>
+                    </li>
                     @endif
 
                     <!-- Staff Group -->
                     @if(in_array('View Staff', $permissions))
                     <li>
                         <button @click="openGroup === 'staff' ? openGroup = '' : openGroup = 'staff'" :class="openGroup === 'staff' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
-                            <span>🧑‍💼 <span class="ml-3">Staff</span></span>
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+                                </svg>
+                                <span class="ml-3">Staff</span>
+                            </span>
                             <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'staff' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
                         <ul x-show="openGroup === 'staff'" x-collapse class="mt-1 space-y-1 pl-10">
                             @if(in_array('View Staff', $permissions))
-                            <li><a href="{{ route('users.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Staff</a></li>
+                            <li><a href="{{ route('users.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Staff</a></li>
                             @endif
                             @if(in_array('View Contractors', $permissions))
-                            <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Contractors</a></li>
+                            <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Contractors</a></li>
                             @endif
                             @if(in_array('View Contractor Services', $permissions))
-                            <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Contractor Services</a></li>
+                            <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Contractor Services</a></li>
                             @endif
                         </ul>
                     </li>
@@ -100,17 +113,22 @@
                     @if(in_array('View Business', $permissions))
                     <li>
                         <button @click="openGroup === 'business' ? openGroup = '' : openGroup = 'business'" :class="openGroup === 'business' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
-                            <span>🏢 <span class="ml-3">Businesses</span></span>
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                </svg>
+                                <span class="ml-3">Businesses</span>
+                            </span>
                             <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'business' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
                         <ul x-show="openGroup === 'business'" x-collapse class="mt-1 space-y-1 pl-10">
                             @if(in_array('View Business', $permissions))
-                            <li><a href="{{ route('businesses.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Business</a></li>
+                            <li><a href="{{ route('businesses.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Business</a></li>
                             @endif
                             @if(in_array('View Branches', $permissions))
-                            <li><a href="{{ route('branches.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Branches</a></li>
+                            <li><a href="{{ route('branches.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Branches</a></li>
                             @endif
                         </ul>
                     </li>
@@ -120,14 +138,19 @@
                     @if(in_array('View Items', $permissions))
                     <li>
                         <button @click="openGroup === 'items' ? openGroup = '' : openGroup = 'items'" :class="openGroup === 'items' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
-                            <span>📦 <span class="ml-3">Items</span></span>
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                </svg>
+                                <span class="ml-3">Items</span>
+                            </span>
                             <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'items' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
                         <ul x-show="openGroup === 'items'" x-collapse class="mt-1 space-y-1 pl-10">
                             @if(in_array('Manage Items', $permissions))
-                            <li><a href="{{ route('items.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Items</a></li>
+                            <li><a href="{{ route('items.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Items</a></li>
                             @endif
                         </ul>
                     </li>
@@ -137,13 +160,18 @@
                     @if(in_array('View Finance', $permissions))
                     <li>
                         <button @click="openGroup === 'finance' ? openGroup = '' : openGroup = 'finance'" :class="openGroup === 'finance' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
-                            <span>💰 <span class="ml-3">Manage Finance</span></span>
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                                </svg>
+                                <span class="ml-3">Manage Finance</span>
+                            </span>
                             <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'finance' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
                         <ul x-show="openGroup === 'finance'" x-collapse class="mt-1 space-y-1 pl-10">
-                            <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Finance Dashboard</a></li>
+                            <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Finance Dashboard</a></li>
                         </ul>
                     </li>
                     @endif
@@ -152,13 +180,18 @@
                     @if(in_array('View Clients', $permissions))
                     <li>
                         <button @click="openGroup === 'clients' ? openGroup = '' : openGroup = 'clients'" :class="openGroup === 'clients' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
-                            <span>👥 <span class="ml-3">Clients</span></span>
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                </svg>
+                                <span class="ml-3">Clients</span>
+                            </span>
                             <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'clients' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
                         <ul x-show="openGroup === 'clients'" x-collapse class="mt-1 space-y-1 pl-10">
-                            <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Client Management</a></li>
+                            <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Client Management</a></li>
                         </ul>
                     </li>
                     @endif
@@ -167,88 +200,99 @@
                     @if(in_array('View Reports', $permissions))
                     <li>
                         <button @click="openGroup === 'reports' ? openGroup = '' : openGroup = 'reports'" :class="openGroup === 'reports' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
-                            <span>📊 <span class="ml-3">Reports</span></span>
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                <span class="ml-3">Reports</span>
+                            </span>
                             <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'reports' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
                         <ul x-show="openGroup === 'reports'" x-collapse class="mt-1 space-y-1 pl-10">
-                            <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">View Reports</a></li>
+                            <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>View Reports</a></li>
                         </ul>
                     </li>
                     @endif
 
                     <!-- Settings Group (only for business_id == 1) -->
                     @if(Auth::user()->business_id == 1)
-                        <li>
-                            <button @click="openGroup === 'settings' ? openGroup = '' : openGroup = 'settings'" :class="openGroup === 'settings' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
-                                <span>⚙️ <span class="ml-3">Settings</span></span>
-                                <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'settings' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path d="M19 9l-7 7-7-7" />
+                    <li>
+                        <button @click="openGroup === 'settings' ? openGroup = '' : openGroup = 'settings'" :class="openGroup === 'settings' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                 </svg>
-                            </button>
-                            <ul x-show="openGroup === 'settings'" x-collapse class="mt-1 space-y-1 pl-10">
-                                @if(in_array('View Service Points', $permissions))
-                                <li>
-                                    <a href="{{ route('service-points.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">
-                                        Manage Service Points
-                                    </a>
-                                </li>
-                                @endif
+                                <span class="ml-3">Settings</span>
+                            </span>
+                            <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'settings' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <ul x-show="openGroup === 'settings'" x-collapse class="mt-1 space-y-1 pl-10">
+                            @if(in_array('View Service Points', $permissions))
+                            <li>
+                                <a href="{{ route('service-points.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Manage Service Points
+                                </a>
+                            </li>
+                            @endif
 
-                                @if(in_array('View Departments', $permissions))
-                                <li><a href="{{ route('departments.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Departments</a></li>
-                                @endif
+                            @if(in_array('View Departments', $permissions))
+                            <li><a href="{{ route('departments.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Departments</a></li>
+                            @endif
 
-                                @if(in_array('View Qualifications', $permissions))
-                                <li><a href="{{ route('qualifications.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Qualifications</a></li>
-                                @endif
+                            @if(in_array('View Qualifications', $permissions))
+                            <li><a href="{{ route('qualifications.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Qualifications</a></li>
+                            @endif
 
-                                @if(in_array('View Titles', $permissions))
-                                <li><a href="{{ route('titles.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Titles</a></li>
-                                @endif
+                            @if(in_array('View Titles', $permissions))
+                            <li><a href="{{ route('titles.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Titles</a></li>
+                            @endif
 
-                                @if(in_array('View Rooms', $permissions))
-                                <li><a href="{{ route('rooms.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Rooms</a></li>
-                                @endif
+                            @if(in_array('View Rooms', $permissions))
+                            <li><a href="{{ route('rooms.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Rooms</a></li>
+                            @endif
 
-                                @if(in_array('View Sections', $permissions))
-                                <li><a href="{{ route('sections.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Sections</a></li>
-                                @endif
+                            @if(in_array('View Sections', $permissions))
+                            <li><a href="{{ route('sections.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Sections</a></li>
+                            @endif
 
-                                @if(in_array('View Item Units', $permissions))
-                                <li><a href="{{ route('item-units.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Item Units</a></li>
-                                @endif
+                            @if(in_array('View Item Units', $permissions))
+                            <li><a href="{{ route('item-units.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Item Units</a></li>
+                            @endif
 
-                                @if(in_array('View Groups', $permissions))
-                                <li><a href="{{ route('groups.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Groups</a></li>
-                                @endif
+                            @if(in_array('View Groups', $permissions))
+                            <li><a href="{{ route('groups.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Groups</a></li>
+                            @endif
 
-                                @if(in_array('View Patient Categories', $permissions))
-                                <li><a href="{{ route('patient-categories.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Patient Categories</a></li>
-                                @endif
+                            @if(in_array('View Patient Categories', $permissions))
+                            <li><a href="{{ route('patient-categories.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Patient Categories</a></li>
+                            @endif
 
-                                @if(in_array('View Suppliers', $permissions))
-                                <li><a href="{{ route('suppliers.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Suppliers</a></li>
-                                @endif
+                            @if(in_array('View Suppliers', $permissions))
+                            <li><a href="{{ route('suppliers.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Suppliers</a></li>
+                            @endif
 
-                                @if(in_array('View Stores', $permissions))
-                                <li><a href="{{ route('stores.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Stores</a></li>
-                                @endif
+                            @if(in_array('View Stores', $permissions))
+                            <li><a href="{{ route('stores.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Stores</a></li>
+                            @endif
 
 
-                                @if(in_array('View Insurance Companies', $permissions))
-                                <li><a href="{{ route('insurance-companies.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Insurance Companies</a></li>
-                                @endif
+                            @if(in_array('View Insurance Companies', $permissions))
+                            <li><a href="{{ route('insurance-companies.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Insurance Companies</a></li>
+                            @endif
 
-                                @if(in_array('View Sub Groups', $permissions))
-                                <li><a href="{{ route('sub-groups.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Sub Groups</a></li>
-                                @endif
-                                 {{-- @if(in_array('Bulk Validations Upload', $permissions))  --}}
-                                <li><a href="{{ route('bulk.upload.form') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Bulk Upload</a></li>
-                                 {{-- @endif --}}
-                            </ul>
-                        </li>
+                            @if(in_array('View Sub Groups', $permissions))
+                            <li><a href="{{ route('sub-groups.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Sub Groups</a></li>
+                            @endif
+                             @if(in_array('Bulk Validations Upload', $permissions)) 
+                            <li><a href="{{ route('bulk.upload.form') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Bulk Upload</a></li>
+                             @endif 
+                        </ul>
+                    </li>
                     @endif
 
                 </ul>

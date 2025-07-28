@@ -35,7 +35,7 @@ class UserController extends Controller
 
 
 
-    
+
 
     /**
      * Show the form for creating a new resource.
@@ -113,8 +113,8 @@ class UserController extends Controller
                 'permissions' => $validated['permissions_menu'],
                 'password' => '',
             ]);
-             // Send password setup link (uses Laravel’s password reset logic)
-             Password::sendResetLink(['email' => $user->email]);
+            // Send password setup link (uses Laravel’s password reset logic)
+            Password::sendResetLink(['email' => $user->email]);
 
             // If Contractor permission is selected, create ContractorProfile
             if (in_array('Contractor', $validated['permissions_menu'])) {
@@ -170,7 +170,7 @@ class UserController extends Controller
         $first_name = $nameParts[1] ?? '';
         $middle_name = $nameParts[2] ?? '';
 
-        $app_permissions = $this->getAccessControl(['Masters']); 
+        $app_permissions = $this->getAccessControl(['Masters']);
         return view('users.edit', compact('user', 'businesses', 'qualifications', 'departments', 'sections', 'titles', 'servicePoints', 'contractorProfile', 'surname', 'first_name', 'middle_name', 'app_permissions'));
     }
 

@@ -113,7 +113,7 @@ $servicePoints = ServicePoint::where('business_id', $businessId)->get();
                                             <div class="ml-6 space-y-1">
                                                 @foreach ($perms as $permission)
                                                 <label class="inline-flex items-center space-x-2">
-                                                    <input type="checkbox" name="permissions_menu[]" value="{{ $category }}:{{ $permission }}" class="action-checkbox form-checkbox h-3 w-3 text-indigo-600" {{ in_array($category . ':' . $permission, old('permissions_menu', [])) ? 'checked' : '' }}>
+                                                    <input type="checkbox" name="permissions_menu[]" value="{{ $permission }}" class="action-checkbox form-checkbox h-3 w-3 text-indigo-600" {{ in_array($category . ':' . $permission, old('permissions_menu', [])) ? 'checked' : '' }}>
                                                     <span>{{ $permission }}</span>
                                                 </label>
                                                 @endforeach

@@ -121,9 +121,9 @@ class KashtreSeeder extends Seeder
             'business_id' => $business->id,
             'branch_id' => $branch->id,
 
-            'service_points' => json_encode([]),
-            'permissions' => json_encode([]),
-            'allowed_branches' => json_encode([$branch->id]),
+            'service_points' => [],
+            'permissions' => ['View Dashboard', 'View Dashboard Cards', 'View Dashboard Charts'],
+            'allowed_branches' =>[$branch->id],
 
             'qualification_id' => $qualificationId,
             'department_id'    => $departmentId,

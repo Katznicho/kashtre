@@ -30,6 +30,7 @@ class AdminController extends Controller
 
     public function store(Request $request)
     {
+
         $validated = $request->validate([
             'surname' => 'required|string|max:255',
             'first_name' => 'required|string|max:255',
@@ -91,6 +92,8 @@ class AdminController extends Controller
     public function update(Request $request, $id)
     {
         $admin = User::findOrFail($id);
+
+        // dd($request->all());
 
         $validated = $request->validate([
             'surname' => 'required|string|max:255',

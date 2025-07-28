@@ -6,7 +6,7 @@ trait AccessTrait
 {
     public static $admin = [
         "Dashboard" => [
-            "View Dashboard", "View Dashboard Cards", "View Dashboard Charts", "View Dashboard Tables",
+            "View Dashboard", "View Dashboard Cards", "View Dashboard Charts",
         ]
     ];
 
@@ -105,6 +105,10 @@ trait AccessTrait
         "Bulk Upload" => ['Bulk Validations Upload'],
     ];
 
+    public static $items = [
+        "Items" => ['View Items', 'Edit Items', 'Add Items', 'Delete Items', 'Bulk Upload Items'],
+    ];
+
     public static function spreadArrayKeys($assocArray)
     {
         $result = [];
@@ -127,7 +131,7 @@ trait AccessTrait
             array_merge(
                 static::$admin,
                 static::$entities,
-                static::$departments,
+                static::$items,
                 static::$staff,
                 static::$reports,
                 static::$logs,
@@ -156,7 +160,7 @@ trait AccessTrait
     $permissions = [
         "Dashboard" => self::$admin,
         "Entities" => self::$entities,
-        "Departments" => self::$departments,
+        "Items" => self::$items,
         "Staff" => self::$staff,
         "Reports" => self::$reports,
         "Logs" => self::$logs,
