@@ -72,7 +72,7 @@ class ListSuppliers extends Component implements HasForms, HasTable
             ->actions([
                 EditAction::make()
                     ->label('Edit Supplier')
-                    ->visible(fn() => in_array('Edit Supplier', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Edit Suppliers', Auth::user()->permissions))
                     ->modalHeading('Edit Supplier')
                     ->form(fn(Supplier $record) => [
                         Forms\Components\Select::make('business_id')
@@ -90,7 +90,7 @@ class ListSuppliers extends Component implements HasForms, HasTable
                     ])
                     ->successNotificationTitle('Supplier updated successfully.'),
                 DeleteAction::make()
-                    ->visible(fn() => in_array('Delete Supplier', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Delete Suppliers', Auth::user()->permissions))
                     ->modalHeading('Delete Supplier')
                     ->successNotificationTitle('Supplier deleted (soft) successfully.'),
             ])
@@ -103,7 +103,7 @@ class ListSuppliers extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->visible(fn() => in_array('Add Supplier', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Add Suppliers', Auth::user()->permissions))
                     ->label('Create Supplier')
                     ->modalHeading('Add New Supplier')
                     ->form([

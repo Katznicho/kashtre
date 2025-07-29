@@ -84,7 +84,7 @@ class ListPatientCategories extends Component implements HasForms, HasTable
             ])
             ->actions([
                 EditAction::make()
-                    ->visible(fn() => in_array('Edit Patient Category', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Edit Patient Categories', Auth::user()->permissions))
                     ->modalHeading('Edit Patient Category')
                     ->form(fn(PatientCategory $record) => [
                         Select::make('business_id')
@@ -107,7 +107,7 @@ class ListPatientCategories extends Component implements HasForms, HasTable
                     ->successNotificationTitle('Patient category updated successfully.'),
 
                 DeleteAction::make()
-                    ->visible(fn() => in_array('Delete Patient Category', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Delete Patient Categories', Auth::user()->permissions))
                     ->modalHeading('Delete Patient Category')
                     ->successNotificationTitle('Patient category deleted successfully.'),
             ])
@@ -120,7 +120,7 @@ class ListPatientCategories extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->visible(fn() => in_array('Add Patient Category', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Add Patient Categories', Auth::user()->permissions))
                     ->label('Create Patient Category')
                     ->modalHeading('Add New Patient Category')
                     ->form([

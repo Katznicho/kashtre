@@ -63,7 +63,7 @@ class ListGroups extends Component implements HasForms, HasTable
             ])
             ->actions([
                 \Filament\Tables\Actions\EditAction::make()
-                    ->visible(fn() => in_array('Edit Group', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Edit Groups', Auth::user()->permissions))
                     ->modalHeading('Edit Group')
                     ->form(fn(\App\Models\Group $record) => [
                         \Filament\Forms\Components\Select::make('business_id')
@@ -84,7 +84,7 @@ class ListGroups extends Component implements HasForms, HasTable
             ->headerActions([
                 \Filament\Tables\Actions\CreateAction::make()
                     ->label('Create Group')
-                    ->visible(fn() => in_array('Add Group', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Add Groups', Auth::user()->permissions))
                     ->modalHeading('Add New Group')
                     ->form([
                         \Filament\Forms\Components\Select::make('business_id')

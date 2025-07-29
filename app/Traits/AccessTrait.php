@@ -79,7 +79,7 @@ trait AccessTrait
     ];
 
     public static $adminAccess = [
-        "Admin Users" => ['View Admin Users', 'Edit Admin Users', 'Add Admin Users', 'Delete Admin Users', 'Assign Roles'],
+        "Admin Users" => ['View Admin Users', 'Edit Admin Users', 'Add Admin Users', 'Delete Admin Users', 'Assign Roles', 'Bulk Admin Upload'],
         "Audit Logs" => ['View Audit Logs'],
         "System Settings" => ['View System Settings', 'Edit System Settings'],
     ];

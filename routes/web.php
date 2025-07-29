@@ -84,6 +84,11 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::resource("contractor-profiles", ContractorProfileController::class);
     Route::resource("sub-groups", SubGroupController::class);
     Route::resource("admins", AdminController::class);
+    
+    // Admin bulk operations
+    Route::get('/admins/bulk/template', [AdminController::class, 'downloadTemplate'])->name('admins.bulk.template');
+    Route::post('/admins/bulk/upload', [AdminController::class, 'bulkUpload'])->name('admins.bulk.upload');
+    
     Route::resource("audit-logs", AuditLogController::class);
     Route::post('/select-room', [RoomController::class, 'selectRoom'])->name('room.select');
 

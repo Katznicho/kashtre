@@ -83,55 +83,55 @@ $branch = $business->branches->first();
                     <!-- Permissions Section -->
                     <!-- Permissions Section -->
                     <!-- Permissions Section -->
-<div x-data="{ open: true }" class="mb-4 border rounded">
-    <button type="button" @click="open = !open" class="w-full flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-700 text-left text-lg font-semibold focus:outline-none">
-        <span>Permissions</span>
-        <svg :class="{'rotate-180': open}" class="h-5 w-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-        </svg>
-    </button>
-    <div x-show="open" class="p-4 space-y-4">
-        <div class="col-span-2">
-            @php
-            $adminPermissions = old('permissions_menu', $admin->permissions ?? []);
-            if (is_string($adminPermissions)) {
-                $adminPermissions = json_decode($adminPermissions, true) ?: [];
-            }
-            @endphp
+                    <div x-data="{ open: true }" class="mb-4 border rounded">
+                        <button type="button" @click="open = !open" class="w-full flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-700 text-left text-lg font-semibold focus:outline-none">
+                            <span>Permissions</span>
+                            <svg :class="{'rotate-180': open}" class="h-5 w-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div x-show="open" class="p-4 space-y-4">
+                            <div class="col-span-2">
+                                @php
+                                $adminPermissions = old('permissions_menu', $admin->permissions ?? []);
+                                if (is_string($adminPermissions)) {
+                                $adminPermissions = json_decode($adminPermissions, true) ?: [];
+                                }
+                                @endphp
 
-            @foreach($app_permissions as $module => $categories)
-            <div class="pl-4 mb-6 border rounded p-3">
-                <!-- Module Checkbox -->
-                <label class="inline-flex items-center mb-3">
-                    <input type="checkbox" name="permissions_menu[]" value="{{ $module }}" class="module-checkbox form-checkbox h-5 w-5 text-indigo-600" {{ in_array($module, $adminPermissions) ? 'checked' : '' }}>
-                    <span class="ml-2 font-bold text-lg text-gray-800">{{ $module }}</span>
-                </label>
+                                @foreach($app_permissions as $module => $categories)
+                                <div class="pl-4 mb-6 border rounded p-3">
+                                    <!-- Module Checkbox -->
+                                    <label class="inline-flex items-center mb-3">
+                                        <input type="checkbox" name="permissions_menu[]" value="{{ $module }}" class="module-checkbox form-checkbox h-5 w-5 text-indigo-600" {{ in_array($module, $adminPermissions) ? 'checked' : '' }}>
+                                        <span class="ml-2 font-bold text-lg text-gray-800">{{ $module }}</span>
+                                    </label>
 
-                <!-- Categories -->
-                @foreach ($categories as $category => $perms)
-                <div class="pl-8 mb-4 border-l-2 border-gray-300">
-                    <!-- Category Checkbox -->
-                    <label class="inline-flex items-center mb-2">
-                        <input type="checkbox" name="permissions_menu[]" value="{{ $category }}" class="submodule-checkbox form-checkbox h-4 w-4 text-indigo-600" {{ in_array($category, $adminPermissions) ? 'checked' : '' }}>
-                        <span class="ml-2 font-semibold text-gray-700">{{ $category }}</span>
-                    </label>
+                                    <!-- Categories -->
+                                    @foreach ($categories as $category => $perms)
+                                    <div class="pl-8 mb-4 border-l-2 border-gray-300">
+                                        <!-- Category Checkbox -->
+                                        <label class="inline-flex items-center mb-2">
+                                            <input type="checkbox" name="permissions_menu[]" value="{{ $category }}" class="submodule-checkbox form-checkbox h-4 w-4 text-indigo-600" {{ in_array($category, $adminPermissions) ? 'checked' : '' }}>
+                                            <span class="ml-2 font-semibold text-gray-700">{{ $category }}</span>
+                                        </label>
 
-                    <!-- Permissions -->
-                    <div class="ml-6 space-y-1">
-                        @foreach ($perms as $permission)
-                        <label class="inline-flex items-center space-x-2">
-                            <input type="checkbox" name="permissions_menu[]" value="{{ $permission }}" class="action-checkbox form-checkbox h-3 w-3 text-indigo-600" {{ in_array($permission, $adminPermissions) ? 'checked' : '' }}>
-                            <span>{{ $permission }}</span>
-                        </label>
-                        @endforeach
+                                        <!-- Permissions -->
+                                        <div class="ml-6 space-y-1">
+                                            @foreach ($perms as $permission)
+                                            <label class="inline-flex items-center space-x-2">
+                                                <input type="checkbox" name="permissions_menu[]" value="{{ $permission }}" class="action-checkbox form-checkbox h-3 w-3 text-indigo-600" {{ in_array($permission, $adminPermissions) ? 'checked' : '' }}>
+                                                <span>{{ $permission }}</span>
+                                            </label>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                    @endforeach
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
                     </div>
-                </div>
-                @endforeach
-            </div>
-            @endforeach
-        </div>
-    </div>
-</div>
 
                     @error('permissions_menu')
                     <div class="text-red-500 text-sm mt-1">{{ $message }}</div>
@@ -141,11 +141,12 @@ $branch = $business->branches->first();
 
                     <input type="hidden" name="business_id" value="{{ $business->id }}">
                     <input type="hidden" name="branch_id" value="{{ $branch->id }}">
-
+                    @if(in_array('Edit Admin Users', $permissions))
                     <div class="flex justify-end space-x-4 pt-4">
                         <a href="{{ route('admins.index') }}" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400">Cancel</a>
                         <button type="submit" class="px-4 py-2 bg-[#011478] text-white rounded-md hover:bg-[#011478]/90">Update Admin</button>
                     </div>
+                    @endif
                 </form>
             </div>
         </div>

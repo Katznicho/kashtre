@@ -42,7 +42,7 @@ class UserController extends Controller
      */
     public function create()
     {
-        //
+    
 
         $businesses = Business::all();
         // $permissions = $this->getAllPermissions();

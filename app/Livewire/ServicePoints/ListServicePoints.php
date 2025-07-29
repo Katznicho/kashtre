@@ -86,7 +86,7 @@ class ListServicePoints extends Component implements HasForms, HasTable
                     ->label('Edit Service Point')
                 
                     ->modalHeading('Edit Service Point')
-                    ->visible(fn() => in_array('Edit Service Point', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Edit Service Points', Auth::user()->permissions))
                     ->form(fn(ServicePoint $record) => [
                         Forms\Components\Select::make('business_id')
                             ->label('Business')
@@ -122,7 +122,7 @@ class ListServicePoints extends Component implements HasForms, HasTable
 
                 DeleteAction::make()
                     ->modalHeading('Delete Service Point')
-                    ->visible(fn() => in_array('Delete Service Point', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Delete Service Points', Auth::user()->permissions))
                     ->successNotificationTitle('Service Point deleted (soft) successfully.'),
             ])
             ->bulkActions([
@@ -136,7 +136,7 @@ class ListServicePoints extends Component implements HasForms, HasTable
                 
                 CreateAction::make()
                     ->label('Create Service Point')
-                    ->visible(fn() => in_array('Add Service Point', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Add Service Points', Auth::user()->permissions))
                     ->modalHeading('Add New Service Point')
                     ->form([
                         Forms\Components\Select::make('business_id')

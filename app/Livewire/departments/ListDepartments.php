@@ -83,7 +83,7 @@ class ListDepartments extends Component implements HasForms, HasTable
             ])
             ->actions([
                 EditAction::make()
-                    ->visible(fn() => in_array('Edit Department', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Edit Departments', Auth::user()->permissions))
                     ->modalHeading('Edit Department')
                     ->form(fn(Department $record) => [
                         Forms\Components\Select::make('business_id')
@@ -106,7 +106,7 @@ class ListDepartments extends Component implements HasForms, HasTable
                     ->successNotificationTitle('Department updated successfully.'),
 
                 DeleteAction::make()
-                    ->visible(fn() => in_array('Delete Department', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Delete Departments', Auth::user()->permissions))
                     ->modalHeading('Delete Department')
                     ->successNotificationTitle('Department deleted (soft) successfully.'),
             ])
@@ -120,7 +120,7 @@ class ListDepartments extends Component implements HasForms, HasTable
             ->headerActions([
                 CreateAction::make()
                     ->label('Create Department')
-                    ->visible(fn() => in_array('Add Department', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Add Departments', Auth::user()->permissions))
                     ->modalHeading('Add New Department')
                     ->form([
                         Forms\Components\Select::make('business_id')

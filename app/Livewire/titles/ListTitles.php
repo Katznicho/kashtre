@@ -84,7 +84,7 @@ class ListTitles extends Component implements HasForms, HasTable
             ->actions([
                 EditAction::make()
                     ->label('Edit Title')
-                    ->visible(fn() => in_array('Edit Title', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Edit Titles', Auth::user()->permissions))
                     ->modalHeading('Edit Title')
                     ->form(fn(Title $record) => [
                         Forms\Components\Select::make('business_id')
@@ -107,7 +107,7 @@ class ListTitles extends Component implements HasForms, HasTable
                     ->successNotificationTitle('Title updated successfully.'),
 
                 DeleteAction::make()
-                    ->label('Delete Title')
+                    ->label('Delete Titles')
                     ->visible(fn() => in_array('Delete Title', Auth::user()->permissions))
                     ->modalHeading('Delete Title')
                     ->successNotificationTitle('Title deleted (soft) successfully.'),
@@ -121,7 +121,7 @@ class ListTitles extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->visible(fn() => in_array('Add Title', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Add Titles', Auth::user()->permissions))
                     ->label('Create Title')
                     ->modalHeading('Add New Title')
                     ->form([

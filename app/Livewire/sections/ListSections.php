@@ -39,10 +39,7 @@ class ListSections extends Component implements HasForms, HasTable
                     ->label('Business')
                     ->sortable()
                     ->searchable(),
-                \Filament\Tables\Columns\TextColumn::make('branch.name')
-                    ->label('Branch')
-                    ->sortable()
-                    ->searchable(),
+
                 \Filament\Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -67,7 +64,7 @@ class ListSections extends Component implements HasForms, HasTable
             ])
             ->actions([
                 \Filament\Tables\Actions\EditAction::make()
-                    ->visible(fn() => in_array('Edit Section', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Edit Sections', Auth::user()->permissions))
                     ->modalHeading('Edit Section')
                     ->form(fn(\App\Models\Section $record) => [
                         \Filament\Forms\Components\Select::make('business_id')
@@ -75,19 +72,7 @@ class ListSections extends Component implements HasForms, HasTable
                             ->placeholder('Select a business')
                             ->options(\App\Models\Business::where('id', '!=', 1)->pluck('name', 'id'))
                             ->required()
-                            ->disabled(fn() => auth()->user()->business_id !== 1)
-                            ->reactive(),
-                        \Filament\Forms\Components\Select::make('branch_id')
-                            ->label('Branch')
-                            ->placeholder('Select a branch')
-                            ->options(function ($get) {
-                                $businessId = $get('business_id');
-                                return $businessId
-                                    ? \App\Models\Branch::where('business_id', $businessId)->pluck('name', 'id')
-                                    : [];
-                            })
-                            ->required()
-                            ->reactive(),
+                            ->disabled(fn() => auth()->user()->business_id !== 1),
                         \Filament\Forms\Components\TextInput::make('name')
                             ->label('Section Name')
                             ->required(),
@@ -99,7 +84,7 @@ class ListSections extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 \Filament\Tables\Actions\CreateAction::make()
-                    ->visible(fn() => in_array('Add Section', Auth::user()->permissions))
+                    ->visible(fn() => in_array('Add Sections', Auth::user()->permissions))
                     ->label('Create Section')
                     ->modalHeading('Add New Section')
                     ->form([
@@ -109,19 +94,7 @@ class ListSections extends Component implements HasForms, HasTable
                             ->options(\App\Models\Business::where('id', '!=', 1)->pluck('name', 'id'))
                             ->required()
                             ->default(auth()->user()->business_id)
-                            ->disabled(fn() => auth()->user()->business_id !== 1)
-                            ->reactive(),
-                        \Filament\Forms\Components\Select::make('branch_id')
-                            ->label('Branch')
-                            ->placeholder('Select a branch')
-                            ->options(function ($get) {
-                                $businessId = $get('business_id');
-                                return $businessId
-                                    ? \App\Models\Branch::where('business_id', $businessId)->pluck('name', 'id')
-                                    : [];
-                            })
-                            ->required()
-                            ->reactive(),
+                            ->disabled(fn() => auth()->user()->business_id !== 1),
                         \Filament\Forms\Components\TextInput::make('name')
                             ->label('Section Name')
                             ->required(),

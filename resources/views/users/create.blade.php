@@ -6,7 +6,7 @@ use App\Models\Section;
 use App\Models\Title;
 use App\Models\ServicePoint;
 
-$businesses = Business::with('branches')->get()->keyBy('id');
+$businesses = Business::with('branches')->where('id', '!=', 1)->get()->keyBy('id');
 
 $businessBranchData = $businesses->map(function ($b) {
 return [

@@ -8,6 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Hash;
 use App\Traits\AccessTrait;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\AdminTemplateExport;
+use App\Imports\AdminTemplateImport;
 
 class AdminController extends Controller
 {
@@ -123,6 +126,48 @@ class AdminController extends Controller
             return redirect()->route('admins.index')->with('success', 'Admin updated successfully.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Failed to update admin: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Download admin template
+     */
+    public function downloadTemplate()
+    {
+        try {
+            $filename = 'admin_template_' . now()->format('Y_m_d_H_i_s') . '.xlsx';
+            
+            return Excel::download(
+                new AdminTemplateExport(),
+                $filename
+            );
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'An error occurred while generating the template: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle bulk upload of admin data
+     */
+    public function bulkUpload(Request $request)
+    {
+        $validated = $request->validate([
+            'template' => 'required|file|mimes:xlsx,xls',
+        ]);
+
+        try {
+            // Import the data
+            Excel::import(new AdminTemplateImport(), $request->file('template'));
+
+            // Send password reset emails to newly created users
+            $newUsers = User::where('password', '')->get();
+            foreach ($newUsers as $user) {
+                Password::sendResetLink(['email' => $user->email]);
+            }
+
+            return redirect()->route('admins.index')->with('success', 'Admin data uploaded and processed successfully! Password reset emails have been sent to new users.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'An error occurred during import: ' . $e->getMessage());
         }
     }
 }
