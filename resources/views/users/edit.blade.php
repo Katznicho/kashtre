@@ -6,7 +6,7 @@
     use App\Models\Title;
     use App\Models\ServicePoint;
 
-    $businesses = Business::with('branches')->get()->keyBy('id');
+    $businesses = Business::with('branches')->where('id', '!=', 1)->get()->keyBy('id');
 
     $businessBranchData = $businesses->map(function ($b) {
         return [
@@ -126,10 +126,12 @@
                     <div x-show="open" class="p-4 space-y-4">
                         <div>
                             <label for="business_id">Business <span class="text-red-500">*</span></label>
-                            <select name="business_id" id="business_id" required class="form-select w-full" x-model="selectedBusinessId" @change="updateBranches">
+                            <select name="business_id" id="business_id" required class="form-select w-full" x-model="selectedBusinessId" @change="updateBranches" :disabled="userBusinessId !== 1">
                                 <option value="" disabled>Select Business</option>
                                 @foreach($businesses as $id => $business)
-                                    <option value="{{ $id }}" {{ old('business_id', $user->business_id) == $id ? 'selected' : '' }}>{{ $business->name }}</option>
+                                    @if(Auth::user()->business_id == 1 || Auth::user()->business_id == $id)
+                                        <option value="{{ $id }}" {{ old('business_id', $user->business_id) == $id ? 'selected' : '' }}>{{ $business->name }}</option>
+                                    @endif
                                 @endforeach
                             </select>
                         </div>
@@ -192,16 +194,19 @@
                     </div>
                 </div>
 
-                <!-- Permissions Section -->
+                <!-- Access & Permissions Section -->
                 <div x-data="{ open: true }" class="mb-4 border rounded">
                     <button type="button" @click="open = !open" class="w-full flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-700 text-left text-lg font-semibold focus:outline-none">
-                        <span>Permissions</span>
+                        <span>Access & Permissions</span>
                         <svg :class="{'rotate-180': open}" class="h-5 w-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                     </button>
-                    <div x-show="open" class="p-4 space-y-4">
+                    <div x-show="open" class="p-4 space-y-6">
+                        <!-- Service Points -->
                         <div>
-                            <label for="service_points">Service Points <span class="text-red-500">*</span></label>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <label for="service_points" class="block text-sm font-medium text-gray-700">
+                                Service Points <span class="text-red-500">*</span>
+                            </label>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
                                 <template x-for="sp in filteredServicePoints" :key="sp.id">
                                     <label class="inline-flex items-center">
                                         <input type="checkbox" name="service_points[]" :value="sp.name" class="form-checkbox" :checked="{{ json_encode($user->service_points) }}.includes(sp.name)">
@@ -210,9 +215,13 @@
                                 </template>
                             </div>
                         </div>
+
+                        <!-- Allowed Branches -->
                         <div>
-                            <label for="allowed_branches">Allowed Branches <span class="text-red-500">*</span></label>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <label for="allowed_branches" class="block text-sm font-medium text-gray-700">
+                                Allowed Branches <span class="text-red-500">*</span>
+                            </label>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
                                 <template x-for="branch in filteredBranches" :key="branch.id">
                                     <label class="inline-flex items-center">
                                         <input type="checkbox" name="allowed_branches[]" :value="branch.id" class="form-checkbox" :checked="{{ json_encode($user->allowed_branches) }}.includes(branch.id)">
@@ -221,45 +230,46 @@
                                 </template>
                             </div>
                         </div>
+
                         <!-- Permissions -->
-                        <div class="col-span-2">
-                            <label class="block text-sm font-medium text-gray-700">Permissions <span class="text-red-500">*</span></label>
-                            <div class="mt-2 space-y-2">
-                                @foreach($app_permissions as $module => $subModules)
-                                    <div class="pl-4">
-                                        <label class="inline-flex items-center">
-                                            <input type="checkbox" name="permissions_menu[]" value="{{ $module }}" class="module-checkbox form-checkbox h-5 w-5 text-indigo-600" {{ in_array($module, old('permissions_menu', $user->permissions ?? [])) ? 'checked' : '' }}>
-                                            <span class="ml-2 font-bold text-lg text-gray-800">{{ $module }}</span>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">
+                                Permissions <span class="text-red-500">*</span>
+                            </label>
+
+                            @foreach($app_permissions as $group => $categories)
+                            <div class="mb-6 border p-4 rounded mt-2">
+                                {{-- Group Checkbox --}}
+                                <label class="inline-flex items-center mb-3">
+                                    <input type="checkbox" name="permissions_menu[]" value="{{ $group }}" class="module-checkbox form-checkbox h-5 w-5 text-indigo-600" {{ in_array($group, old('permissions_menu', $user->permissions ?? [])) ? 'checked' : '' }}>
+                                    <span class="ml-2 font-bold text-lg text-gray-800">{{ $group }}</span>
+                                </label>
+
+                                {{-- Categories under Group --}}
+                                @foreach ($categories as $category => $perms)
+                                <div class="pl-8 mb-4 border-l-2 border-gray-300">
+                                    {{-- Category Checkbox --}}
+                                    <label class="inline-flex items-center mb-2">
+                                        <input type="checkbox" name="permissions_menu[]" value="{{ $category }}" class="submodule-checkbox form-checkbox h-4 w-4 text-indigo-600" {{ in_array($category, old('permissions_menu', $user->permissions ?? [])) ? 'checked' : '' }}>
+                                        <span class="ml-2 font-semibold text-gray-700">{{ $category }}</span>
+                                    </label>
+
+                                    {{-- Permission checkboxes --}}
+                                    <div class="ml-6 space-y-1">
+                                        @foreach ($perms as $permission)
+                                        <label class="inline-flex items-center space-x-2">
+                                            <input type="checkbox" name="permissions_menu[]" value="{{ $permission }}" class="action-checkbox form-checkbox h-3 w-3 text-indigo-600" {{ in_array($permission, old('permissions_menu', $user->permissions ?? [])) ? 'checked' : '' }}>
+                                            <span>{{ $permission }}</span>
                                         </label>
-                                        @if(is_array($subModules) && !empty($subModules))
-                                            <div class="ml-8 mt-1 space-y-1">
-                                                @foreach($subModules as $subModule => $actions)
-                                                    <div>
-                                                        <label class="inline-flex items-center">
-                                                            <input type="checkbox" name="permissions_menu[]" value="{{ $subModule }}" class="submodule-checkbox form-checkbox h-5 w-5 text-indigo-600" {{ in_array($subModule, old('permissions_menu', $user->permissions ?? [])) ? 'checked' : '' }}>
-                                                            <span class="ml-2 font-semibold text-base text-gray-700">{{ $subModule }}</span>
-                                                        </label>
-                                                        @if(is_array($actions) && !empty($actions))
-                                                            <div class="ml-8 mt-1 space-y-1">
-                                                                @foreach($actions as $action)
-                                                                    <div>
-                                                                        <label class="inline-flex items-center">
-                                                                            <input type="checkbox" name="permissions_menu[]" value="{{ $action }}" class="action-checkbox form-checkbox h-4 w-4 text-indigo-600" {{ in_array($action, old('permissions_menu', $user->permissions ?? [])) ? 'checked' : '' }}>
-                                                                            <span class="ml-2 text-sm text-gray-600">{{ $action }}</span>
-                                                                        </label>
-                                                                    </div>
-                                                                @endforeach
-                                                            </div>
-                                                        @endif
-                                                    </div>
-                                                @endforeach
-                                            </div>
-                                        @endif
+                                        @endforeach
                                     </div>
+                                </div>
                                 @endforeach
                             </div>
+                            @endforeach
+
                             @error('permissions_menu')
-                                <div class="text-red-500 text-sm mt-1">{{ $message }}</div>
+                            <div class="text-red-500 text-sm mt-1">{{ $message }}</div>
                             @enderror
                         </div>
                     </div>
@@ -329,7 +339,8 @@
         <script>
             function userForm() {
                 return {
-                    selectedBusinessId: '',
+                    selectedBusinessId: '{{ $user->business_id }}',
+                    userBusinessId: {{ Auth::user()->business_id }},
                     branches: [],
                     businessData: @json($businessBranchData),
                     servicePointsByBusiness: @json($servicePointsByBusiness),
@@ -346,6 +357,10 @@
                     filteredTitles: [],
                     isContractorSelected: false,
                     init() {
+                        // If user is not from business 1, force their business ID
+                        if (this.userBusinessId !== 1) {
+                            this.selectedBusinessId = this.userBusinessId.toString();
+                        }
                         this.updateBranches();
                         this.updateServicePointsAndBranches();
                         this.$nextTick(() => {

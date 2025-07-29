@@ -15,6 +15,9 @@ use App\Models\Title;
 use App\Models\ServicePoint;
 use Illuminate\Support\Facades\Auth;
 use App\Traits\AccessTrait;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\StaffTemplateExport;
+use App\Imports\StaffTemplateImport;
 
 class UserController extends Controller
 {
@@ -250,5 +253,67 @@ class UserController extends Controller
     public function destroy(string $id)
     {
         //
+    }
+
+    /**
+     * Download staff template
+     */
+    public function downloadTemplate(Request $request)
+    {
+        try {
+            $businessId = $request->get('business_id');
+            $branchId = $request->get('branch_id');
+            
+            // Validate business and branch
+            if (!$businessId || !$branchId) {
+                return redirect()->back()->with('error', 'Business and Branch are required.');
+            }
+            
+            // Check if user has permission to access this business
+            if (Auth::user()->business_id !== 1 && Auth::user()->business_id != $businessId) {
+                return redirect()->back()->with('error', 'You can only access your own business.');
+            }
+            
+            $filename = 'staff_template_' . now()->format('Y_m_d_H_i_s') . '.xlsx';
+            
+            return Excel::download(
+                new StaffTemplateExport($businessId, $branchId),
+                $filename
+            );
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'An error occurred while generating the template: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle bulk upload of staff data
+     */
+    public function bulkUpload(Request $request)
+    {
+        $validated = $request->validate([
+            'template' => 'required|file|mimes:xlsx,xls',
+            'business_id' => 'required|exists:businesses,id',
+            'branch_id' => 'required|exists:branches,id',
+        ]);
+
+        try {
+            // Check if user has permission to access this business
+            if (Auth::user()->business_id !== 1 && Auth::user()->business_id != $validated['business_id']) {
+                return redirect()->back()->with('error', 'You can only upload staff for your own business.');
+            }
+            
+            // Import the data
+            Excel::import(new StaffTemplateImport($validated['business_id'], $validated['branch_id']), $request->file('template'));
+
+            // Send password reset emails to newly created users (excluding business ID 1)
+            $newUsers = User::where('password', '')->where('business_id', $validated['business_id'])->get();
+            foreach ($newUsers as $user) {
+                Password::sendResetLink(['email' => $user->email]);
+            }
+
+            return redirect()->route('users.index')->with('success', 'Staff data uploaded and processed successfully! Password reset emails have been sent to new users.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'An error occurred during import: ' . $e->getMessage());
+        }
     }
 }

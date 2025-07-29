@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Mail\NewBusinessCreatedMail;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\BusinessTemplateExport;
+use App\Imports\BusinessTemplateImport;
+use Illuminate\Support\Facades\Auth;
 
 class BusinessController extends Controller
 {
@@ -120,5 +124,42 @@ class BusinessController extends Controller
     public function destroy(Business $business)
     {
         //
+    }
+
+    /**
+     * Download business template for bulk upload
+     */
+    public function downloadTemplate()
+    {
+        // Check if user has permission (only business ID 1 can download templates)
+        if (Auth::user()->business_id !== 1) {
+            return redirect()->back()->with('error', 'You do not have permission to download business templates.');
+        }
+
+        return Excel::download(new BusinessTemplateExport(), 'business_template.xlsx');
+    }
+
+    /**
+     * Handle bulk upload of business data
+     */
+    public function bulkUpload(Request $request)
+    {
+        // Check if user has permission (only business ID 1 can upload businesses)
+        if (Auth::user()->business_id !== 1) {
+            return redirect()->back()->with('error', 'You do not have permission to upload businesses.');
+        }
+
+        $validated = $request->validate([
+            'template' => 'required|file|mimes:xlsx,xls',
+        ]);
+
+        try {
+            // Import the data
+            Excel::import(new BusinessTemplateImport(), $request->file('template'));
+
+            return redirect()->route('businesses.index')->with('success', 'Business data uploaded and processed successfully!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'An error occurred during import: ' . $e->getMessage());
+        }
     }
 }

@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Business;
 use App\Mail\BranchCreatedMail;
 use Illuminate\Support\Facades\Mail;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\BranchTemplateExport;
+use App\Imports\BranchTemplateImport;
 
 class BranchController extends Controller
 {
@@ -151,6 +154,44 @@ class BranchController extends Controller
         } catch (\Exception $e) {
             Log::error('Branch destroy error: ' . $e->getMessage());
             return back()->with('error', 'Failed to delete branch.');
+        }
+    }
+
+    /**
+     * Download branch template for bulk upload
+     */
+    public function downloadTemplate()
+    {
+        // Check if user has permission (only business ID 1 can download templates)
+        if (Auth::user()->business_id !== 1) {
+            return redirect()->back()->with('error', 'You do not have permission to download branch templates.');
+        }
+
+        return Excel::download(new BranchTemplateExport(), 'branch_template.xlsx');
+    }
+
+    /**
+     * Handle bulk upload of branch data
+     */
+    public function bulkUpload(Request $request)
+    {
+        // Check if user has permission (only business ID 1 can upload branches)
+        if (Auth::user()->business_id !== 1) {
+            return redirect()->back()->with('error', 'You do not have permission to upload branches.');
+        }
+
+        $validated = $request->validate([
+            'template' => 'required|file|mimes:xlsx,xls',
+            'business_id' => 'required|exists:businesses,id',
+        ]);
+
+        try {
+            // Import the data
+            Excel::import(new BranchTemplateImport($validated['business_id']), $request->file('template'));
+
+            return redirect()->route('branches.index')->with('success', 'Branch data uploaded and processed successfully!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'An error occurred during import: ' . $e->getMessage());
         }
     }
 }

@@ -14,6 +14,7 @@ class ContractorProfile extends Model
 
     protected $fillable = [
         'uuid',
+        'user_id',
         'business_id',
         'bank_name',
         'account_name',
@@ -26,6 +27,11 @@ class ContractorProfile extends Model
         static::creating(function ($user) {
             $user->uuid = (string) Str::uuid();
         });
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function business()

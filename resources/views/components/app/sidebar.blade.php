@@ -102,9 +102,6 @@
                             @if(in_array('View Contractors', $permissions))
                             <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Contractors</a></li>
                             @endif
-                            @if(in_array('View Contractor Services', $permissions))
-                            <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Contractor Services</a></li>
-                            @endif
                         </ul>
                     </li>
                     @endif
