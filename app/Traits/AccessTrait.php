@@ -34,9 +34,7 @@ trait AccessTrait
         "Contractor" => ["View Contractor", "Edit Contractor", "Add Contractor"],
     ];
 
-    public static $products = [
-        "Products" => ['View Products', 'Edit Products', 'Add Products', 'Delete Products'],
-    ];
+   
 
     public static $sales = [
         "Sales" => ['View Sales', 'Edit Sales', 'Add Sales', 'Delete Sales'],
@@ -136,7 +134,6 @@ trait AccessTrait
                 static::$reports,
                 static::$logs,
                 static::$contractor,
-                static::$products,
                 static::$sales,
                 static::$clients,
                 static::$queues,
@@ -165,7 +162,6 @@ trait AccessTrait
         "Reports" => self::$reports,
         "Logs" => self::$logs,
         "Contractor" => self::$contractor,
-        "Products" => self::$products,
         "Sales" => self::$sales,
         "Clients" => self::$clients,
         "Queues" => self::$queues,

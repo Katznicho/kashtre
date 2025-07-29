@@ -51,7 +51,7 @@
             </form>
 
              <!--- Upload File -->
-             <form action="{{ route('bulk.upload.import-validations') }}" method="POST" enctype="multipart/form-data" class="mt-8 space-y-4">
+             <form action="{{ route('bulk.upload.import-validations') }}" method="POST" enctype="multipart/form-data" class="mt-8 space-y-4" x-data="{ uploading: false }" @submit="uploading = true">
                 @csrf
                 <input type="hidden" name="business_id" :value="selectedBusiness">
                 <input type="hidden" name="branch_id" :value="selectedBranch">
@@ -61,9 +61,23 @@
                     <input type="file" name="template" accept=".xlsx" required class="mt-1 block w-full rounded border-gray-300">
                 </div>
             
-                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
-                    Upload Template
+                <button type="submit" :disabled="uploading || !selectedBusiness || !selectedBranch" 
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span x-show="!uploading">Upload Template</span>
+                    <span x-show="uploading" class="flex items-center">
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Uploading...
+                    </span>
                 </button>
+                
+                <!-- Validation Message -->
+                <div x-show="!selectedBusiness || !selectedBranch" class="text-red-600 text-sm">
+                    <span x-show="!selectedBusiness">Please select a business. </span>
+                    <span x-show="!selectedBranch && selectedBusiness">Please select a branch.</span>
+                </div>
             </form>
             
              <!--- Upload File -->
