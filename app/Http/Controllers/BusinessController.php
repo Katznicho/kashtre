@@ -95,7 +95,12 @@ class BusinessController extends Controller
      */
     public function show(Business $business)
     {
-        //
+        // Check authorization - admin can view all, users can only view their own business
+        if (auth()->user()->business_id !== 1 && auth()->user()->business_id !== $business->id) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        return view('businesses.show', compact('business'));
     }
 
     /**

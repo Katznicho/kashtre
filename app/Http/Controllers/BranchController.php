@@ -75,16 +75,12 @@ class BranchController extends Controller
      */
     public function show(Branch $branch)
     {
-        try {
-            if ($branch->business_id !== Auth::user()->business_id) {
-                return abort(403);
-            }
-
-            return view('branches.show', compact('branch'));
-        } catch (\Exception $e) {
-            Log::error('Branch show error: ' . $e->getMessage());
-            return back()->with('error', 'Failed to load branch.');
+        // Check authorization - admin can view all, users can only view branches of their business
+        if (auth()->user()->business_id !== 1 && auth()->user()->business_id !== $branch->business_id) {
+            abort(403, 'Unauthorized action.');
         }
+
+        return view('branches.show', compact('branch'));
     }
 
     /**

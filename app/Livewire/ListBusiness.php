@@ -140,6 +140,7 @@ class ListBusiness extends Component implements HasForms, HasTable
                     ->color('info')
                     ->visible(fn(Business $record): bool => Auth::user()->business_id === 1),
             ])
+            ->recordUrl(fn (Business $record): string => route('businesses.show', $record))
             ->bulkActions([
                 // Tables\Actions\BulkActionGroup::make([...])
             ]);

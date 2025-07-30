@@ -90,6 +90,7 @@ class ListBranches extends Component implements HasForms, HasTable
                         Auth::user()->business_id === 1 || $record->business_id === Auth::user()->business_id
                     ),
             ])
+            ->recordUrl(fn (Branch $record): string => route('branches.show', $record))
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
