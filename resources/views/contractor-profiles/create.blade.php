@@ -108,7 +108,12 @@
                             </label>
                             <input type="text" name="kashtre_account_number" id="kashtre_account_number" 
                                    value="{{ old('kashtre_account_number') }}"
-                                   class="form-input w-full" placeholder="Enter Kashtre account number">
+                                   class="form-input w-full bg-gray-100" 
+                                   placeholder="Will be auto-generated (KC + 10 random characters)"
+                                   readonly>
+                            <p class="mt-1 text-sm text-gray-500">
+                                Format: KC + 10 random characters (e.g., KC1234567890)
+                            </p>
                         </div>
 
                         <!-- Signing Qualifications -->

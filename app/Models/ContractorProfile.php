@@ -30,9 +30,32 @@ class ContractorProfile extends Model
 
     protected static function booted()
     {
-        static::creating(function ($user) {
-            $user->uuid = (string) Str::uuid();
+        static::creating(function ($contractor) {
+            $contractor->uuid = (string) Str::uuid();
+            
+            // Generate kashtre_account_number if not provided
+            if (empty($contractor->kashtre_account_number)) {
+                $contractor->kashtre_account_number = self::generateKashtreAccountNumber();
+            }
         });
+    }
+
+    /**
+     * Generate a unique kashtre account number
+     * Format: KC + 10 random alphanumeric characters
+     */
+    public static function generateKashtreAccountNumber()
+    {
+        do {
+            // Generate 10 random alphanumeric characters
+            $randomChars = Str::random(10);
+            $kashtreAccountNumber = 'KC' . $randomChars;
+            
+            // Check if this account number already exists
+            $exists = self::where('kashtre_account_number', $kashtreAccountNumber)->exists();
+        } while ($exists);
+        
+        return $kashtreAccountNumber;
     }
 
     public function user()

@@ -27,9 +27,9 @@ class ContractorProfileTemplateExport implements FromArray, WithHeadings, WithSt
     {
         // Return sample rows for template
         return [
-            ['', '', '', '', '', '0.00', '', ''],
-            ['', '', '', '', '', '0.00', '', ''],
-            ['', '', '', '', '', '0.00', '', ''],
+            ['Sample Business', 'user@example.com', 'Sample Bank', 'Sample Account', '1234567890', '1000.00', 'KC1234567890', 'Sample Qualifications'],
+            ['Sample Business', 'user2@example.com', 'Sample Bank', 'Sample Account 2', '0987654321', '500.00', '', 'Sample Qualifications 2'],
+            ['Sample Business', 'user3@example.com', 'Sample Bank', 'Sample Account 3', '1122334455', '750.00', 'KC9876543210', 'Sample Qualifications 3'],
         ];
     }
 

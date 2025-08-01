@@ -51,7 +51,7 @@ Route::redirect('/', 'login');
 
 // Route::get("makePayment",[PaymentController::class,"makePayment"])->name("makePayment");    
 
-Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified'])->group(function () {
 
     // Route for the getting the data feed
     // Route::get('/json-data-feed', [DataFeedController::class, 'getDataFeed'])->name('json_data_feed');
@@ -75,14 +75,18 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::resource("service-points", ServicePointController::class);
     Route::resource("sections", SectionController::class);
     Route::resource("item-units", ItemUnitController::class);
+    
+    // Items bulk operations (must come BEFORE items resource route)
+    Route::get('/items/bulk-upload', [ItemBulkUploadController::class, 'index'])->name('items.bulk-upload');
+    Route::get('/items/bulk-upload/template', [ItemBulkUploadController::class, 'downloadTemplate'])->name('items.bulk-upload.template');
+    Route::get('/items/bulk-upload/reference', [ItemBulkUploadController::class, 'downloadReferenceSheet'])->name('items.bulk-upload.reference');
+    Route::get('/items/bulk-upload/test', [ItemBulkUploadController::class, 'testDownload'])->name('items.bulk-upload.test');
+    Route::post('/items/bulk-upload/import', [ItemBulkUploadController::class, 'import'])->name('items.bulk-upload.import');
+    Route::get('/items/bulk-upload/filtered-data', [ItemBulkUploadController::class, 'getFilteredData'])->name('items.bulk-upload.filtered-data');
+    
     Route::resource("items", ItemController::class);
     Route::get('/items/filtered-data', [ItemController::class, 'getFilteredData'])->name('items.filtered-data');
     
-    // Items bulk operations
-    Route::get('/items/bulk-upload', [ItemBulkUploadController::class, 'index'])->name('items.bulk-upload');
-    Route::get('/items/bulk-upload/template', [ItemBulkUploadController::class, 'downloadTemplate'])->name('items.bulk-upload.template');
-    Route::post('/items/bulk-upload/import', [ItemBulkUploadController::class, 'import'])->name('items.bulk-upload.import');
-    Route::get('/items/bulk-upload/filtered-data', [ItemBulkUploadController::class, 'getFilteredData'])->name('items.bulk-upload.filtered-data');
     Route::resource("groups", GroupController::class);
     Route::resource("patient-categories", PatientCategoryController::class);
     Route::resource("suppliers", SupplierController::class);

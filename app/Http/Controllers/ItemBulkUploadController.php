@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Exports\ItemTemplateExport;
+use App\Exports\ItemReferenceExport;
 use App\Imports\ItemTemplateImport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Models\Business;
 use App\Models\Group;
@@ -23,7 +25,7 @@ class ItemBulkUploadController extends Controller
     {
         // Get businesses based on user permissions
         if (Auth::user()->business_id == 1) {
-            $businesses = Business::all();
+            $businesses = Business::where('id', '!=', 1)->get();
         } else {
             $businesses = Business::where('id', Auth::user()->business_id)->get();
         }
@@ -34,9 +36,49 @@ class ItemBulkUploadController extends Controller
     /**
      * Download the template
      */
-    public function downloadTemplate()
+    public function downloadTemplate(Request $request)
     {
-        return Excel::download(new ItemTemplateExport(), 'items_template.xlsx');
+        try {
+            // No business_id required for download - template is generic
+            $filename = 'items_template.xlsx';
+            
+            // Log for debugging
+            Log::info('Downloading generic items template');
+            
+            return Excel::download(new ItemTemplateExport(), $filename);
+            
+        } catch (\Exception $e) {
+            Log::error('Error downloading template: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error downloading template: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Download the reference sheet for a specific business
+     */
+    public function downloadReferenceSheet(Request $request)
+    {
+        $request->validate([
+            'business_id' => 'required|exists:businesses,id',
+        ]);
+
+        // Validate business access
+        if (Auth::user()->business_id != 1 && Auth::user()->business_id != $request->business_id) {
+            return redirect()->back()->with('error', 'Unauthorized access to business data');
+        }
+
+        try {
+            $business = Business::find($request->business_id);
+            $filename = 'items_reference_' . str_replace(' ', '_', $business->name) . '.xlsx';
+
+            Log::info('Downloading reference sheet for business: ' . $business->name);
+
+            return Excel::download(new ItemReferenceExport($request->business_id), $filename);
+
+        } catch (\Exception $e) {
+            Log::error('Error downloading reference sheet: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error downloading reference sheet: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -46,12 +88,21 @@ class ItemBulkUploadController extends Controller
     {
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls|max:10240', // 10MB max
+            'business_id' => 'required|exists:businesses,id',
         ]);
 
+        // Validate business access
+        if (Auth::user()->business_id != 1 && Auth::user()->business_id != $request->business_id) {
+            return redirect()->back()->with('error', 'Unauthorized access to business data');
+        }
+
         try {
-            $import = new ItemTemplateImport();
+            $import = new ItemTemplateImport($request->business_id);
             
             Excel::import($import, $request->file('file'));
+
+            // Create branch prices after items are imported
+            $import->createBranchPrices();
 
             $successCount = $import->getSuccessCount();
             $errorCount = $import->getErrorCount();
@@ -103,5 +154,26 @@ class ItemBulkUploadController extends Controller
         ];
 
         return response()->json($data);
+    }
+
+    /**
+     * Test download method for debugging
+     */
+    public function testDownload()
+    {
+        try {
+            // Create a simple array export for testing
+            $data = [
+                ['Name', 'Code', 'Type'],
+                ['Test Item 1', 'ITEM001', 'service'],
+                ['Test Item 2', 'ITEM002', 'good'],
+            ];
+            
+            return Excel::download(new \Maatwebsite\Excel\Concerns\FromArray($data), 'test_template.xlsx');
+            
+        } catch (\Exception $e) {
+            Log::error('Test download error: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 } 
