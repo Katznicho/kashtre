@@ -9,6 +9,12 @@ use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Filament\Tables\Actions\ViewAction;
+use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Actions\DeleteBulkAction;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Columns\TextColumn;
 use Livewire\Component;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,62 +33,59 @@ class ListItems extends Component implements HasForms, HasTable
         return $table
             ->query($query)
             ->columns([
-                \Filament\Tables\Columns\TextColumn::make('uuid')
-                    ->label('UUID')
+                TextColumn::make('business.name')
+                ->label('Business')
+                ->sortable()
+                ->searchable(),
+                TextColumn::make('name')
                     ->searchable(),
-                \Filament\Tables\Columns\TextColumn::make('name')
+                TextColumn::make('code')
                     ->searchable(),
-                \Filament\Tables\Columns\TextColumn::make('code')
-                    ->searchable(),
-                \Filament\Tables\Columns\TextColumn::make('type'),
-                \Filament\Tables\Columns\TextColumn::make('group.name')
+                TextColumn::make('type'),
+                TextColumn::make('group.name')
                     ->label('Group')
                     ->sortable()
                     ->searchable(),
-                \Filament\Tables\Columns\TextColumn::make('subgroup.name')
+                TextColumn::make('subgroup.name')
                     ->label('Subgroup')
                     ->sortable()
                     ->searchable(),
-                \Filament\Tables\Columns\TextColumn::make('department.name')
+                TextColumn::make('department.name')
                     ->label('Department')
                     ->sortable()
                     ->searchable(),
-                \Filament\Tables\Columns\TextColumn::make('uom.name')
+                TextColumn::make('uom.name')
                     ->label('Unit')
                     ->sortable()
                     ->searchable(),
-                \Filament\Tables\Columns\TextColumn::make('servicePoint.name')
+                TextColumn::make('servicePoint.name')
                     ->label('Service Point')
                     ->sortable()
                     ->searchable(),
-                \Filament\Tables\Columns\TextColumn::make('default_price')
+                TextColumn::make('default_price')
                     ->searchable(),
-                \Filament\Tables\Columns\TextColumn::make('hospital_share')
+                TextColumn::make('hospital_share')
                     ->sortable(),
-                \Filament\Tables\Columns\TextColumn::make('contractorAccount.name')
+                TextColumn::make('contractorAccount.name')
                     ->label('Contractor Account')
                     ->sortable()
                     ->searchable(),
-                \Filament\Tables\Columns\TextColumn::make('business.name')
-                    ->label('Business')
-                    ->sortable()
-                    ->searchable(),
-                \Filament\Tables\Columns\TextColumn::make('created_at')
+                TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                \Filament\Tables\Columns\TextColumn::make('updated_at')
+                TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                \Filament\Tables\Columns\TextColumn::make('deleted_at')
+                TextColumn::make('deleted_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 ...((auth()->check() && auth()->user()->business_id === 1) ? [
-                    \Filament\Tables\Filters\SelectFilter::make('business_id')
+                    SelectFilter::make('business_id')
                         ->label('Filter by Business')
                         ->options(\App\Models\Business::where('id', '!=', 1)->pluck('name', 'id'))
                         ->searchable()
@@ -90,11 +93,19 @@ class ListItems extends Component implements HasForms, HasTable
                 ] : []),
             ])
             ->actions([
-                //
+                \Filament\Tables\Actions\ViewAction::make()
+                    ->url(fn (Item $record): string => route('items.show', $record))
+                    ->visible(fn() => in_array('View Items', auth()->user()->permissions ?? [])),
+                \Filament\Tables\Actions\EditAction::make()
+                    ->url(fn (Item $record): string => route('items.edit', $record))
+                    ->visible(fn() => in_array('Edit Items', auth()->user()->permissions ?? [])),
+                \Filament\Tables\Actions\DeleteAction::make()
+                    ->visible(fn() => in_array('Delete Items', auth()->user()->permissions ?? [])),
             ])
             ->bulkActions([
                 \Filament\Tables\Actions\BulkActionGroup::make([
-                    //
+                                    \Filament\Tables\Actions\DeleteBulkAction::make()
+                    ->visible(fn() => in_array('Delete Items', auth()->user()->permissions ?? [])),
                 ]),
             ]);
     }

@@ -6,11 +6,19 @@
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-bold text-gray-800 dark:text-white">Manage Items</h2>
 
-                    @if(Auth::user()->business_id == 1)
-                    <a href="{{ route('items.create') }}" class="inline-flex items-center px-4 py-2 bg-[#011478] text-white text-sm font-semibold rounded-md hover:bg-[#011478]/90 transition duration-150">
-                        ➕ Create Item
-                    </a>
-                    @endif
+                    <div class="flex space-x-2">
+                        @if(Auth::user()->business_id == 1)
+                        <a href="{{ route('items.bulk-upload') }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-md hover:bg-green-700 transition duration-150">
+                            📤 Bulk Upload
+                        </a>
+                        <a href="{{ route('items.bulk-upload.template') }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md hover:bg-blue-700 transition duration-150">
+                            📥 Download Template
+                        </a>
+                        <a href="{{ route('items.create') }}" class="inline-flex items-center px-4 py-2 bg-[#011478] text-white text-sm font-semibold rounded-md hover:bg-[#011478]/90 transition duration-150">
+                            ➕ Create Item
+                        </a>
+                        @endif
+                    </div>
                 </div>
 
                 @livewire('items.list-items')

@@ -16,10 +16,12 @@ use App\Http\Controllers\ServicePointController;
 use App\Http\Controllers\SectionController;
 use App\Http\Controllers\ItemUnitController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\ItemBulkUploadController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\PatientCategoryController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ContractorProfileController;
+use App\Http\Controllers\ContractorProfileBulkUploadController;
 use App\Http\Controllers\InsuranceCompanyController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\SubGroupController;
@@ -74,10 +76,24 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::resource("sections", SectionController::class);
     Route::resource("item-units", ItemUnitController::class);
     Route::resource("items", ItemController::class);
+    Route::get('/items/filtered-data', [ItemController::class, 'getFilteredData'])->name('items.filtered-data');
+    
+    // Items bulk operations
+    Route::get('/items/bulk-upload', [ItemBulkUploadController::class, 'index'])->name('items.bulk-upload');
+    Route::get('/items/bulk-upload/template', [ItemBulkUploadController::class, 'downloadTemplate'])->name('items.bulk-upload.template');
+    Route::post('/items/bulk-upload/import', [ItemBulkUploadController::class, 'import'])->name('items.bulk-upload.import');
+    Route::get('/items/bulk-upload/filtered-data', [ItemBulkUploadController::class, 'getFilteredData'])->name('items.bulk-upload.filtered-data');
     Route::resource("groups", GroupController::class);
     Route::resource("patient-categories", PatientCategoryController::class);
     Route::resource("suppliers", SupplierController::class);
     Route::resource("contractor-profiles", ContractorProfileController::class);
+    
+    // Contractor Profile bulk operations
+    Route::get('/contractor-profiles/bulk-upload', [ContractorProfileBulkUploadController::class, 'index'])->name('contractor-profiles.bulk-upload');
+    Route::get('/contractor-profiles/bulk-upload/template', [ContractorProfileBulkUploadController::class, 'downloadTemplate'])->name('contractor-profiles.bulk-upload.template');
+    Route::post('/contractor-profiles/bulk-upload/import', [ContractorProfileBulkUploadController::class, 'import'])->name('contractor-profiles.bulk-upload.import');
+    Route::get('/contractor-profiles/bulk-upload/users', [ContractorProfileBulkUploadController::class, 'getUsers'])->name('contractor-profiles.bulk-upload.users');
+    
     Route::resource("insurance-companies", InsuranceCompanyController::class);
     Route::resource("stores", StoreController::class);
     Route::resource("suppliers", SupplierController::class);

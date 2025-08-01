@@ -21,8 +21,15 @@ class ListContractorProfiles extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
+        $query = ContractorProfile::with(['business', 'user']);
+        
+        // Filter by business: super admin (business_id == 1) can see all, others see only their business
+        if (Auth::user()->business_id != 1) {
+            $query->where('business_id', Auth::user()->business_id);
+        }
+        
         return $table
-            ->query(ContractorProfile::query())
+            ->query($query)
             ->columns([
                 Tables\Columns\TextColumn::make('business.name')
                     ->label('Business')
@@ -30,6 +37,7 @@ class ListContractorProfiles extends Component implements HasForms, HasTable
                     ->sortable(),
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('User')
+                    ->description(fn (ContractorProfile $record): string => $record->user->email ?? '')
                     ->searchable()
                     ->sortable(),
                 // Tables\Columns\TextColumn::make('uuid')
@@ -76,6 +84,20 @@ class ListContractorProfiles extends Component implements HasForms, HasTable
                 //     ->modalDescription('Are you sure you want to delete this contractor profile? This action cannot be undone.')
                 //     ->modalSubmitActionLabel('Yes, delete it')
                 //     ->action(fn (ContractorProfile $record) => $record->delete()),
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('download_template')
+                    ->label('Download Template')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->url(route('contractor-profiles.bulk-upload.template'))
+                    ->visible(fn() => in_array('Add Contractor Profile', Auth::user()->permissions ?? [])),
+                Tables\Actions\Action::make('bulk_upload')
+                    ->label('Bulk Upload')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('warning')
+                    ->url(route('contractor-profiles.bulk-upload'))
+                    ->visible(fn() => in_array('Add Contractor Profile', Auth::user()->permissions ?? [])),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

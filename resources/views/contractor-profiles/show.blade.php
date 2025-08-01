@@ -39,7 +39,12 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">User</label>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ $contractorProfile->user->name ?? 'N/A' }}</p>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                {{ $contractorProfile->user->name ?? 'N/A' }}
+                                @if($contractorProfile->user)
+                                    <br><span class="text-gray-500 text-xs">{{ $contractorProfile->user->email }}</span>
+                                @endif
+                            </p>
                         </div>
                     </div>
 

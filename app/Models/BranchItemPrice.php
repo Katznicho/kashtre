@@ -20,6 +20,10 @@ class BranchItemPrice extends Model
         'price',
     ];
 
+    protected $casts = [
+        'price' => 'decimal:2',
+    ];
+
     protected static function booted()
     {
         static::creating(function ($user) {
