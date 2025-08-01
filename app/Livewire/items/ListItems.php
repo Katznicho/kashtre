@@ -96,17 +96,18 @@ class ListItems extends Component implements HasForms, HasTable
                 \Filament\Tables\Actions\ViewAction::make()
                     ->url(fn (Item $record): string => route('items.show', $record))
                     ->visible(fn() => in_array('View Items', auth()->user()->permissions ?? [])),
-                \Filament\Tables\Actions\EditAction::make()
-                    ->url(fn (Item $record): string => route('items.edit', $record))
-                    ->visible(fn() => in_array('Edit Items', auth()->user()->permissions ?? [])),
-                \Filament\Tables\Actions\DeleteAction::make()
-                    ->visible(fn() => in_array('Delete Items', auth()->user()->permissions ?? [])),
+                // \Filament\Tables\Actions\EditAction::make()
+                //     ->url(fn (Item $record): string => route('items.edit', $record))
+                //     ->visible(fn() => in_array('Edit Items', auth()->user()->permissions ?? [])),
+                // \Filament\Tables\Actions\DeleteAction::make()
+                //     ->visible(fn() => in_array('Delete Items', auth()->user()->permissions ?? [])),
             ])
             ->bulkActions([
-                \Filament\Tables\Actions\BulkActionGroup::make([
-                                    \Filament\Tables\Actions\DeleteBulkAction::make()
-                    ->visible(fn() => in_array('Delete Items', auth()->user()->permissions ?? [])),
-                ]),
+
+                // \Filament\Tables\Actions\BulkActionGroup::make([
+                //                     \Filament\Tables\Actions\DeleteBulkAction::make()
+                //     ->visible(fn() => in_array('Delete Items', auth()->user()->permissions ?? [])),
+                // ]),
             ]);
     }
 
