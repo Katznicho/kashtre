@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\ContractorProfile;
+use App\Models\Business;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ContractorProfileController extends Controller
 {
@@ -12,7 +15,8 @@ class ContractorProfileController extends Controller
      */
     public function index()
     {
-        //
+        // $contractorProfiles = ContractorProfile::with(['business', 'user'])->get();
+        return view('contractor-profiles.index');
     }
 
     /**
@@ -20,7 +24,9 @@ class ContractorProfileController extends Controller
      */
     public function create()
     {
-        //
+        $businesses = Business::all();
+        $users = User::all();
+        return view('contractor-profiles.create', compact('businesses', 'users'));
     }
 
     /**
@@ -28,7 +34,21 @@ class ContractorProfileController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'business_id' => 'required|exists:businesses,id',
+            'user_id' => 'required|exists:users,id',
+            'bank_name' => 'required|string|max:255',
+            'account_name' => 'required|string|max:255',
+            'account_number' => 'required|string|max:255',
+            'account_balance' => 'required|numeric|min:0',
+            'kashtre_account_number' => 'nullable|string|max:255',
+            'signing_qualifications' => 'nullable|string|max:255',
+        ]);
+
+        ContractorProfile::create($validated);
+
+        return redirect()->route('contractor-profiles.index')
+            ->with('success', 'Contractor profile created successfully.');
     }
 
     /**
@@ -36,7 +56,8 @@ class ContractorProfileController extends Controller
      */
     public function show(ContractorProfile $contractorProfile)
     {
-        //
+        $contractorProfile->load(['business', 'user']);
+        return view('contractor-profiles.show', compact('contractorProfile'));
     }
 
     /**
@@ -44,7 +65,9 @@ class ContractorProfileController extends Controller
      */
     public function edit(ContractorProfile $contractorProfile)
     {
-        //
+        $businesses = Business::all();
+        $users = User::all();
+        return view('contractor-profiles.edit', compact('contractorProfile', 'businesses', 'users'));
     }
 
     /**
@@ -52,7 +75,21 @@ class ContractorProfileController extends Controller
      */
     public function update(Request $request, ContractorProfile $contractorProfile)
     {
-        //
+        $validated = $request->validate([
+            'business_id' => 'required|exists:businesses,id',
+            'user_id' => 'required|exists:users,id',
+            'bank_name' => 'required|string|max:255',
+            'account_name' => 'required|string|max:255',
+            'account_number' => 'required|string|max:255',
+            'account_balance' => 'required|numeric|min:0',
+            'kashtre_account_number' => 'nullable|string|max:255',
+            'signing_qualifications' => 'nullable|string|max:255',
+        ]);
+
+        $contractorProfile->update($validated);
+
+        return redirect()->route('contractor-profiles.index')
+            ->with('success', 'Contractor profile updated successfully.');
     }
 
     /**
@@ -60,6 +97,9 @@ class ContractorProfileController extends Controller
      */
     public function destroy(ContractorProfile $contractorProfile)
     {
-        //
+        $contractorProfile->delete();
+
+        return redirect()->route('contractor-profiles.index')
+            ->with('success', 'Contractor profile deleted successfully.');
     }
 }

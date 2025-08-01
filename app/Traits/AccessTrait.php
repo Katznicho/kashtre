@@ -31,7 +31,7 @@ trait AccessTrait
     ];
 
     public static $contractor = [
-        "Contractor" => ["View Contractor", "Edit Contractor", "Add Contractor"],
+        "Contractor" => ["View Contractor", "Edit Contractor", "Add Contractor Profile", 'View Contractor Profile', 'Edit Contractor Profile'],
     ];
 
    

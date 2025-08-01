@@ -20,6 +20,12 @@ class ContractorProfile extends Model
         'account_name',
         'account_number',
         'account_balance',
+        'kashtre_account_number',
+        'signing_qualifications',
+    ];
+
+    protected $casts = [
+        'account_balance' => 'decimal:2',
     ];
 
     protected static function booted()
