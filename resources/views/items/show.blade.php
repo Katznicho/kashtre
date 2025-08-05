@@ -109,6 +109,110 @@
                 </div>
                 @endif
 
+                <!-- Package Items -->
+                @if($item->type === 'package' && $item->packageItems->count() > 0)
+                <div class="mt-6">
+                    <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2 mb-4">Package Items</h3>
+                    <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-4">
+                        <div class="flex items-center mb-3">
+                            <svg class="h-5 w-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="text-sm font-medium text-blue-800 dark:text-blue-200">Package Validity: {{ $item->validity_days }} days</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        @foreach($item->packageItems as $packageItem)
+                        <div class="border rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex-1">
+                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $packageItem->includedItem->name }}</h4>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $packageItem->includedItem->code }}</p>
+                                </div>
+                                <span class="text-sm font-semibold text-blue-600 dark:text-blue-400">Max: {{ $packageItem->max_quantity }}</span>
+                            </div>
+                            <div class="text-xs text-gray-600 dark:text-gray-400">
+                                <p>Type: {{ ucfirst($packageItem->includedItem->type) }}</p>
+                                <p>Price: UGX {{ number_format($packageItem->includedItem->default_price, 2) }}</p>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
+                <!-- Bulk Items -->
+                @if($item->type === 'bulk' && $item->bulkItems->count() > 0)
+                <div class="mt-6">
+                    <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2 mb-4">Bulk Items</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        @foreach($item->bulkItems as $bulkItem)
+                        <div class="border rounded-lg p-4 bg-green-50 dark:bg-green-900/20">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex-1">
+                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $bulkItem->includedItem->name }}</h4>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $bulkItem->includedItem->code }}</p>
+                                </div>
+                                <span class="text-sm font-semibold text-green-600 dark:text-green-400">Qty: {{ $bulkItem->fixed_quantity }}</span>
+                            </div>
+                            <div class="text-xs text-gray-600 dark:text-gray-400">
+                                <p>Type: {{ ucfirst($bulkItem->includedItem->type) }}</p>
+                                <p>Price: UGX {{ number_format($bulkItem->includedItem->default_price, 2) }}</p>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
+                <!-- Included In Packages -->
+                @if($item->includedInPackages->count() > 0)
+                <div class="mt-6">
+                    <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2 mb-4">Included In Packages</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        @foreach($item->includedInPackages as $packageInclusion)
+                        <div class="border rounded-lg p-4 bg-purple-50 dark:bg-purple-900/20">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex-1">
+                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $packageInclusion->packageItem->name }}</h4>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $packageInclusion->packageItem->code }}</p>
+                                </div>
+                                <span class="text-sm font-semibold text-purple-600 dark:text-purple-400">Max: {{ $packageInclusion->max_quantity }}</span>
+                            </div>
+                            <div class="text-xs text-gray-600 dark:text-gray-400">
+                                <p>Package Type: {{ ucfirst($packageInclusion->packageItem->type) }}</p>
+                                <p>Package Price: UGX {{ number_format($packageInclusion->packageItem->default_price, 2) }}</p>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
+                <!-- Included In Bulks -->
+                @if($item->includedInBulks->count() > 0)
+                <div class="mt-6">
+                    <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2 mb-4">Included In Bulks</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        @foreach($item->includedInBulks as $bulkInclusion)
+                        <div class="border rounded-lg p-4 bg-orange-50 dark:bg-orange-900/20">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex-1">
+                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $bulkInclusion->bulkItem->name }}</h4>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $bulkInclusion->bulkItem->code }}</p>
+                                </div>
+                                <span class="text-sm font-semibold text-orange-600 dark:text-orange-400">Qty: {{ $bulkInclusion->fixed_quantity }}</span>
+                            </div>
+                            <div class="text-xs text-gray-600 dark:text-gray-400">
+                                <p>Bulk Type: {{ ucfirst($bulkInclusion->bulkItem->type) }}</p>
+                                <p>Bulk Price: UGX {{ number_format($bulkInclusion->bulkItem->default_price, 2) }}</p>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
                 <!-- Branch Pricing -->
                 @if($item->branchPrices->count() > 0)
                 <div class="mt-6">

@@ -11,15 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('branch_item_prices', function (Blueprint $table) {
+        Schema::create('package_items', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique()->index();
+            $table->foreignId('package_item_id')->constrained('items')->onDelete('cascade'); // The main package item
+            $table->foreignId('included_item_id')->constrained('items')->onDelete('cascade'); // The item included in the package
+            $table->integer('max_quantity')->default(1); // Maximum allowed quantity for this item
             $table->foreignId('business_id')->constrained()->onDelete('cascade');
-            $table->foreignId('branch_id')->constrained('branches')->onDelete('cascade');
-            $table->foreignId('item_id')->constrained('items')->onDelete('cascade');
-            $table->decimal('price', 10, 2)->default(0);
             $table->timestamps();
-            $table->softDeletes(); // Allows for soft deletion of branch item prices
+            $table->softDeletes();
         });
     }
 
@@ -28,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('branch_item_prices');
+        Schema::dropIfExists('package_items');
     }
 };

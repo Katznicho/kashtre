@@ -44,17 +44,23 @@ class ListContractorProfiles extends Component implements HasForms, HasTable
                 //     ->label('UUID')
                 //     ->searchable(),
                 Tables\Columns\TextColumn::make('bank_name')
+                    ->label('Bank Name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('account_name')
+                    ->label('Bank A/C Name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('account_number')
+                    ->label('Bank A/C No.')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('account_balance')
+                    ->label('Account Balance')
                     ->money('UGX')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('kashtre_account_number')
+                    ->label('Kashtre A/C No.')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('signing_qualifications')
+                    ->label('Qualifications')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()

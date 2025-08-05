@@ -86,6 +86,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     Route::resource("items", ItemController::class);
     Route::get('/items/filtered-data', [ItemController::class, 'getFilteredData'])->name('items.filtered-data');
+    Route::get('/items/generate-code', [ItemController::class, 'generateCode'])->name('items.generate-code');
     
     Route::resource("groups", GroupController::class);
     Route::resource("patient-categories", PatientCategoryController::class);

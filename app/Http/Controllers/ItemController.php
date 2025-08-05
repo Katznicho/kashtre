@@ -13,6 +13,8 @@ use App\Models\ContractorProfile;
 use App\Models\Item;
 use App\Models\Branch;
 use App\Models\BranchItemPrice;
+use App\Models\PackageItem;
+use App\Models\BulkItem;
 
 class ItemController extends Controller
 {
@@ -48,6 +50,11 @@ class ItemController extends Controller
         $servicePoints = ServicePoint::where('business_id', $selectedBusinessId)->get();
         $contractors = ContractorProfile::with('business')->where('business_id', $selectedBusinessId)->get();
         $branches = Branch::where('business_id', $selectedBusinessId)->get();
+        
+        // Get available items for package and bulk selection (exclude package and bulk types)
+        $availableItems = Item::where('business_id', $selectedBusinessId)
+            ->whereNotIn('type', ['package', 'bulk'])
+            ->get();
 
         return view('items.create', compact(
             'businesses', 
@@ -57,6 +64,7 @@ class ItemController extends Controller
             'servicePoints', 
             'contractors',
             'branches',
+            'availableItems',
             'canSelectBusiness',
             'selectedBusinessId'
         ));
@@ -69,23 +77,31 @@ class ItemController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'required|string|unique:items,code',
+            'code' => 'nullable|string|unique:items,code',
             'type' => 'required|in:service,good,package,bulk',
             'description' => 'nullable|string',
-            'group_id' => 'nullable|exists:groups,id',
-            'subgroup_id' => 'nullable|exists:groups,id',
-            'department_id' => 'nullable|exists:departments,id',
-            'uom_id' => 'nullable|exists:item_units,id',
-            'service_point_id' => 'nullable|exists:service_points,id',
+            'group_id' => 'required|exists:groups,id',
+            'subgroup_id' => 'required|exists:groups,id',
+            'department_id' => 'required|exists:departments,id',
+            'uom_id' => 'required|exists:item_units,id',
+            'service_point_id' => 'required|exists:service_points,id',
             'default_price' => 'required|numeric|min:0',
             'hospital_share' => 'required|integer|between:0,100',
             'contractor_account_id' => 'nullable|exists:contractor_profiles,id',
             'business_id' => 'required|exists:businesses,id',
-            'other_names' => 'nullable|string',
+            'other_names' => 'required|string',
+            'validity_days' => 'nullable|integer|min:1',
             'pricing_type' => 'required|in:default,custom',
             'branch_prices' => 'nullable|array',
             'branch_prices.*.branch_id' => 'nullable|exists:branches,id',
             'branch_prices.*.price' => 'nullable|numeric|min:0',
+            'package_items' => 'nullable|array',
+            'package_items.*.included_item_id' => 'nullable|exists:items,id',
+            'package_items.*.max_quantity' => 'nullable|integer|min:1',
+            'package_items.*.validity_days' => 'nullable|integer|min:1',
+            'bulk_items' => 'nullable|array',
+            'bulk_items.*.included_item_id' => 'nullable|exists:items,id',
+            'bulk_items.*.fixed_quantity' => 'nullable|integer|min:1',
         ]);
 
         // Set business_id based on user permissions
@@ -96,6 +112,25 @@ class ItemController extends Controller
         // Validate contractor selection when hospital share is not 100%
         if ($validated['hospital_share'] != 100 && empty($validated['contractor_account_id'])) {
             return back()->withErrors(['contractor_account_id' => 'Contractor is required when hospital share is not 100%']);
+        }
+
+        // Validate that at least one branch has a custom price when custom pricing is selected
+        if ($validated['pricing_type'] === 'custom' && isset($validated['branch_prices'])) {
+            $branches = Branch::where('business_id', $validated['business_id'])->get();
+            $providedPrices = collect($validated['branch_prices'])->pluck('price', 'branch_id');
+            
+            // Check if at least one branch has a custom price
+            $hasCustomPrices = false;
+            foreach ($branches as $branch) {
+                if ($providedPrices->has($branch->id) && !empty($providedPrices->get($branch->id))) {
+                    $hasCustomPrices = true;
+                    break;
+                }
+            }
+            
+            if (!$hasCustomPrices) {
+                return back()->withErrors(['branch_prices' => 'At least one branch must have a custom price when custom pricing is selected']);
+            }
         }
 
         // Create the item
@@ -110,6 +145,34 @@ class ItemController extends Controller
                         'branch_id' => $branchPrice['branch_id'],
                         'item_id' => $item->id,
                         'price' => $branchPrice['price'],
+                    ]);
+                }
+            }
+        }
+
+        // Handle package items
+        if ($validated['type'] === 'package' && isset($validated['package_items'])) {
+            foreach ($validated['package_items'] as $packageItem) {
+                if (!empty($packageItem['included_item_id'])) {
+                    PackageItem::create([
+                        'package_item_id' => $item->id,
+                        'included_item_id' => $packageItem['included_item_id'],
+                        'max_quantity' => $packageItem['max_quantity'] ?? 1,
+                        'business_id' => $validated['business_id'],
+                    ]);
+                }
+            }
+        }
+
+        // Handle bulk items
+        if ($validated['type'] === 'bulk' && isset($validated['bulk_items'])) {
+            foreach ($validated['bulk_items'] as $bulkItem) {
+                if (!empty($bulkItem['included_item_id'])) {
+                    BulkItem::create([
+                        'bulk_item_id' => $item->id,
+                        'included_item_id' => $bulkItem['included_item_id'],
+                        'fixed_quantity' => $bulkItem['fixed_quantity'] ?? 1,
+                        'business_id' => $validated['business_id'],
                     ]);
                 }
             }
@@ -132,7 +195,11 @@ class ItemController extends Controller
             'itemUnit',
             'servicePoint',
             'contractor.business',
-            'branchPrices.branch'
+            'branchPrices.branch',
+            'packageItems.includedItem',
+            'bulkItems.includedItem',
+            'includedInPackages.packageItem',
+            'includedInBulks.bulkItem'
         ]);
 
         return view('items.show', compact('item'));
@@ -163,6 +230,16 @@ class ItemController extends Controller
         
         // Get existing branch prices for this item
         $branchPrices = $item->branchPrices;
+        
+        // Get existing package and bulk items
+        $packageItems = $item->packageItems;
+        $bulkItems = $item->bulkItems;
+        
+        // Get available items for package and bulk selection (exclude package and bulk types, and current item)
+        $availableItems = Item::where('business_id', $selectedBusinessId)
+            ->whereNotIn('type', ['package', 'bulk'])
+            ->where('id', '!=', $item->id)
+            ->get();
 
         return view('items.edit', compact(
             'item', 
@@ -174,6 +251,9 @@ class ItemController extends Controller
             'contractors',
             'branches',
             'branchPrices',
+            'packageItems',
+            'bulkItems',
+            'availableItems',
             'canSelectBusiness',
             'selectedBusinessId'
         ));
@@ -186,7 +266,7 @@ class ItemController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'required|string|unique:items,code,' . $item->id,
+            'code' => 'nullable|string|unique:items,code,' . $item->id,
             'type' => 'required|in:service,good,package,bulk',
             'description' => 'nullable|string',
             'group_id' => 'nullable|exists:groups,id',
@@ -203,6 +283,13 @@ class ItemController extends Controller
             'branch_prices' => 'nullable|array',
             'branch_prices.*.branch_id' => 'nullable|exists:branches,id',
             'branch_prices.*.price' => 'nullable|numeric|min:0',
+            'package_items' => 'nullable|array',
+            'package_items.*.included_item_id' => 'nullable|exists:items,id',
+            'package_items.*.max_quantity' => 'nullable|integer|min:1',
+            'package_items.*.validity_days' => 'nullable|integer|min:1',
+            'bulk_items' => 'nullable|array',
+            'bulk_items.*.included_item_id' => 'nullable|exists:items,id',
+            'bulk_items.*.fixed_quantity' => 'nullable|integer|min:1',
         ]);
 
         // Set business_id based on user permissions
@@ -213,6 +300,25 @@ class ItemController extends Controller
         // Validate contractor selection when hospital share is not 100%
         if ($validated['hospital_share'] != 100 && empty($validated['contractor_account_id'])) {
             return back()->withErrors(['contractor_account_id' => 'Contractor is required when hospital share is not 100%']);
+        }
+
+        // Validate that at least one branch has a custom price when custom pricing is selected
+        if ($validated['pricing_type'] === 'custom' && isset($validated['branch_prices'])) {
+            $branches = Branch::where('business_id', $validated['business_id'])->get();
+            $providedPrices = collect($validated['branch_prices'])->pluck('price', 'branch_id');
+            
+            // Check if at least one branch has a custom price
+            $hasCustomPrices = false;
+            foreach ($branches as $branch) {
+                if ($providedPrices->has($branch->id) && !empty($providedPrices->get($branch->id))) {
+                    $hasCustomPrices = true;
+                    break;
+                }
+            }
+            
+            if (!$hasCustomPrices) {
+                return back()->withErrors(['branch_prices' => 'At least one branch must have a custom price when custom pricing is selected']);
+            }
         }
 
         // Update the item
@@ -229,6 +335,38 @@ class ItemController extends Controller
                         'branch_id' => $branchPrice['branch_id'],
                         'item_id' => $item->id,
                         'price' => $branchPrice['price'],
+                    ]);
+                }
+            }
+        }
+
+        // Handle package items - delete existing and create new ones
+        $item->packageItems()->delete();
+        
+        if ($validated['type'] === 'package' && isset($validated['package_items'])) {
+            foreach ($validated['package_items'] as $packageItem) {
+                if (!empty($packageItem['included_item_id'])) {
+                    PackageItem::create([
+                        'package_item_id' => $item->id,
+                        'included_item_id' => $packageItem['included_item_id'],
+                        'max_quantity' => $packageItem['max_quantity'] ?? 1,
+                        'business_id' => $validated['business_id'],
+                    ]);
+                }
+            }
+        }
+
+        // Handle bulk items - delete existing and create new ones
+        $item->bulkItems()->delete();
+        
+        if ($validated['type'] === 'bulk' && isset($validated['bulk_items'])) {
+            foreach ($validated['bulk_items'] as $bulkItem) {
+                if (!empty($bulkItem['included_item_id'])) {
+                    BulkItem::create([
+                        'bulk_item_id' => $item->id,
+                        'included_item_id' => $bulkItem['included_item_id'],
+                        'fixed_quantity' => $bulkItem['fixed_quantity'] ?? 1,
+                        'business_id' => $validated['business_id'],
                     ]);
                 }
             }
@@ -274,9 +412,33 @@ class ItemController extends Controller
             'itemUnits' => ItemUnit::where('business_id', $businessId)->get(),
             'servicePoints' => ServicePoint::where('business_id', $businessId)->get(),
             'contractors' => ContractorProfile::with('business')->where('business_id', $businessId)->get(),
-            'branches' => Branch::where('business_id', $businessId)->get()
+            'branches' => Branch::where('business_id', $businessId)->get(),
+            'availableItems' => Item::where('business_id', $businessId)
+                ->whereNotIn('type', ['package', 'bulk'])
+                ->get()
         ];
 
         return response()->json($data);
+    }
+
+    /**
+     * Generate a unique item code for the given business (AJAX endpoint)
+     */
+    public function generateCode(Request $request)
+    {
+        $businessId = $request->input('business_id');
+        
+        if (!$businessId) {
+            return response()->json(['error' => 'Business ID is required'], 400);
+        }
+
+        // Validate that the user has permission to access this business
+        if (Auth::user()->business_id != 1 && Auth::user()->business_id != $businessId) {
+            return response()->json(['error' => 'Unauthorized access to business data'], 403);
+        }
+
+        $code = Item::generateUniqueCode($businessId);
+        
+        return response()->json(['code' => $code]);
     }
 }
