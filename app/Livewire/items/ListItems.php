@@ -56,20 +56,17 @@ class ListItems extends Component implements HasForms, HasTable
                     ->searchable(),
                 TextColumn::make('uom.name')
                     ->label('Unit')
-                    ->sortable()
-                    ->searchable(),
+                    ->sortable(),
                 TextColumn::make('servicePoint.name')
                     ->label('Service Point')
-                    ->sortable()
-                    ->searchable(),
+                    ->sortable(),
                 TextColumn::make('default_price')
                     ->searchable(),
                 TextColumn::make('hospital_share')
                     ->sortable(),
                 TextColumn::make('contractorAccount.name')
                     ->label('Contractor Account')
-                    ->sortable()
-                    ->searchable(),
+                    ->sortable(),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

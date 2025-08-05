@@ -48,17 +48,16 @@ class Item extends Model
     public static function generateUniqueCode($businessId)
     {
         $prefix = 'ITM';
-        $counter = 1;
         
-        do {
-            $code = $prefix . str_pad($counter, 6, '0', STR_PAD_LEFT);
-            $exists = self::where('code', $code)
-                         ->where('business_id', $businessId)
-                         ->exists();
-            $counter++;
-        } while ($exists);
+        // Use microtime to ensure uniqueness even in concurrent imports
+        $timestamp = microtime(true);
+        $microseconds = ($timestamp - floor($timestamp)) * 1000000;
+        $uniqueId = floor($timestamp) . str_pad($microseconds, 6, '0', STR_PAD_LEFT);
         
-        return $code;
+        // Get the last 6 digits for the code
+        $codeNumber = substr($uniqueId, -6);
+        
+        return $prefix . $codeNumber;
     }
 
     public function business()

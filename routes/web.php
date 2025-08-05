@@ -17,6 +17,7 @@ use App\Http\Controllers\SectionController;
 use App\Http\Controllers\ItemUnitController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\ItemBulkUploadController;
+use App\Http\Controllers\PackageBulkUploadController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\PatientCategoryController;
 use App\Http\Controllers\SupplierController;
@@ -77,12 +78,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource("item-units", ItemUnitController::class);
     
     // Items bulk operations (must come BEFORE items resource route)
-    Route::get('/items/bulk-upload', [ItemBulkUploadController::class, 'index'])->name('items.bulk-upload');
-    Route::get('/items/bulk-upload/template', [ItemBulkUploadController::class, 'downloadTemplate'])->name('items.bulk-upload.template');
-    Route::get('/items/bulk-upload/reference', [ItemBulkUploadController::class, 'downloadReferenceSheet'])->name('items.bulk-upload.reference');
-    Route::get('/items/bulk-upload/test', [ItemBulkUploadController::class, 'testDownload'])->name('items.bulk-upload.test');
-    Route::post('/items/bulk-upload/import', [ItemBulkUploadController::class, 'import'])->name('items.bulk-upload.import');
-    Route::get('/items/bulk-upload/filtered-data', [ItemBulkUploadController::class, 'getFilteredData'])->name('items.bulk-upload.filtered-data');
+    // Goods & Services Bulk Upload Routes
+Route::get('/items/bulk-upload', [ItemBulkUploadController::class, 'index'])->name('items.bulk-upload');
+Route::get('/items/bulk-upload/template', [ItemBulkUploadController::class, 'downloadTemplate'])->name('items.bulk-upload.template');
+Route::post('/items/bulk-upload/import', [ItemBulkUploadController::class, 'import'])->name('items.bulk-upload.import');
+Route::get('/items/bulk-upload/filtered-data', [ItemBulkUploadController::class, 'getFilteredData'])->name('items.bulk-upload.filtered-data');
+
+// Packages & Bulk Items Upload Routes
+Route::get('/package-bulk-upload', [PackageBulkUploadController::class, 'index'])->name('package-bulk-upload.index');
+Route::get('/package-bulk-upload/template', [PackageBulkUploadController::class, 'downloadTemplate'])->name('package-bulk-upload.template');
+Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 'import'])->name('package-bulk-upload.import');
     
     Route::resource("items", ItemController::class);
     Route::get('/items/filtered-data', [ItemController::class, 'getFilteredData'])->name('items.filtered-data');

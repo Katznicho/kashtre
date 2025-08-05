@@ -2,24 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use App\Exports\GoodsServicesTemplateExport;
-use App\Imports\GoodsServicesTemplateImport;
-use App\Imports\TestImport;
+use App\Exports\PackageBulkTemplateExport;
+use App\Imports\PackageBulkTemplateImport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Models\Business;
-use App\Models\Group;
-use App\Models\Department;
-use App\Models\ItemUnit;
-use App\Models\ServicePoint;
-use App\Models\ContractorProfile;
+use App\Models\Item;
 
-class ItemBulkUploadController extends Controller
+class PackageBulkUploadController extends Controller
 {
     /**
-     * Show the bulk upload form for goods and services only
+     * Show the bulk upload form for packages and bulk items
      */
     public function index()
     {
@@ -30,11 +25,11 @@ class ItemBulkUploadController extends Controller
             $businesses = Business::where('id', Auth::user()->business_id)->get();
         }
 
-        return view('items.bulk-upload', compact('businesses'));
+        return view('items.package-bulk-upload', compact('businesses'));
     }
 
     /**
-     * Download the template for goods and services with dropdown data
+     * Download the template for packages and bulk items
      */
     public function downloadTemplate(Request $request)
     {
@@ -49,12 +44,12 @@ class ItemBulkUploadController extends Controller
 
         try {
             $business = Business::find($request->business_id);
-            $filename = 'goods_services_template_' . str_replace(' ', '_', $business->name) . '.xlsx';
+            $filename = 'package_bulk_template_' . str_replace(' ', '_', $business->name) . '.xlsx';
             
             // Log for debugging
-            Log::info('Downloading goods/services template for business: ' . $business->name);
+            Log::info('Downloading package/bulk template for business: ' . $business->name);
             
-            return Excel::download(new GoodsServicesTemplateExport($request->business_id), $filename);
+            return Excel::download(new PackageBulkTemplateExport($request->business_id), $filename);
             
         } catch (\Exception $e) {
             Log::error('Error downloading template: ' . $e->getMessage());
@@ -63,7 +58,7 @@ class ItemBulkUploadController extends Controller
     }
 
     /**
-     * Import the uploaded file for goods and services
+     * Import the uploaded file for packages and bulk items
      */
     public function import(Request $request)
     {
@@ -78,18 +73,19 @@ class ItemBulkUploadController extends Controller
         }
 
         try {
-            $import = new GoodsServicesTemplateImport($request->business_id);
+            $import = new PackageBulkTemplateImport($request->business_id);
             
             Excel::import($import, $request->file('file'));
 
-            // Create branch prices after items are imported
+            // Create branch prices and included items after items are imported
             $import->createBranchPrices();
+            $import->createIncludedItems();
 
             $successCount = $import->getSuccessCount();
             $errorCount = $import->getErrorCount();
             $errors = $import->getErrors();
 
-            $message = "Import completed. Successfully imported {$successCount} goods/services.";
+            $message = "Import completed. Successfully imported {$successCount} packages/bulk items.";
             
             if ($errorCount > 0) {
                 $message .= " {$errorCount} records had errors.";
@@ -108,32 +104,5 @@ class ItemBulkUploadController extends Controller
             return redirect()->back()
                 ->with('error', 'Import failed: ' . $e->getMessage());
         }
-    }
-
-    /**
-     * Get filtered data for a specific business (AJAX)
-     */
-    public function getFilteredData(Request $request)
-    {
-        $businessId = $request->input('business_id');
-        
-        if (!$businessId) {
-            return response()->json([]);
-        }
-
-        // Check permissions
-        if (Auth::user()->business_id != 1 && Auth::user()->business_id != $businessId) {
-            return response()->json([]);
-        }
-
-        $data = [
-            'groups' => Group::where('business_id', $businessId)->get(),
-            'departments' => Department::where('business_id', $businessId)->get(),
-            'itemUnits' => ItemUnit::where('business_id', $businessId)->get(),
-            'servicePoints' => ServicePoint::where('business_id', $businessId)->get(),
-            'contractors' => ContractorProfile::with('business')->where('business_id', $businessId)->get(),
-        ];
-
-        return response()->json($data);
     }
 } 

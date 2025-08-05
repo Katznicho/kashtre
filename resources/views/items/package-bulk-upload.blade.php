@@ -3,7 +3,7 @@
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-bold text-gray-800 dark:text-white">Bulk Upload Goods & Services</h2>
+                    <h2 class="text-xl font-bold text-gray-800 dark:text-white">Bulk Upload Packages & Bulk Items</h2>
                     <a href="{{ route('items.index') }}" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
                         Back to List
                     </a>
@@ -34,32 +34,32 @@
 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <!-- Download Section -->
-                    <div class="bg-blue-50 dark:bg-blue-900 p-6 rounded-lg">
-                        <h3 class="text-lg font-semibold text-blue-800 dark:text-blue-200 mb-4">
+                    <div class="bg-purple-50 dark:bg-purple-900 p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold text-purple-800 dark:text-purple-200 mb-4">
                             Step 1: Download Template
                         </h3>
-                        <p class="text-blue-700 dark:text-blue-300 mb-4">
-                            Download the Excel template with dropdown data included. This template is for goods and services only.
+                        <p class="text-purple-700 dark:text-purple-300 mb-4">
+                            Download the Excel template for packages and bulk items. This template includes available items for selection.
                         </p>
                         
                         <div class="space-y-3">
                             <button onclick="showTemplateModal()"
-                                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded inline-flex items-center">
+                                    class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded inline-flex items-center">
                                 📥 Download Template
                             </button>
                         </div>
                     </div>
 
                     <!-- Upload Section -->
-                    <div class="bg-green-50 dark:bg-green-900 p-6 rounded-lg">
-                        <h3 class="text-lg font-semibold text-green-800 dark:text-green-200 mb-4">
+                    <div class="bg-orange-50 dark:bg-orange-900 p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold text-orange-800 dark:text-orange-200 mb-4">
                             Step 2: Upload Filled Template
                         </h3>
-                        <p class="text-green-700 dark:text-green-300 mb-4">
-                            Upload your filled template to import goods and services items.
+                        <p class="text-orange-700 dark:text-orange-300 mb-4">
+                            Upload your filled template to import packages and bulk items.
                         </p>
                         
-                        <form action="{{ route('items.bulk-upload.import') }}" 
+                        <form action="{{ route('package-bulk-upload.import') }}" 
                               method="POST" 
                               enctype="multipart/form-data" 
                               class="space-y-4"
@@ -104,14 +104,14 @@
                                        id="file" 
                                        accept=".xlsx,.xls" 
                                        required
-                                       class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                       class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100">
                                 <p class="mt-1 text-xs text-gray-500">Maximum file size: 10MB. Supported formats: .xlsx, .xls</p>
                             </div>
 
                             <div class="flex items-center justify-between">
                                 <button type="submit" 
                                         :disabled="uploading"
-                                        class="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded inline-flex items-center">
+                                        class="bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded inline-flex items-center">
                                     <svg x-show="uploading" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -121,6 +121,19 @@
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+
+                <!-- Information Section -->
+                <div class="mt-8 bg-blue-50 dark:bg-blue-900 p-6 rounded-lg">
+                    <h3 class="text-lg font-semibold text-blue-800 dark:text-blue-200 mb-4">
+                        📋 Important Information
+                    </h3>
+                    <div class="text-blue-700 dark:text-blue-300 space-y-2">
+                        <p><strong>Packages:</strong> Items that include other items with maximum quantities and validity periods.</p>
+                        <p><strong>Bulk Items:</strong> Items that include other items with fixed quantities.</p>
+                        <p><strong>Template Structure:</strong> The template includes separate sheets for packages and bulk items.</p>
+                        <p><strong>Available Items:</strong> Only goods and services can be included in packages and bulk items.</p>
                     </div>
                 </div>
             </div>
@@ -141,17 +154,17 @@
                 </div>
                 
                 <p class="text-sm text-gray-600 mb-4">
-                    Select a business to download a template with dropdown data for that business. This template includes all available groups, departments, units, service points, and contractors.
+                    Select a business to download a template for packages and bulk items. This template includes all available goods and services items for selection.
                 </p>
 
-                <form id="templateForm" action="{{ route('items.bulk-upload.template') }}" method="GET">
+                <form id="templateForm" action="{{ route('package-bulk-upload.template') }}" method="GET">
                     @if(Auth::user()->business_id == 1)
                     <div class="mb-4">
                         <label for="template_business_id" class="block text-sm font-medium text-gray-700 mb-2">
                             Business <span class="text-red-500">*</span>
                         </label>
                         <select name="business_id" id="template_business_id" required 
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
                             <option value="">Select a business</option>
                             @foreach($businesses as $business)
                                 <option value="{{ $business->id }}">{{ $business->name }}</option>
@@ -178,7 +191,7 @@
                             Cancel
                         </button>
                         <button type="submit" 
-                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-150">
+                                class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition duration-150">
                             Download Template
                         </button>
                     </div>
