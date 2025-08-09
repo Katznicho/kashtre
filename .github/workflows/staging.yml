@@ -108,46 +108,19 @@ jobs:
               # Ensure migrations table exists
               php artisan migrate:install || echo "Failed to create migrations table"
 
-              # Mark businesses migration as run if table exists (using tinker)
-              php artisan tinker --execute="
-              try {
-                DB::statement('INSERT IGNORE INTO migrations (migration, batch) VALUES (?, 1)', ['2013_06_23_132952_create_businesses_table']);
-                echo 'Businesses migration marked as run';
-              } catch (Exception \$e) {
-                echo 'Failed to mark businesses migration: ' . \$e->getMessage();
-              }
-              " || echo "Failed to mark businesses migration"
-
-              # Mark existing migrations that were already run to prevent conflicts
-              php artisan tinker --execute="
-              try {
-                \$existingMigrations = [
-                  '2025_10_12_000000_create_users_table',
-                  '2025_10_12_200000_add_two_factor_columns_to_users_table',
-                  '2025_10_23_143816_create_transactions_table',
-                  '2025_11_23_203441_create_activity_logs_table'
-                ];
-                foreach (\$existingMigrations as \$migration) {
-                  DB::statement('INSERT IGNORE INTO migrations (migration, batch) VALUES (?, 1)', [\$migration]);
-                  echo 'Marked ' . \$migration . ' as run\n';
-                }
-              } catch (Exception \$e) {
-                echo 'Failed to mark existing migrations: ' . \$e->getMessage();
-              }
-              " || echo "Failed to mark existing migrations"
+              # Mark key migrations as run to prevent conflicts
+              echo "Marking critical migrations as already run..."
+              php artisan tinker --execute="DB::statement(\"INSERT IGNORE INTO migrations (migration, batch) VALUES (?, 1)\", [\"2013_06_23_132952_create_businesses_table\"]); echo \"Businesses migration marked\";" || echo "Failed to mark businesses migration"
+              php artisan tinker --execute="DB::statement(\"INSERT IGNORE INTO migrations (migration, batch) VALUES (?, 1)\", [\"2025_10_12_000000_create_users_table\"]); echo \"Users migration marked\";" || echo "Failed to mark users migration"
+              php artisan tinker --execute="DB::statement(\"INSERT IGNORE INTO migrations (migration, batch) VALUES (?, 1)\", [\"2025_10_12_200000_add_two_factor_columns_to_users_table\"]); echo \"2FA migration marked\";" || echo "Failed to mark 2FA migration"
+              php artisan tinker --execute="DB::statement(\"INSERT IGNORE INTO migrations (migration, batch) VALUES (?, 1)\", [\"2025_10_23_143816_create_transactions_table\"]); echo \"Transactions migration marked\";" || echo "Failed to mark transactions migration"
+              php artisan tinker --execute="DB::statement(\"INSERT IGNORE INTO migrations (migration, batch) VALUES (?, 1)\", [\"2025_11_23_203441_create_activity_logs_table\"]); echo \"Activity logs migration marked\";" || echo "Failed to mark activity logs migration"
 
               # Run migrations with verbose output
               php artisan migrate --force --verbose || { echo "Migration failed"; exit 1; }
 
               # Run seeders only if users table is empty
-              USER_COUNT=$(php artisan tinker --execute="
-              try {
-                \$count = DB::table('users')->count();
-                echo \$count;
-              } catch (Exception \$e) {
-                echo '0';
-              }
-              " 2>/dev/null | tail -1)
+              USER_COUNT=$(php artisan tinker --execute="echo DB::table(\"users\")->count();" 2>/dev/null | tail -1)
               if [ "$USER_COUNT" = "0" ] || [ -z "$USER_COUNT" ]; then
                 echo "Users table is empty, running seeders"
                 php artisan db:seed --force --verbose || { echo "Seeding failed"; exit 1; }
