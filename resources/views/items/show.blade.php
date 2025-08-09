@@ -23,7 +23,10 @@
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Name</label>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->name }}</p>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->display_name }}</p>
+                            @if($item->type === 'package' || $item->type === 'bulk')
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Original name: {{ $item->name }}</p>
+                            @endif
                         </div>
 
                         <div>
@@ -126,7 +129,7 @@
                 <!-- Package Items -->
                 @if($item->type === 'package' && $item->packageItems->count() > 0)
                 <div class="mt-6">
-                    <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2 mb-4">Package Items</h3>
+                    <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2 mb-4">Constituent Items</h3>
                     <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-4">
                         <div class="flex items-center mb-3">
                             <svg class="h-5 w-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -158,7 +161,7 @@
                 <!-- Bulk Items -->
                 @if($item->type === 'bulk' && $item->bulkItems->count() > 0)
                 <div class="mt-6">
-                    <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2 mb-4">Bulk Items</h3>
+                    <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2 mb-4">Constituent Items</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         @foreach($item->bulkItems as $bulkItem)
                         <div class="border rounded-lg p-4 bg-green-50 dark:bg-green-900/20">

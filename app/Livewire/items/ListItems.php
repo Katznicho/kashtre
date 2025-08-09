@@ -37,8 +37,9 @@ class ListItems extends Component implements HasForms, HasTable
                 ->label('Business')
                 ->sortable()
                 ->searchable(),
-                TextColumn::make('name')
-                    ->searchable(),
+                TextColumn::make('display_name')
+                    ->label('Name')
+                    ->searchable(['name']),
                 TextColumn::make('code')
                     ->searchable(),
                 TextColumn::make('type'),

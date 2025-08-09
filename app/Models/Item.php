@@ -118,4 +118,49 @@ class Item extends Model
     {
         return $this->hasMany(BranchServicePoint::class, 'item_id');
     }
+
+    /**
+     * Get the display name for the item.
+     * For package/bulk items, returns the constituent items names.
+     * For regular items, returns the original name.
+     */
+    public function getDisplayNameAttribute()
+    {
+        if ($this->type === 'package') {
+            return $this->getConstituentItemsName('package');
+        } elseif ($this->type === 'bulk') {
+            return $this->getConstituentItemsName('bulk');
+        }
+        
+        return $this->name;
+    }
+
+    /**
+     * Generate a name based on constituent items
+     */
+    private function getConstituentItemsName($type)
+    {
+        if ($type === 'package') {
+            $constituents = $this->packageItems()->with('includedItem')->get();
+            $itemNames = $constituents->map(function ($packageItem) {
+                $maxQty = $packageItem->max_quantity ? " (Max: {$packageItem->max_quantity})" : '';
+                return $packageItem->includedItem->name . $maxQty;
+            })->toArray();
+        } elseif ($type === 'bulk') {
+            $constituents = $this->bulkItems()->with('includedItem')->get();
+            $itemNames = $constituents->map(function ($bulkItem) {
+                $fixedQty = $bulkItem->fixed_quantity ? " (Qty: {$bulkItem->fixed_quantity})" : '';
+                return $bulkItem->includedItem->name . $fixedQty;
+            })->toArray();
+        } else {
+            return $this->name;
+        }
+
+        if (empty($itemNames)) {
+            return $this->name; // Fallback to original name if no constituents
+        }
+
+        $prefix = ucfirst($type) . ': ';
+        return $prefix . implode(', ', $itemNames);
+    }
 }

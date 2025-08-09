@@ -8,10 +8,6 @@ use App\Models\Branch;
 use App\Models\BranchItemPrice;
 use App\Models\PackageItem;
 use App\Models\BulkItem;
-use App\Models\Group;
-use App\Models\Department;
-use App\Models\ItemUnit;
-use App\Models\ServicePoint;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\SkipsOnError;
@@ -26,10 +22,13 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
     protected $branchPrices = [];
     protected $includedItems = [];
     protected $pendingIncludedItems = [];
+    protected $branches = [];
 
     public function __construct($businessId)
     {
         $this->businessId = $businessId;
+        // Load branches for this business
+        $this->branches = Branch::where('business_id', $businessId)->orderBy('name')->get();
     }
 
     public function model(array $row)
@@ -77,17 +76,14 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 }
             }
             
-            // Handle branch pricing if provided
-            $branchPrice = null;
-            if (!empty($row['branch_name']) && !empty($row['branch_price'])) {
-                $branch = Branch::where('business_id', $this->businessId)
-                    ->where('name', trim($row['branch_name']))
-                    ->first();
-                
-                if ($branch) {
-                    $branchPrice = [
+            // Handle branch-specific pricing (similar to goods/services template)
+            $branchPrices = [];
+            foreach ($this->branches as $branch) {
+                $branchPriceKey = $this->normalizeColumnName($branch->name . ' - Price');
+                if (!empty($row[$branchPriceKey]) && is_numeric($row[$branchPriceKey])) {
+                    $branchPrices[] = [
                         'branch_id' => $branch->id,
-                        'price' => (float) $row['branch_price']
+                        'price' => (float) $row[$branchPriceKey]
                     ];
                 }
             }
@@ -108,44 +104,10 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 }
             }
             
-            // Look up related entities
-            $group = null;
-            $subgroup = null;
-            $department = null;
-            $itemUnit = null;
-            $servicePoint = null;
+            // Get other names if provided
+            $otherNames = !empty($row['other_names']) ? trim($row['other_names']) : null;
             
-            if (!empty($row['group_name'])) {
-                $group = Group::where('business_id', $this->businessId)
-                    ->where('name', trim($row['group_name']))
-                    ->first();
-            }
-            
-            if (!empty($row['subgroup_name'])) {
-                $subgroup = Group::where('business_id', $this->businessId)
-                    ->where('name', trim($row['subgroup_name']))
-                    ->first();
-            }
-            
-            if (!empty($row['department_name'])) {
-                $department = Department::where('business_id', $this->businessId)
-                    ->where('name', trim($row['department_name']))
-                    ->first();
-            }
-            
-            if (!empty($row['unit_of_measure'])) {
-                $itemUnit = ItemUnit::where('business_id', $this->businessId)
-                    ->where('name', trim($row['unit_of_measure']))
-                    ->first();
-            }
-            
-            if (!empty($row['service_point_name'])) {
-                $servicePoint = ServicePoint::where('business_id', $this->businessId)
-                    ->where('name', trim($row['service_point_name']))
-                    ->first();
-            }
-            
-            // Create the item
+            // Create the item (simplified for packages/bulk - no groups, departments, etc.)
             $item = new Item([
                 'name' => trim($row['name']),
                 'code' => $code, // Will be auto-generated if empty
@@ -153,18 +115,21 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 'description' => !empty($row['description']) ? trim($row['description']) : null,
                 'default_price' => (float) $row['default_price'],
                 'validity_days' => strtolower($typeValue) === 'package' ? (int) $row['validity_period_days_required_for_packages'] : null,
-                'group_id' => $group ? $group->id : null,
-                'subgroup_id' => $subgroup ? $subgroup->id : null,
-                'department_id' => $department ? $department->id : null,
-                'uom_id' => $itemUnit ? $itemUnit->id : null,
-                'service_point_id' => $servicePoint ? $servicePoint->id : null,
+                'hospital_share' => 100, // Packages/bulk always have 100% hospital share
+                'other_names' => $otherNames,
                 'business_id' => $this->businessId,
+                // Package/bulk items don't need these fields
+                'group_id' => null,
+                'subgroup_id' => null,
+                'department_id' => null,
+                'uom_id' => null,
+                'contractor_account_id' => null,
             ]);
             
             $this->successCount++;
             
-            // Store branch price data for later processing
-            if ($branchPrice) {
+            // Store branch prices data for later processing
+            foreach ($branchPrices as $branchPrice) {
                 $this->branchPrices[] = [
                     'item_id' => $item->id,
                     'branch_id' => $branchPrice['branch_id'],
@@ -186,14 +151,13 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
 
     private function storeIncludedItemsData($row, $mainItemName, $type)
     {
-        // Store included items data for later processing
+        // Store constituent items data for later processing (improved logic - up to 10 items)
         $includedItemsData = [];
         
-        // Process up to 5 included items
-        for ($i = 1; $i <= 5; $i++) {
-            $itemNameKey = "included_item_{$i}_name";
-            $itemCodeKey = "included_item_{$i}_code";
-            $quantityKey = "included_item_{$i}_quantity";
+        // Process up to 10 constituent items (simplified - no code needed)
+        for ($i = 1; $i <= 10; $i++) {
+            $itemNameKey = $this->normalizeColumnName("constituent_item_{$i}_name");
+            $quantityKey = $this->normalizeColumnName("constituent_item_{$i}_quantity");
             
             if (!empty($row[$itemNameKey]) && !empty($row[$quantityKey])) {
                 $includedItemsData[] = [
@@ -210,6 +174,15 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 'included_items' => $includedItemsData
             ];
         }
+    }
+
+    /**
+     * Normalize column name to match Laravel Excel's header normalization
+     */
+    private function normalizeColumnName($columnName)
+    {
+        // Convert to lowercase and replace spaces and special characters with underscores
+        return strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', trim($columnName)));
     }
 
     public function onError(\Throwable $e)

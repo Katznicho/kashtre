@@ -80,6 +80,19 @@
                             <p class="mt-1 text-sm text-gray-500">If less than 100%, a Destination Account must be selected</p>
                         </div>
 
+                        <!-- Contractor (shown only when hospital share < 100%) -->
+                        <div id="contractor_div" class="service-good-only" style="display: none;">
+                            <label for="contractor_account_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Destination Account <span class="text-red-500">*</span></label>
+                            <select name="contractor_account_id" id="contractor_account_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                <option value="">Select destination account</option>
+                                @foreach($contractors as $contractor)
+                                    <option value="{{ $contractor->id }}" {{ old('contractor_account_id') == $contractor->id ? 'selected' : '' }}>
+                                        {{ $contractor->user->name }} ({{ $contractor->business->name }})
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
                         <!-- Validity Days (for package items) -->
                         <div id="validity_days_div" style="display: none;">
                             <label for="validity_days" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Validity Period (Days) <span class="text-red-500">*</span></label>
@@ -229,7 +242,7 @@
 
                     <!-- Package Items Section -->
                     <div class="mt-8 package-items-section" id="package_items_section" style="display: none;">
-                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Package Items</h3>
+                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Constituent Items</h3>
                         <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Select items to include in this package with their maximum quantities and validity periods</p>
                         
                         <div id="package_items_container">
@@ -262,7 +275,7 @@
 
                     <!-- Bulk Items Section -->
                     <div class="mt-8 bulk-items-section" id="bulk_items_section" style="display: none;">
-                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Bulk Items</h3>
+                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Constituent Items</h3>
                         <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Select items to include in this bulk with their fixed quantities</p>
                         
                         <div id="bulk_items_container">
@@ -787,7 +800,7 @@
                 const packageItems = document.querySelectorAll('select[name*="[included_item_id]"]');
                 const maxQuantities = document.querySelectorAll('input[name*="[max_quantity]"]');
                 
-                itemsDetailsContainer.innerHTML = '<h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-3">Package Items:</h4>';
+                                    itemsDetailsContainer.innerHTML = '<h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-3">Constituent Items:</h4>';
                 
                 packageItems.forEach((select, index) => {
                     if (select.value) {
@@ -817,7 +830,7 @@
                 const bulkItems = document.querySelectorAll('select[name*="[included_item_id]"]');
                 const fixedQuantities = document.querySelectorAll('input[name*="[fixed_quantity]"]');
                 
-                itemsDetailsContainer.innerHTML = '<h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-3">Bulk Items:</h4>';
+                                    itemsDetailsContainer.innerHTML = '<h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-3">Constituent Items:</h4>';
                 
                 bulkItems.forEach((select, index) => {
                     if (select.value) {

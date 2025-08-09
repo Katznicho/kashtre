@@ -222,7 +222,7 @@
 
                     <!-- Package Items Section -->
                     <div class="mt-8 package-items-section" id="package_items_section" style="display: {{ $item->type === 'package' ? 'block' : 'none' }};">
-                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Package Items</h3>
+                                                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Constituent Items</h3>
                         <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Select items to include in this package with their maximum quantities and validity periods</p>
                         
                         <div id="package_items_container">
@@ -278,7 +278,7 @@
 
                     <!-- Bulk Items Section -->
                     <div class="mt-8 bulk-items-section" id="bulk_items_section" style="display: {{ $item->type === 'bulk' ? 'block' : 'none' }};">
-                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Bulk Items</h3>
+                                                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Constituent Items</h3>
                         <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Select items to include in this bulk with their fixed quantities</p>
                         
                         <div id="bulk_items_container">
