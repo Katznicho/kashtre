@@ -21,7 +21,6 @@ class Item extends Model
         'subgroup_id',
         'department_id',
         'uom_id',
-        'service_point_id',
         'default_price',
         'validity_days',
         'hospital_share',
@@ -85,11 +84,6 @@ class Item extends Model
         return $this->belongsTo(ItemUnit::class, 'uom_id');
     }
 
-    public function servicePoint()
-    {
-        return $this->belongsTo(ServicePoint::class, 'service_point_id');
-    }
-
     public function contractor()
     {
         return $this->belongsTo(ContractorProfile::class, 'contractor_account_id');
@@ -118,5 +112,10 @@ class Item extends Model
     public function includedInBulks()
     {
         return $this->hasMany(BulkItem::class, 'included_item_id');
+    }
+
+    public function branchServicePoints()
+    {
+        return $this->hasMany(BranchServicePoint::class, 'item_id');
     }
 }

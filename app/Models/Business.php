@@ -58,4 +58,24 @@ class Business extends Model
     {
         return $this->hasMany(Branch::class);
     }
+
+    public function qualifications()
+    {
+        return $this->hasMany(Qualification::class);
+    }
+
+    public function departments()
+    {
+        return $this->hasMany(Department::class);
+    }
+
+    public function sections()
+    {
+        return $this->hasMany(Section::class);
+    }
+
+    public function titles()
+    {
+        return $this->hasMany(Title::class);
+    }
 }

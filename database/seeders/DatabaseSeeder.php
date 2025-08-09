@@ -5,6 +5,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Database\Seeders\KashtreSeeder;
+use Database\Seeders\DummyDataSeeder;
 
 
 class DatabaseSeeder extends Seeder
@@ -19,6 +20,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             KashtreSeeder::class,
+            DummyDataSeeder::class,
         ]);
     }
 }

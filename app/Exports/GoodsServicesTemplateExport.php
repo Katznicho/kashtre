@@ -31,7 +31,7 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
 
     public function headings(): array
     {
-        return [
+        $baseHeaders = [
             'Name',
             'Code (Auto-generated if empty)',
             'Type (service/good)',
@@ -40,20 +40,31 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
             'Subgroup Name',
             'Department Name',
             'Unit of Measure',
-            'Service Point Name',
             'Default Price',
             'Hospital Share (%)',
-            'Contractor Kashtre Account Number',
+            'Contractor Username',
             'Other Names',
-            'Pricing Type (default/custom)',
-            'Branch Name',
-            'Branch Price',
         ];
+
+        // Get branches for this business to create dynamic columns
+        $branches = Branch::where('business_id', $this->businessId)->orderBy('name')->get();
+        
+        // Add pricing columns for each branch
+        foreach ($branches as $branch) {
+            $baseHeaders[] = $branch->name . ' - Price';
+        }
+        
+        // Add service point columns for each branch
+        foreach ($branches as $branch) {
+            $baseHeaders[] = $branch->name . ' - Service Point';
+        }
+
+        return $baseHeaders;
     }
 
     public function array(): array
     {
-        // Return empty array - no sample data, just headers
+        // Return empty array - clean template with no sample data
         return [];
     }
 
@@ -89,155 +100,104 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         $departments = Department::where('business_id', $this->businessId)->pluck('name')->toArray();
         $units = ItemUnit::where('business_id', $this->businessId)->pluck('name')->toArray();
         $servicePoints = ServicePoint::where('business_id', $this->businessId)->pluck('name')->toArray();
-        $contractors = ContractorProfile::where('business_id', $this->businessId)->pluck('kashtre_account_number')->toArray();
-        $branches = Branch::where('business_id', $this->businessId)->pluck('name')->toArray();
+        $contractors = ContractorProfile::with('user')->where('business_id', $this->businessId)->get()->pluck('user.name')->filter()->toArray();
+        $branches = Branch::where('business_id', $this->businessId)->orderBy('name')->get();
         
         // Set a default range for data validation (rows 2-1000)
         $startRow = 2;
         $endRow = 1000;
         
+        // Column mappings for the new structure
+        $columns = [
+            'C' => 'Type',        // Type (service/good)
+            'E' => 'Group',       // Group Name
+            'F' => 'Subgroup',    // Subgroup Name
+            'G' => 'Department',  // Department Name
+            'H' => 'Unit',        // Unit of Measure
+            'I' => 'DefaultPrice', // Default Price
+            'J' => 'HospitalShare', // Hospital Share (%)
+            'K' => 'Contractor',  // Contractor Username
+        ];
+        
         // Add data validation for Type column (C)
-        for ($row = $startRow; $row <= $endRow; $row++) {
-            $validation = $worksheet->getCell('C' . $row)->getDataValidation();
-            $validation->setType(DataValidation::TYPE_LIST);
-            $validation->setErrorStyle(DataValidation::STYLE_STOP);
-            $validation->setAllowBlank(false);
-            $validation->setShowInputMessage(true);
-            $validation->setShowErrorMessage(true);
-            $validation->setShowDropDown(true);
-            $validation->setFormula1('"service,good"');
-            $validation->setErrorTitle('Invalid Type');
-            $validation->setError('Please select either "service" or "good"');
-            $validation->setPromptTitle('Select Type');
-            $validation->setPrompt('Choose the item type');
-        }
+        $this->addValidationToColumn($worksheet, 'C', $startRow, $endRow, 'service,good', 'Type', false);
         
         // Add data validation for Group Name column (E)
-        for ($row = $startRow; $row <= $endRow; $row++) {
-            $validation = $worksheet->getCell('E' . $row)->getDataValidation();
-            $validation->setType(DataValidation::TYPE_LIST);
-            $validation->setErrorStyle(DataValidation::STYLE_STOP);
-            $validation->setAllowBlank(true);
-            $validation->setShowInputMessage(true);
-            $validation->setShowErrorMessage(true);
-            $validation->setShowDropDown(true);
-            $validation->setFormula1('"' . implode(',', $groups) . '"');
-            $validation->setErrorTitle('Invalid Group');
-            $validation->setError('Please select a valid group');
-            $validation->setPromptTitle('Select Group');
-            $validation->setPrompt('Choose a group from the dropdown');
+        if (!empty($groups)) {
+            $this->addValidationToColumn($worksheet, 'E', $startRow, $endRow, implode(',', $groups), 'Group');
         }
         
         // Add data validation for Subgroup Name column (F)
-        for ($row = $startRow; $row <= $endRow; $row++) {
-            $validation = $worksheet->getCell('F' . $row)->getDataValidation();
-            $validation->setType(DataValidation::TYPE_LIST);
-            $validation->setErrorStyle(DataValidation::STYLE_STOP);
-            $validation->setAllowBlank(true);
-            $validation->setShowInputMessage(true);
-            $validation->setShowErrorMessage(true);
-            $validation->setShowDropDown(true);
-            $validation->setFormula1('"' . implode(',', $groups) . '"');
-            $validation->setErrorTitle('Invalid Subgroup');
-            $validation->setError('Please select a valid subgroup');
-            $validation->setPromptTitle('Select Subgroup');
-            $validation->setPrompt('Choose a subgroup from the dropdown');
+        if (!empty($groups)) {
+            $this->addValidationToColumn($worksheet, 'F', $startRow, $endRow, implode(',', $groups), 'Subgroup');
         }
         
         // Add data validation for Department Name column (G)
-        for ($row = $startRow; $row <= $endRow; $row++) {
-            $validation = $worksheet->getCell('G' . $row)->getDataValidation();
-            $validation->setType(DataValidation::TYPE_LIST);
-            $validation->setErrorStyle(DataValidation::STYLE_STOP);
-            $validation->setAllowBlank(true);
-            $validation->setShowInputMessage(true);
-            $validation->setShowErrorMessage(true);
-            $validation->setShowDropDown(true);
-            $validation->setFormula1('"' . implode(',', $departments) . '"');
-            $validation->setErrorTitle('Invalid Department');
-            $validation->setError('Please select a valid department');
-            $validation->setPromptTitle('Select Department');
-            $validation->setPrompt('Choose a department from the dropdown');
+        if (!empty($departments)) {
+            $this->addValidationToColumn($worksheet, 'G', $startRow, $endRow, implode(',', $departments), 'Department');
         }
         
         // Add data validation for Unit of Measure column (H)
-        for ($row = $startRow; $row <= $endRow; $row++) {
-            $validation = $worksheet->getCell('H' . $row)->getDataValidation();
-            $validation->setType(DataValidation::TYPE_LIST);
-            $validation->setErrorStyle(DataValidation::STYLE_STOP);
-            $validation->setAllowBlank(true);
-            $validation->setShowInputMessage(true);
-            $validation->setShowErrorMessage(true);
-            $validation->setShowDropDown(true);
-            $validation->setFormula1('"' . implode(',', $units) . '"');
-            $validation->setErrorTitle('Invalid Unit');
-            $validation->setError('Please select a valid unit');
-            $validation->setPromptTitle('Select Unit');
-            $validation->setPrompt('Choose a unit from the dropdown');
+        if (!empty($units)) {
+            $this->addValidationToColumn($worksheet, 'H', $startRow, $endRow, implode(',', $units), 'Unit');
         }
         
-        // Add data validation for Service Point Name column (I)
-        for ($row = $startRow; $row <= $endRow; $row++) {
-            $validation = $worksheet->getCell('I' . $row)->getDataValidation();
-            $validation->setType(DataValidation::TYPE_LIST);
-            $validation->setErrorStyle(DataValidation::STYLE_STOP);
-            $validation->setAllowBlank(true);
-            $validation->setShowInputMessage(true);
-            $validation->setShowErrorMessage(true);
-            $validation->setShowDropDown(true);
-            $validation->setFormula1('"' . implode(',', $servicePoints) . '"');
-            $validation->setErrorTitle('Invalid Service Point');
-            $validation->setError('Please select a valid service point');
-            $validation->setPromptTitle('Select Service Point');
-            $validation->setPrompt('Choose a service point from the dropdown');
+        // Add data validation for Contractor column (K)
+        if (!empty($contractors)) {
+            $this->addValidationToColumn($worksheet, 'K', $startRow, $endRow, implode(',', $contractors), 'Contractor');
         }
         
-        // Add data validation for Contractor column (L)
-        for ($row = $startRow; $row <= $endRow; $row++) {
-            $validation = $worksheet->getCell('L' . $row)->getDataValidation();
-            $validation->setType(DataValidation::TYPE_LIST);
-            $validation->setErrorStyle(DataValidation::STYLE_STOP);
-            $validation->setAllowBlank(true);
-            $validation->setShowInputMessage(true);
-            $validation->setShowErrorMessage(true);
-            $validation->setShowDropDown(true);
-            $validation->setFormula1('"' . implode(',', $contractors) . '"');
-            $validation->setErrorTitle('Invalid Contractor');
-            $validation->setError('Please select a valid contractor account number');
-            $validation->setPromptTitle('Select Contractor');
-            $validation->setPrompt('Choose a contractor account number from the dropdown');
-        }
+        // Add data validation for service point columns (dynamic) - filter by branch
+        $headers = $this->headings();
         
-        // Add data validation for Branch Name column (O)
+        foreach ($headers as $index => $header) {
+            if (strpos($header, ' - Service Point') !== false) {
+                // Extract branch name from header
+                $branchName = str_replace(' - Service Point', '', $header);
+                
+                // Get service points for this specific branch
+                $branch = $branches->where('name', $branchName)->first();
+                if ($branch) {
+                    $branchServicePoints = ServicePoint::where('business_id', $this->businessId)
+                        ->where('branch_id', $branch->id)
+                        ->pluck('name')
+                        ->toArray();
+                    
+                    if (!empty($branchServicePoints)) {
+                        $columnLetter = $this->getColumnLetter($index + 1);
+                        $this->addValidationToColumn($worksheet, $columnLetter, $startRow, $endRow, implode(',', $branchServicePoints), 'Service Point');
+                    }
+                }
+            }
+        }
+    }
+    
+    private function addValidationToColumn($worksheet, $column, $startRow, $endRow, $formula, $type, $allowBlank = true)
+    {
         for ($row = $startRow; $row <= $endRow; $row++) {
-            $validation = $worksheet->getCell('O' . $row)->getDataValidation();
+            $validation = $worksheet->getCell($column . $row)->getDataValidation();
             $validation->setType(DataValidation::TYPE_LIST);
             $validation->setErrorStyle(DataValidation::STYLE_STOP);
-            $validation->setAllowBlank(true);
+            $validation->setAllowBlank($allowBlank);
             $validation->setShowInputMessage(true);
             $validation->setShowErrorMessage(true);
             $validation->setShowDropDown(true);
-            $validation->setFormula1('"' . implode(',', $branches) . '"');
-            $validation->setErrorTitle('Invalid Branch');
-            $validation->setError('Please select a valid branch');
-            $validation->setPromptTitle('Select Branch');
-            $validation->setPrompt('Choose a branch from the dropdown');
+            $validation->setFormula1('"' . $formula . '"');
+            $validation->setErrorTitle('Invalid ' . $type);
+            $validation->setError('Please select a valid ' . strtolower($type));
+            $validation->setPromptTitle('Select ' . $type);
+            $validation->setPrompt('Choose a ' . strtolower($type) . ' from the dropdown');
         }
-        
-        // Add data validation for Pricing Type column (N)
-        for ($row = $startRow; $row <= $endRow; $row++) {
-            $validation = $worksheet->getCell('N' . $row)->getDataValidation();
-            $validation->setType(DataValidation::TYPE_LIST);
-            $validation->setErrorStyle(DataValidation::STYLE_STOP);
-            $validation->setAllowBlank(false);
-            $validation->setShowInputMessage(true);
-            $validation->setShowErrorMessage(true);
-            $validation->setShowDropDown(true);
-            $validation->setFormula1('"default,custom"');
-            $validation->setErrorTitle('Invalid Pricing Type');
-            $validation->setError('Please select either "default" or "custom"');
-            $validation->setPromptTitle('Select Pricing Type');
-            $validation->setPrompt('Choose the pricing type');
+    }
+    
+    private function getColumnLetter($columnIndex)
+    {
+        $columnLetter = '';
+        while ($columnIndex > 0) {
+            $columnIndex--;
+            $columnLetter = chr(65 + ($columnIndex % 26)) . $columnLetter;
+            $columnIndex = intval($columnIndex / 26);
         }
+        return $columnLetter;
     }
 } 

@@ -38,6 +38,11 @@ class Branch extends Model
         return $this->hasMany(User::class);
     }
 
+    public function servicePoints()
+    {
+        return $this->hasMany(ServicePoint::class);
+    }
+
     public function getRouteKeyName()
     {
         return 'uuid';

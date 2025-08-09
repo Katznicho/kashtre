@@ -73,9 +73,9 @@
                             <input type="number" name="default_price" id="default_price" step="0.01" min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required placeholder="0.00" value="{{ old('default_price') }}">
                         </div>
 
-                        <!-- Hospital Share -->
-                        <div>
-                            <label for="hospital_share" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Hospital Share (%) <span class="text-red-500">*</span></label>
+                        <!-- Company/Entity Share -->
+                        <div class="service-good-only">
+                            <label for="hospital_share" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Company/Entity Share (%) <span class="text-red-500">*</span></label>
                             <input type="number" name="hospital_share" id="hospital_share" min="0" max="100" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required value="{{ old('hospital_share', 100) }}" placeholder="100">
                             <p class="mt-1 text-sm text-gray-500">If less than 100%, a Destination Account must be selected</p>
                         </div>
@@ -88,7 +88,7 @@
                         </div>
 
                         <!-- Group -->
-                        <div>
+                        <div class="service-good-only">
                             <label for="group_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Group <span class="text-red-500">*</span></label>
                             <select name="group_id" id="group_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                 <option value="">None</option>
@@ -99,9 +99,9 @@
                         </div>
 
                         <!-- Subgroup -->
-                        <div>
+                        <div class="service-good-only">
                             <label for="subgroup_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Subgroup <span class="text-red-500">*</span></label>
-                            <select name="subgroup_id" id="subgroup_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            <select name="subgroup_id" id="subgroup_id" data-required="true" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required>
                                 <option value="">None</option>
                                 @foreach($groups as $group)
                                     <option value="{{ $group->id }}" {{ old('subgroup_id') == $group->id ? 'selected' : '' }}>{{ $group->name }}</option>
@@ -110,9 +110,9 @@
                         </div>
 
                         <!-- Department -->
-                        <div>
+                        <div class="service-good-only">
                             <label for="department_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Department <span class="text-red-500">*</span></label>
-                            <select name="department_id" id="department_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            <select name="department_id" id="department_id" data-required="true" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required>
                                 <option value="">None</option>
                                 @foreach($departments as $department)
                                     <option value="{{ $department->id }}" {{ old('department_id') == $department->id ? 'selected' : '' }}>{{ $department->name }}</option>
@@ -120,39 +120,48 @@
                             </select>
                         </div>
 
-                        <!-- UOM -->
-                        <div>
+                        <!-- Unit of Measure -->
+                        <div class="service-good-only">
                             <label for="uom_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Unit of Measure <span class="text-red-500">*</span></label>
-                            <select name="uom_id" id="uom_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                <option value="">None</option>
-                                @foreach($itemUnits as $unit)
-                                    <option value="{{ $unit->id }}" {{ old('uom_id') == $unit->id ? 'selected' : '' }}>{{ $unit->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <!-- Service Point -->
-                        <div>
-                            <label for="service_point_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Service Point <span class="text-red-500">*</span></label>
-                            <select name="service_point_id" id="service_point_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                <option value="">None</option>
-                                @foreach($servicePoints as $point)
-                                    <option value="{{ $point->id }}" {{ old('service_point_id') == $point->id ? 'selected' : '' }}>{{ $point->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <!-- Contractor (shown only when hospital share < 100%) -->
-                        <div id="contractor_div" style="display: none;">
-                            <label for="contractor_account_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Destination Account <span class="text-red-500">*</span></label>
-                            <select name="contractor_account_id" id="contractor_account_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                <option value="">Select Destination Account</option>
-                                @foreach($contractors as $contractor)
-                                    <option value="{{ $contractor->id }}" {{ old('contractor_account_id') == $contractor->id ? 'selected' : '' }}>
-                                        {{ $contractor->account_name }} ({{ $contractor->business->name }})
+                            <select name="uom_id" id="uom_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required>
+                                <option value="" disabled selected>Select unit of measure</option>
+                                @foreach($itemUnits as $itemUnit)
+                                    <option value="{{ $itemUnit->id }}" {{ old('uom_id') == $itemUnit->id ? 'selected' : '' }}>
+                                        {{ $itemUnit->name }}
                                     </option>
                                 @endforeach
                             </select>
+                        </div>
+
+                        <!-- Branch Service Points Section -->
+                        <div class="md:col-span-2 service-good-only">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Branch Service Points</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Select service points from different branches for this item</p>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                @foreach($branches as $branch)
+                                <div class="border rounded-lg p-4 bg-gray-50 dark:bg-gray-700">
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        {{ $branch->name }}
+                                    </label>
+                                    <div class="space-y-2">
+                                        @php
+                                            $branchServicePoints = $servicePoints->where('branch_id', $branch->id);
+                                        @endphp
+                                        @if($branchServicePoints->count() > 0)
+                                            <select name="branch_service_points[{{ $branch->id }}]" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                                <option value="">Select service point</option>
+                                                @foreach($branchServicePoints as $servicePoint)
+                                                    <option value="{{ $servicePoint->id }}">{{ $servicePoint->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        @else
+                                            <p class="text-sm text-gray-500 dark:text-gray-400">No service points available for this branch</p>
+                                        @endif
+                                    </div>
+                                </div>
+                                @endforeach
+                            </div>
                         </div>
 
                         <!-- Other Name -->
@@ -361,6 +370,11 @@
                 const selectedType = typeSelect.value;
                 const validityDaysInput = document.getElementById('validity_days');
                 const itemsDetailsSection = document.getElementById('items_details_section');
+                const hospitalShareDiv = document.getElementById('hospital_share').closest('div');
+                const contractorDiv = document.getElementById('contractor_div');
+                
+                // Get service/good only elements
+                const serviceGoodOnlyElements = document.querySelectorAll('.service-good-only');
                 
                 // Hide both sections initially
                 packageItemsSection.style.display = 'none';
@@ -371,6 +385,44 @@
                 // Reset validity days requirement
                 if (validityDaysInput) {
                     validityDaysInput.required = false;
+                }
+                
+                // Show/hide fields based on type
+                if (selectedType === 'package' || selectedType === 'bulk') {
+                    // Hide hospital share and contractor fields
+                    hospitalShareDiv.style.display = 'none';
+                    contractorDiv.style.display = 'none';
+                    
+                    // Hide service/good specific fields
+                    serviceGoodOnlyElements.forEach(element => {
+                        element.style.display = 'none';
+                        // Remove required attribute from inputs in hidden sections
+                        const inputs = element.querySelectorAll('input, select');
+                        inputs.forEach(input => {
+                            input.required = false;
+                        });
+                    });
+                    
+                    // Set hospital share to 100 for packages and bulk
+                    document.getElementById('hospital_share').value = '100';
+                    document.getElementById('hospital_share').required = false;
+                } else {
+                    // Show hospital share for services and goods
+                    hospitalShareDiv.style.display = 'block';
+                    document.getElementById('hospital_share').required = true;
+                    
+                    // Show service/good specific fields
+                    serviceGoodOnlyElements.forEach(element => {
+                        element.style.display = 'block';
+                        // Restore required attributes where needed
+                        const requiredInputs = element.querySelectorAll('input[data-required="true"], select[data-required="true"]');
+                        requiredInputs.forEach(input => {
+                            input.required = true;
+                        });
+                    });
+                    
+                    // Re-trigger contractor toggle
+                    toggleContractor();
                 }
                 
                 // Show appropriate section based on type
@@ -407,14 +459,11 @@
                         // Update item units
                         updateSelect('uom_id', data.itemUnits);
                         
-                        // Update service points
-                        updateSelect('service_point_id', data.servicePoints);
+                        // Update service points - show all service points grouped by branch
+                        updateServicePointsByBranch(data.servicePoints);
                         
                         // Update contractors
                         updateSelect('contractor_account_id', data.contractors);
-                        
-                        // Update branch pricing section
-                        updateBranchPricing(data.branches);
                     })
                     .catch(error => {
                         console.error('Error fetching filtered data:', error);
@@ -443,7 +492,12 @@
                     // Special handling for contractors to show business name
                     if (selectId === 'contractor_account_id' && item.business) {
                         option.textContent = `${item.account_name} (${item.business.name})`;
-                    } else {
+                    } 
+                    // Special handling for service points to show branch name
+                    else if (selectId === 'service_point_id' && item.branch) {
+                        option.textContent = `${item.name} (${item.branch.name})`;
+                    } 
+                    else {
                         option.textContent = item.name;
                     }
                     
@@ -456,6 +510,47 @@
                 } else {
                     select.value = '';
                 }
+            }
+
+            function updateServicePointsByBranch(servicePointsByBranch) {
+                const branchServicePointsSection = document.getElementById('branch_service_points_section');
+                if (!branchServicePointsSection) return;
+
+                // Clear existing content
+                const gridContainer = branchServicePointsSection.querySelector('.grid');
+                gridContainer.innerHTML = '';
+
+                // Create new content for each branch
+                Object.keys(servicePointsByBranch).forEach(branchId => {
+                    const servicePoints = servicePointsByBranch[branchId];
+                    if (servicePoints.length === 0) return;
+
+                    const branch = servicePoints[0].branch;
+                    const branchDiv = document.createElement('div');
+                    branchDiv.className = 'border rounded-lg p-4 bg-gray-50 dark:bg-gray-700';
+                    
+                    let branchHtml = `
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            ${branch.name}
+                        </label>
+                        <div class="space-y-2">
+                            <select name="branch_service_points[${branchId}]" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                <option value="">Select service point</option>
+                    `;
+
+                    servicePoints.forEach(servicePoint => {
+                        branchHtml += `
+                            <option value="${servicePoint.id}">${servicePoint.name}</option>
+                        `;
+                    });
+
+                    branchHtml += `
+                            </select>
+                        </div>
+                    `;
+                    branchDiv.innerHTML = branchHtml;
+                    gridContainer.appendChild(branchDiv);
+                });
             }
 
             function updateBranchPricing(branches) {

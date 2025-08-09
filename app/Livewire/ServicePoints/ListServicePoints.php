@@ -47,6 +47,11 @@ class ListServicePoints extends Component implements HasForms, HasTable
                     ->sortable()
                     ->searchable(),
 
+                Tables\Columns\TextColumn::make('branch.name')
+                    ->label('Branch')
+                    ->sortable()
+                    ->searchable(),
+
                 Tables\Columns\TextColumn::make('description')
                     ->label('Description')
                     ->limit(50)

@@ -73,7 +73,7 @@ class ListAdmins extends Component implements HasForms, HasTable
             ->actions([
                 Tables\Actions\Action::make('show')
                     ->label('Show')
-                    ->visible(fn() => in_array('View Admin Users', Auth::user()->permissions))
+                    // ->visible(fn() => in_array('View Admin Users', Auth::user()->permissions))
                     ->url(fn(User $record): string => route('admins.show', $record->id))
                     ->icon('heroicon-o-eye')
                     ->color('info'),

@@ -61,6 +61,13 @@
                             <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->other_names }}</p>
                         </div>
                         @endif
+
+                        @if($item->contractor)
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Contractor</label>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->contractor->account_name }} ({{ $item->contractor->business->name }})</p>
+                        </div>
+                        @endif
                     </div>
 
                     <!-- Categorization -->
@@ -87,15 +94,22 @@
                             <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->itemUnit->name ?? 'Not assigned' }}</p>
                         </div>
 
+                        @if($item->branchServicePoints->count() > 0)
                         <div>
-                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Service Point</label>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->servicePoint->name ?? 'Not assigned' }}</p>
+                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Branch Service Points</label>
+                            <div class="mt-1 space-y-1">
+                                @foreach($item->branchServicePoints as $branchServicePoint)
+                                    <p class="text-sm text-gray-900 dark:text-white">
+                                        <span class="font-medium">{{ $branchServicePoint->branch->name }}:</span> 
+                                        {{ $branchServicePoint->servicePoint->name }}
+                                    </p>
+                                @endforeach
+                            </div>
                         </div>
-
-                        @if($item->contractor)
+                        @else
                         <div>
-                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Contractor</label>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->contractor->account_name }} ({{ $item->contractor->business->name }})</p>
+                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Branch Service Points</label>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">No service points assigned</p>
                         </div>
                         @endif
                     </div>

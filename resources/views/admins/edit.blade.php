@@ -141,12 +141,12 @@ $branch = $business->branches->first();
 
                     <input type="hidden" name="business_id" value="{{ $business->id }}">
                     <input type="hidden" name="branch_id" value="{{ $branch->id }}">
-                    @if(in_array('Edit Admin Users', $permissions))
+                    {{-- @if(in_array('Edit Admin Users', $permissions)) --}}
                     <div class="flex justify-end space-x-4 pt-4">
                         <a href="{{ route('admins.index') }}" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400">Cancel</a>
                         <button type="submit" class="px-4 py-2 bg-[#011478] text-white rounded-md hover:bg-[#011478]/90">Update Admin</button>
                     </div>
-                    @endif
+                    {{-- @endif --}}
                 </form>
             </div>
         </div>

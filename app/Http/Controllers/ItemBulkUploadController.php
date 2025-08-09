@@ -82,8 +82,9 @@ class ItemBulkUploadController extends Controller
             
             Excel::import($import, $request->file('file'));
 
-            // Create branch prices after items are imported
+            // Create branch prices and service points after items are imported
             $import->createBranchPrices();
+            $import->createBranchServicePoints();
 
             $successCount = $import->getSuccessCount();
             $errorCount = $import->getErrorCount();

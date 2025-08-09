@@ -1,0 +1,6 @@
+Name,Code (Auto-generated if empty),Type (service/good),Description,Group Name,Subgroup Name,Department Name,Unit of Measure,Default Price,Hospital Share (%),Contractor Username,Other Names,Main Hospital - Price,Outpatient Clinic - Price,Emergency Wing - Price,Main Hospital - Service Point,Outpatient Clinic - Service Point,Emergency Wing - Service Point
+Blood Test Complete,BT001,service,Complete blood count with differential,Laboratory,Hematology,Laboratory Department,Test,25000,85,Dr. John Smith,CBC Test,30000,22000,,Laboratory,Laboratory,
+X-Ray Chest,XR002,service,Chest X-ray imaging examination,Radiology,Chest Imaging,Radiology Department,Image,45000,100,,,50000,40000,60000,Radiology,Radiology,Emergency Radiology
+Paracetamol 500mg,PM003,good,Pain relief medication tablets,Pharmacy,Analgesics,Pharmacy Department,Tablet,2500,100,,,3000,2000,2800,Pharmacy,Pharmacy,Emergency Pharmacy
+Consultation General,CG004,service,General medical consultation,Clinical,General Medicine,Outpatient Department,Consultation,35000,70,Dr. Sarah Wilson,General Checkup,40000,30000,,Consultation Room,Consultation Room,
+Bandage Elastic,BE005,good,Medical elastic bandage for wound care,Medical Supplies,Wound Care,Surgical Department,Piece,5000,100,,,5500,4500,6000,Surgical Store,Pharmacy,Emergency Store

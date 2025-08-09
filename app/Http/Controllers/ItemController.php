@@ -15,6 +15,7 @@ use App\Models\Branch;
 use App\Models\BranchItemPrice;
 use App\Models\PackageItem;
 use App\Models\BulkItem;
+use App\Models\BranchServicePoint;
 
 class ItemController extends Controller
 {
@@ -80,13 +81,12 @@ class ItemController extends Controller
             'code' => 'nullable|string|unique:items,code',
             'type' => 'required|in:service,good,package,bulk',
             'description' => 'nullable|string',
-            'group_id' => 'required|exists:groups,id',
-            'subgroup_id' => 'required|exists:groups,id',
-            'department_id' => 'required|exists:departments,id',
-            'uom_id' => 'required|exists:item_units,id',
-            'service_point_id' => 'required|exists:service_points,id',
+            'group_id' => 'required_unless:type,package,bulk|nullable|exists:groups,id',
+            'subgroup_id' => 'required_if:type,service,good|nullable|exists:groups,id',
+            'department_id' => 'required_if:type,service,good|nullable|exists:departments,id',
+            'uom_id' => 'required_unless:type,package,bulk|nullable|exists:item_units,id',
             'default_price' => 'required|numeric|min:0',
-            'hospital_share' => 'required|integer|between:0,100',
+            'hospital_share' => 'required_if:type,service,good|integer|between:0,100',
             'contractor_account_id' => 'nullable|exists:contractor_profiles,id',
             'business_id' => 'required|exists:businesses,id',
             'other_names' => 'required|string',
@@ -95,6 +95,8 @@ class ItemController extends Controller
             'branch_prices' => 'nullable|array',
             'branch_prices.*.branch_id' => 'nullable|exists:branches,id',
             'branch_prices.*.price' => 'nullable|numeric|min:0',
+            'branch_service_points' => 'nullable|array',
+            'branch_service_points.*' => 'nullable|exists:service_points,id',
             'package_items' => 'nullable|array',
             'package_items.*.included_item_id' => 'nullable|exists:items,id',
             'package_items.*.max_quantity' => 'nullable|integer|min:1',
@@ -109,8 +111,19 @@ class ItemController extends Controller
             $validated['business_id'] = Auth::user()->business_id;
         }
 
-        // Validate contractor selection when hospital share is not 100%
-        if ($validated['hospital_share'] != 100 && empty($validated['contractor_account_id'])) {
+        // Set hospital_share to 100 for package and bulk types
+        if (in_array($validated['type'], ['package', 'bulk'])) {
+            $validated['hospital_share'] = 100;
+            $validated['contractor_account_id'] = null;
+            // Set service/good specific fields to null for packages and bulk items
+            $validated['group_id'] = null;
+            $validated['subgroup_id'] = null;
+            $validated['department_id'] = null;
+            $validated['uom_id'] = null;
+        }
+
+        // Validate contractor selection when hospital share is not 100% for goods and services
+        if (in_array($validated['type'], ['service', 'good']) && $validated['hospital_share'] != 100 && empty($validated['contractor_account_id'])) {
             return back()->withErrors(['contractor_account_id' => 'Contractor is required when hospital share is not 100%']);
         }
 
@@ -145,6 +158,20 @@ class ItemController extends Controller
                         'branch_id' => $branchPrice['branch_id'],
                         'item_id' => $item->id,
                         'price' => $branchPrice['price'],
+                    ]);
+                }
+            }
+        }
+
+        // Handle branch service points
+        if (isset($validated['branch_service_points'])) {
+            foreach ($validated['branch_service_points'] as $branchId => $servicePointId) {
+                if (!empty($servicePointId)) {
+                    BranchServicePoint::create([
+                        'business_id' => $validated['business_id'],
+                        'branch_id' => $branchId,
+                        'service_point_id' => $servicePointId,
+                        'item_id' => $item->id,
                     ]);
                 }
             }
@@ -193,8 +220,9 @@ class ItemController extends Controller
             'subgroup',
             'department',
             'itemUnit',
-            'servicePoint',
             'contractor.business',
+            'branchServicePoints.branch',
+            'branchServicePoints.servicePoint',
             'branchPrices.branch',
             'packageItems.includedItem',
             'bulkItems.includedItem',
@@ -231,6 +259,9 @@ class ItemController extends Controller
         // Get existing branch prices for this item
         $branchPrices = $item->branchPrices;
         
+        // Get existing branch service points for this item
+        $branchServicePoints = $item->branchServicePoints;
+        
         // Get existing package and bulk items
         $packageItems = $item->packageItems;
         $bulkItems = $item->bulkItems;
@@ -251,6 +282,7 @@ class ItemController extends Controller
             'contractors',
             'branches',
             'branchPrices',
+            'branchServicePoints',
             'packageItems',
             'bulkItems',
             'availableItems',
@@ -269,13 +301,12 @@ class ItemController extends Controller
             'code' => 'nullable|string|unique:items,code,' . $item->id,
             'type' => 'required|in:service,good,package,bulk',
             'description' => 'nullable|string',
-            'group_id' => 'nullable|exists:groups,id',
-            'subgroup_id' => 'nullable|exists:groups,id',
-            'department_id' => 'nullable|exists:departments,id',
-            'uom_id' => 'nullable|exists:item_units,id',
-            'service_point_id' => 'nullable|exists:service_points,id',
+            'group_id' => 'required_unless:type,package,bulk|nullable|exists:groups,id',
+            'subgroup_id' => 'required_if:type,service,good|nullable|exists:groups,id',
+            'department_id' => 'required_if:type,service,good|nullable|exists:departments,id',
+            'uom_id' => 'required_unless:type,package,bulk|nullable|exists:item_units,id',
             'default_price' => 'required|numeric|min:0',
-            'hospital_share' => 'required|integer|between:0,100',
+            'hospital_share' => 'required_if:type,service,good|integer|between:0,100',
             'contractor_account_id' => 'nullable|exists:contractor_profiles,id',
             'business_id' => 'required|exists:businesses,id',
             'other_names' => 'nullable|string',
@@ -283,6 +314,8 @@ class ItemController extends Controller
             'branch_prices' => 'nullable|array',
             'branch_prices.*.branch_id' => 'nullable|exists:branches,id',
             'branch_prices.*.price' => 'nullable|numeric|min:0',
+            'branch_service_points' => 'nullable|array',
+            'branch_service_points.*' => 'nullable|exists:service_points,id',
             'package_items' => 'nullable|array',
             'package_items.*.included_item_id' => 'nullable|exists:items,id',
             'package_items.*.max_quantity' => 'nullable|integer|min:1',
@@ -297,8 +330,19 @@ class ItemController extends Controller
             $validated['business_id'] = Auth::user()->business_id;
         }
 
-        // Validate contractor selection when hospital share is not 100%
-        if ($validated['hospital_share'] != 100 && empty($validated['contractor_account_id'])) {
+        // Set hospital_share to 100 for package and bulk types
+        if (in_array($validated['type'], ['package', 'bulk'])) {
+            $validated['hospital_share'] = 100;
+            $validated['contractor_account_id'] = null;
+            // Set service/good specific fields to null for packages and bulk items
+            $validated['group_id'] = null;
+            $validated['subgroup_id'] = null;
+            $validated['department_id'] = null;
+            $validated['uom_id'] = null;
+        }
+
+        // Validate contractor selection when hospital share is not 100% for goods and services
+        if (in_array($validated['type'], ['service', 'good']) && $validated['hospital_share'] != 100 && empty($validated['contractor_account_id'])) {
             return back()->withErrors(['contractor_account_id' => 'Contractor is required when hospital share is not 100%']);
         }
 
@@ -335,6 +379,22 @@ class ItemController extends Controller
                         'branch_id' => $branchPrice['branch_id'],
                         'item_id' => $item->id,
                         'price' => $branchPrice['price'],
+                    ]);
+                }
+            }
+        }
+
+        // Handle branch service points - delete existing and create new ones
+        $item->branchServicePoints()->delete();
+
+        if (isset($validated['branch_service_points'])) {
+            foreach ($validated['branch_service_points'] as $branchId => $servicePointId) {
+                if (!empty($servicePointId)) {
+                    BranchServicePoint::create([
+                        'business_id' => $validated['business_id'],
+                        'branch_id' => $branchId,
+                        'service_point_id' => $servicePointId,
+                        'item_id' => $item->id,
                     ]);
                 }
             }
@@ -406,19 +466,35 @@ class ItemController extends Controller
             return response()->json(['error' => 'Unauthorized access to business data'], 403);
         }
 
-        $data = [
-            'groups' => Group::where('business_id', $businessId)->get(),
-            'departments' => Department::where('business_id', $businessId)->get(),
-            'itemUnits' => ItemUnit::where('business_id', $businessId)->get(),
-            'servicePoints' => ServicePoint::where('business_id', $businessId)->get(),
-            'contractors' => ContractorProfile::with('business')->where('business_id', $businessId)->get(),
-            'branches' => Branch::where('business_id', $businessId)->get(),
-            'availableItems' => Item::where('business_id', $businessId)
-                ->whereNotIn('type', ['package', 'bulk'])
-                ->get()
-        ];
+        // Get groups
+        $groups = Group::where('business_id', $businessId)->get();
 
-        return response()->json($data);
+        // Get departments
+        $departments = Department::where('business_id', $businessId)->get();
+
+        // Get item units
+        $itemUnits = ItemUnit::where('business_id', $businessId)->get();
+
+        // Get service points grouped by branches
+        $servicePoints = ServicePoint::where('business_id', $businessId)
+            ->with('branch')
+            ->get()
+            ->groupBy('branch_id');
+
+        // Get contractors
+        $contractors = ContractorProfile::with('business')->where('business_id', $businessId)->get();
+
+        // Get branches
+        $branches = Branch::where('business_id', $businessId)->get();
+
+        return response()->json([
+            'groups' => $groups,
+            'departments' => $departments,
+            'itemUnits' => $itemUnits,
+            'servicePoints' => $servicePoints,
+            'contractors' => $contractors,
+            'branches' => $branches
+        ]);
     }
 
     /**
