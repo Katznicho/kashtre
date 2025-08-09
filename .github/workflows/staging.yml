@@ -55,8 +55,22 @@ jobs:
           echo "Local files in GITHUB_WORKSPACE:"
           ls -la $GITHUB_WORKSPACE
 
-          # Copy files using rsync with sshpass, excluding .env and .htaccess, with --delete to remove old files
-          sshpass -p "$FTP_PASSWORD" rsync -avz --delete --exclude '.env' --exclude '.htaccess' -e "ssh -p 65002 -o StrictHostKeyChecking=no" $GITHUB_WORKSPACE/ ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }}:"$DEPLOY_DIR"
+          # Copy files using rsync with sshpass, excluding unnecessary files, with --delete to remove old files
+          sshpass -p "$FTP_PASSWORD" rsync -avz --delete \
+            --exclude '.env' \
+            --exclude '.htaccess' \
+            --exclude 'node_modules/' \
+            --exclude '.git/' \
+            --exclude 'tests/' \
+            --exclude '.DS_Store' \
+            --exclude '*.log' \
+            --exclude 'storage/logs/' \
+            --exclude 'storage/framework/cache/' \
+            --exclude 'storage/framework/sessions/' \
+            --exclude 'storage/framework/views/' \
+            --timeout=600 \
+            -e "ssh -p 65002 -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=3" \
+            $GITHUB_WORKSPACE/ ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }}:"$DEPLOY_DIR"
 
           # Run SSH commands to verify and configure
           sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} bash -c '
