@@ -55,8 +55,8 @@ jobs:
           echo "Local files in GITHUB_WORKSPACE:"
           ls -la $GITHUB_WORKSPACE
 
-          # Copy files using rsync with sshpass, excluding .env and .htaccess
-          sshpass -p "$FTP_PASSWORD" rsync -avz --exclude '.env' --exclude '.htaccess' -e "ssh -p 65002 -o StrictHostKeyChecking=no" $GITHUB_WORKSPACE/ ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }}:"$DEPLOY_DIR"
+          # Copy files using rsync with sshpass, excluding .env and .htaccess, with --delete to remove old files
+          sshpass -p "$FTP_PASSWORD" rsync -avz --delete --exclude '.env' --exclude '.htaccess' -e "ssh -p 65002 -o StrictHostKeyChecking=no" $GITHUB_WORKSPACE/ ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }}:"$DEPLOY_DIR"
 
           # Run SSH commands to verify and configure
           sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} bash -c '
@@ -107,6 +107,11 @@ jobs:
 
               # Ensure migrations table exists
               php artisan migrate:install || echo "Failed to create migrations table"
+
+              # Remove conflicting migration files that should not exist
+              echo "Removing conflicting migration files..."
+              rm -f database/migrations/2025_07_01_000000_create_users_table.php || echo "Migration file not found (good)"
+              rm -f database/migrations/2025_07_02_000000_add_two_factor_columns_to_users_table.php || echo "Migration file not found (good)"
 
               # Mark key migrations as run to prevent conflicts
               echo "Marking critical migrations as already run..."
