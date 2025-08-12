@@ -1,0 +1,729 @@
+<x-app-layout>
+    <x-slot name="header">
+        <div class="flex justify-between items-center">
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                {{ __('Client Page - ') }}{{ $client->name }}
+            </h2>
+            <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-600">Client ID: {{ $client->client_id }}</span>
+                <span class="text-sm text-gray-600">Visit ID: {{ $client->visit_id }}</span>
+                <span class="px-3 py-1 text-sm font-medium rounded-full bg-green-100 text-green-800">
+                    Active
+                </span>
+            </div>
+        </div>
+    </x-slot>
+
+    <div class="py-6">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            
+            <!-- Success Message -->
+            @if(session('success'))
+            <div class="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                <div class="flex items-center space-x-3">
+                    <div class="flex-shrink-0">
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-green-800">{{ session('success') }}</p>
+                    </div>
+                </div>
+            </div>
+            @endif
+            
+            <!-- Section 1: Client Summary Details -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Client Summary Details</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Names</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->name }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Age</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->age ?? 'N/A' }} years</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Sex</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ ucfirst($client->sex) }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Client ID</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->client_id }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Visit ID</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->visit_id }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Payment Method</p>
+                            <p class="text-lg font-semibold text-blue-600">
+                                @if($client->preferred_payment_method)
+                                    {{ ucwords(str_replace('_', ' ', $client->preferred_payment_method)) }}
+                                @else
+                                    Not specified
+                                @endif
+                            </p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Phone Number</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->phone_number }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Email Address</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->email ?? 'N/A' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section 2: Financial Statement -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Financial Statement</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-blue-50 p-4 rounded-lg text-center">
+                            <p class="text-sm text-gray-500 mb-1">Current Balance</p>
+                            <p class="text-xl font-bold text-gray-900">UGX {{ number_format($client->balance ?? 0, 2) }}</p>
+                        </div>
+                        <div class="bg-yellow-50 p-4 rounded-lg text-center">
+                            <p class="text-sm text-gray-500 mb-1">Total Transactions</p>
+                            <p class="text-xl font-bold text-yellow-600">0</p>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                            View Detailed Financial Statement
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section 3: Ordered Items (Requests/Orders) -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Ordered Items (Requests/Orders)</h3>
+                    <div class="border border-gray-200 rounded-lg">
+                        <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                            <div class="grid grid-cols-4 gap-4">
+                                <div><span class="text-sm font-medium text-gray-700">Item</span></div>
+                                <div><span class="text-sm font-medium text-gray-700">Quantity</span></div>
+                                <div><span class="text-sm font-medium text-gray-700">Amount</span></div>
+                                <div><span class="text-sm font-medium text-gray-700">Status</span></div>
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <p class="text-sm text-gray-500 text-center">No orders found for this client</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section 4: Make an Order (Pricelist) - Professional Two Column Layout -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Make an Order (Pricelist)</h3>
+                    
+                    <!-- Main POS Interface - Two Column Layout -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        
+                        <!-- Left Column: Item Selection -->
+                        <div>
+                            <h4 class="text-md font-medium text-gray-900 mb-4">Select Item</h4>
+                            
+                            <!-- Search and Filter Bar -->
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="flex-1 relative">
+                                    <input type="text" id="search-input" placeholder="Search" 
+                                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                    </svg>
+                                </div>
+                                <button class="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded-md">
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            <!-- Items Table -->
+                            <div class="border border-gray-200 rounded-lg overflow-hidden">
+                                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div class="flex items-center">
+                                            <span class="text-sm font-medium text-gray-700">Item</span>
+                                            <svg class="ml-1 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <span class="text-sm font-medium text-gray-700">Quantity To Sell</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div id="items-container" class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                                    @forelse($items as $item)
+                                    <div class="item-row px-4 py-3 hover:bg-gray-50" data-item-name="{{ strtolower($item->name) }}">
+                                        <div class="grid grid-cols-2 gap-4 items-center">
+                                            <div>
+                                                <span class="text-sm text-gray-900">{{ $item->name }}</span>
+                                                @if($item->description)
+                                                <p class="text-xs text-gray-500 mt-1">{{ $item->description }}</p>
+                                                @endif
+                                                <p class="text-xs text-blue-600 mt-1">
+                                                    Price: UGX {{ number_format($item->final_price ?? 0, 2) }}
+                                                    @if(isset($item->final_price) && $item->final_price != $item->default_price)
+                                                        <span class="text-green-600">(Branch Price)</span>
+                                                    @else
+                                                        <span class="text-gray-500">(Default Price)</span>
+                                                    @endif
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <input type="number" min="0" value="0" 
+                                                       class="quantity-input w-20 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                       data-item-id="{{ $item->id }}" 
+                                                       data-item-price="{{ $item->final_price ?? 0 }}"
+                                                       data-item-name="{{ $item->name }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @empty
+                                    <div class="px-4 py-8">
+                                        <p class="text-sm text-gray-500 text-center">No items available for this hospital</p>
+                                    </div>
+                                    @endforelse
+                                </div>
+                            </div>
+                            
+                            <!-- Pagination -->
+                            <div class="mt-4 flex items-center justify-between text-sm text-gray-500">
+                                <span>Showing 1 to {{ min(5, count($items)) }} of {{ count($items) }} results</span>
+                                <div class="flex items-center space-x-2">
+                                    <select class="px-2 py-1 border border-gray-300 rounded-md">
+                                        <option value="5">5</option>
+                                        <option value="10">10</option>
+                                        <option value="25">25</option>
+                                    </select>
+                                    <span>Per page</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Column: Receipt -->
+                        <div>
+                            <h4 class="text-md font-medium text-gray-900 mb-4">Receipt</h4>
+                            
+                            <!-- Receipt Table -->
+                            <div class="border border-gray-200 rounded-lg overflow-hidden">
+                                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                    <div class="grid grid-cols-3 gap-4">
+                                        <div>
+                                            <span class="text-sm font-medium text-gray-700">Item</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-sm font-medium text-gray-700">Quantity</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-sm font-medium text-gray-700">Action</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div id="receipt-items" class="divide-y divide-gray-200 min-h-32">
+                                    <div class="px-4 py-8">
+                                        <p class="text-sm text-gray-500 text-center">No items selected</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Receipt Summary -->
+                            <div class="mt-4 bg-gray-50 p-4 rounded-lg">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-sm text-gray-600">Total Items:</span>
+                                    <span id="total-items" class="text-sm font-medium text-gray-900">0</span>
+                                </div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-sm text-gray-600">Total Quantity:</span>
+                                    <span id="total-quantity" class="text-sm font-medium text-gray-900">0</span>
+                                </div>
+                                <div class="flex justify-between items-center mb-4">
+                                    <span class="text-sm text-gray-600">Total Amount:</span>
+                                    <span id="total-amount" class="text-lg font-bold text-gray-900">UGX 0.00</span>
+                                </div>
+                                <button class="w-full bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors" onclick="showInvoicePreview()">
+                                    Preview
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Client Confirmation Modal -->
+    <div id="client-confirmation-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+        <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <!-- Header -->
+            <div class="bg-gray-50 px-6 py-4 rounded-t-lg border-b">
+                <h3 class="text-lg font-semibold text-gray-800 text-center">
+                    {{ auth()->user()->business->name ?? 'Medical Centre' }}
+                </h3>
+            </div>
+            
+            <!-- Client Details -->
+            <div class="px-6 py-4">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="space-y-2">
+                        <p class="text-sm text-gray-600">{{ $client->name }}</p>
+                        <p class="text-sm text-gray-600">Client ID: {{ $client->client_id }}</p>
+                        <p class="text-sm text-gray-600">Branch: {{ auth()->user()->currentBranch->name ?? 'N/A' }}</p>
+                    </div>
+                    <div class="space-y-2">
+                        <p class="text-sm text-gray-600">Age: {{ $client->age ?? 'N/A' }}</p>
+                        <p class="text-sm text-gray-600">Sex: {{ $client->sex ?? 'N/A' }}</p>
+                        <p class="text-sm text-gray-600">Visit ID: {{ $client->visit_id }}</p>
+                    </div>
+                </div>
+                
+                <!-- QR Code Placeholder -->
+                <div class="flex justify-end mb-4">
+                    <div class="w-16 h-16 bg-white border border-gray-300 flex items-center justify-center">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=64x64&data={{ urlencode($client->client_id . '|' . $client->name . '|' . $client->visit_id) }}" 
+                             alt="QR Code" 
+                             class="w-full h-full object-contain"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="hidden w-full h-full bg-gray-100 border border-gray-300 flex items-center justify-center">
+                            <span class="text-xs text-gray-500 text-center">QR<br>Code</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="bg-gray-50 px-6 py-4 rounded-b-lg flex justify-center space-x-4">
+                <button onclick="printClientDetails()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition duration-200">
+                    Print
+                </button>
+                <button onclick="closeClientConfirmation()" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded transition duration-200">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Preview Modal -->
+    <div id="invoice-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <!-- Invoice Header -->
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Invoice Preview</h2>
+                    <div class="bg-blue-600 text-white py-2 px-4 rounded-lg">
+                        <span class="text-lg font-semibold">Pro Invoice</span>
+                    </div>
+                </div>
+                
+                <!-- Client and Transaction Details -->
+                <div class="grid grid-cols-2 gap-4 mb-6 text-sm text-gray-700">
+                    <div>
+                        <p><strong>Payment Phone:</strong> {{ $client->payment_phone_number ?? 'N/A' }}</p>
+                        <p><strong>Client:</strong> {{ $client->name }} {{ $client->client_id }}</p>
+                        <p><strong>Visit ID:</strong> {{ $client->visit_id }}</p>
+                        <p><strong>Branch ID:</strong> {{ auth()->user()->currentBranch->id ?? 'N/A' }}</p>
+                    </div>
+                    <div>
+                        <p><strong>Date:</strong> {{ now()->format('n/j/Y') }}</p>
+                        <p><strong>Hospital:</strong> {{ auth()->user()->business->name ?? 'N/A' }}</p>
+                        <p><strong>Attended To By:</strong> {{ auth()->user()->name }} {{ auth()->user()->business->name ?? '' }}</p>
+                    </div>
+                </div>
+                
+                <!-- Items Table -->
+                <div class="mb-6">
+                    <table class="w-full border-collapse border border-gray-300">
+                        <thead>
+                            <tr class="bg-blue-600 text-white">
+                                <th class="border border-gray-300 px-4 py-2 text-left">Item</th>
+                                <th class="border border-gray-300 px-4 py-2 text-center">Quantity</th>
+                                <th class="border border-gray-300 px-4 py-2 text-right">Price</th>
+                                <th class="border border-gray-300 px-4 py-2 text-right">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoice-items-table">
+                            <!-- Items will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Financial Summary -->
+                <div class="text-right space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span>Total:</span>
+                        <span id="invoice-subtotal">UGX 0.00</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Package Adjustment:</span>
+                        <span>UGX -0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span id="invoice-subtotal-final">UGX 0.00</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Deposit Used:</span>
+                        <span>UGX 0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Amount Due:</span>
+                        <span id="invoice-amount-due">UGX 0.00</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Service Charge:</span>
+                        <span>UGX 50.00</span>
+                    </div>
+                    <div class="flex justify-between text-lg font-bold border-t pt-2">
+                        <span>Final Total:</span>
+                        <span id="invoice-final-total">UGX 0.00</span>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button onclick="closeInvoicePreview()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">
+                        Close
+                    </button>
+                    <button onclick="printInvoice()" class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                        Print
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let cart = [];
+        
+        // Add event listeners to quantity inputs
+        document.addEventListener('DOMContentLoaded', function() {
+            const quantityInputs = document.querySelectorAll('.quantity-input');
+            quantityInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    const itemId = this.dataset.itemId;
+                    const itemName = this.dataset.itemName;
+                    const rawPrice = this.dataset.itemPrice;
+                    const itemPrice = parseFloat(rawPrice) || 0;
+                    const quantity = parseInt(this.value) || 0;
+                    
+                    // Debug logging
+                    console.log('Item:', itemName, 'Raw Price:', rawPrice, 'Parsed Price:', itemPrice, 'Quantity:', quantity);
+                    
+                    if (quantity > 0) {
+                        addToCart(itemId, itemName, itemPrice, quantity);
+                        // Don't reset the input value - keep the state
+                    } else if (quantity === 0) {
+                        // Remove item from cart if quantity is 0
+                        removeFromCartByItemId(itemId);
+                    }
+                });
+            });
+            
+            // Add search functionality
+            const searchInput = document.getElementById('search-input');
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const itemRows = document.querySelectorAll('.item-row');
+                
+                itemRows.forEach(row => {
+                    const itemName = row.dataset.itemName;
+                    if (itemName.includes(searchTerm)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+        });
+        
+        function addToCart(itemId, itemName, itemPrice, quantity) {
+            // Check if item already exists in cart
+            const existingItem = cart.find(item => item.id === itemId);
+            if (existingItem) {
+                existingItem.quantity = quantity; // Update quantity instead of adding
+            } else {
+                cart.push({
+                    id: itemId,
+                    name: itemName,
+                    price: itemPrice,
+                    quantity: quantity
+                });
+            }
+            
+            updateReceiptDisplay();
+        }
+        
+        function removeFromCartByItemId(itemId) {
+            cart = cart.filter(item => item.id !== itemId);
+            updateReceiptDisplay();
+        }
+        
+        function updateReceiptDisplay() {
+            const receiptContainer = document.getElementById('receipt-items');
+            const totalItemsSpan = document.getElementById('total-items');
+            const totalQuantitySpan = document.getElementById('total-quantity');
+            const totalAmountSpan = document.getElementById('total-amount');
+            
+            if (cart.length === 0) {
+                receiptContainer.innerHTML = '<div class="px-4 py-8"><p class="text-sm text-gray-500 text-center">No items selected</p></div>';
+                totalItemsSpan.textContent = '0';
+                totalQuantitySpan.textContent = '0';
+                totalAmountSpan.textContent = 'UGX 0.00';
+                return;
+            }
+            
+            let receiptHTML = '';
+            let totalItems = 0;
+            let totalQuantity = 0;
+            let totalAmount = 0;
+            
+            cart.forEach((item, index) => {
+                const itemTotal = (item.price || 0) * (item.quantity || 0);
+                totalItems += 1; // Count unique items
+                totalQuantity += (item.quantity || 0); // Sum of all quantities
+                totalAmount += itemTotal;
+                
+                receiptHTML += `
+                    <div class="px-4 py-3">
+                        <div class="grid grid-cols-3 gap-4 items-center">
+                            <div>
+                                <span class="text-sm text-gray-900">${item.name}</span>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-900">${item.quantity}</span>
+                            </div>
+                            <div>
+                                <button class="text-red-500 hover:text-red-700 text-sm" onclick="removeFromCart(${index})">
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            receiptContainer.innerHTML = receiptHTML;
+            totalItemsSpan.textContent = totalItems; // This now shows total quantity of all items
+            totalQuantitySpan.textContent = totalQuantity; // This now shows total quantity of all items
+            totalAmountSpan.textContent = `UGX ${totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        }
+        
+        function removeFromCart(index) {
+            const removedItem = cart[index];
+            cart.splice(index, 1);
+            
+            // Reset the corresponding quantity input to 0
+            const quantityInput = document.querySelector(`input[data-item-id="${removedItem.id}"]`);
+            if (quantityInput) {
+                quantityInput.value = 0;
+            }
+            
+            updateReceiptDisplay();
+        }
+        
+        // Show client confirmation modal on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            showClientConfirmation();
+        });
+        
+        function showClientConfirmation() {
+            document.getElementById('client-confirmation-modal').classList.remove('hidden');
+        }
+        
+        function closeClientConfirmation() {
+            document.getElementById('client-confirmation-modal').classList.add('hidden');
+        }
+        
+        function printClientDetails() {
+            // Create a print-friendly version of client details
+            const printWindow = window.open('', '_blank');
+            const modalContent = document.querySelector('#client-confirmation-modal .relative').cloneNode(true);
+            
+            // Remove action buttons from print version
+            const actionButtons = modalContent.querySelector('.bg-gray-50.px-6.py-4.rounded-b-lg');
+            if (actionButtons) {
+                actionButtons.remove();
+            }
+            
+            // Add print styles
+            const printStyles = `
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 20px; }
+                    .bg-gray-50 { background-color: #f9fafb; }
+                    .text-gray-800 { color: #1f2937; }
+                    .text-gray-600 { color: #4b5563; }
+                    .text-sm { font-size: 14px; }
+                    .text-lg { font-size: 18px; }
+                    .font-semibold { font-weight: 600; }
+                    .text-center { text-align: center; }
+                    .grid { display: grid; }
+                    .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+                    .gap-4 { gap: 16px; }
+                    .space-y-2 > * + * { margin-top: 8px; }
+                    .px-6 { padding-left: 24px; padding-right: 24px; }
+                    .py-4 { padding-top: 16px; padding-bottom: 16px; }
+                    .mb-4 { margin-bottom: 16px; }
+                    .rounded-lg { border-radius: 8px; }
+                    .border-b { border-bottom: 1px solid #e5e7eb; }
+                    .w-16 { width: 64px; }
+                    .h-16 { height: 64px; }
+                    .bg-gray-200 { background-color: #e5e7eb; }
+                    .border { border: 1px solid #d1d5db; }
+                    .flex { display: flex; }
+                    .justify-end { justify-content: flex-end; }
+                    .items-center { align-items: center; }
+                    .justify-center { justify-content: center; }
+                    .text-xs { font-size: 12px; }
+                    .text-gray-500 { color: #6b7280; }
+                    @media print {
+                        body { margin: 0; }
+                        .no-print { display: none; }
+                    }
+                </style>
+            `;
+            
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Client Details - ${new Date().toLocaleDateString()}</title>
+                    ${printStyles}
+                </head>
+                <body>
+                    ${modalContent.outerHTML}
+                </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            printWindow.focus();
+            
+            // Wait for content to load then print
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 500);
+        }
+
+        function showInvoicePreview() {
+            if (cart.length === 0) {
+                alert('Please add items to cart before previewing invoice');
+                return;
+            }
+            
+            // Populate invoice items table
+            const invoiceTable = document.getElementById('invoice-items-table');
+            let tableHTML = '';
+            let subtotal = 0;
+            
+            cart.forEach(item => {
+                const itemTotal = (item.price || 0) * (item.quantity || 0);
+                subtotal += itemTotal;
+                
+                tableHTML += `
+                    <tr class="bg-white">
+                        <td class="border border-gray-300 px-4 py-2">${item.name}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-center">${item.quantity}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-right">UGX ${(item.price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-right">UGX ${itemTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    </tr>
+                `;
+            });
+            
+            invoiceTable.innerHTML = tableHTML;
+            
+            // Calculate totals
+            const serviceCharge = 50.00;
+            const finalTotal = subtotal + serviceCharge;
+            
+            // Update invoice summary
+            document.getElementById('invoice-subtotal').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('invoice-subtotal-final').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('invoice-amount-due').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('invoice-final-total').textContent = `UGX ${finalTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            // Show modal
+            document.getElementById('invoice-modal').classList.remove('hidden');
+        }
+        
+        function closeInvoicePreview() {
+            document.getElementById('invoice-modal').classList.add('hidden');
+        }
+        
+        function printInvoice() {
+            // Create a print-friendly version
+            const printWindow = window.open('', '_blank');
+            const modalContent = document.querySelector('#invoice-modal .relative').cloneNode(true);
+            
+            // Remove action buttons from print version
+            const actionButtons = modalContent.querySelector('.flex.justify-end.space-x-4');
+            if (actionButtons) {
+                actionButtons.remove();
+            }
+            
+            // Add print styles
+            const printStyles = `
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 20px; }
+                    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #2563eb; color: white; }
+                    .text-center { text-align: center; }
+                    .text-right { text-align: right; }
+                    .text-left { text-align: left; }
+                    .font-bold { font-weight: bold; }
+                    .bg-blue-600 { background-color: #2563eb; }
+                    .text-white { color: white; }
+                    .py-2 { padding-top: 8px; padding-bottom: 8px; }
+                    .px-4 { padding-left: 16px; padding-right: 16px; }
+                    .rounded-lg { border-radius: 8px; }
+                    .mb-6 { margin-bottom: 24px; }
+                    .space-y-2 > * + * { margin-top: 8px; }
+                    .border-t { border-top: 1px solid #ddd; }
+                    .pt-2 { padding-top: 8px; }
+                    @media print {
+                        body { margin: 0; }
+                        .no-print { display: none; }
+                    }
+                </style>
+            `;
+            
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Invoice - ${new Date().toLocaleDateString()}</title>
+                    ${printStyles}
+                </head>
+                <body>
+                    ${modalContent.outerHTML}
+                </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            printWindow.focus();
+            
+            // Wait for content to load then print
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 500);
+        }
+    </script>
+</x-app-layout>

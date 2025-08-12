@@ -459,7 +459,15 @@
                 const businessId = businessSelect.value;
                 if (!businessId) return;
 
-                fetch(`{{ route('items.filtered-data') }}?business_id=${businessId}`)
+                fetch(`{{ route('items.filtered-data') }}?business_id=${businessId}`, {
+                    method: 'GET',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'same-origin'
+                })
                     .then(response => response.json())
                     .then(data => {
                         // Update groups
@@ -477,6 +485,9 @@
                         
                         // Update contractors
                         updateSelect('contractor_account_id', data.contractors);
+                        
+                        // Update branch pricing section
+                        updateBranchPricing(data.branches);
                     })
                     .catch(error => {
                         console.error('Error fetching filtered data:', error);
@@ -526,16 +537,25 @@
             }
 
             function updateServicePointsByBranch(servicePointsByBranch) {
-                const branchServicePointsSection = document.getElementById('branch_service_points_section');
-                if (!branchServicePointsSection) return;
+                
+                const branchServicePointsSection = document.querySelector('.service-good-only .grid');
+                
+                if (!branchServicePointsSection) {
+                    return;
+                }
 
                 // Clear existing content
-                const gridContainer = branchServicePointsSection.querySelector('.grid');
-                gridContainer.innerHTML = '';
+                branchServicePointsSection.innerHTML = '';
+
+                if (!servicePointsByBranch || Object.keys(servicePointsByBranch).length === 0) {
+                    branchServicePointsSection.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No branches available for the selected business</p>';
+                    return;
+                }
 
                 // Create new content for each branch
                 Object.keys(servicePointsByBranch).forEach(branchId => {
                     const servicePoints = servicePointsByBranch[branchId];
+                    
                     if (servicePoints.length === 0) return;
 
                     const branch = servicePoints[0].branch;
@@ -562,8 +582,9 @@
                         </div>
                     `;
                     branchDiv.innerHTML = branchHtml;
-                    gridContainer.appendChild(branchDiv);
+                    branchServicePointsSection.appendChild(branchDiv);
                 });
+                
             }
 
             function updateBranchPricing(branches) {
@@ -865,6 +886,16 @@
             // Add event listener for type change
             typeSelect.addEventListener('change', togglePackageAndBulkSections);
 
+            // Add event listener for business change
+            if (businessSelect) {
+                businessSelect.addEventListener('change', function() {
+                    const selectedBusinessId = this.value;
+                    if (selectedBusinessId) {
+                        updateFilteredData();
+                    }
+                });
+            }
+
             // Always trigger initial data load for the selected business
             // This ensures the data matches the selected business
             if (businessSelect && businessSelect.value) {
@@ -876,4 +907,3 @@
         });
     </script>
 </x-app-layout>
-

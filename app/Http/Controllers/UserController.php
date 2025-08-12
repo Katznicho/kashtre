@@ -77,8 +77,8 @@ class UserController extends Controller
             'department_id' => 'required|exists:departments,id',
             'section_id' => 'required|exists:sections,id',
             'title_id' => 'required|exists:titles,id',
-            'service_points' => 'required|array',
-            'allowed_branches' => 'required|array',
+            'service_points' => 'nullable|array',
+            'allowed_branches' => 'nullable|array',
             'permissions_menu' => 'required|array',
             // Contractor profile fields (conditionally required)
             'bank_name' => 'required_if:permissions_menu.*,Contractor|string|nullable',
@@ -111,8 +111,8 @@ class UserController extends Controller
                 'department_id' => $validated['department_id'],
                 'section_id' => $validated['section_id'],
                 'title_id' => $validated['title_id'],
-                'service_points' => $validated['service_points'],
-                'allowed_branches' => $validated['allowed_branches'],
+                'service_points' => $validated['service_points'] ?? [],
+                'allowed_branches' => $validated['allowed_branches'] ?? [],
                 'permissions' => $validated['permissions_menu'],
                 'password' => '',
             ]);
@@ -196,8 +196,8 @@ class UserController extends Controller
             'department_id' => 'required|exists:departments,id',
             'section_id' => 'required|exists:sections,id',
             'title_id' => 'required|exists:titles,id',
-            'service_points' => 'required|array',
-            'allowed_branches' => 'required|array',
+            'service_points' => 'nullable|array',
+            'allowed_branches' => 'nullable|array',
             'permissions_menu' => 'required|array',
             // Contractor profile fields (conditionally required)
             'bank_name' => 'required_if:permissions_menu.*,Contractor|string|nullable',
@@ -224,8 +224,8 @@ class UserController extends Controller
                 'department_id' => $validated['department_id'],
                 'section_id' => $validated['section_id'],
                 'title_id' => $validated['title_id'],
-                'service_points' => $validated['service_points'],
-                'allowed_branches' => $validated['allowed_branches'],
+                'service_points' => $validated['service_points'] ?? [],
+                'allowed_branches' => $validated['allowed_branches'] ?? [],
                 'permissions' => $validated['permissions_menu'],
             ]);
             // Contractor profile logic

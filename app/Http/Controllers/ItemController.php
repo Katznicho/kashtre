@@ -37,25 +37,36 @@ class ItemController extends Controller
         
         if ($canSelectBusiness) {
             $businesses = Business::where('id', '!=', 1)->get();
-            // Default to first business for initial load
-            $selectedBusinessId = $businesses->first() ? $businesses->first()->id : null;
+            // No default business selection - user must choose
+            $selectedBusinessId = null;
         } else {
             $businesses = Business::where('id', Auth::user()->business_id)->get();
             $selectedBusinessId = Auth::user()->business_id;
         }
 
-        // Get data filtered by selected business (not user's business)
-        $groups = Group::where('business_id', $selectedBusinessId)->get();
-        $departments = Department::where('business_id', $selectedBusinessId)->get();
-        $itemUnits = ItemUnit::where('business_id', $selectedBusinessId)->get();
-        $servicePoints = ServicePoint::where('business_id', $selectedBusinessId)->get();
-        $contractors = ContractorProfile::with('business')->where('business_id', $selectedBusinessId)->get();
-        $branches = Branch::where('business_id', $selectedBusinessId)->get();
-        
-        // Get available items for package and bulk selection (exclude package and bulk types)
-        $availableItems = Item::where('business_id', $selectedBusinessId)
-            ->whereNotIn('type', ['package', 'bulk'])
-            ->get();
+        // Get data filtered by selected business (or empty collections if no business selected)
+        if ($selectedBusinessId) {
+            $groups = Group::where('business_id', $selectedBusinessId)->get();
+            $departments = Department::where('business_id', $selectedBusinessId)->get();
+            $itemUnits = ItemUnit::where('business_id', $selectedBusinessId)->get();
+            $servicePoints = ServicePoint::where('business_id', $selectedBusinessId)->get();
+            $contractors = ContractorProfile::with('business')->where('business_id', $selectedBusinessId)->get();
+            $branches = Branch::where('business_id', $selectedBusinessId)->get();
+            
+            // Get available items for package and bulk selection (exclude package and bulk types)
+            $availableItems = Item::where('business_id', $selectedBusinessId)
+                ->whereNotIn('type', ['package', 'bulk'])
+                ->get();
+        } else {
+            // Empty collections when no business is selected
+            $groups = collect();
+            $departments = collect();
+            $itemUnits = collect();
+            $servicePoints = collect();
+            $contractors = collect();
+            $branches = collect();
+            $availableItems = collect();
+        }
 
         return view('items.create', compact(
             'businesses', 

@@ -7,19 +7,19 @@
                     <h2 class="text-xl font-bold text-gray-800 dark:text-white">Manage Admins</h2>
 
                     <div class="flex items-center space-x-3">
-                        @if(in_array('Add Admin Users', $permissions))
+                        @if(in_array('Add Admin Users', (array) $permissions))
                         <a href="{{ route('admins.create') }}" class="inline-flex items-center px-4 py-2 bg-[#011478] text-white text-sm font-semibold rounded-md hover:bg-[#011478]/90 transition duration-150">
                             ➕ Create Admin
                         </a>
                         @endif
 
-                        @if(in_array('Add Admin Users', $permissions))
+                        @if(in_array('Add Admin Users', (array) $permissions))
                         <a href="{{ route('admins.bulk.template') }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-md hover:bg-green-700 transition duration-150">
                             📥 Download Template
                         </a>
                         @endif
 
-                        @if(in_array('Add Admin Users', $permissions))
+                        @if(in_array('Add Admin Users', (array) $permissions))
                         <button onclick="document.getElementById('bulkUploadForm').classList.toggle('hidden')" class="inline-flex items-center px-4 py-2 bg-orange-600 text-white text-sm font-semibold rounded-md hover:bg-orange-700 transition duration-150">
                             📤 Bulk Upload
                         </button>
@@ -28,7 +28,7 @@
                 </div>
 
                 <!-- Bulk Upload Form -->
-                @if(in_array('Add Admin Users', $permissions))
+                @if(in_array('Add Admin Users', (array) $permissions))
                 <div id="bulkUploadForm" class="hidden mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <form action="{{ route('admins.bulk.upload') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
                         @csrf

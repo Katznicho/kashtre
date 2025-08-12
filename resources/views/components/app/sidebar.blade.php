@@ -34,6 +34,11 @@
                 <p class="text-gray-500 text-xs mt-0.5">
                     A/C: {{ $business->account_number ?? 'N/A' }}
                 </p>
+                @if(Auth::user()->current_branch)
+                <p class="text-gray-500 text-xs mt-0.5">
+                    Branch: {{ Auth::user()->current_branch->name }}
+                </p>
+                @endif
             </div>
         </div>
 
@@ -71,10 +76,10 @@
                             {{-- @if(in_array('View Admin Users', $permissions)) --}}
                             <li><a href="{{ route('admins.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Admin Users</a></li>
                             {{-- @endif --}}
-                            @if(in_array('View Audit Logs', $permissions))
+                            @if(in_array('View Audit Logs', (array) $permissions))
                             <li><a href="{{ route('audit-logs.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Audit Logs</a></li>
                             @endif
-                            @if(in_array('Manage System Settings', $permissions))
+                            @if(in_array('Manage System Settings', (array) $permissions))
                             <li><a href="{{ route('admins.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>System Settings</a></li>
                             @endif
                         </ul>
@@ -82,7 +87,7 @@
                     @endif
 
                     <!-- Staff Group -->
-                    @if(in_array('View Staff', $permissions))
+                    @if(in_array('View Staff', (array) $permissions))
                     <li>
                         <button @click="openGroup === 'staff' ? openGroup = '' : openGroup = 'staff'" :class="openGroup === 'staff' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
                             <span class="flex items-center">
@@ -96,10 +101,10 @@
                             </svg>
                         </button>
                         <ul x-show="openGroup === 'staff'" x-collapse class="mt-1 space-y-1 pl-10">
-                            @if(in_array('View Staff', $permissions))
+                            @if(in_array('View Staff', (array) $permissions))
                             <li><a href="{{ route('users.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Staff</a></li>
                             @endif
-                            @if(in_array('View Contractor Profile', $permissions))
+                            @if(in_array('View Contractor Profile', (array) $permissions))
                             <li><a href="{{ route('contractor-profiles.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Contractors</a></li>
                             @endif
                         </ul>
@@ -107,7 +112,7 @@
                     @endif
 
                     <!-- Businesses Group -->
-                    @if(in_array('View Business', $permissions))
+                    @if(in_array('View Business', (array) $permissions))
                     <li>
                         <button @click="openGroup === 'business' ? openGroup = '' : openGroup = 'business'" :class="openGroup === 'business' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
                             <span class="flex items-center">
@@ -121,10 +126,10 @@
                             </svg>
                         </button>
                         <ul x-show="openGroup === 'business'" x-collapse class="mt-1 space-y-1 pl-10">
-                            @if(in_array('View Business', $permissions))
+                            @if(in_array('View Business', (array) $permissions))
                             <li><a href="{{ route('businesses.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Business</a></li>
                             @endif
-                            @if(in_array('View Branches', $permissions))
+                            @if(in_array('View Branches', (array) $permissions))
                             <li><a href="{{ route('branches.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Branches</a></li>
                             @endif
                         </ul>
@@ -188,7 +193,8 @@
                             </svg>
                         </button>
                         <ul x-show="openGroup === 'clients'" x-collapse class="mt-1 space-y-1 pl-10">
-                            <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Client Management</a></li>
+                            <li><a href="{{ route('clients.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>View All Clients</a></li>
+                            <li><a href="{{ route('clients.create') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Add New Client</a></li>
                         </ul>
                     </li>
                     @endif

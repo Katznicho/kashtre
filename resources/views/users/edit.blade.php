@@ -59,7 +59,7 @@
     <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
         <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6">
             <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-6">Edit User</h2>
-            <form action="{{ route('users.update', $user->id) }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+            <form action="{{ route('users.update', $user->id) }}" method="POST" enctype="multipart/form-data" class="space-y-6" @submit="console.log('Form submitted')">
                 @csrf
                 @method('PUT')
 
@@ -209,7 +209,7 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
                                 <template x-for="sp in filteredServicePoints" :key="sp.id">
                                     <label class="inline-flex items-center">
-                                        <input type="checkbox" name="service_points[]" :value="sp.name" class="form-checkbox" :checked="{{ json_encode($user->service_points) }}.includes(sp.name)">
+                                        <input type="checkbox" name="service_points[]" :value="sp.name" class="form-checkbox" :checked="{{ json_encode($user->service_points ?? []) }}.includes(sp.name)">
                                         <span class="ml-2" x-text="sp.name"></span>
                                     </label>
                                 </template>
@@ -224,7 +224,7 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
                                 <template x-for="branch in filteredBranches" :key="branch.id">
                                     <label class="inline-flex items-center">
-                                        <input type="checkbox" name="allowed_branches[]" :value="branch.id" class="form-checkbox" :checked="{{ json_encode($user->allowed_branches) }}.includes(branch.id)">
+                                        <input type="checkbox" name="allowed_branches[]" :value="branch.id" class="form-checkbox" :checked="{{ json_encode($user->allowed_branches ?? []) }}.includes(branch.id)">
                                         <span class="ml-2" x-text="branch.name"></span>
                                     </label>
                                 </template>
@@ -241,7 +241,7 @@
                             <div class="mb-6 border p-4 rounded mt-2">
                                 {{-- Group Checkbox --}}
                                 <label class="inline-flex items-center mb-3">
-                                    <input type="checkbox" name="permissions_menu[]" value="{{ $group }}" class="module-checkbox form-checkbox h-5 w-5 text-indigo-600" {{ in_array($group, old('permissions_menu', $user->permissions ?? [])) ? 'checked' : '' }}>
+                                    <input type="checkbox" name="permissions_menu[]" value="{{ $group }}" class="module-checkbox form-checkbox h-5 w-5 text-indigo-600" {{ in_array($group, old('permissions_menu', (array) ($user->permissions ?? []))) ? 'checked' : '' }}>
                                     <span class="ml-2 font-bold text-lg text-gray-800">{{ $group }}</span>
                                 </label>
 
@@ -250,7 +250,7 @@
                                 <div class="pl-8 mb-4 border-l-2 border-gray-300">
                                     {{-- Category Checkbox --}}
                                     <label class="inline-flex items-center mb-2">
-                                        <input type="checkbox" name="permissions_menu[]" value="{{ $category }}" class="submodule-checkbox form-checkbox h-4 w-4 text-indigo-600" {{ in_array($category, old('permissions_menu', $user->permissions ?? [])) ? 'checked' : '' }}>
+                                        <input type="checkbox" name="permissions_menu[]" value="{{ $category }}" class="submodule-checkbox form-checkbox h-4 w-4 text-indigo-600" {{ in_array($category, old('permissions_menu', (array) ($user->permissions ?? []))) ? 'checked' : '' }}>
                                         <span class="ml-2 font-semibold text-gray-700">{{ $category }}</span>
                                     </label>
 
@@ -258,7 +258,7 @@
                                     <div class="ml-6 space-y-1">
                                         @foreach ($perms as $permission)
                                         <label class="inline-flex items-center space-x-2">
-                                            <input type="checkbox" name="permissions_menu[]" value="{{ $permission }}" class="action-checkbox form-checkbox h-3 w-3 text-indigo-600" {{ in_array($permission, old('permissions_menu', $user->permissions ?? [])) ? 'checked' : '' }}>
+                                            <input type="checkbox" name="permissions_menu[]" value="{{ $permission }}" class="action-checkbox form-checkbox h-3 w-3 text-indigo-600" {{ in_array($permission, old('permissions_menu', (array) ($user->permissions ?? []))) ? 'checked' : '' }}>
                                             <span>{{ $permission }}</span>
                                         </label>
                                         @endforeach
@@ -283,23 +283,34 @@
                     </button>
                     <div x-show="open" class="p-4 space-y-4">
                         <div>
-                            <label for="bank_name">Bank Name <span class="text-red-500">*</span></label>
-                            <input type="text" name="bank_name" id="bank_name" required placeholder="Enter bank name" class="form-input w-full" value="{{ old('bank_name', optional($contractorProfile)->bank_name) }}">
+                            <label for="bank_name">Bank Name <span class="text-red-500" x-show="isContractorSelected">*</span></label>
+                            <input type="text" name="bank_name" id="bank_name" :required="isContractorSelected" placeholder="Enter bank name" class="form-input w-full" value="{{ old('bank_name', optional($contractorProfile)->bank_name) }}">
                         </div>
                         <div>
-                            <label for="account_name">Account Name <span class="text-red-500">*</span></label>
-                            <input type="text" name="account_name" id="account_name" required placeholder="Enter account name" class="form-input w-full" value="{{ old('account_name', optional($contractorProfile)->account_name) }}">
+                            <label for="account_name">Account Name <span class="text-red-500" x-show="isContractorSelected">*</span></label>
+                            <input type="text" name="account_name" id="account_name" :required="isContractorSelected" placeholder="Enter account name" class="form-input w-full" value="{{ old('account_name', optional($contractorProfile)->account_name) }}">
                         </div>
                         <div>
-                            <label for="account_number">Account Number <span class="text-red-500">*</span></label>
-                            <input type="text" name="account_number" id="account_number" required placeholder="Enter account number" class="form-input w-full" value="{{ old('account_number', optional($contractorProfile)->account_number) }}">
+                            <label for="account_number">Account Number <span class="text-red-500" x-show="isContractorSelected">*</span></label>
+                            <input type="text" name="account_number" id="account_number" :required="isContractorSelected" placeholder="Enter account number" class="form-input w-full" value="{{ old('account_number', optional($contractorProfile)->account_number) }}">
                         </div>
                     </div>
                 </div>
 
+                <!-- Validation Errors -->
+                @if ($errors->any())
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                    <ul class="list-disc list-inside">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+                @endif
+
                 <div class="flex justify-end space-x-4 pt-4">
                     <a href="{{ route('users.index') }}" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400">Cancel</a>
-                    <button type="submit" class="px-4 py-2 bg-[#011478] text-white rounded-md hover:bg-[#011478]/90">Update User</button>
+                    <button type="submit" class="px-4 py-2 bg-[#011478] text-white rounded-md hover:bg-[#011478]/90" @click="console.log('Button clicked')">Update User</button>
                 </div>
             </form>
         </div>
@@ -406,3 +417,4 @@
             }
         </script>
 </x-app-layout>
+

@@ -20,9 +20,9 @@ class EventServiceProvider extends ServiceProvider
             SendEmailVerificationNotification::class,
         ],
 
-        Login::class => [
-            SendLoginAlert::class,
-        ],
+        // Login::class => [
+        //     SendLoginAlert::class,
+        // ],
     ];
 
     /**

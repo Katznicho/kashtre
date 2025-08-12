@@ -38,7 +38,7 @@ class AppServiceProvider extends ServiceProvider
             $user = Auth::user();
         
             $view->with('business', $user?->business);
-            $view->with('permissions', $user?->permissions ?? []);
+            $view->with('permissions', (array) ($user?->permissions ?? []));
         });
 
          // Register observers

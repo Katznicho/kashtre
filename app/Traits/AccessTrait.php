@@ -31,7 +31,7 @@ trait AccessTrait
     ];
 
     public static $contractor = [
-        "Contractor" => ["View Contractor", "Edit Contractor", "Add Contractor Profile", 'View Contractor Profile', 'Edit Contractor Profile'],
+        "Contractor" => ["View Contractor"],
     ];
 
    
@@ -92,7 +92,10 @@ trait AccessTrait
     ];
 
     public static $staffAccess = [
-        "Staff" => ['View Staff', 'Edit Staff', 'Add Staff', 'Delete Staff', 'Assign Roles'],
+        "Staff" => [
+            'View Staff', 'Edit Staff', 'Add Staff', 'Delete Staff', 'Assign Roles',
+            "Edit Contractor", "Add Contractor Profile", 'View Contractor Profile', 'Edit Contractor Profile'
+    ],
     ];
 
     public static $reportAccess = [

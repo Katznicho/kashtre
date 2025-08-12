@@ -29,6 +29,7 @@ use App\Http\Controllers\SubGroupController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BulkUploadController;
+use App\Http\Controllers\ClientController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -48,7 +49,6 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::redirect('/', 'login');
-
 
 // Route::get("makePayment",[PaymentController::class,"makePayment"])->name("makePayment");    
 
@@ -89,9 +89,9 @@ Route::get('/package-bulk-upload', [PackageBulkUploadController::class, 'index']
 Route::get('/package-bulk-upload/template', [PackageBulkUploadController::class, 'downloadTemplate'])->name('package-bulk-upload.template');
 Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 'import'])->name('package-bulk-upload.import');
     
-    Route::resource("items", ItemController::class);
     Route::get('/items/filtered-data', [ItemController::class, 'getFilteredData'])->name('items.filtered-data');
     Route::get('/items/generate-code', [ItemController::class, 'generateCode'])->name('items.generate-code');
+    Route::resource("items", ItemController::class);
     
     Route::resource("groups", GroupController::class);
     Route::resource("patient-categories", PatientCategoryController::class);
@@ -110,6 +110,8 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::resource("contractor-profiles", ContractorProfileController::class);
     Route::resource("sub-groups", SubGroupController::class);
     Route::resource("admins", AdminController::class);
+    Route::resource("clients", ClientController::class);
+    Route::get('/pos/item-selection/{client}', [TransactionController::class, 'itemSelection'])->name('pos.item-selection');
     
     // Admin bulk operations
     Route::get('/admins/bulk/template', [AdminController::class, 'downloadTemplate'])->name('admins.bulk.template');
@@ -129,17 +131,13 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     
     Route::resource("audit-logs", AuditLogController::class);
     Route::post('/select-room', [RoomController::class, 'selectRoom'])->name('room.select');
+    Route::post('/select-branch', [BranchController::class, 'selectBranch'])->name('branch.select');
 
     Route::prefix('bulk-upload')->group(function () {
         Route::get('/template', [BulkUploadController::class, 'generateTemplate'])->name('bulk.upload.template');
         Route::get('/form', [BulkUploadController::class, 'showUploadForm'])->name('bulk.upload.form');
         Route::post('/import-validations', [BulkUploadController::class, 'importTemplate'])->name('bulk.upload.import-validations');
     });
-
-
-
-
-
 
     // Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
     // routes/web.php

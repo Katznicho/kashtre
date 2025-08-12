@@ -91,6 +91,28 @@ class BranchController extends Controller
     }
 
     /**
+     * Select a branch for the current user session
+     */
+    public function selectBranch(Request $request)
+    {
+        $request->validate([
+            'branch_id' => 'required|exists:branches,id',
+        ]);
+
+        $user = Auth::user();
+        $allowedBranches = (array) ($user->allowed_branches ?? []);
+        
+        // Check if the user has permission to access this branch
+        if (!in_array($request->branch_id, $allowedBranches)) {
+            return response()->json(['error' => 'You do not have permission to access this branch.'], 403);
+        }
+
+        session(['current_branch_id' => $request->branch_id]);
+
+        return response()->json(['message' => 'Branch selected successfully.']);
+    }
+
+    /**
      * Show the form for editing the specified branch.
      */
     public function edit(Branch $branch)

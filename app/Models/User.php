@@ -101,6 +101,33 @@ class User extends Authenticatable
         return $this->belongsTo(Branch::class);
     }
 
+    /**
+     * Get the current working branch for the user
+     */
+    public function getCurrentBranchAttribute()
+    {
+        $currentBranchId = session('current_branch_id', $this->branch_id);
+        
+        // If we have a branch ID, try to find the branch
+        if ($currentBranchId) {
+            $branch = Branch::find($currentBranchId);
+            if ($branch) {
+                return $branch;
+            }
+        }
+        
+        // Fallback to the user's assigned branch
+        if ($this->branch_id) {
+            $branch = Branch::find($this->branch_id);
+            if ($branch) {
+                return $branch;
+            }
+        }
+        
+        // If no branch is found, return null
+        return null;
+    }
+
     protected static function booted()
     {
         static::creating(function ($user) {

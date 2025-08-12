@@ -23,9 +23,16 @@
                     <div class="flex items-center mt-2 space-x-4">
                         <p class="text-gray-600 font-medium">User: {{ Auth::user()->name }}</p>
 
-                        @if (Auth::user()->branch)
+                        @if ($currentBranch)
                             <span class="text-gray-400">|</span>
-                            <p class="text-gray-600 font-medium">Branch: {{ Auth::user()->branch->name }}</p>
+                            <p class="text-gray-600 font-medium">
+                                Branch: {{ $currentBranch->name }}
+                                @if(count($allowedBranches) > 1)
+                                    <button onclick="showBranchSelection()" class="ml-2 text-blue-600 hover:text-blue-800 text-sm underline">
+                                        (Change)
+                                    </button>
+                                @endif
+                            </p>
                         @endif
 
                         <span class="text-gray-400">|</span>
@@ -55,78 +62,185 @@
     <script>
         window.userHasRoom = @json(session()->has('room_id'));
         window.rooms = @json($rooms);
+        window.allowedBranches = @json($allowedBranches);
+        window.currentBranchId = @json($currentBranch ? $currentBranch->id : null);
 
         document.addEventListener('DOMContentLoaded', function() {
-            if (!window.userHasRoom) {
-                let optionsHtml = `<option value="" disabled selected>-- Select a Room --</option>` +
-                    window.rooms.map(room =>
-                        `<option value="${room.id}">${room.name}</option>`
-                    ).join('');
+            // If user doesn't have a room and there are rooms available
+            if (!window.userHasRoom && window.rooms && window.rooms.length > 0) {
+                // If there's only one room, auto-select it
+                if (window.rooms.length === 1) {
+                    const roomId = window.rooms[0].id;
+                    fetch('{{ route('room.select') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        },
+                        body: JSON.stringify({
+                            room_id: roomId
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Auto-select successful, reload page
+                        location.reload();
+                    })
+                    .catch(() => {
+                        console.log('Auto-room selection failed, continuing without room');
+                    });
+                } else {
+                    // Multiple rooms available, show selection dialog
+                    let optionsHtml = `<option value="" disabled selected>-- Select a Room --</option>` +
+                        window.rooms.map(room =>
+                            `<option value="${room.id}">${room.name}</option>`
+                        ).join('');
 
-                // Swal.fire({
-                //     title: 'Select Your Room',
-                //     html: `
-                //     <select id="swal-room-select" style="
-                //         width: 100%;
-                //         padding: 0.5rem 0.75rem;
-                //         font-size: 1rem;
-                //         border-radius: 0.375rem;
-                //         border: 1px solid #CBD5E1; /* Tailwind slate-300 */
-                //         color: #475569; /* Tailwind slate-600 */
-                //         background-color: white;
-                //     ">
-                //         ${optionsHtml}
-                //     </select>
-                // `,
-                //     icon: 'info',
-                //     confirmButtonText: 'Confirm',
-                //     confirmButtonColor: '#A5B4FC', // Tailwind indigo-300
-                //     allowOutsideClick: false,
-                //     allowEscapeKey: false,
-                //     focusConfirm: false,
-                //     preConfirm: () => {
-                //         const selectedRoom = Swal.getPopup().querySelector('#swal-room-select').value;
-                //         if (!selectedRoom) {
-                //             Swal.showValidationMessage('Please select a room');
-                //         }
-                //         return selectedRoom;
-                //     }
-                // }).then((result) => {
-                //     if (result.isConfirmed) {
-                //         const roomId = result.value;
+                    Swal.fire({
+                        title: 'Select Your Room',
+                        html: `
+                        <select id="swal-room-select" style="
+                            width: 100%;
+                            padding: 0.5rem 0.75rem;
+                            font-size: 1rem;
+                            border-radius: 0.375rem;
+                            border: 1px solid #CBD5E1; /* Tailwind slate-300 */
+                            color: #475569; /* Tailwind slate-600 */
+                            background-color: white;
+                        ">
+                            ${optionsHtml}
+                        </select>
+                    `,
+                        icon: 'info',
+                        confirmButtonText: 'Confirm',
+                        confirmButtonColor: '#A5B4FC', // Tailwind indigo-300
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        focusConfirm: false,
+                        preConfirm: () => {
+                            const selectedRoom = Swal.getPopup().querySelector('#swal-room-select').value;
+                            if (!selectedRoom) {
+                                Swal.showValidationMessage('Please select a room');
+                            }
+                            return selectedRoom;
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            const roomId = result.value;
 
-                //         fetch('{{ route('room.select') }}', {
-                //                 method: 'POST',
-                //                 headers: {
-                //                     'Content-Type': 'application/json',
-                //                     'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                //                 },
-                //                 body: JSON.stringify({
-                //                     room_id: roomId
-                //                 })
-                //             })
-                //             .then(response => {
-                //                 if (!response.ok) throw new Error('Network response was not ok');
-                //                 return response.json();
-                //             })
-                //             .then(data => {
-                //                 Swal.fire({
-                //                     title: 'Success',
-                //                     text: data.message,
-                //                     icon: 'success',
-                //                     timer: 1500,
-                //                     showConfirmButton: false
-                //                 }).then(() => {
-                //                     location.reload();
-                //                 });
-                //             })
-                //             .catch(() => {
-                //                 Swal.fire('Error', 'Failed to set room. Please try again.', 'error');
-                //             });
-                //     }
-                });
+                            fetch('{{ route('room.select') }}', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                    },
+                                    body: JSON.stringify({
+                                        room_id: roomId
+                                    })
+                                })
+                                .then(response => {
+                                    if (!response.ok) throw new Error('Network response was not ok');
+                                    return response.json();
+                                })
+                                .then(data => {
+                                    Swal.fire({
+                                        title: 'Success',
+                                        text: data.message,
+                                        icon: 'success',
+                                        timer: 1500,
+                                        showConfirmButton: false
+                                    }).then(() => {
+                                        location.reload();
+                                    });
+                                })
+                                .catch(() => {
+                                    Swal.fire('Error', 'Failed to set room. Please try again.', 'error');
+                                });
+                        }
+                    });
+                }
             }
+            // If no rooms available, continue without room selection
         });
+
+        function showBranchSelection() {
+            if (!window.allowedBranches || window.allowedBranches.length === 0) {
+                Swal.fire('No Branches Available', 'You do not have access to any branches.', 'info');
+                return;
+            }
+
+            let optionsHtml = `<option value="" disabled>-- Select a Branch --</option>` +
+                window.allowedBranches.map(branch =>
+                    `<option value="${branch.id}" ${branch.id == window.currentBranchId ? 'selected' : ''}>${branch.name}</option>`
+                ).join('');
+
+            Swal.fire({
+                title: 'Select Your Working Branch',
+                html: `
+                <select id="swal-branch-select" style="
+                    width: 100%;
+                    padding: 0.5rem 0.75rem;
+                    font-size: 1rem;
+                    border-radius: 0.375rem;
+                    border: 1px solid #CBD5E1; /* Tailwind slate-300 */
+                    color: #475569; /* Tailwind slate-600 */
+                    background-color: white;
+                ">
+                    ${optionsHtml}
+                </select>
+            `,
+                icon: 'info',
+                confirmButtonText: 'Confirm',
+                confirmButtonColor: '#A5B4FC', // Tailwind indigo-300
+                allowOutsideClick: true,
+                allowEscapeKey: true,
+                focusConfirm: false,
+                preConfirm: () => {
+                    const selectedBranch = Swal.getPopup().querySelector('#swal-branch-select').value;
+                    if (!selectedBranch) {
+                        Swal.showValidationMessage('Please select a branch');
+                    }
+                    return selectedBranch;
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const branchId = result.value;
+
+                    fetch('{{ route('branch.select') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            },
+                            body: JSON.stringify({
+                                branch_id: branchId
+                            })
+                        })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Network response was not ok');
+                            return response.json();
+                        })
+                        .then(data => {
+                            Swal.fire({
+                                title: 'Success',
+                                text: data.message,
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false
+                            }).then(() => {
+                                location.reload();
+                            });
+                        })
+                        .catch((error) => {
+                            console.error('Error:', error);
+                            Swal.fire('Error', 'Failed to set branch. Please try again.', 'error');
+                        });
+                }
+            });
+        }
     </script>
 
 

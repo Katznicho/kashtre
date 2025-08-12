@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 class Dashboard extends Component
 {
     public $business;
+    public $currentBranch;
     public $balance;
     public $lastUpdate;
 
@@ -17,6 +18,7 @@ class Dashboard extends Component
 
         // Load the business relationship
         $this->business = $user->business;
+        $this->currentBranch = $user->current_branch;
 
         // dd($this->business->name);
 

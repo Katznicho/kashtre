@@ -5,7 +5,7 @@
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-xl font-bold text-gray-800 dark:text-white">Item Details</h2>
                     <div class="flex space-x-2">
-                        @if(in_array('Edit Items', Auth::user()->permissions ?? []))
+                        @if(in_array('Edit Items', (array) (Auth::user()->permissions ?? [])))
                         <a href="{{ route('items.edit', $item) }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md hover:bg-blue-700 transition duration-150">
                             Edit Item
                         </a>
@@ -37,15 +37,25 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Type</label>
                             <p class="mt-1 text-sm text-gray-900 dark:text-white">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    {{ ucfirst($item->type) }}
-                                </span>
+                                @if($item->type === 'package')
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                        Package
+                                    </span>
+                                @elseif($item->type === 'bulk')
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                        Bulk
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        {{ ucfirst($item->type) }}
+                                    </span>
+                                @endif
                             </p>
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Business</label>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->business->name }}</p>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->business->name ?? 'Not assigned' }}</p>
                         </div>
 
                         <div>
@@ -53,10 +63,12 @@
                             <p class="mt-1 text-sm text-gray-900 dark:text-white">UGX {{ number_format($item->default_price, 2) }}</p>
                         </div>
 
+                        @if($item->type !== 'package' && $item->type !== 'bulk')
                         <div>
                             <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Hospital Share</label>
                             <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->hospital_share }}%</p>
                         </div>
+                        @endif
 
                         @if($item->other_names)
                         <div>
@@ -68,12 +80,13 @@
                         @if($item->contractor)
                         <div>
                             <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Contractor</label>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->contractor->account_name }} ({{ $item->contractor->business->name }})</p>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->contractor->account_name ?? 'N/A' }} ({{ $item->contractor->business->name ?? 'N/A' }})</p>
                         </div>
                         @endif
                     </div>
 
-                    <!-- Categorization -->
+                    <!-- Categorization (Only for Simple Items) -->
+                    @if($item->type !== 'package' && $item->type !== 'bulk')
                     <div class="space-y-4">
                         <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2">Categorization</h3>
                         
@@ -116,6 +129,7 @@
                         </div>
                         @endif
                     </div>
+                    @endif
                 </div>
 
                 <!-- Description -->
@@ -130,29 +144,31 @@
                 @if($item->type === 'package' && $item->packageItems->count() > 0)
                 <div class="mt-6">
                     <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2 mb-4">Constituent Items</h3>
-                    <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-4">
+                    <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 mb-4">
                         <div class="flex items-center mb-3">
-                            <svg class="h-5 w-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="h-5 w-5 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
-                            <span class="text-sm font-medium text-blue-800 dark:text-blue-200">Package Validity: {{ $item->validity_days }} days</span>
+                            <span class="text-sm font-medium text-purple-800 dark:text-purple-200">Package Validity: {{ $item->validity_days }} days</span>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         @foreach($item->packageItems as $packageItem)
-                        <div class="border rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20">
+                        @if($packageItem->includedItem)
+                        <div class="border rounded-lg p-4 bg-purple-50 dark:bg-purple-900/20">
                             <div class="flex justify-between items-start mb-2">
                                 <div class="flex-1">
-                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $packageItem->includedItem->name }}</h4>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $packageItem->includedItem->code }}</p>
+                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $packageItem->includedItem->name ?? 'N/A' }}</h4>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $packageItem->includedItem->code ?? 'N/A' }}</p>
                                 </div>
-                                <span class="text-sm font-semibold text-blue-600 dark:text-blue-400">Max: {{ $packageItem->max_quantity }}</span>
+                                <span class="text-sm font-semibold text-purple-600 dark:text-purple-400">Max: {{ $packageItem->max_quantity }}</span>
                             </div>
                             <div class="text-xs text-gray-600 dark:text-gray-400">
-                                <p>Type: {{ ucfirst($packageItem->includedItem->type) }}</p>
-                                <p>Price: UGX {{ number_format($packageItem->includedItem->default_price, 2) }}</p>
+                                <p>Type: {{ ucfirst($packageItem->includedItem->type ?? 'N/A') }}</p>
+                                <p>Price: UGX {{ number_format($packageItem->includedItem->default_price ?? 0, 2) }}</p>
                             </div>
                         </div>
+                        @endif
                         @endforeach
                     </div>
                 </div>
@@ -164,19 +180,21 @@
                     <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2 mb-4">Constituent Items</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         @foreach($item->bulkItems as $bulkItem)
-                        <div class="border rounded-lg p-4 bg-green-50 dark:bg-green-900/20">
+                        @if($bulkItem->includedItem)
+                        <div class="border rounded-lg p-4 bg-orange-50 dark:bg-orange-900/20">
                             <div class="flex justify-between items-start mb-2">
                                 <div class="flex-1">
-                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $bulkItem->includedItem->name }}</h4>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $bulkItem->includedItem->code }}</p>
+                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $bulkItem->includedItem->name ?? 'N/A' }}</h4>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $bulkItem->includedItem->code ?? 'N/A' }}</p>
                                 </div>
-                                <span class="text-sm font-semibold text-green-600 dark:text-green-400">Qty: {{ $bulkItem->fixed_quantity }}</span>
+                                <span class="text-sm font-semibold text-orange-600 dark:text-orange-400">Qty: {{ $bulkItem->fixed_quantity }}</span>
                             </div>
                             <div class="text-xs text-gray-600 dark:text-gray-400">
-                                <p>Type: {{ ucfirst($bulkItem->includedItem->type) }}</p>
-                                <p>Price: UGX {{ number_format($bulkItem->includedItem->default_price, 2) }}</p>
+                                <p>Type: {{ ucfirst($bulkItem->includedItem->type ?? 'N/A') }}</p>
+                                <p>Price: UGX {{ number_format($bulkItem->includedItem->default_price ?? 0, 2) }}</p>
                             </div>
                         </div>
+                        @endif
                         @endforeach
                     </div>
                 </div>
@@ -188,19 +206,21 @@
                     <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2 mb-4">Included In Packages</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         @foreach($item->includedInPackages as $packageInclusion)
+                        @if($packageInclusion->packageItem)
                         <div class="border rounded-lg p-4 bg-purple-50 dark:bg-purple-900/20">
                             <div class="flex justify-between items-start mb-2">
                                 <div class="flex-1">
-                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $packageInclusion->packageItem->name }}</h4>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $packageInclusion->packageItem->code }}</p>
+                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $packageInclusion->packageItem->name ?? 'N/A' }}</h4>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $packageInclusion->packageItem->code ?? 'N/A' }}</p>
                                 </div>
                                 <span class="text-sm font-semibold text-purple-600 dark:text-purple-400">Max: {{ $packageInclusion->max_quantity }}</span>
                             </div>
                             <div class="text-xs text-gray-600 dark:text-gray-400">
-                                <p>Package Type: {{ ucfirst($packageInclusion->packageItem->type) }}</p>
-                                <p>Package Price: UGX {{ number_format($packageInclusion->packageItem->default_price, 2) }}</p>
+                                <p>Package Type: {{ ucfirst($packageInclusion->packageItem->type ?? 'N/A') }}</p>
+                                <p>Package Price: UGX {{ number_format($packageInclusion->packageItem->default_price ?? 0, 2) }}</p>
                             </div>
                         </div>
+                        @endif
                         @endforeach
                     </div>
                 </div>
@@ -212,37 +232,68 @@
                     <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2 mb-4">Included In Bulks</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         @foreach($item->includedInBulks as $bulkInclusion)
+                        @if($bulkInclusion->bulkItem)
                         <div class="border rounded-lg p-4 bg-orange-50 dark:bg-orange-900/20">
                             <div class="flex justify-between items-start mb-2">
                                 <div class="flex-1">
-                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $bulkInclusion->bulkItem->name }}</h4>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $bulkInclusion->bulkItem->code }}</p>
+                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $bulkInclusion->bulkItem->name ?? 'N/A' }}</h4>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $bulkInclusion->bulkItem->code ?? 'N/A' }}</p>
                                 </div>
                                 <span class="text-sm font-semibold text-orange-600 dark:text-orange-400">Qty: {{ $bulkInclusion->fixed_quantity }}</span>
                             </div>
                             <div class="text-xs text-gray-600 dark:text-gray-400">
-                                <p>Bulk Type: {{ ucfirst($bulkInclusion->bulkItem->type) }}</p>
-                                <p>Bulk Price: UGX {{ number_format($bulkInclusion->bulkItem->default_price, 2) }}</p>
+                                <p>Bulk Type: {{ ucfirst($bulkInclusion->bulkItem->type ?? 'N/A') }}</p>
+                                <p>Bulk Price: UGX {{ number_format($bulkInclusion->bulkItem->default_price ?? 0, 2) }}</p>
                             </div>
                         </div>
+                        @endif
                         @endforeach
                     </div>
                 </div>
                 @endif
 
-                <!-- Branch Pricing -->
+                <!-- Branch-Specific Attributes Table -->
                 @if($item->branchPrices->count() > 0)
                 <div class="mt-6">
-                    <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2 mb-4">Branch-Specific Pricing</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        @foreach($item->branchPrices as $branchPrice)
-                        <div class="border rounded-lg p-4 bg-gray-50 dark:bg-gray-700">
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $branchPrice->branch->name }}</span>
-                                <span class="text-sm font-semibold text-gray-900 dark:text-white">UGX {{ number_format($branchPrice->price, 2) }}</span>
-                            </div>
-                        </div>
-                        @endforeach
+                    <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2 mb-4">Branch-Specific Attributes</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead class="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Branch</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Price</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Last Updated</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                @foreach($item->branchPrices as $branchPrice)
+                                @if($branchPrice->branch)
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                                        {{ $branchPrice->branch->name ?? 'N/A' }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                        <span class="font-semibold">UGX {{ number_format($branchPrice->price, 2) }}</span>
+                                        @if($branchPrice->price != $item->default_price)
+                                            <span class="ml-2 text-xs {{ $branchPrice->price > $item->default_price ? 'text-red-600' : 'text-green-600' }}">
+                                                ({{ $branchPrice->price > $item->default_price ? '+' : '' }}{{ number_format((($branchPrice->price - $item->default_price) / $item->default_price) * 100, 1) }}%)
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                            Active
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                        {{ $branchPrice->updated_at->format('M d, Y H:i') }}
+                                    </td>
+                                </tr>
+                                @endif
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
                 </div>
                 @endif

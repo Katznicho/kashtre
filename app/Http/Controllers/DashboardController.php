@@ -32,6 +32,16 @@ class DashboardController extends Controller
         $branch = $user->branch;
         $rooms = Room::where('branch_id', $branch->id)->get();
 
+        // Get allowed branches for the user
+        $allowedBranches = [];
+        if ($user->allowed_branches) {
+            $allowedBranches = \App\Models\Branch::whereIn('id', (array) $user->allowed_branches)->get();
+        }
+
+        // Get current selected branch from session or default to user's branch
+        $currentBranchId = session('current_branch_id', $user->branch_id);
+        $currentBranch = \App\Models\Branch::find($currentBranchId);
+
         // Handle POST to set room_id in session
         if ($request->isMethod('post')) {
             $request->validate([
@@ -41,7 +51,7 @@ class DashboardController extends Controller
             return redirect()->route('dashboard'); // or redirect back to same page to avoid resubmission
         }
 
-        return view('pages/dashboard/dashboard', compact('business', 'branch', 'rooms'));
+        return view('pages/dashboard/dashboard', compact('business', 'branch', 'rooms', 'allowedBranches', 'currentBranch'));
     }
 
     /**

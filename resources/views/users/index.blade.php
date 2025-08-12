@@ -14,19 +14,19 @@
                     <h2 class="text-xl font-bold text-gray-800 dark:text-white">Manage Staff</h2>
 
                     <div class="flex items-center space-x-3">
-                        @if(in_array('Add Staff', $permissions))
+                        @if(in_array('Add Staff', (array) $permissions))
                         <a href="{{ route('users.create') }}" class="inline-flex items-center px-4 py-2 bg-[#011478] text-white text-sm font-semibold rounded-md hover:bg-[#011478]/90 transition duration-150">
                             ➕ Create Staff
                         </a>
                         @endif
 
-                        @if(in_array('Add Staff', $permissions))
+                        @if(in_array('Add Staff', (array) $permissions))
                         <button @click="showTemplateModal = true" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-md hover:bg-green-700 transition duration-150">
                             📥 Download Template
                         </button>
                         @endif
 
-                        @if(in_array('Add Staff', $permissions))
+                        @if(in_array('Add Staff', (array) $permissions))
                         <button @click="showBulkUploadModal = true" class="inline-flex items-center px-4 py-2 bg-orange-600 text-white text-sm font-semibold rounded-md hover:bg-orange-700 transition duration-150">
                             📤 Bulk Upload
                         </button>
