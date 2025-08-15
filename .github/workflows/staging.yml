@@ -101,6 +101,23 @@ jobs:
               exit 1
             fi
 
+            # Debug: Check vendor directory
+            if [ -d "vendor" ]; then
+              echo "vendor directory exists"
+              ls -la vendor/ | head -10
+            else
+              echo "Error: vendor directory not found"
+              exit 1
+            fi
+
+            # Debug: Check composer autoload files
+            if [ -f "vendor/autoload.php" ]; then
+              echo "vendor/autoload.php exists"
+            else
+              echo "Error: vendor/autoload.php not found"
+              exit 1
+            fi
+
             # Set permissions for storage and cache directories
             if [ -d "storage" ] && [ -d "bootstrap/cache" ]; then
               chmod -R 755 storage bootstrap/cache
@@ -235,31 +252,41 @@ jobs:
               # Create storage link
               php artisan storage:link || echo "Storage link already exists or failed to create"
 
-              # Clear and rebuild autoloader
-              composer dump-autoload --optimize || echo "Composer autoload rebuild failed"
+                        # Install/update Composer dependencies
+          echo "Installing Composer dependencies..."
+          composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs || echo "Composer install failed"
+          
+          # Clear and rebuild autoloader
+          echo "Rebuilding Composer autoloader..."
+          composer dump-autoload --optimize || echo "Composer autoload rebuild failed"
 
-              # Clear all caches first
-              php artisan optimize:clear || echo "Optimize clear failed"
-              php artisan config:clear || echo "Config clear failed"
-              php artisan cache:clear || echo "Cache clear failed"
-              php artisan route:clear || echo "Route clear failed"
-              php artisan view:clear || echo "View clear failed"
-              php artisan bootstrap:clear || echo "Bootstrap clear failed"
-              
-              # Clear Livewire cache and rediscover components
-              php artisan livewire:clear-cache || echo "Livewire cache clear failed"
-              php artisan livewire:discover || echo "Livewire discover failed"
-              
-              # Rebuild caches
-              php artisan config:cache || echo "Config cache failed"
-              php artisan route:cache || echo "Route cache failed"
-              php artisan view:cache || echo "View cache failed"
-              
-              # Verify Livewire components are discovered
-              php artisan livewire:list || echo "Livewire list failed"
-              
-              # Final optimization
-              php artisan optimize || echo "Final optimize failed"
+          # Clear all caches first
+          echo "Clearing application caches..."
+          php artisan optimize:clear || echo "Optimize clear failed"
+          php artisan config:clear || echo "Config clear failed"
+          php artisan cache:clear || echo "Cache clear failed"
+          php artisan route:clear || echo "Route clear failed"
+          php artisan view:clear || echo "View clear failed"
+          php artisan bootstrap:clear || echo "Bootstrap clear failed"
+          
+          # Clear Livewire cache and rediscover components
+          echo "Setting up Livewire components..."
+          php artisan livewire:clear-cache || echo "Livewire cache clear failed"
+          php artisan livewire:discover || echo "Livewire discover failed"
+          
+          # Rebuild caches
+          echo "Rebuilding application caches..."
+          php artisan config:cache || echo "Config cache failed"
+          php artisan route:cache || echo "Route cache failed"
+          php artisan view:cache || echo "View cache failed"
+          
+          # Verify Livewire components are discovered
+          echo "Verifying Livewire components..."
+          php artisan livewire:list || echo "Livewire list failed"
+          
+          # Final optimization
+          echo "Running final optimization..."
+          php artisan optimize || echo "Final optimize failed"
 
               # Restart queue workers if applicable
               php artisan queue:restart || echo "Queue restart not available"
