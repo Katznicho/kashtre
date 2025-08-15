@@ -125,9 +125,52 @@ jobs:
               composer dump-autoload --optimize --classmap-authoritative || { echo "Autoloader rebuild failed"; exit 1; }
             fi
             
-            # Test autoloader functionality
-            echo "Testing autoloader..."
-            php -r "require 'vendor/autoload.php'; echo 'Autoloader test successful';" || { echo "Autoloader test failed"; exit 1; }
+            # Test autoloader functionality with detailed error reporting
+            echo "Testing autoloader with detailed diagnostics..."
+            php -r "
+                error_reporting(E_ALL);
+                ini_set('display_errors', 1);
+                try {
+                    require 'vendor/autoload.php';
+                    echo 'Autoloader test successful';
+                } catch (Exception \$e) {
+                    echo 'Autoloader error: ' . \$e->getMessage();
+                } catch (Error \$e) {
+                    echo 'Autoloader fatal error: ' . \$e->getMessage();
+                }
+            " || echo "Autoloader test failed with exit code: $?"
+            
+            # Check autoloader file contents
+            echo "Checking autoloader file contents..."
+            head -20 vendor/autoload.php || echo "Cannot read autoload.php"
+            
+            # Check if Composer classes exist
+            echo "Checking for Composer classes..."
+            php -r "
+                if (class_exists('Composer\\Autoload\\ClassLoader')) {
+                    echo 'ClassLoader exists';
+                } else {
+                    echo 'ClassLoader not found';
+                }
+            " || echo "ClassLoader check failed"
+            
+            # Check for the specific problematic class
+            echo "Checking for Composer\\InstalledVersions..."
+            php -r "
+                if (class_exists('Composer\\InstalledVersions')) {
+                    echo 'InstalledVersions exists';
+                } else {
+                    echo 'InstalledVersions not found';
+                }
+            " || echo "InstalledVersions check failed"
+            
+            # Check composer.json and composer.lock
+            echo "Checking composer files..."
+            ls -la composer.* || echo "Composer files not found"
+            
+            # Try to regenerate autoloader with verbose output
+            echo "Regenerating autoloader with verbose output..."
+            composer dump-autoload --optimize --classmap-authoritative -v || echo "Verbose autoloader generation failed"
 
             # Set permissions for storage and cache directories
             if [ -d "storage" ] && [ -d "bootstrap/cache" ]; then
