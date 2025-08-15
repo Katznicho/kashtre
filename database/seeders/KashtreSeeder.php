@@ -242,7 +242,7 @@ class KashtreSeeder extends Seeder
             ]);
         }
 
-        // 16. Create Contractor Profiles
+        // 16. Create Contractor Profiles (will be linked to users later)
         $contractors = [
             'Dr. John Smith', 'Dr. Sarah Johnson', 'Dr. Michael Brown', 
             'Dr. Emily Davis', 'Dr. David Wilson'
@@ -261,7 +261,7 @@ class KashtreSeeder extends Seeder
             ]);
         }
 
-        // 17. Create 2 Users for this Business
+        // 17. Create Users for this Business (including contractors)
         $this->createUsersForBusiness($business, $branches);
     }
 
@@ -334,5 +334,44 @@ class KashtreSeeder extends Seeder
             'title_id' => $titleId,
             'gender' => 'female',
         ]);
+
+        // Create 3 Contractors who are also Staff (for City Health Clinic only)
+        if ($business->name === 'City Health Clinic') {
+            $contractorNames = ['Dr. John Smith', 'Dr. Sarah Johnson', 'Dr. Michael Brown'];
+            $contractorEmails = ['john.smith@cityhealth.com', 'sarah.johnson@cityhealth.com', 'michael.brown@cityhealth.com'];
+            $contractorPhones = ['2567000001', '2567000002', '2567000003'];
+            
+            foreach ($contractorNames as $index => $name) {
+                $contractorUser = User::create([
+                    'uuid' => Str::uuid(),
+                    'name' => $name,
+                    'email' => $contractorEmails[$index],
+                    'password' => Hash::make('password'),
+                    'status' => 'active',
+                    'phone' => $contractorPhones[$index],
+                    'nin' => 'CF' . Str::random(12),
+                    'profile_photo_path' => null,
+                    'business_id' => $business->id,
+                    'branch_id' => $branches[0]->id, // Main branch
+                    'service_points' => $servicePoints,
+                    'permissions' => [
+                        'View Dashboard', 'View Dashboard Cards', 'View Reports',
+                        'Manage Items', 'View Suppliers', 'View Insurance',
+                        'Manage Contractor Profile'
+                    ],
+                    'allowed_branches' => collect($branches)->pluck('id')->toArray(),
+                    'qualification_id' => $qualificationId,
+                    'department_id' => $departmentId,
+                    'section_id' => $sectionId,
+                    'title_id' => $titleId,
+                    'gender' => $index === 1 ? 'female' : 'male',
+                ]);
+
+                // Link the contractor profile to this user
+                ContractorProfile::where('business_id', $business->id)
+                    ->where('account_name', $name)
+                    ->update(['user_id' => $contractorUser->id]);
+            }
+        }
     }
 } 

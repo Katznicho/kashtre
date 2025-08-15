@@ -7,11 +7,11 @@
                     <h2 class="text-xl font-bold text-gray-800 dark:text-white">Manage Items</h2>
 
                     <div class="flex space-x-2">
-                        @if(Auth::user()->business_id == 1)
+                        {{-- @if(Auth::user()->business_id == 1) --}}
                         <a href="{{ route('items.create') }}" class="inline-flex items-center px-4 py-2 bg-[#011478] text-white text-sm font-semibold rounded-md hover:bg-[#011478]/90 transition duration-150">
                             ➕ Create Item
                         </a>
-                        @endif
+                        {{-- @endif --}}
                     </div>
                 </div>
 

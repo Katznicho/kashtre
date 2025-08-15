@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Business;
 use App\Models\Group;
+use App\Models\SubGroup;
 use App\Models\Department;
 use App\Models\ItemUnit;
 use App\Models\ServicePoint;
@@ -37,16 +38,17 @@ class ItemController extends Controller
         
         if ($canSelectBusiness) {
             $businesses = Business::where('id', '!=', 1)->get();
-            // No default business selection - user must choose
-            $selectedBusinessId = null;
+            // For admin users, default to the first business to show data
+            $selectedBusinessId = $businesses->first() ? $businesses->first()->id : null;
         } else {
             $businesses = Business::where('id', Auth::user()->business_id)->get();
             $selectedBusinessId = Auth::user()->business_id;
         }
 
-        // Get data filtered by selected business (or empty collections if no business selected)
+        // Get data filtered by selected business (or all data for admin if no business selected)
         if ($selectedBusinessId) {
             $groups = Group::where('business_id', $selectedBusinessId)->get();
+            $subGroups = SubGroup::where('business_id', $selectedBusinessId)->get();
             $departments = Department::where('business_id', $selectedBusinessId)->get();
             $itemUnits = ItemUnit::where('business_id', $selectedBusinessId)->get();
             $servicePoints = ServicePoint::where('business_id', $selectedBusinessId)->get();
@@ -58,19 +60,23 @@ class ItemController extends Controller
                 ->whereNotIn('type', ['package', 'bulk'])
                 ->get();
         } else {
-            // Empty collections when no business is selected
-            $groups = collect();
-            $departments = collect();
-            $itemUnits = collect();
-            $servicePoints = collect();
-            $contractors = collect();
-            $branches = collect();
-            $availableItems = collect();
+            // For admin users with no business selected, show all data
+            $groups = Group::where('business_id', '!=', 1)->get();
+            $subGroups = SubGroup::where('business_id', '!=', 1)->get();
+            $departments = Department::where('business_id', '!=', 1)->get();
+            $itemUnits = ItemUnit::where('business_id', '!=', 1)->get();
+            $servicePoints = ServicePoint::where('business_id', '!=', 1)->get();
+            $contractors = ContractorProfile::with('business')->where('business_id', '!=', 1)->get();
+            $branches = Branch::where('business_id', '!=', 1)->get();
+            $availableItems = Item::where('business_id', '!=', 1)
+                ->whereNotIn('type', ['package', 'bulk'])
+                ->get();
         }
 
         return view('items.create', compact(
             'businesses', 
             'groups', 
+            'subGroups',
             'departments', 
             'itemUnits', 
             'servicePoints', 

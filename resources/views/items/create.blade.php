@@ -123,8 +123,8 @@
                             <label for="subgroup_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Subgroup <span class="text-red-500">*</span></label>
                             <select name="subgroup_id" id="subgroup_id" data-required="true" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required>
                                 <option value="">None</option>
-                                @foreach($groups as $group)
-                                    <option value="{{ $group->id }}" {{ old('subgroup_id') == $group->id ? 'selected' : '' }}>{{ $group->name }}</option>
+                                @foreach($subGroups as $subGroup)
+                                    <option value="{{ $subGroup->id }}" {{ old('subgroup_id') == $subGroup->id ? 'selected' : '' }}>{{ $subGroup->name }}</option>
                                 @endforeach
                             </select>
                         </div>
