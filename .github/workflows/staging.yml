@@ -162,6 +162,9 @@ jobs:
                 php artisan db:seed --force --verbose || echo "Seeding failed but continuing deployment"
               fi
 
+              # Create storage link
+              php artisan storage:link || echo "Storage link already exists or failed to create"
+
               # Clear and cache configurations
               php artisan optimize:clear
               php artisan config:clear

@@ -20,30 +20,38 @@ class Client extends Model
         'visit_id',
         'name',
         'nin',
+        'tin_number',
         'surname',
         'first_name',
         'other_names',
-        'id_passport_no',
         'sex',
         'date_of_birth',
         'marital_status',
         'occupation',
         'phone_number',
-        'address',
+        'village',
+        'county',
         'email',
         'services_category',
-        'preferred_payment_method',
+        'payment_methods',
         'payment_phone_number',
         // Next of Kin details
         'nok_surname',
         'nok_first_name',
         'nok_other_names',
+        'nok_sex',
         'nok_marital_status',
         'nok_occupation',
         'nok_phone_number',
-        'nok_physical_address',
+        'nok_village',
+        'nok_county',
         'balance',
         'status',
+    ];
+
+    protected $casts = [
+        'payment_methods' => 'array',
+        'date_of_birth' => 'date',
     ];
 
     protected static function booted()
@@ -80,24 +88,34 @@ class Client extends Model
 
     /**
      * Generate a unique client ID based on NIN, business, and branch
+     * Format: 3 letters + 4 numbers + 1 letter
      */
     public static function generateClientId($nin, $business, $branch)
     {
-        // Get business prefix (first 2 letters of business name)
+        // Get 3 letters: first 2 from business name + 1 from branch name
         $businessPrefix = strtoupper(substr($business->name, 0, 2));
-        
-        // Get branch prefix (first letter of branch name)
         $branchPrefix = strtoupper(substr($branch->name, 0, 1));
+        $threeLetters = $businessPrefix . $branchPrefix;
         
-        // Get NIN suffix (last 4 digits of NIN, or random if no NIN)
-        if ($nin) {
-            $ninSuffix = strtoupper(substr($nin, -4));
+        // Get 4 numbers from NIN or generate random
+        if ($nin && strlen($nin) >= 4) {
+            $fourNumbers = substr($nin, -4);
         } else {
-            $ninSuffix = strtoupper(Str::random(4));
+            // Generate 4 random numbers
+            $fourNumbers = str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
         }
         
-        // Format: BusinessPrefix + BranchPrefix + NINSuffix
-        return $businessPrefix . $branchPrefix . $ninSuffix;
+        // Get 1 letter at the end
+        if ($nin) {
+            // Use first letter of NIN if available
+            $lastLetter = strtoupper(substr($nin, 0, 1));
+        } else {
+            // Use random letter for clients without NIN
+            $lastLetter = strtoupper(Str::random(1));
+        }
+        
+        // Format: 3 letters + 4 numbers + 1 letter (exactly 8 characters)
+        return $threeLetters . $fourNumbers . $lastLetter;
     }
 
     /**

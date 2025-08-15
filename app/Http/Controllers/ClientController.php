@@ -90,26 +90,30 @@ class ClientController extends Controller
             'first_name' => 'required|string|max:255',
             'other_names' => 'nullable|string|max:255',
             'nin' => 'nullable|string|max:255|unique:clients,nin',
-            'id_passport_no' => 'nullable|string|max:255',
+            'tin_number' => 'nullable|string|max:255',
             'sex' => 'required|in:male,female,other',
             'date_of_birth' => 'required|date',
-            'marital_status' => 'nullable|in:single,married,divorced,widowed',
-            'occupation' => 'nullable|string|max:255',
+            'marital_status' => 'required|in:single,married,divorced,widowed',
+            'occupation' => 'required|string|max:255',
             'phone_number' => 'required|string|max:255',
-            'address' => 'required|string|max:500',
-            'email' => 'nullable|email|max:255',
-            'services_category' => 'nullable|in:dental,optical,outpatient,inpatient,maternity,funeral',
-            'preferred_payment_method' => 'nullable|in:cash,bank_transfer,credit_card,insurance,postpaid,mobile_money',
+            'village' => 'required|string|max:255',
+            'county' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'services_category' => 'required|in:dental,optical,outpatient,inpatient,maternity,funeral',
+            'payment_methods' => 'required|array|min:1',
+            'payment_methods.*' => 'string|in:packages,insurance,credit_arrangement,deposits,mobile_money,v_card,p_card,bank_transfer,cash',
             'payment_phone_number' => 'nullable|string|max:255',
             
             // Next of Kin details
-            'nok_surname' => 'nullable|string|max:255',
-            'nok_first_name' => 'nullable|string|max:255',
+            'nok_surname' => 'required|string|max:255',
+            'nok_first_name' => 'required|string|max:255',
             'nok_other_names' => 'nullable|string|max:255',
-            'nok_marital_status' => 'nullable|in:single,married,divorced,widowed',
-            'nok_occupation' => 'nullable|string|max:255',
-            'nok_phone_number' => 'nullable|string|max:255',
-            'nok_physical_address' => 'nullable|string|max:500',
+            'nok_sex' => 'required|in:male,female,other',
+            'nok_marital_status' => 'required|in:single,married,divorced,widowed',
+            'nok_occupation' => 'required|string|max:255',
+            'nok_phone_number' => 'required|string|max:255',
+            'nok_village' => 'required|string|max:255',
+            'nok_county' => 'required|string|max:255',
         ]);
         
         // Generate client ID and visit ID
@@ -131,24 +135,27 @@ class ClientController extends Controller
             'first_name' => $validated['first_name'],
             'other_names' => $validated['other_names'],
             'nin' => $validated['nin'],
-            'id_passport_no' => $validated['id_passport_no'],
+            'tin_number' => $validated['tin_number'],
             'sex' => $validated['sex'],
             'date_of_birth' => $validated['date_of_birth'],
             'marital_status' => $validated['marital_status'],
             'occupation' => $validated['occupation'],
             'phone_number' => $validated['phone_number'],
-            'address' => $validated['address'],
+            'village' => $validated['village'],
+            'county' => $validated['county'],
             'email' => $validated['email'],
             'services_category' => $validated['services_category'],
-            'preferred_payment_method' => $validated['preferred_payment_method'],
+            'payment_methods' => $validated['payment_methods'] ?? [],
             'payment_phone_number' => $validated['payment_phone_number'],
             'nok_surname' => $validated['nok_surname'],
             'nok_first_name' => $validated['nok_first_name'],
             'nok_other_names' => $validated['nok_other_names'],
+            'nok_sex' => $validated['nok_sex'],
             'nok_marital_status' => $validated['nok_marital_status'],
             'nok_occupation' => $validated['nok_occupation'],
             'nok_phone_number' => $validated['nok_phone_number'],
-            'nok_physical_address' => $validated['nok_physical_address'],
+            'nok_village' => $validated['nok_village'],
+            'nok_county' => $validated['nok_county'],
             'balance' => 0,
             'status' => 'active',
         ]);
@@ -252,5 +259,37 @@ class ClientController extends Controller
         
         return redirect()->route('clients.index')
             ->with('success', 'Client deleted successfully!');
+    }
+
+    /**
+     * Update payment methods for a client
+     */
+    public function updatePaymentMethods(Request $request, Client $client)
+    {
+        $user = Auth::user();
+        $business = $user->business;
+        
+        // Check if user has access to this client
+        if ($client->business_id !== $business->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access to client.'
+            ], 403);
+        }
+        
+        $validated = $request->validate([
+            'payment_methods' => 'required|array|min:1',
+            'payment_methods.*' => 'string|in:packages,insurance,credit_arrangement_institutions,deposits_account_balance,mobile_money,v_card,p_card,bank_transfer,cash'
+        ]);
+        
+        $client->update([
+            'payment_methods' => $validated['payment_methods']
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment methods updated successfully!',
+            'payment_methods' => $client->payment_methods
+        ]);
     }
 }

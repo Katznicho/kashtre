@@ -17,6 +17,7 @@ use App\Models\ItemUnit;
 use App\Models\ServicePoint;
 use App\Models\ContractorProfile;
 use App\Models\Branch;
+use App\Services\ContractorValidationService;
 
 class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles, WithEvents
 {
@@ -41,6 +42,7 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
             'Department Name',
             'Unit of Measure',
             'Default Price',
+            'VAT Rate (%)',
             'Hospital Share (%)',
             'Contractor Username',
             'Other Names',
@@ -100,7 +102,7 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         $departments = Department::where('business_id', $this->businessId)->pluck('name')->toArray();
         $units = ItemUnit::where('business_id', $this->businessId)->pluck('name')->toArray();
         $servicePoints = ServicePoint::where('business_id', $this->businessId)->pluck('name')->toArray();
-        $contractors = ContractorProfile::with('user')->where('business_id', $this->businessId)->get()->pluck('user.name')->filter()->toArray();
+        $contractors = ContractorValidationService::getAvailableContractors($this->businessId);
         $branches = Branch::where('business_id', $this->businessId)->orderBy('name')->get();
         
         // Set a default range for data validation (rows 2-1000)
@@ -115,8 +117,9 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
             'G' => 'Department',  // Department Name
             'H' => 'Unit',        // Unit of Measure
             'I' => 'DefaultPrice', // Default Price
-            'J' => 'HospitalShare', // Hospital Share (%)
-            'K' => 'Contractor',  // Contractor Username
+            'J' => 'VATRate',     // VAT Rate (%)
+            'K' => 'HospitalShare', // Hospital Share (%)
+            'L' => 'Contractor',  // Contractor Username
         ];
         
         // Add data validation for Type column (C)
@@ -142,10 +145,13 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
             $this->addValidationToColumn($worksheet, 'H', $startRow, $endRow, implode(',', $units), 'Unit');
         }
         
-        // Add data validation for Contractor column (K)
+        // Add data validation for Contractor column (L) - Required when hospital share < 100%
         if (!empty($contractors)) {
-            $this->addValidationToColumn($worksheet, 'K', $startRow, $endRow, implode(',', $contractors), 'Contractor');
+            $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, implode(',', $contractors), 'Contractor');
         }
+        
+        // Add conditional validation for hospital share and contractor relationship
+        $this->addConditionalValidation($worksheet, $startRow, $endRow);
         
         // Add data validation for service point columns (dynamic) - filter by branch
         $headers = $this->headings();
@@ -199,5 +205,42 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
             $columnIndex = intval($columnIndex / 26);
         }
         return $columnLetter;
+    }
+    
+    /**
+     * Add conditional validation for hospital share and contractor relationship
+     * This adds custom validation rules to ensure contractor is selected when hospital share < 100%
+     */
+    private function addConditionalValidation($worksheet, $startRow, $endRow)
+    {
+        // Add custom validation for hospital share column (K)
+        for ($row = $startRow; $row <= $endRow; $row++) {
+            $validation = $worksheet->getCell('K' . $row)->getDataValidation();
+            $validation->setType(DataValidation::TYPE_CUSTOM);
+            $validation->setErrorStyle(DataValidation::STYLE_STOP);
+            $validation->setAllowBlank(false);
+            $validation->setShowInputMessage(true);
+            $validation->setShowErrorMessage(true);
+            $validation->setFormula1('=AND(K' . $row . '>=0,K' . $row . '<=100)');
+            $validation->setErrorTitle('Invalid Hospital Share');
+            $validation->setError('Hospital share must be between 0 and 100');
+            $validation->setPromptTitle('Hospital Share');
+            $validation->setPrompt('Enter a value between 0 and 100');
+        }
+        
+        // Add conditional validation for contractor column (L) - Required when hospital share < 100%
+        for ($row = $startRow; $row <= $endRow; $row++) {
+            $validation = $worksheet->getCell('L' . $row)->getDataValidation();
+            $validation->setType(DataValidation::TYPE_CUSTOM);
+            $validation->setErrorStyle(DataValidation::STYLE_STOP);
+            $validation->setAllowBlank(true); // Allow blank initially
+            $validation->setShowInputMessage(true);
+            $validation->setShowErrorMessage(true);
+            $validation->setFormula1('=OR(K' . $row . '=100,LEN(L' . $row . ')>0)');
+            $validation->setErrorTitle('Contractor Required');
+            $validation->setError('Contractor is required when hospital share is less than 100%');
+            $validation->setPromptTitle('Contractor Selection');
+            $validation->setPrompt('Select a contractor when hospital share < 100%, or leave empty if share = 100%');
+        }
     }
 } 

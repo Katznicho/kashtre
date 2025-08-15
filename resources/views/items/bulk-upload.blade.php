@@ -4,9 +4,14 @@
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-xl font-bold text-gray-800 dark:text-white">Bulk Upload Goods & Services</h2>
-                    <a href="{{ route('items.index') }}" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
-                        Back to List
-                    </a>
+                    <div class="flex space-x-2">
+                        <a href="{{ route('items.bulk-upload.validation-guide') }}" class="bg-orange-500 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded inline-flex items-center">
+                            📋 Validation Guide
+                        </a>
+                        <a href="{{ route('items.index') }}" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+                            Back to List
+                        </a>
+                    </div>
                 </div>
 
                 @if(session('success'))
@@ -31,6 +36,34 @@
                         </ul>
                     </div>
                 @endif
+
+                <!-- Contractor Validation Notice -->
+                <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-6">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-orange-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-orange-800 dark:text-orange-200">
+                                Important: Contractor Validation Rules
+                            </h3>
+                            <div class="mt-2 text-sm text-orange-700 dark:text-orange-300">
+                                <ul class="list-disc list-inside space-y-1">
+                                    <li><strong>When Hospital Share < 100%:</strong> Contractor selection is <strong>REQUIRED</strong></li>
+                                    <li><strong>When Hospital Share = 100%:</strong> Contractor should be <strong>LEFT EMPTY</strong></li>
+                                    <li>Only contractors associated with your business will be available in the dropdown</li>
+                                </ul>
+                                <p class="mt-2">
+                                    <a href="{{ route('items.bulk-upload.validation-guide') }}" class="font-medium underline hover:text-orange-600">
+                                        View complete validation guide →
+                                    </a>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <!-- Download Section -->

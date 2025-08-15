@@ -22,6 +22,7 @@ class Item extends Model
         'department_id',
         'uom_id',
         'default_price',
+        'vat_rate',
         'validity_days',
         'hospital_share',
         'contractor_account_id',

@@ -338,6 +338,13 @@
                         <input type="number" name="default_price" id="default_price" step="0.01" min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required placeholder="0.00" value="{{ old('default_price', $item->default_price) }}">
                     </div>
 
+                    <!-- VAT Rate -->
+                    <div class="mt-6">
+                        <label for="vat_rate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">VAT Rate (%)</label>
+                        <input type="number" name="vat_rate" id="vat_rate" step="0.01" min="0" max="100" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="0.00" value="{{ old('vat_rate', $item->vat_rate ?? 0) }}">
+                        <p class="mt-1 text-sm text-gray-500">Enter VAT rate as percentage (e.g., 18.00 for 18%)</p>
+                    </div>
+
                     <!-- Hospital Share -->
                     <div class="mt-6 service-good-only">
                         <label for="hospital_share" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Company/Entity Share (%) <span class="text-red-500">*</span></label>

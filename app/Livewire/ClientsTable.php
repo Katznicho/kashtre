@@ -148,6 +148,12 @@ class ClientsTable extends Component implements HasForms, HasTable
                     })
             ])
             ->actions([
+                Action::make('details')
+                    ->label('Details')
+                    ->icon('heroicon-o-arrow-right')
+                    ->color('success')
+                    ->url(fn (Client $record): string => route('pos.item-selection', $record)),
+                
                 Action::make('view')
                     ->label('View')
                     ->icon('heroicon-o-eye')

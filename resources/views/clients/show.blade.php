@@ -95,19 +95,61 @@
                                     <label class="text-sm font-medium text-gray-500">Email</label>
                                     <p class="text-sm text-gray-900">{{ $client->email ?: 'N/A' }}</p>
                                 </div>
-                                <div>
-                                    <label class="text-sm font-medium text-gray-500">Address</label>
-                                    <p class="text-sm text-gray-900">{{ $client->address }}</p>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-500">County</label>
+                                        <p class="text-sm text-gray-900">{{ $client->county ?: 'N/A' }}</p>
+                                    </div>
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-500">Village</label>
+                                        <p class="text-sm text-gray-900">{{ $client->village ?: 'N/A' }}</p>
+                                    </div>
                                 </div>
                                 <div>
-                                    <label class="text-sm font-medium text-gray-500">Preferred Payment Method</label>
-                                    <p class="text-sm text-gray-900">
-                                        @if($client->preferred_payment_method)
-                                            {{ ucwords(str_replace('_', ' ', $client->preferred_payment_method)) }}
+                                    <label class="text-sm font-medium text-gray-500">Payment Methods</label>
+                                    <div class="text-sm text-gray-900">
+                                        @if($client->payment_methods && count($client->payment_methods) > 0)
+                                            <div class="flex flex-wrap gap-2">
+                                                @foreach($client->payment_methods as $method)
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                        @switch($method)
+                                                            @case('packages')
+                                                                📦 Packages
+                                                                @break
+                                                            @case('insurance')
+                                                                🛡️ Insurance
+                                                                @break
+                                                            @case('credit_arrangement')
+                                                                💳 Credit Arrangement
+                                                                @break
+                                                            @case('deposits')
+                                                                💰 Deposits/A/c Balance
+                                                                @break
+                                                            @case('mobile_money')
+                                                                📱 MM (Mobile Money)
+                                                                @break
+                                                            @case('v_card')
+                                                                💳 V Card (Virtual Card)
+                                                                @break
+                                                            @case('p_card')
+                                                                💳 P Card (Physical Card)
+                                                                @break
+                                                            @case('bank_transfer')
+                                                                🏦 Bank Transfer
+                                                                @break
+                                                            @case('cash')
+                                                                💵 Cash
+                                                                @break
+                                                            @default
+                                                                {{ ucwords(str_replace('_', ' ', $method)) }}
+                                                        @endswitch
+                                                    </span>
+                                                @endforeach
+                                            </div>
                                         @else
-                                            N/A
+                                            <span class="text-gray-500">No payment methods selected</span>
                                         @endif
-                                    </p>
+                                    </div>
                                 </div>
                                 @if($client->payment_phone_number)
                                 <div>
@@ -128,8 +170,8 @@
                                 <p class="text-sm text-gray-900">{{ $client->nin ?: 'N/A' }}</p>
                             </div>
                             <div>
-                                <label class="text-sm font-medium text-gray-500">ID/Passport Number</label>
-                                <p class="text-sm text-gray-900">{{ $client->id_passport_no ?: 'N/A' }}</p>
+                                <label class="text-sm font-medium text-gray-500">TIN Number</label>
+                                <p class="text-sm text-gray-900">{{ $client->tin_number ?: 'N/A' }}</p>
                             </div>
                         </div>
                     </div>
@@ -190,12 +232,22 @@
                             </div>
                             <div class="space-y-3">
                                 <div>
+                                    <label class="text-sm font-medium text-gray-500">Gender</label>
+                                    <p class="text-sm text-gray-900">{{ $client->nok_sex ? ucfirst($client->nok_sex) : 'N/A' }}</p>
+                                </div>
+                                <div>
                                     <label class="text-sm font-medium text-gray-500">Phone Number</label>
                                     <p class="text-sm text-gray-900">{{ $client->nok_phone_number ?: 'N/A' }}</p>
                                 </div>
-                                <div>
-                                    <label class="text-sm font-medium text-gray-500">Address</label>
-                                    <p class="text-sm text-gray-900">{{ $client->nok_physical_address ?: 'N/A' }}</p>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-500">County</label>
+                                        <p class="text-sm text-gray-900">{{ $client->nok_county ?: 'N/A' }}</p>
+                                    </div>
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-500">Village</label>
+                                        <p class="text-sm text-gray-900">{{ $client->nok_village ?: 'N/A' }}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

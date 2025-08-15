@@ -69,6 +69,13 @@ class RecentClientsTable extends Component implements HasForms, HasTable
                     ->size('sm'),
             ])
             ->actions([
+                Action::make('details')
+                    ->label('Details')
+                    ->icon('heroicon-o-arrow-right')
+                    ->color('success')
+                    ->size('sm')
+                    ->url(fn (Client $record): string => route('pos.item-selection', $record)),
+                
                 Action::make('view')
                     ->label('View')
                     ->icon('heroicon-o-eye')

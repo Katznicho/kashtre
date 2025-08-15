@@ -12,6 +12,7 @@ use App\Models\ContractorProfile;
 use App\Models\Branch;
 use App\Models\BranchItemPrice;
 use App\Models\BranchServicePoint;
+use App\Services\ContractorValidationService;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\SkipsOnError;
@@ -70,6 +71,15 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                 return null;
             }
             
+            // Find VAT rate column
+            $vatRate = $row['vat_rate'] ?? null;
+            if (!empty($vatRate) && (!is_numeric($vatRate) || $vatRate < 0 || $vatRate > 100)) {
+                $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": VAT rate must be a number between 0 and 100";
+                $this->errorCount++;
+                return null;
+            }
+            $vatRate = !empty($vatRate) ? (float) $vatRate : 0.00;
+            
             // Find hospital share column - try different variations
             $hospitalShareValue = $row['hospital_share'] ?? $row['hospital_share_'] ?? null;
             
@@ -119,24 +129,24 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                     ->first();
             }
 
-            $contractor = null;
+            // Validate hospital share and contractor relationship using the service
             $contractorUsername = $row['contractor_username'] ?? null;
-            if (!empty($contractorUsername)) {
-                // Find contractor by username (through user relationship)
-                $contractor = ContractorProfile::with('user')
-                    ->where('business_id', $this->businessId)
-                    ->whereHas('user', function($query) use ($contractorUsername) {
-                        $query->where('name', trim($contractorUsername));
-                    })
-                    ->first();
+            $validationResult = ContractorValidationService::validateHospitalShareContractor(
+                $hospitalShare, 
+                $contractorUsername, 
+                $this->businessId, 
+                $this->getRowNumber() + 1
+            );
+            
+            if (!$validationResult['isValid']) {
+                foreach ($validationResult['errors'] as $error) {
+                    $this->errors[] = $error;
+                }
+                $this->errorCount++;
+                return null;
             }
-
-            // Validate hospital share and contractor relationship
-            if ($hospitalShare < 100 && !$contractor) {
-                // Instead of failing, set hospital share to 100% for items without contractors
-                $hospitalShare = 100;
-                Log::info("Row " . ($this->getRowNumber() + 1) . ": Auto-adjusted hospital share to 100% for item without contractor");
-            }
+            
+            $contractor = $validationResult['contractor'];
 
             // Handle code - check for duplicates and auto-generate if needed
             $code = $row['code_auto_generated_if_empty'] ?? $row['code'] ?? null;
@@ -172,6 +182,7 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                 'uom_id' => $itemUnit ? $itemUnit->id : null,
                 'service_point_id' => null, // Removed global service point
                 'default_price' => (float) $defaultPrice, // Default price as fallback
+                'vat_rate' => $vatRate,
                 'hospital_share' => $hospitalShare,
                 'contractor_account_id' => $contractor ? $contractor->id : null,
                 'business_id' => $this->businessId,

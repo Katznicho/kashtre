@@ -59,14 +59,21 @@
                             <p class="text-lg font-semibold text-gray-900">{{ $client->visit_id }}</p>
                         </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            <p class="text-sm text-gray-500 mb-1">Payment Method</p>
-                            <p class="text-lg font-semibold text-blue-600">
-                                @if($client->preferred_payment_method)
-                                    {{ ucwords(str_replace('_', ' ', $client->preferred_payment_method)) }}
+                            <p class="text-sm text-gray-500 mb-1">Payment Methods</p>
+                            <div class="flex flex-wrap gap-1 mb-2 payment-methods-display">
+                                @if($client->payment_methods && count($client->payment_methods) > 0)
+                                    @foreach($client->payment_methods as $index => $method)
+                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            {{ $index + 1 }}. {{ ucwords(str_replace('_', ' ', $method)) }}
+                                        </span>
+                                    @endforeach
                                 @else
-                                    Not specified
+                                    <span class="text-sm text-gray-500">No payment methods specified</span>
                                 @endif
-                            </p>
+                            </div>
+                            <button onclick="openPaymentMethodsModal()" class="text-xs text-blue-600 hover:text-blue-800 underline">
+                                Edit Payment Methods
+                            </button>
                         </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Phone Number</p>
@@ -80,10 +87,10 @@
                 </div>
             </div>
             
-            <!-- Section 2: Financial Statement -->
+            <!-- Section 2: Client Statement -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Financial Statement</h3>
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Client Statement</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-blue-50 p-4 rounded-lg text-center">
                             <p class="text-sm text-gray-500 mb-1">Current Balance</p>
@@ -96,36 +103,33 @@
                     </div>
                     <div class="mt-4">
                         <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
-                            View Detailed Financial Statement
+                            View Detailed Client Statement
                         </button>
                     </div>
                 </div>
             </div>
             
-            <!-- Section 3: Ordered Items (Requests/Orders) -->
+            <!-- Section 3: Client Notes -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Ordered Items (Requests/Orders)</h3>
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Client Notes</h3>
                     <div class="border border-gray-200 rounded-lg">
-                        <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                            <div class="grid grid-cols-4 gap-4">
-                                <div><span class="text-sm font-medium text-gray-700">Item</span></div>
-                                <div><span class="text-sm font-medium text-gray-700">Quantity</span></div>
-                                <div><span class="text-sm font-medium text-gray-700">Amount</span></div>
-                                <div><span class="text-sm font-medium text-gray-700">Status</span></div>
-                            </div>
-                        </div>
                         <div class="p-4">
-                            <p class="text-sm text-gray-500 text-center">No orders found for this client</p>
+                            <textarea placeholder="Add notes about this client..." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" rows="3"></textarea>
+                            <div class="mt-3 flex justify-end">
+                                <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                                    Save Notes
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Section 4: Make an Order (Pricelist) - Professional Two Column Layout -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+            <!-- Section 4: Make a Request/Order - Professional Two Column Layout -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Make an Order (Pricelist)</h3>
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Make a Request/Order</h3>
                     
                     <!-- Main POS Interface - Two Column Layout -->
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -143,6 +147,10 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                                     </svg>
                                 </div>
+                                <label class="flex items-center space-x-2">
+                                    <input type="checkbox" id="show-prices" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                    <span class="text-sm text-gray-700">Show Prices</span>
+                                </label>
                                 <button class="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded-md">
                                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
@@ -168,19 +176,25 @@
                                 
                                 <div id="items-container" class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
                                     @forelse($items as $item)
-                                    <div class="item-row px-4 py-3 hover:bg-gray-50" data-item-name="{{ strtolower($item->name) }}">
+                                    <div class="item-row px-4 py-3 hover:bg-gray-50" data-item-name="{{ strtolower($item->name) }}" data-item-other-names="{{ strtolower($item->other_names ?? '') }}">
                                         <div class="grid grid-cols-2 gap-4 items-center">
                                             <div>
                                                 <span class="text-sm text-gray-900">{{ $item->name }}</span>
                                                 @if($item->description)
                                                 <p class="text-xs text-gray-500 mt-1">{{ $item->description }}</p>
                                                 @endif
-                                                <p class="text-xs text-blue-600 mt-1">
+                                                @if($item->other_names)
+                                                <p class="text-xs text-gray-600 mt-1">Other Names: {{ $item->other_names }}</p>
+                                                @endif
+                                                <p class="text-xs text-blue-600 mt-1 price-display">
                                                     Price: UGX {{ number_format($item->final_price ?? 0, 2) }}
                                                     @if(isset($item->final_price) && $item->final_price != $item->default_price)
                                                         <span class="text-green-600">(Branch Price)</span>
                                                     @else
                                                         <span class="text-gray-500">(Default Price)</span>
+                                                    @endif
+                                                    @if($item->vat_rate && $item->vat_rate > 0)
+                                                        <span class="text-orange-600">(VAT: {{ $item->vat_rate }}%)</span>
                                                     @endif
                                                 </p>
                                             </div>
@@ -222,12 +236,15 @@
                             <!-- Receipt Table -->
                             <div class="border border-gray-200 rounded-lg overflow-hidden">
                                 <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                                    <div class="grid grid-cols-3 gap-4">
+                                    <div class="grid grid-cols-4 gap-4">
                                         <div>
                                             <span class="text-sm font-medium text-gray-700">Item</span>
                                         </div>
                                         <div>
                                             <span class="text-sm font-medium text-gray-700">Quantity</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-sm font-medium text-gray-700">Price</span>
                                         </div>
                                         <div>
                                             <span class="text-sm font-medium text-gray-700">Action</span>
@@ -245,7 +262,7 @@
                             <!-- Receipt Summary -->
                             <div class="mt-4 bg-gray-50 p-4 rounded-lg">
                                 <div class="flex justify-between items-center mb-2">
-                                    <span class="text-sm text-gray-600">Total Items:</span>
+                                    <span class="text-sm text-gray-600">Unique Items:</span>
                                     <span id="total-items" class="text-sm font-medium text-gray-900">0</span>
                                 </div>
                                 <div class="flex justify-between items-center mb-2">
@@ -257,9 +274,29 @@
                                     <span id="total-amount" class="text-lg font-bold text-gray-900">UGX 0.00</span>
                                 </div>
                                 <button class="w-full bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors" onclick="showInvoicePreview()">
-                                    Preview
+                                    Preview Invoice
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section 5: Ordered Items (Requests/Orders) -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Ordered Items (Requests/Orders)</h3>
+                    <div class="border border-gray-200 rounded-lg">
+                        <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                            <div class="grid grid-cols-4 gap-4">
+                                <div><span class="text-sm font-medium text-gray-700">Item</span></div>
+                                <div><span class="text-sm font-medium text-gray-700">Quantity</span></div>
+                                <div><span class="text-sm font-medium text-gray-700">Amount</span></div>
+                                <div><span class="text-sm font-medium text-gray-700">Status</span></div>
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <p class="text-sm text-gray-500 text-center">No orders found for this client</p>
                         </div>
                     </div>
                 </div>
@@ -295,7 +332,7 @@
                 <!-- QR Code Placeholder -->
                 <div class="flex justify-end mb-4">
                     <div class="w-16 h-16 bg-white border border-gray-300 flex items-center justify-center">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=64x64&data={{ urlencode($client->client_id . '|' . $client->name . '|' . $client->visit_id) }}" 
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=64x64&data={{ urlencode($client->client_id . '|' . $client->name) }}" 
                              alt="QR Code" 
                              class="w-full h-full object-contain"
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -442,11 +479,24 @@
                 
                 itemRows.forEach(row => {
                     const itemName = row.dataset.itemName;
-                    if (itemName.includes(searchTerm)) {
+                    const itemOtherNames = row.dataset.itemOtherNames;
+                    
+                    // Search in both item name and other names, but return entries in the items field
+                    if (itemName.includes(searchTerm) || itemOtherNames.includes(searchTerm)) {
                         row.style.display = '';
                     } else {
                         row.style.display = 'none';
                     }
+                });
+            });
+            
+            // Add price display toggle functionality
+            const showPricesCheckbox = document.getElementById('show-prices');
+            const priceElements = document.querySelectorAll('.price-display');
+            
+            showPricesCheckbox.addEventListener('change', function() {
+                priceElements.forEach(element => {
+                    element.style.display = this.checked ? 'block' : 'none';
                 });
             });
         });
@@ -500,12 +550,15 @@
                 
                 receiptHTML += `
                     <div class="px-4 py-3">
-                        <div class="grid grid-cols-3 gap-4 items-center">
+                        <div class="grid grid-cols-4 gap-4 items-center">
                             <div>
-                                <span class="text-sm text-gray-900">${item.name}</span>
+                                <span class="text-sm text-gray-900 font-medium">${item.name}</span>
                             </div>
                             <div>
                                 <span class="text-sm text-gray-900">${item.quantity}</span>
+                            </div>
+                            <div>
+                                <span class="text-sm text-blue-600">UGX ${(item.price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                             </div>
                             <div>
                                 <button class="text-red-500 hover:text-red-700 text-sm" onclick="removeFromCart(${index})">
@@ -725,5 +778,167 @@
                 printWindow.close();
             }, 500);
         }
+        
+        // Payment Methods Modal Functions
+        function openPaymentMethodsModal() {
+            document.getElementById('payment-methods-modal').classList.remove('hidden');
+        }
+        
+        function closePaymentMethodsModal() {
+            document.getElementById('payment-methods-modal').classList.add('hidden');
+        }
+        
+        function savePaymentMethods() {
+            const selectedMethods = [];
+            const checkboxes = document.querySelectorAll('input[name="payment_methods[]"]:checked');
+            
+            checkboxes.forEach(checkbox => {
+                selectedMethods.push(checkbox.value);
+            });
+            
+            // Send AJAX request to update payment methods
+            fetch(`/clients/{{ $client->id }}/update-payment-methods`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    payment_methods: selectedMethods
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the display
+                    updatePaymentMethodsDisplay(selectedMethods);
+                    closePaymentMethodsModal();
+                    
+                    // Show success message
+                    const successDiv = document.createElement('div');
+                    successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+                    successDiv.textContent = 'Payment methods updated successfully!';
+                    document.body.appendChild(successDiv);
+                    
+                    setTimeout(() => {
+                        successDiv.remove();
+                    }, 3000);
+                } else {
+                    alert('Error updating payment methods: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error updating payment methods');
+            });
+        }
+        
+        function updatePaymentMethodsDisplay(methods) {
+            const container = document.querySelector('.payment-methods-display');
+            if (methods.length > 0) {
+                container.innerHTML = methods.map((method, index) => 
+                    `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        ${index + 1}. ${method.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </span>`
+                ).join('');
+            } else {
+                container.innerHTML = '<span class="text-sm text-gray-500">No payment methods specified</span>';
+            }
+        }
     </script>
+    
+    <!-- Payment Methods Modal -->
+    <div id="payment-methods-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Edit Payment Methods</h3>
+                    <button onclick="closePaymentMethodsModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600 mb-3">Select payment methods in order of preference:</p>
+                    
+                    <div class="space-y-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="packages" 
+                                   {{ in_array('packages', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">📦 Packages</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="insurance" 
+                                   {{ in_array('insurance', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">🏥 Insurance</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="credit_arrangement_institutions" 
+                                   {{ in_array('credit_arrangement_institutions', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">🏦 Credit Arrangement Institutions</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="deposits_account_balance" 
+                                   {{ in_array('deposits_account_balance', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">💰 Deposits/Account Balance</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="mobile_money" 
+                                   {{ in_array('mobile_money', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">📱 Mobile Money</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="v_card" 
+                                   {{ in_array('v_card', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">💳 V Card (Virtual Card)</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="p_card" 
+                                   {{ in_array('p_card', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">💳 P Card (Physical Card)</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="bank_transfer" 
+                                   {{ in_array('bank_transfer', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">🏦 Bank Transfer</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="cash" 
+                                   {{ in_array('cash', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">💵 Cash (if enabled)</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3">
+                    <button onclick="closePaymentMethodsModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors">
+                        Cancel
+                    </button>
+                    <button onclick="savePaymentMethods()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </x-app-layout>

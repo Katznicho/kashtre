@@ -37,6 +37,7 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
             'Type (package/bulk)',
             'Description',
             'Default Price',
+            'VAT Rate (%)',
             'Validity Period (Days) - Required for packages',
             'Other Names',
         ];

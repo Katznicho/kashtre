@@ -67,6 +67,15 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 return null;
             }
             
+            // Validate VAT rate
+            $vatRate = $row['vat_rate'] ?? null;
+            if (!empty($vatRate) && (!is_numeric($vatRate) || $vatRate < 0 || $vatRate > 100)) {
+                $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": VAT rate must be a number between 0 and 100";
+                $this->errorCount++;
+                return null;
+            }
+            $vatRate = !empty($vatRate) ? (float) $vatRate : 0.00;
+            
             // Validate validity period for packages
             if (strtolower($typeValue) === 'package') {
                 if (empty($row['validity_period_days_required_for_packages']) || !is_numeric($row['validity_period_days_required_for_packages'])) {
@@ -114,6 +123,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 'type' => strtolower($typeValue),
                 'description' => !empty($row['description']) ? trim($row['description']) : null,
                 'default_price' => (float) $row['default_price'],
+                'vat_rate' => $vatRate,
                 'validity_days' => strtolower($typeValue) === 'package' ? (int) $row['validity_period_days_required_for_packages'] : null,
                 'hospital_share' => 100, // Packages/bulk always have 100% hospital share
                 'other_names' => $otherNames,

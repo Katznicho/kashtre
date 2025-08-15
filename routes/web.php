@@ -83,6 +83,9 @@ Route::get('/items/bulk-upload', [ItemBulkUploadController::class, 'index'])->na
 Route::get('/items/bulk-upload/template', [ItemBulkUploadController::class, 'downloadTemplate'])->name('items.bulk-upload.template');
 Route::post('/items/bulk-upload/import', [ItemBulkUploadController::class, 'import'])->name('items.bulk-upload.import');
 Route::get('/items/bulk-upload/filtered-data', [ItemBulkUploadController::class, 'getFilteredData'])->name('items.bulk-upload.filtered-data');
+Route::get('/items/bulk-upload/validation-guide', function() {
+    return view('items.bulk-upload-validation-guide');
+})->name('items.bulk-upload.validation-guide');
 
 // Packages & Bulk Items Upload Routes
 Route::get('/package-bulk-upload', [PackageBulkUploadController::class, 'index'])->name('package-bulk-upload.index');
@@ -111,6 +114,7 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::resource("sub-groups", SubGroupController::class);
     Route::resource("admins", AdminController::class);
     Route::resource("clients", ClientController::class);
+    Route::post('/clients/{client}/update-payment-methods', [ClientController::class, 'updatePaymentMethods'])->name('clients.update-payment-methods');
     Route::get('/pos/item-selection/{client}', [TransactionController::class, 'itemSelection'])->name('pos.item-selection');
     
     // Admin bulk operations

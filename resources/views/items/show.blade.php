@@ -63,6 +63,11 @@
                             <p class="mt-1 text-sm text-gray-900 dark:text-white">UGX {{ number_format($item->default_price, 2) }}</p>
                         </div>
 
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">VAT Rate</label>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->vat_rate ?? 0 }}%</p>
+                        </div>
+
                         @if($item->type !== 'package' && $item->type !== 'bulk')
                         <div>
                             <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Hospital Share</label>
