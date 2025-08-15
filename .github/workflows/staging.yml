@@ -40,8 +40,10 @@ jobs:
       # Step 5: Test SSH Connection
       - name: Test SSH Connection
         run: |
-          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} whoami
-          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "echo 'Test command execution' && ls -la /home/u242329769/domains/staging.kashtre.com/public_html"
+          echo "Testing SSH connection to ${{ secrets.FTP_SERVER }}:65002..."
+          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} whoami || { echo "SSH connection failed"; exit 1; }
+          echo "SSH connection successful, testing directory access..."
+          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "echo 'Test command execution' && ls -la /home/u242329769/domains/staging.kashtre.com/public_html" || { echo "Directory access failed"; exit 1; }
 
       # Step 6: Deploy to Hostinger via SSH
       - name: Deploy to Hostinger
@@ -56,6 +58,7 @@ jobs:
           ls -la $GITHUB_WORKSPACE
 
           # Copy files using rsync with sshpass, excluding unnecessary files, with --delete to remove old files
+          echo "Starting file transfer with rsync..."
           sshpass -p "$FTP_PASSWORD" rsync -avz --delete \
             --exclude '.env' \
             --exclude '.htaccess' \
@@ -69,11 +72,15 @@ jobs:
             --exclude 'storage/framework/sessions/' \
             --exclude 'storage/framework/views/' \
             --timeout=600 \
-            -e "ssh -p 65002 -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=3" \
-            $GITHUB_WORKSPACE/ ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }}:"$DEPLOY_DIR"
+            --progress \
+            -e "ssh -p 65002 -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o ServerAliveInterval=30 -o ServerAliveCountMax=3" \
+            $GITHUB_WORKSPACE/ ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }}:"$DEPLOY_DIR" || { echo "rsync failed"; exit 1; }
+          
+          echo "File transfer completed successfully"
 
           # Run SSH commands to verify and configure
-          sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} bash -c '
+          echo "Running post-deployment configuration..."
+          sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} bash -c '
             DEPLOY_DIR="/home/u242329769/domains/staging.kashtre.com/public_html"
             cd "$DEPLOY_DIR" || { echo "Failed to change directory to $DEPLOY_DIR"; exit 1; }
 
