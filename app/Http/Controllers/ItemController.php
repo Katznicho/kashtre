@@ -99,7 +99,7 @@ class ItemController extends Controller
             'type' => 'required|in:service,good,package,bulk',
             'description' => 'nullable|string',
             'group_id' => 'required_unless:type,package,bulk|nullable|exists:groups,id',
-            'subgroup_id' => 'required_if:type,service,good|nullable|exists:groups,id',
+            'subgroup_id' => 'required_if:type,service,good|nullable|exists:sub_groups,id',
             'department_id' => 'required_if:type,service,good|nullable|exists:departments,id',
             'uom_id' => 'required_unless:type,package,bulk|nullable|exists:item_units,id',
             'default_price' => 'required|numeric|min:0',
@@ -320,7 +320,7 @@ class ItemController extends Controller
             'type' => 'required|in:service,good,package,bulk',
             'description' => 'nullable|string',
             'group_id' => 'required_unless:type,package,bulk|nullable|exists:groups,id',
-            'subgroup_id' => 'required_if:type,service,good|nullable|exists:groups,id',
+            'subgroup_id' => 'required_if:type,service,good|nullable|exists:sub_groups,id',
             'department_id' => 'required_if:type,service,good|nullable|exists:departments,id',
             'uom_id' => 'required_unless:type,package,bulk|nullable|exists:item_units,id',
             'default_price' => 'required|numeric|min:0',
@@ -472,6 +472,7 @@ class ItemController extends Controller
         if (!$businessId) {
             return response()->json([
                 'groups' => [],
+                'subGroups' => [],
                 'departments' => [],
                 'itemUnits' => [],
                 'servicePoints' => [],
@@ -487,6 +488,9 @@ class ItemController extends Controller
 
         // Get groups
         $groups = Group::where('business_id', $businessId)->get();
+
+        // Get subgroups
+        $subGroups = SubGroup::where('business_id', $businessId)->get();
 
         // Get departments
         $departments = Department::where('business_id', $businessId)->get();
@@ -508,6 +512,7 @@ class ItemController extends Controller
 
         return response()->json([
             'groups' => $groups,
+            'subGroups' => $subGroups,
             'departments' => $departments,
             'itemUnits' => $itemUnits,
             'servicePoints' => $servicePoints,
