@@ -238,7 +238,7 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
             $validation->setShowErrorMessage(true);
             $validation->setFormula1('=OR(K' . $row . '=100,LEN(L' . $row . ')>0)');
             $validation->setErrorTitle('Contractor Required');
-            $validation->setError('Contractor is required when hospital share is less than 100%');
+            $validation->setError('Contractor is required when hospital share is less than 100%. Please select a contractor or set hospital share to 100%.');
             $validation->setPromptTitle('Contractor Selection');
             $validation->setPrompt('Select a contractor when hospital share < 100%, or leave empty if share = 100%');
         }

@@ -242,23 +242,24 @@ class KashtreSeeder extends Seeder
             ]);
         }
 
-        // 16. Create Contractor Profiles (will be linked to users later)
-        $contractors = [
-            'Dr. John Smith', 'Dr. Sarah Johnson', 'Dr. Michael Brown', 
-            'Dr. Emily Davis', 'Dr. David Wilson'
-        ];
+        // 16. Create Contractor Profiles (only for City Health Clinic)
+        if ($business->name === 'City Health Clinic') {
+            $contractors = [
+                'Dr. John Smith', 'Dr. Sarah Johnson', 'Dr. Michael Brown'
+            ];
 
-        foreach ($contractors as $name) {
-            ContractorProfile::firstOrCreate([
-                'business_id' => $business->id,
-                'user_id' => null, // Will be linked when user is created
-                'bank_name' => 'Stanbic Bank',
-                'account_name' => $name,
-                'account_number' => 'ACC' . Str::random(8),
-                'account_balance' => 0.00,
-                'kashtre_account_number' => 'KASH' . Str::random(6),
-                'signing_qualifications' => 'MBChB, PhD',
-            ]);
+            foreach ($contractors as $name) {
+                ContractorProfile::firstOrCreate([
+                    'business_id' => $business->id,
+                    'user_id' => null, // Will be linked when user is created
+                    'bank_name' => 'Stanbic Bank',
+                    'account_name' => $name,
+                    'account_number' => 'ACC' . Str::random(8),
+                    'account_balance' => 0.00,
+                    'kashtre_account_number' => 'KASH' . Str::random(6),
+                    'signing_qualifications' => 'MBChB, PhD',
+                ]);
+            }
         }
 
         // 17. Create Users for this Business (including contractors)

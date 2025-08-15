@@ -521,8 +521,8 @@
                     option.value = item.id;
                     
                     // Special handling for contractors to show business name
-                    if (selectId === 'contractor_account_id' && item.business) {
-                        option.textContent = `${item.account_name} (${item.business.name})`;
+                    if (selectId === 'contractor_account_id' && item.user && item.business) {
+                        option.textContent = `${item.user.name} (${item.business.name})`;
                     } 
                     // Special handling for service points to show branch name
                     else if (selectId === 'service_point_id' && item.branch) {

@@ -501,7 +501,7 @@ class ItemController extends Controller
             ->groupBy('branch_id');
 
         // Get contractors
-        $contractors = ContractorProfile::with('business')->where('business_id', $businessId)->get();
+        $contractors = ContractorProfile::with(['business', 'user'])->where('business_id', $businessId)->get();
 
         // Get branches
         $branches = Branch::where('business_id', $businessId)->get();

@@ -15,7 +15,9 @@ class ContractorValidationService
         return ContractorProfile::with('user')
             ->where('business_id', $businessId)
             ->get()
-            ->pluck('user.name')
+            ->map(function($contractor) {
+                return $contractor->kashtre_account_number . ' - ' . $contractor->user->name;
+            })
             ->filter()
             ->toArray();
     }
@@ -35,11 +37,17 @@ class ContractorValidationService
         // Find contractor if username is provided
         $contractor = null;
         if (!empty($contractorUsername)) {
+            // Extract account number from format "KASH123456 - Dr. John Smith"
+            $accountNumber = null;
+            if (strpos($contractorUsername, ' - ') !== false) {
+                $accountNumber = trim(explode(' - ', $contractorUsername)[0]);
+            } else {
+                $accountNumber = trim($contractorUsername);
+            }
+            
             $contractor = ContractorProfile::with('user')
                 ->where('business_id', $businessId)
-                ->whereHas('user', function($query) use ($contractorUsername) {
-                    $query->where('name', trim($contractorUsername));
-                })
+                ->where('kashtre_account_number', $accountNumber)
                 ->first();
                 
             if (!$contractor) {
@@ -68,11 +76,17 @@ class ContractorValidationService
      */
     public static function getContractorByUsername($username, $businessId)
     {
+        // Extract account number from format "KASH123456 - Dr. John Smith"
+        $accountNumber = null;
+        if (strpos($username, ' - ') !== false) {
+            $accountNumber = trim(explode(' - ', $username)[0]);
+        } else {
+            $accountNumber = trim($username);
+        }
+        
         return ContractorProfile::with('user')
             ->where('business_id', $businessId)
-            ->whereHas('user', function($query) use ($username) {
-                $query->where('name', trim($username));
-            })
+            ->where('kashtre_account_number', $accountNumber)
             ->first();
     }
 

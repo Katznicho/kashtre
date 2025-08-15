@@ -73,8 +73,8 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             
             // Find VAT rate column
             $vatRate = $row['vat_rate'] ?? null;
-            if (!empty($vatRate) && (!is_numeric($vatRate) || $vatRate < 0 || $vatRate > 100)) {
-                $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": VAT rate must be a number between 0 and 100";
+            if (!empty($vatRate) && (!is_numeric($vatRate) || $vatRate < 1 || $vatRate > 100)) {
+                $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": VAT rate must be a number between 1 and 100";
                 $this->errorCount++;
                 return null;
             }
