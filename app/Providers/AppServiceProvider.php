@@ -13,6 +13,8 @@ use App\Observers\ModelActivityObserver;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
+use App\Livewire\Suppliers\ListSuppliers;
 
 
 class AppServiceProvider extends ServiceProvider
@@ -46,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
          Business::observe(ModelActivityObserver::class);
          Transaction::observe(ModelActivityObserver::class);
 
-         
+         // Register Livewire components explicitly
+         Livewire::component('suppliers.list-suppliers', ListSuppliers::class);
     }
 }

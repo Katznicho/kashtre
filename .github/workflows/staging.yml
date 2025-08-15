@@ -228,6 +228,9 @@ jobs:
               # Create storage link
               php artisan storage:link || echo "Storage link already exists or failed to create"
 
+              # Clear and rebuild autoloader
+              composer dump-autoload --optimize || echo "Composer autoload rebuild failed"
+
               # Clear and cache configurations
               php artisan optimize:clear
               php artisan config:clear
@@ -236,6 +239,10 @@ jobs:
               php artisan route:cache
               php artisan view:clear
               php artisan view:cache
+              
+              # Clear Livewire cache specifically
+              php artisan livewire:discover || echo "Livewire discover failed"
+              php artisan livewire:clear-cache || echo "Livewire cache clear failed"
 
               # Restart queue workers if applicable
               php artisan queue:restart || echo "Queue restart not available"
