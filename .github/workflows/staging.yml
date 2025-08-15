@@ -71,6 +71,7 @@ jobs:
             --exclude 'storage/framework/cache/' \
             --exclude 'storage/framework/sessions/' \
             --exclude 'storage/framework/views/' \
+            --exclude 'vendor/' \
             --timeout=600 \
             --progress \
             -e "ssh -p 65002 -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o ServerAliveInterval=30 -o ServerAliveCountMax=3" \
@@ -92,6 +93,12 @@ jobs:
             echo "Contents of public/build:"
             ls -la public/build || echo "public/build directory not found (manually uploaded)"
 
+            # Debug: Check system information
+            echo "System information:"
+            php --version || echo "PHP version check failed"
+            which composer || echo "Composer not found in PATH"
+            composer --version || echo "Composer version check failed"
+            
             # Debug: Check .env contents (sanitized)
             if [ -f ".env" ]; then
               echo ".env exists"
@@ -106,17 +113,21 @@ jobs:
               echo "vendor directory exists"
               ls -la vendor/ | head -10
             else
-              echo "Error: vendor directory not found"
-              exit 1
+              echo "Error: vendor directory not found - attempting to install dependencies..."
+              composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs --prefer-dist || { echo "Composer install failed"; exit 1; }
             fi
 
             # Debug: Check composer autoload files
             if [ -f "vendor/autoload.php" ]; then
               echo "vendor/autoload.php exists"
             else
-              echo "Error: vendor/autoload.php not found"
-              exit 1
+              echo "Error: vendor/autoload.php not found - attempting to rebuild autoloader..."
+              composer dump-autoload --optimize --classmap-authoritative || { echo "Autoloader rebuild failed"; exit 1; }
             fi
+            
+            # Test autoloader functionality
+            echo "Testing autoloader..."
+            php -r "require 'vendor/autoload.php'; echo 'Autoloader test successful';" || { echo "Autoloader test failed"; exit 1; }
 
             # Set permissions for storage and cache directories
             if [ -d "storage" ] && [ -d "bootstrap/cache" ]; then
@@ -254,11 +265,20 @@ jobs:
 
                         # Install/update Composer dependencies
           echo "Installing Composer dependencies..."
-          composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs || echo "Composer install failed"
+          composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs --prefer-dist || echo "Composer install failed"
+          
+          # Verify composer installation
+          echo "Verifying Composer installation..."
+          composer --version || echo "Composer not found"
+          ls -la vendor/ | head -5 || echo "vendor directory not found"
           
           # Clear and rebuild autoloader
           echo "Rebuilding Composer autoloader..."
-          composer dump-autoload --optimize || echo "Composer autoload rebuild failed"
+          composer dump-autoload --optimize --classmap-authoritative || echo "Composer autoload rebuild failed"
+          
+          # Verify autoloader
+          echo "Verifying autoloader..."
+          php -r "require 'vendor/autoload.php'; echo 'Autoloader working';" || echo "Autoloader verification failed"
 
           # Clear all caches first
           echo "Clearing application caches..."
