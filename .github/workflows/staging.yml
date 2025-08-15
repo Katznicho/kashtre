@@ -231,18 +231,28 @@ jobs:
               # Clear and rebuild autoloader
               composer dump-autoload --optimize || echo "Composer autoload rebuild failed"
 
-              # Clear and cache configurations
-              php artisan optimize:clear
-              php artisan config:clear
-              php artisan cache:clear
-              php artisan route:clear
-              php artisan route:cache
-              php artisan view:clear
-              php artisan view:cache
+              # Clear all caches first
+              php artisan optimize:clear || echo "Optimize clear failed"
+              php artisan config:clear || echo "Config clear failed"
+              php artisan cache:clear || echo "Cache clear failed"
+              php artisan route:clear || echo "Route clear failed"
+              php artisan view:clear || echo "View clear failed"
+              php artisan bootstrap:clear || echo "Bootstrap clear failed"
               
-              # Clear Livewire cache specifically
-              php artisan livewire:discover || echo "Livewire discover failed"
+              # Clear Livewire cache and rediscover components
               php artisan livewire:clear-cache || echo "Livewire cache clear failed"
+              php artisan livewire:discover || echo "Livewire discover failed"
+              
+              # Rebuild caches
+              php artisan config:cache || echo "Config cache failed"
+              php artisan route:cache || echo "Route cache failed"
+              php artisan view:cache || echo "View cache failed"
+              
+              # Verify Livewire components are discovered
+              php artisan livewire:list || echo "Livewire list failed"
+              
+              # Final optimization
+              php artisan optimize || echo "Final optimize failed"
 
               # Restart queue workers if applicable
               php artisan queue:restart || echo "Queue restart not available"
