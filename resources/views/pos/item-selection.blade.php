@@ -306,7 +306,7 @@
     
     <!-- Client Confirmation Modal -->
     <div id="client-confirmation-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-        <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="relative bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4">
             <!-- Header -->
             <div class="bg-gray-50 px-6 py-4 rounded-t-lg border-b">
                 <h3 class="text-lg font-semibold text-gray-800 text-center">
@@ -315,40 +315,44 @@
             </div>
             
             <!-- Client Details -->
-            <div class="px-6 py-4">
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div class="space-y-2">
-                        <p class="text-sm text-gray-600">{{ $client->name }}</p>
+            <div class="px-8 py-6">
+                <div class="grid grid-cols-3 gap-6 mb-6">
+                    <div class="space-y-3">
+                        <p class="text-lg font-semibold text-gray-800">{{ $client->name }}</p>
                         <p class="text-sm text-gray-600">Client ID: {{ $client->client_id }}</p>
                         <p class="text-sm text-gray-600">Branch: {{ auth()->user()->currentBranch->name ?? 'N/A' }}</p>
                     </div>
-                    <div class="space-y-2">
+                    <div class="space-y-3">
                         <p class="text-sm text-gray-600">Age: {{ $client->age ?? 'N/A' }}</p>
                         <p class="text-sm text-gray-600">Sex: {{ $client->sex ?? 'N/A' }}</p>
                         <p class="text-sm text-gray-600">Visit ID: {{ $client->visit_id }}</p>
                     </div>
-                </div>
-                
-                <!-- QR Code Placeholder -->
-                <div class="flex justify-end mb-4">
-                    <div class="w-16 h-16 bg-white border border-gray-300 flex items-center justify-center">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=64x64&data={{ urlencode($client->client_id . '|' . $client->name) }}" 
-                             alt="QR Code" 
-                             class="w-full h-full object-contain"
-                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                        <div class="hidden w-full h-full bg-gray-100 border border-gray-300 flex items-center justify-center">
-                            <span class="text-xs text-gray-500 text-center">QR<br>Code</span>
+                    <div class="flex justify-end">
+                        <div class="w-24 h-24 bg-white border border-gray-300 flex items-center justify-center rounded-lg">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=96x96&data={{ urlencode($client->client_id . '|' . $client->name) }}" 
+                                 alt="QR Code" 
+                                 class="w-full h-full object-contain"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div class="hidden w-full h-full bg-gray-100 border border-gray-300 flex items-center justify-center rounded-lg">
+                                <span class="text-sm text-gray-500 text-center">QR<br>Code</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
             
             <!-- Action Buttons -->
-            <div class="bg-gray-50 px-6 py-4 rounded-b-lg flex justify-center space-x-4">
-                <button onclick="printClientDetails()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition duration-200">
+            <div class="bg-gray-50 px-8 py-6 rounded-b-lg flex justify-center space-x-6">
+                <button onclick="printClientDetails()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition duration-200 shadow-md hover:shadow-lg">
+                    <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                    </svg>
                     Print
                 </button>
-                <button onclick="closeClientConfirmation()" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded transition duration-200">
+                <button onclick="closeClientConfirmation()" class="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-lg transition duration-200 shadow-md hover:shadow-lg">
+                    <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
                     Close
                 </button>
             </div>
