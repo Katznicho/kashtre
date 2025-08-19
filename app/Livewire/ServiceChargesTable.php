@@ -27,38 +27,25 @@ class ServiceChargesTable extends Component implements HasForms, HasTable
     use InteractsWithForms;
     use Tables\Concerns\InteractsWithTable;
 
-    public $selectedEntityType;
-    public $selectedEntityId;
-    public $availableEntities;
+    public $selectedBusinessId;
+    public $availableBusinesses;
 
     public function mount()
     {
-        $this->selectedEntityType = request()->get('entity_type', 'business');
-        $this->selectedEntityId = request()->get('entity_id', '');
-        $this->loadAvailableEntities();
+        $this->selectedBusinessId = request()->get('business_id', '');
+        $this->loadAvailableBusinesses();
     }
 
-    public function loadAvailableEntities()
+    public function loadAvailableBusinesses()
     {
         $user = Auth::user();
         $business = $user->business;
+        
+        // Get all businesses except the first one (super business)
+        $this->availableBusinesses = Business::where('id', '!=', 1)->get();
 
-        switch ($this->selectedEntityType) {
-            case 'business':
-                $this->availableEntities = Business::where('id', $business->id)->get();
-                break;
-            case 'branch':
-                $this->availableEntities = Branch::where('business_id', $business->id)->get();
-                break;
-            case 'service_point':
-                $this->availableEntities = ServicePoint::where('business_id', $business->id)->get();
-                break;
-            default:
-                $this->availableEntities = collect();
-        }
-
-        if ($this->availableEntities->isNotEmpty() && !$this->selectedEntityId) {
-            $this->selectedEntityId = $this->availableEntities->first()->id;
+        if ($this->availableBusinesses->isNotEmpty() && !$this->selectedBusinessId) {
+            $this->selectedBusinessId = $this->availableBusinesses->first()->id;
         }
     }
 
@@ -68,12 +55,12 @@ class ServiceChargesTable extends Component implements HasForms, HasTable
         $business = $user->business;
         
         $query = ServiceCharge::query()
-            ->where('business_id', $business->id)
+            ->where('business_id', '!=', 1) // Exclude super business
             ->with(['createdBy', 'entity']);
 
-        if ($this->selectedEntityType && $this->selectedEntityId) {
-            $query->where('entity_type', $this->selectedEntityType)
-                  ->where('entity_id', $this->selectedEntityId);
+        if ($this->selectedBusinessId) {
+            $query->where('entity_type', 'business')
+                  ->where('entity_id', $this->selectedBusinessId);
         }
         
         return $table
@@ -195,17 +182,9 @@ class ServiceChargesTable extends Component implements HasForms, HasTable
         return null;
     }
 
-    public function updatedSelectedEntityType($value)
+    public function updatedSelectedBusinessId($value)
     {
-        $this->selectedEntityType = $value;
-        $this->selectedEntityId = '';
-        $this->loadAvailableEntities();
-        $this->resetTable();
-    }
-
-    public function updatedSelectedEntityId($value)
-    {
-        $this->selectedEntityId = $value;
+        $this->selectedBusinessId = $value;
         $this->resetTable();
     }
 

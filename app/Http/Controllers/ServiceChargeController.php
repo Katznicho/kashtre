@@ -28,12 +28,10 @@ class ServiceChargeController extends Controller
         $user = Auth::user();
         $businessId = $user->business_id;
 
-        // Get available entities for selection
-        $businesses = Business::where('id', $businessId)->get();
-        $branches = Branch::where('business_id', $businessId)->get();
-        $servicePoints = ServicePoint::where('business_id', $businessId)->get();
+        // Get available businesses for selection (excluding the first business which is the super business)
+        $businesses = Business::where('id', '!=', 1)->get();
 
-        return view('service-charges.create', compact('businesses', 'branches', 'servicePoints'));
+        return view('service-charges.create', compact('businesses'));
     }
 
     /**
@@ -42,13 +40,12 @@ class ServiceChargeController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'entity_type' => 'required|in:business,branch,service_point',
             'entity_id' => 'required|integer',
             'service_charges' => 'required|array|min:1',
-            'service_charges.*.name' => 'required|string|max:255',
             'service_charges.*.amount' => 'required|numeric|min:0',
+            'service_charges.*.upper_bound' => 'nullable|numeric|min:0',
+            'service_charges.*.lower_bound' => 'nullable|numeric|min:0',
             'service_charges.*.type' => 'required|in:fixed,percentage',
-            'service_charges.*.description' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -60,18 +57,21 @@ class ServiceChargeController extends Controller
         $user = Auth::user();
         $businessId = $user->business_id;
 
-        // Validate entity exists and belongs to the business
-        $this->validateEntity($request->entity_type, $request->entity_id, $businessId);
+        // Validate business exists and belongs to the user
+        $business = Business::findOrFail($request->entity_id);
+        if ($business->id !== $businessId) {
+            abort(403, 'Unauthorized access to this business.');
+        }
 
         // Create service charges
         foreach ($request->service_charges as $chargeData) {
             ServiceCharge::create([
-                'entity_type' => $request->entity_type,
+                'entity_type' => 'business',
                 'entity_id' => $request->entity_id,
-                'name' => $chargeData['name'],
                 'amount' => $chargeData['amount'],
+                'upper_bound' => $chargeData['upper_bound'] ?? null,
+                'lower_bound' => $chargeData['lower_bound'] ?? null,
                 'type' => $chargeData['type'],
-                'description' => $chargeData['description'] ?? null,
                 'business_id' => $businessId,
                 'created_by' => $user->id,
             ]);

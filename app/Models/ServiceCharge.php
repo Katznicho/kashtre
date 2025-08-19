@@ -13,10 +13,10 @@ class ServiceCharge extends Model
     protected $fillable = [
         'entity_type',
         'entity_id',
-        'name',
         'amount',
+        'upper_bound',
+        'lower_bound',
         'type',
-        'description',
         'is_active',
         'business_id',
         'created_by',
@@ -24,6 +24,8 @@ class ServiceCharge extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'upper_bound' => 'decimal:2',
+        'lower_bound' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 

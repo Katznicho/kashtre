@@ -1,6 +1,6 @@
 <x-app-layout>
 <div class="container mx-auto px-4 py-8">
-    <div class="max-w-4xl mx-auto">
+    <div class="max-w-6xl mx-auto">
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-3xl font-bold text-gray-900">Create Service Charges</h1>
             <a href="{{ route('service-charges.index') }}" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
@@ -21,28 +21,26 @@
         <form action="{{ route('service-charges.store') }}" method="POST" class="bg-white shadow-md rounded-lg p-6">
             @csrf
             
-            <!-- Entity Selection -->
+            <!-- Business Selection -->
             <div class="mb-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">Select Entity</h2>
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">Select Business</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label for="entity_type" class="block text-sm font-medium text-gray-700 mb-2">
-                            Entity Type
+                        <label for="entity_id" class="block text-sm font-medium text-gray-700 mb-2">
+                            Business/Hospital*
                         </label>
-                        <select id="entity_type" name="entity_type" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
-                            <option value="">Select Entity Type</option>
-                            <option value="business">Business</option>
-                            <option value="branch">Branch</option>
-                            <option value="service_point">Service Point</option>
+                        <select id="entity_id" name="entity_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+                            <option value="">Select Business</option>
+                            @foreach($businesses as $business)
+                                <option value="{{ $business->id }}">
+                                    {{ $business->name }}
+                                </option>
+                            @endforeach
                         </select>
                     </div>
                     <div>
-                        <label for="entity_id" class="block text-sm font-medium text-gray-700 mb-2">
-                            Entity
-                        </label>
-                        <select id="entity_id" name="entity_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required disabled>
-                            <option value="">Select Entity Type First</option>
-                        </select>
+                        <!-- Hidden field for entity_type -->
+                        <input type="hidden" name="entity_type" value="business">
                     </div>
                 </div>
             </div>
@@ -82,74 +80,46 @@
                 Remove
             </button>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Name
+                    Upper Bound
                 </label>
-                <input type="text" name="service_charges[INDEX][name]" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+                <input type="number" name="service_charges[INDEX][upper_bound]" step="0.01" min="0" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Amount
+                    Lower Bound
                 </label>
-                <input type="number" name="service_charges[INDEX][amount]" step="0.01" min="0" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+                <input type="number" name="service_charges[INDEX][lower_bound]" step="0.01" min="0" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Type
+                    Charge*
+                </label>
+                <input type="number" name="service_charges[INDEX][amount]" step="0.01" min="0" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required placeholder="0.00">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Service Charge Type*
                 </label>
                 <select name="service_charges[INDEX][type]" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
                     <option value="">Select Type</option>
-                    <option value="fixed">Fixed Amount</option>
+                    <option value="fixed">Fixed</option>
                     <option value="percentage">Percentage</option>
                 </select>
             </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Description (Optional)
-                </label>
-                <textarea name="service_charges[INDEX][description]" rows="2" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></textarea>
-            </div>
         </div>
+
     </div>
 </template>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const entityTypeSelect = document.getElementById('entity_type');
-    const entityIdSelect = document.getElementById('entity_id');
     const addButton = document.getElementById('add-service-charge');
     const container = document.getElementById('service-charges-container');
     const template = document.getElementById('service-charge-template');
     let itemIndex = 0;
-
-    // Entity type change handler
-    entityTypeSelect.addEventListener('change', function() {
-        const entityType = this.value;
-        entityIdSelect.disabled = !entityType;
-        entityIdSelect.innerHTML = '<option value="">Loading...</option>';
-
-        if (entityType) {
-            fetch(`/service-charges/get-entities?entity_type=${entityType}`)
-                .then(response => response.json())
-                .then(data => {
-                    entityIdSelect.innerHTML = '<option value="">Select Entity</option>';
-                    data.forEach(entity => {
-                        const option = document.createElement('option');
-                        option.value = entity.id;
-                        option.textContent = entity.name;
-                        entityIdSelect.appendChild(option);
-                    });
-                })
-                .catch(error => {
-                    console.error('Error fetching entities:', error);
-                    entityIdSelect.innerHTML = '<option value="">Error loading entities</option>';
-                });
-        } else {
-            entityIdSelect.innerHTML = '<option value="">Select Entity Type First</option>';
-        }
-    });
 
     // Add service charge handler
     addButton.addEventListener('click', function() {
