@@ -87,25 +87,28 @@
                             </button>
                         </div>
                         <div class="bg-gray-50 p-4 rounded-lg border-2 border-dashed border-blue-200 hover:border-blue-300 transition-colors">
-                            <div class="flex items-center justify-between mb-1">
-                                <p class="text-sm text-gray-500">Payment Phone Number</p>
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-sm text-gray-500 font-medium">Payment Phone Number</p>
                                 <span class="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">Editable</span>
                             </div>
-                            <div class="flex items-center space-x-2">
+                            <div class="flex items-center space-x-3">
                                 <input type="tel" 
                                        id="payment-phone-edit" 
                                        value="{{ $client->payment_phone_number ?? '' }}" 
                                        placeholder="Enter payment phone number"
                                        class="flex-1 text-lg font-semibold text-gray-900 bg-white border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-                                <button onclick="savePaymentPhone()" 
-                                        class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm">
+                                <button type="button" onclick="savePaymentPhone()" 
+                                        class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium shadow-sm border-0 min-w-[80px]">
                                     <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                     </svg>
                                     Save
                                 </button>
                             </div>
-                            <p class="text-xs text-gray-500 mt-1">Click to edit payment phone number for mobile money transactions</p>
+                            <div class="mt-2 flex items-center justify-between">
+                                <p class="text-xs text-gray-500">Click to edit payment phone number for mobile money transactions</p>
+                                <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full font-medium">Save Required</span>
+                            </div>
                         </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Contact Phone Number</p>
