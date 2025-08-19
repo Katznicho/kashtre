@@ -30,6 +30,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BulkUploadController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ServiceChargeController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -112,6 +113,8 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::resource("suppliers", SupplierController::class);
     Route::resource("contractor-profiles", ContractorProfileController::class);
     Route::resource("sub-groups", SubGroupController::class);
+    Route::resource("service-charges", ServiceChargeController::class);
+    Route::get('/service-charges/get-entities', [ServiceChargeController::class, 'getEntities'])->name('service-charges.get-entities');
     Route::resource("admins", AdminController::class);
     Route::resource("clients", ClientController::class);
     Route::post('/clients/{client}/update-payment-methods', [ClientController::class, 'updatePaymentMethods'])->name('clients.update-payment-methods');

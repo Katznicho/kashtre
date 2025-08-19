@@ -153,36 +153,7 @@
                             </select>
                         </div>
 
-                        <!-- Branch Service Points Section -->
-                        <div class="md:col-span-2 service-good-only">
-                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Branch Service Points</h3>
-                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Select service points from different branches for this item</p>
-                            
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                @foreach($branches as $branch)
-                                <div class="border rounded-lg p-4 bg-gray-50 dark:bg-gray-700">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        {{ $branch->name }}
-                                    </label>
-                                    <div class="space-y-2">
-                                        @php
-                                            $branchServicePoints = $servicePoints->where('branch_id', $branch->id);
-                                        @endphp
-                                        @if($branchServicePoints->count() > 0)
-                                            <select name="branch_service_points[{{ $branch->id }}]" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                                <option value="">Select service point</option>
-                                                @foreach($branchServicePoints as $servicePoint)
-                                                    <option value="{{ $servicePoint->id }}">{{ $servicePoint->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        @else
-                                            <p class="text-sm text-gray-500 dark:text-gray-400">No service points available for this branch</p>
-                                        @endif
-                                    </div>
-                                </div>
-                                @endforeach
-                            </div>
-                        </div>
+
 
                         <!-- Other Name -->
                         <div class="md:col-span-2">
