@@ -17,15 +17,7 @@ class ServiceChargeController extends Controller
      */
     public function index()
     {
-        $user = Auth::user();
-        $businessId = $user->business_id;
-
-        $serviceCharges = ServiceCharge::with(['business', 'createdBy'])
-            ->forBusiness($businessId)
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return view('service-charges.index', compact('serviceCharges'));
+        return view('service-charges.index');
     }
 
     /**
