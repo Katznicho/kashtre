@@ -898,19 +898,35 @@
             saveButton.innerHTML = '<svg class="w-4 h-4 inline mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>Saving...';
             saveButton.disabled = true;
             
+            // Get CSRF token
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                             document.querySelector('input[name="_token"]')?.value;
+            
+            if (!csrfToken) {
+                alert('CSRF token not found. Please refresh the page and try again.');
+                saveButton.innerHTML = originalText;
+                saveButton.disabled = false;
+                return;
+            }
+            
             // Send AJAX request to update payment phone number
             fetch(`/clients/{{ $client->id }}/update-payment-phone`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'X-CSRF-TOKEN': csrfToken,
                     'Accept': 'application/json',
                 },
                 body: JSON.stringify({
                     payment_phone_number: paymentPhone
                 })
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     // Show success message
@@ -940,12 +956,26 @@
                         paymentPhoneInput.classList.remove('border-green-500');
                     }, 2000);
                 } else {
-                    alert('Error updating payment phone number: ' + data.message);
+                    throw new Error(data.message || 'Unknown error occurred');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error updating payment phone number');
+                
+                // Show error message
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center';
+                errorDiv.innerHTML = `
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                    Error: ${error.message}
+                `;
+                document.body.appendChild(errorDiv);
+                
+                setTimeout(() => {
+                    errorDiv.remove();
+                }, 5000);
             })
             .finally(() => {
                 // Restore button state
