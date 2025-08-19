@@ -3,9 +3,6 @@
 namespace App\Livewire;
 
 use App\Models\ServiceCharge;
-use App\Models\Business;
-use App\Models\Branch;
-use App\Models\ServicePoint;
 use App\Models\User;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -32,9 +29,6 @@ class ServiceChargesTable extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
-        $user = Auth::user();
-        $business = $user->business;
-        
         $query = ServiceCharge::query()
             ->where('business_id', '!=', 1) // Exclude super business
             ->with(['createdBy', 'entity']);
