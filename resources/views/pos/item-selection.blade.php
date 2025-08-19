@@ -945,9 +945,17 @@
                     }, 3000);
                     
                     // Update the invoice preview modal payment phone number
-                    const invoicePaymentPhone = document.querySelector('#invoice-modal p strong:contains("Payment Phone:")');
-                    if (invoicePaymentPhone) {
-                        invoicePaymentPhone.nextSibling.textContent = paymentPhone || 'N/A';
+                    const invoiceModal = document.getElementById('invoice-modal');
+                    if (invoiceModal) {
+                        const paymentPhoneElements = invoiceModal.querySelectorAll('p strong');
+                        paymentPhoneElements.forEach(element => {
+                            if (element.textContent.includes('Payment Phone:')) {
+                                const nextElement = element.nextElementSibling;
+                                if (nextElement) {
+                                    nextElement.textContent = paymentPhone || 'N/A';
+                                }
+                            }
+                        });
                     }
                     
                     // Add visual feedback to the input field
