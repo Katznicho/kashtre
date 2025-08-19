@@ -28,27 +28,7 @@ class ServiceChargesTable extends Component implements HasForms, HasTable
     use InteractsWithForms;
     use Tables\Concerns\InteractsWithTable;
 
-    public $selectedBusinessId;
-    public $availableBusinesses;
 
-    public function mount()
-    {
-        $this->selectedBusinessId = request()->get('business_id', '');
-        $this->loadAvailableBusinesses();
-    }
-
-    public function loadAvailableBusinesses()
-    {
-        $user = Auth::user();
-        $business = $user->business;
-        
-        // Get all businesses except the first one (super business)
-        $this->availableBusinesses = Business::where('id', '!=', 1)->get();
-
-        if ($this->availableBusinesses->isNotEmpty() && !$this->selectedBusinessId) {
-            $this->selectedBusinessId = $this->availableBusinesses->first()->id;
-        }
-    }
 
     public function table(Table $table): Table
     {
@@ -58,11 +38,6 @@ class ServiceChargesTable extends Component implements HasForms, HasTable
         $query = ServiceCharge::query()
             ->where('business_id', '!=', 1) // Exclude super business
             ->with(['createdBy', 'entity']);
-
-        if ($this->selectedBusinessId) {
-            $query->where('entity_type', 'business')
-                  ->where('entity_id', $this->selectedBusinessId);
-        }
         
         return $table
             ->query($query)
@@ -177,11 +152,7 @@ class ServiceChargesTable extends Component implements HasForms, HasTable
         return null;
     }
 
-    public function updatedSelectedBusinessId($value)
-    {
-        $this->selectedBusinessId = $value;
-        $this->resetTable();
-    }
+
 
     public function render()
     {
