@@ -1,6 +1,4 @@
-@extends('layouts.app')
-
-@section('content')
+<x-app-layout>
 <div class="container mx-auto px-4 py-8">
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-3xl font-bold text-gray-900">Service Charges</h1>
@@ -18,4 +16,4 @@
     <!-- Livewire Service Charges Table -->
     @livewire('service-charges-table')
 </div>
-@endsection
+</x-app-layout>
