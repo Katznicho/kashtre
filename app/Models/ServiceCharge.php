@@ -98,15 +98,19 @@ class ServiceCharge extends Model
      */
     public function getEntityNameAttribute(): string
     {
-        switch ($this->entity_type) {
-            case 'business':
-                return Business::find($this->entity_id)?->name ?? 'Unknown Business';
-            case 'branch':
-                return Branch::find($this->entity_id)?->name ?? 'Unknown Branch';
-            case 'service_point':
-                return ServicePoint::find($this->entity_id)?->name ?? 'Unknown Service Point';
-            default:
-                return 'Unknown Entity';
+        try {
+            switch ($this->entity_type) {
+                case 'business':
+                    return Business::find($this->entity_id)?->name ?? 'Unknown Business';
+                case 'branch':
+                    return Branch::find($this->entity_id)?->name ?? 'Unknown Branch';
+                case 'service_point':
+                    return ServicePoint::find($this->entity_id)?->name ?? 'Unknown Service Point';
+                default:
+                    return 'Unknown Entity';
+            }
+        } catch (\Exception $e) {
+            return 'Error: ' . $e->getMessage();
         }
     }
 }
