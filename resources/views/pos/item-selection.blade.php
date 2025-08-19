@@ -34,9 +34,20 @@
             @endif
             
             <!-- Section 1: Client Summary Details -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6" x-data="{ expanded: true }">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Client Summary Details</h3>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium text-gray-900">Client Summary Details</h3>
+                        <button @click="expanded = !expanded" class="text-gray-500 hover:text-gray-700 transition-colors">
+                            <svg x-show="expanded" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                            </svg>
+                            <svg x-show="!expanded" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div x-show="expanded" x-transition>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Names</p>
@@ -79,24 +90,32 @@
                             <p class="text-sm text-gray-500 mb-1">Contact Phone Number</p>
                             <p class="text-lg font-semibold text-gray-900">{{ $client->phone_number }}</p>
                         </div>
-                        <div class="bg-gray-50 p-4 rounded-lg">
-                            <p class="text-sm text-gray-500 mb-1">Payment Phone Number</p>
+                        <div class="bg-gray-50 p-4 rounded-lg border-2 border-dashed border-blue-200 hover:border-blue-300 transition-colors">
+                            <div class="flex items-center justify-between mb-1">
+                                <p class="text-sm text-gray-500">Payment Phone Number</p>
+                                <span class="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">Editable</span>
+                            </div>
                             <div class="flex items-center space-x-2">
                                 <input type="tel" 
                                        id="payment-phone-edit" 
                                        value="{{ $client->payment_phone_number ?? '' }}" 
                                        placeholder="Enter payment phone number"
-                                       class="flex-1 text-lg font-semibold text-gray-900 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1">
+                                       class="flex-1 text-lg font-semibold text-gray-900 bg-white border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
                                 <button onclick="savePaymentPhone()" 
-                                        class="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors">
+                                        class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm">
+                                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
                                     Save
                                 </button>
                             </div>
+                            <p class="text-xs text-gray-500 mt-1">Click to edit payment phone number for mobile money transactions</p>
                         </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Email Address</p>
                             <p class="text-lg font-semibold text-gray-900">{{ $client->email ?? 'N/A' }}</p>
                         </div>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -868,7 +887,13 @@
         // Payment Phone Number Functions
         function savePaymentPhone() {
             const paymentPhoneInput = document.getElementById('payment-phone-edit');
+            const saveButton = paymentPhoneInput.nextElementSibling;
+            const originalText = saveButton.innerHTML;
             const paymentPhone = paymentPhoneInput.value.trim();
+            
+            // Show loading state
+            saveButton.innerHTML = '<svg class="w-4 h-4 inline mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>Saving...';
+            saveButton.disabled = true;
             
             // Send AJAX request to update payment phone number
             fetch(`/clients/{{ $client->id }}/update-payment-phone`, {
@@ -887,8 +912,13 @@
                 if (data.success) {
                     // Show success message
                     const successDiv = document.createElement('div');
-                    successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-                    successDiv.textContent = 'Payment phone number updated successfully!';
+                    successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center';
+                    successDiv.innerHTML = `
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Payment phone number updated successfully!
+                    `;
                     document.body.appendChild(successDiv);
                     
                     setTimeout(() => {
@@ -900,6 +930,12 @@
                     if (invoicePaymentPhone) {
                         invoicePaymentPhone.nextSibling.textContent = paymentPhone || 'N/A';
                     }
+                    
+                    // Add visual feedback to the input field
+                    paymentPhoneInput.classList.add('border-green-500');
+                    setTimeout(() => {
+                        paymentPhoneInput.classList.remove('border-green-500');
+                    }, 2000);
                 } else {
                     alert('Error updating payment phone number: ' + data.message);
                 }
@@ -907,8 +943,25 @@
             .catch(error => {
                 console.error('Error:', error);
                 alert('Error updating payment phone number');
+            })
+            .finally(() => {
+                // Restore button state
+                saveButton.innerHTML = originalText;
+                saveButton.disabled = false;
             });
         }
+        
+        // Add event listener for Enter key on payment phone input
+        document.addEventListener('DOMContentLoaded', function() {
+            const paymentPhoneInput = document.getElementById('payment-phone-edit');
+            if (paymentPhoneInput) {
+                paymentPhoneInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        savePaymentPhone();
+                    }
+                });
+            }
+        });
     </script>
     
     <!-- Payment Methods Modal -->
