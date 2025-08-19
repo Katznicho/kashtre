@@ -15,30 +15,36 @@
 
         <div class="bg-white shadow-md rounded-lg overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200">
-                <h2 class="text-xl font-semibold text-gray-900">{{ $serviceCharge->name }}</h2>
+                <h2 class="text-xl font-semibold text-gray-900">Service Charge Details</h2>
             </div>
             
             <div class="p-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <h3 class="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Charge Information</h3>
                         <dl class="space-y-3">
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Name</dt>
-                                <dd class="text-sm text-gray-900">{{ $serviceCharge->name }}</dd>
+                                <dt class="text-sm font-medium text-gray-500">Charge Amount</dt>
+                                <dd class="text-sm text-gray-900">
+                                    {{ $serviceCharge->type === 'percentage' ? $serviceCharge->amount . '%' : 'UGX ' . number_format($serviceCharge->amount, 2) }}
+                                </dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Amount</dt>
-                                <dd class="text-sm text-gray-900">{{ $serviceCharge->formatted_amount }}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-sm font-medium text-gray-500">Type</dt>
+                                <dt class="text-sm font-medium text-gray-500">Charge Type</dt>
                                 <dd class="text-sm text-gray-900">
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
                                         {{ $serviceCharge->type === 'percentage' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800' }}">
                                         {{ ucfirst($serviceCharge->type) }}
                                     </span>
                                 </dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Lower Bound</dt>
+                                <dd class="text-sm text-gray-900">{{ $serviceCharge->lower_bound ? 'UGX ' . number_format($serviceCharge->lower_bound, 2) : 'N/A' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Upper Bound</dt>
+                                <dd class="text-sm text-gray-900">{{ $serviceCharge->upper_bound ? 'UGX ' . number_format($serviceCharge->upper_bound, 2) : 'N/A' }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Status</dt>
@@ -53,8 +59,21 @@
                     </div>
                     
                     <div>
-                        <h3 class="text-lg font-medium text-gray-900 mb-4">Entity Information</h3>
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Business Information</h3>
                         <dl class="space-y-3">
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Business</dt>
+                                <dd class="text-sm text-gray-900">
+                                    @php
+                                        try {
+                                            $business = \App\Models\Business::find($serviceCharge->business_id);
+                                            echo $business ? $business->name : 'Business #' . $serviceCharge->business_id;
+                                        } catch (\Exception $e) {
+                                            echo 'Business #' . $serviceCharge->business_id;
+                                        }
+                                    @endphp
+                                </dd>
+                            </div>
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Entity Type</dt>
                                 <dd class="text-sm text-gray-900">
@@ -64,12 +83,8 @@
                                 </dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Entity Name</dt>
-                                <dd class="text-sm text-gray-900">{{ $serviceCharge->entity_name }}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-sm font-medium text-gray-500">Business</dt>
-                                <dd class="text-sm text-gray-900">{{ $serviceCharge->business->name ?? 'N/A' }}</dd>
+                                <dt class="text-sm font-medium text-gray-500">Entity ID</dt>
+                                <dd class="text-sm text-gray-900">{{ $serviceCharge->entity_type }} #{{ $serviceCharge->entity_id }}</dd>
                             </div>
                         </dl>
                     </div>

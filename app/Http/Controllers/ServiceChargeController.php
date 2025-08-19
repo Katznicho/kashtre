@@ -98,15 +98,10 @@ class ServiceChargeController extends Controller
     {
         $this->authorizeServiceCharge($serviceCharge);
 
-        $user = Auth::user();
-        $businessId = $user->business_id;
+        // Get available businesses for selection (excluding super business)
+        $businesses = Business::where('id', '!=', 1)->get();
 
-        // Get available entities for selection
-        $businesses = Business::where('id', $businessId)->get();
-        $branches = Branch::where('business_id', $businessId)->get();
-        $servicePoints = ServicePoint::where('business_id', $businessId)->get();
-
-        return view('service-charges.edit', compact('serviceCharge', 'businesses', 'branches', 'servicePoints'));
+        return view('service-charges.edit', compact('serviceCharge', 'businesses'));
     }
 
     /**
@@ -117,10 +112,10 @@ class ServiceChargeController extends Controller
         $this->authorizeServiceCharge($serviceCharge);
 
         $validator = Validator::make($request->all(), [
-            'entity_type' => 'required|in:business,branch,service_point',
-            'entity_id' => 'required|integer',
-            'name' => 'required|string|max:255',
+            'business_id' => 'required|integer',
             'amount' => 'required|numeric|min:0',
+            'upper_bound' => 'nullable|numeric|min:0',
+            'lower_bound' => 'nullable|numeric|min:0',
             'type' => 'required|in:fixed,percentage',
             'description' => 'nullable|string|max:500',
             'is_active' => 'boolean',
@@ -132,20 +127,22 @@ class ServiceChargeController extends Controller
                 ->withInput();
         }
 
-        $user = Auth::user();
-        $businessId = $user->business_id;
-
-        // Validate entity exists and belongs to the business
-        $this->validateEntity($request->entity_type, $request->entity_id, $businessId);
+        // Validate business exists and is not the super business
+        $business = Business::findOrFail($request->business_id);
+        if ($business->id === 1) {
+            abort(403, 'Cannot update service charges for the super business.');
+        }
 
         $serviceCharge->update([
-            'entity_type' => $request->entity_type,
-            'entity_id' => $request->entity_id,
-            'name' => $request->name,
+            'entity_type' => 'business',
+            'entity_id' => $request->business_id,
             'amount' => $request->amount,
+            'upper_bound' => $request->upper_bound,
+            'lower_bound' => $request->lower_bound,
             'type' => $request->type,
             'description' => $request->description,
             'is_active' => $request->has('is_active'),
+            'business_id' => $request->business_id,
         ]);
 
         return redirect()->route('service-charges.index')
@@ -232,6 +229,12 @@ class ServiceChargeController extends Controller
     {
         $user = Auth::user();
         
+        // Allow super admin (business_id = 1) to access all service charges
+        if ($user->business_id === 1) {
+            return;
+        }
+        
+        // For regular users, only allow access to service charges from their business
         if ($serviceCharge->business_id !== $user->business_id) {
             abort(403, 'Unauthorized access to service charge');
         }

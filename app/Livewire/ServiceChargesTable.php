@@ -31,31 +31,41 @@ class ServiceChargesTable extends Component implements HasForms, HasTable
     {
         $query = ServiceCharge::query()
             ->where('business_id', '!=', 1) // Exclude super business
-            ->with(['createdBy', 'entity']);
+            ->with(['createdBy']);
         
         return $table
             ->query($query)
             ->columns([
-                TextColumn::make('entity_type')
-                    ->label('Entity Type')
-                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
-                    ->badge()
-                    ->color('primary')
-                    ->sortable(),
-                
-                TextColumn::make('entity_name')
-                    ->label('Entity Name')
-                    ->formatStateUsing(fn (ServiceCharge $record): string => $record->entity_name)
+                TextColumn::make('business_id')
+                    ->label('Business')
+                    ->formatStateUsing(function (ServiceCharge $record): string {
+                        try {
+                            $business = \App\Models\Business::find($record->business_id);
+                            return $business ? $business->name : 'Unknown Business';
+                        } catch (\Exception $e) {
+                            return 'Business #' . $record->business_id;
+                        }
+                    })
                     ->searchable()
                     ->sortable(),
                 
-                TextColumn::make('formatted_amount')
-                    ->label('Amount')
-                    ->formatStateUsing(fn (ServiceCharge $record): string => $record->formatted_amount)
+                TextColumn::make('lower_bound')
+                    ->label('Lower Bound')
+                    ->formatStateUsing(fn (ServiceCharge $record): string => $record->lower_bound ? 'UGX ' . number_format($record->lower_bound, 2) : 'N/A')
+                    ->sortable(),
+                
+                TextColumn::make('upper_bound')
+                    ->label('Upper Bound')
+                    ->formatStateUsing(fn (ServiceCharge $record): string => $record->upper_bound ? 'UGX ' . number_format($record->upper_bound, 2) : 'N/A')
+                    ->sortable(),
+                
+                TextColumn::make('amount')
+                    ->label('Charge')
+                    ->formatStateUsing(fn (ServiceCharge $record): string => $record->type === 'percentage' ? $record->amount . '%' : 'UGX ' . number_format($record->amount, 2))
                     ->sortable(),
                 
                 TextColumn::make('type')
-                    ->label('Type')
+                    ->label('Charge Type')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'percentage' => 'success',
@@ -83,13 +93,13 @@ class ServiceChargesTable extends Component implements HasForms, HasTable
                     ->sortable(),
             ])
             ->filters([
-                SelectFilter::make('entity_type')
-                    ->label('Entity Type')
-                    ->options([
-                        'business' => 'Business',
-                        'branch' => 'Branch',
-                        'service_point' => 'Service Point',
-                    ]),
+                SelectFilter::make('business_id')
+                    ->label('Business')
+                    ->options(function () {
+                        return \App\Models\Business::where('id', '!=', 1)
+                            ->pluck('name', 'id')
+                            ->toArray();
+                    }),
                 
                 SelectFilter::make('type')
                     ->label('Charge Type')
@@ -112,10 +122,10 @@ class ServiceChargesTable extends Component implements HasForms, HasTable
                     ->color('primary')
                     ->url(fn (ServiceCharge $record): string => route('service-charges.show', $record)),
                 
-                EditAction::make()
-                    ->label('Edit')
-                    ->icon('heroicon-o-pencil')
-                    ->url(fn (ServiceCharge $record): string => route('service-charges.edit', $record)),
+                // EditAction::make()
+                //     ->label('Edit')
+                //     ->icon('heroicon-o-pencil')
+                //     ->url(fn (ServiceCharge $record): string => route('service-charges.edit', $record)),
                 
                 DeleteAction::make()
                     ->label('Delete')
