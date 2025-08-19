@@ -31,6 +31,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BulkUploadController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ServiceChargeController;
+use App\Http\Controllers\InvoiceController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -119,6 +120,12 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::resource("clients", ClientController::class);
     Route::post('/clients/{client}/update-payment-methods', [ClientController::class, 'updatePaymentMethods'])->name('clients.update-payment-methods');
 Route::post('/clients/{client}/update-payment-phone', [ClientController::class, 'updatePaymentPhone'])->name('clients.update-payment-phone');
+
+// Invoice routes
+Route::post('/invoices/store', [InvoiceController::class, 'store'])->name('invoices.store');
+Route::get('/invoices/service-charge', [InvoiceController::class, 'getServiceCharge'])->name('invoices.service-charge');
+Route::get('/invoices/generate-number', [InvoiceController::class, 'generateInvoiceNumber'])->name('invoices.generate-number');
+Route::resource('invoices', InvoiceController::class);
     Route::get('/pos/item-selection/{client}', [TransactionController::class, 'itemSelection'])->name('pos.item-selection');
     
     // Admin bulk operations

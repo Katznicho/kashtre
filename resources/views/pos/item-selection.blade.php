@@ -410,15 +410,18 @@
                 <!-- Client and Transaction Details -->
                 <div class="grid grid-cols-2 gap-4 mb-6 text-sm text-gray-700">
                     <div>
-                        <p><strong>Payment Phone:</strong> {{ $client->payment_phone_number ?? 'N/A' }}</p>
+                        <p><strong>Invoice Number:</strong> <span id="invoice-number">Loading...</span></p>
                         <p><strong>Client:</strong> {{ $client->name }} {{ $client->client_id }}</p>
                         <p><strong>Visit ID:</strong> {{ $client->visit_id }}</p>
-                        <p><strong>Branch ID:</strong> {{ auth()->user()->currentBranch->id ?? 'N/A' }}</p>
+                        <p><strong>Branch:</strong> {{ auth()->user()->currentBranch->name ?? 'N/A' }}</p>
+                        @if(in_array('mobile_money', $client->payment_methods ?? []))
+                        <p><strong>Payment Phone:</strong> {{ $client->payment_phone_number ?? 'N/A' }}</p>
+                        @endif
                     </div>
                     <div>
                         <p><strong>Date:</strong> {{ now()->format('n/j/Y') }}</p>
                         <p><strong>Hospital:</strong> {{ auth()->user()->business->name ?? 'N/A' }}</p>
-                        <p><strong>Attended To By:</strong> {{ auth()->user()->name }} {{ auth()->user()->business->name ?? '' }}</p>
+                        <p><strong>Attended To By:</strong> {{ auth()->user()->name }}</p>
                     </div>
                 </div>
                 
@@ -447,15 +450,11 @@
                     </div>
                     <div class="flex justify-between">
                         <span>Package Adjustment:</span>
-                        <span>UGX -0</span>
+                        <span id="invoice-package-adjustment">UGX 0.00</span>
                     </div>
                     <div class="flex justify-between">
-                        <span>Subtotal:</span>
-                        <span id="invoice-subtotal-final">UGX 0.00</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Deposit Used:</span>
-                        <span>UGX 0</span>
+                        <span>Account Balance (A/c) Adjustment:</span>
+                        <span id="invoice-account-adjustment">UGX 0.00</span>
                     </div>
                     <div class="flex justify-between">
                         <span>Amount Due:</span>
@@ -463,7 +462,7 @@
                     </div>
                     <div class="flex justify-between">
                         <span>Service Charge:</span>
-                        <span>UGX 50.00</span>
+                        <span id="invoice-service-charge">UGX 0.00</span>
                     </div>
                     <div class="flex justify-between text-lg font-bold border-t pt-2">
                         <span>Final Total:</span>
@@ -476,7 +475,16 @@
                     <button onclick="closeInvoicePreview()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">
                         Close
                     </button>
+                    <button onclick="confirmAndSaveInvoice()" class="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
+                        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Confirm & Save
+                    </button>
                     <button onclick="printInvoice()" class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                        </svg>
                         Print
                     </button>
                 </div>
@@ -489,6 +497,9 @@
         
         // Add event listeners to quantity inputs
         document.addEventListener('DOMContentLoaded', function() {
+            // Load initial invoice number
+            loadInvoiceNumber();
+            
             const quantityInputs = document.querySelectorAll('.quantity-input');
             quantityInputs.forEach(input => {
                 input.addEventListener('change', function() {
@@ -740,18 +751,167 @@
             
             invoiceTable.innerHTML = tableHTML;
             
-            // Calculate totals
-            const serviceCharge = 50.00;
-            const finalTotal = subtotal + serviceCharge;
-            
-            // Update invoice summary
-            document.getElementById('invoice-subtotal').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('invoice-subtotal-final').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('invoice-amount-due').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('invoice-final-total').textContent = `UGX ${finalTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            // Calculate service charge based on business settings
+            calculateServiceCharge(subtotal);
             
             // Show modal
             document.getElementById('invoice-modal').classList.remove('hidden');
+        }
+        
+        function calculateServiceCharge(subtotal) {
+            // Get service charge from business settings via AJAX
+            fetch(`/invoices/service-charge?business_id={{ auth()->user()->business_id }}&subtotal=${subtotal}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                                   document.querySelector('input[name="_token"]')?.value,
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                const serviceCharge = data.service_charge || 0;
+                
+                // Update invoice summary
+                document.getElementById('invoice-subtotal').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                document.getElementById('invoice-package-adjustment').textContent = `UGX 0.00`;
+                document.getElementById('invoice-account-adjustment').textContent = `UGX 0.00`;
+                document.getElementById('invoice-amount-due').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                document.getElementById('invoice-service-charge').textContent = `UGX ${serviceCharge.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                
+                const finalTotal = subtotal + serviceCharge;
+                document.getElementById('invoice-final-total').textContent = `UGX ${finalTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            })
+            .catch(error => {
+                console.error('Error calculating service charge:', error);
+                // Fallback to 0 service charge
+                const serviceCharge = 0;
+                
+                document.getElementById('invoice-subtotal').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                document.getElementById('invoice-package-adjustment').textContent = `UGX 0.00`;
+                document.getElementById('invoice-account-adjustment').textContent = `UGX 0.00`;
+                document.getElementById('invoice-amount-due').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                document.getElementById('invoice-service-charge').textContent = `UGX 0.00`;
+                
+                const finalTotal = subtotal + serviceCharge;
+                document.getElementById('invoice-final-total').textContent = `UGX ${finalTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            });
+        }
+        
+        function loadInvoiceNumber() {
+            fetch(`/invoices/generate-number?business_id={{ auth()->user()->business_id }}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                                   document.querySelector('input[name="_token"]')?.value,
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('invoice-number').textContent = data.invoice_number;
+            })
+            .catch(error => {
+                console.error('Error loading invoice number:', error);
+                document.getElementById('invoice-number').textContent = 'INV{{ date('Ymd') }}0001';
+            });
+        }
+        
+        function confirmAndSaveInvoice() {
+            if (cart.length === 0) {
+                alert('No items in cart to save');
+                return;
+            }
+            
+            // Generate invoice number
+            const invoiceNumber = document.getElementById('invoice-number').textContent;
+            
+            // Prepare invoice data
+            const invoiceData = {
+                invoice_number: invoiceNumber,
+                client_id: {{ $client->id }},
+                business_id: {{ auth()->user()->business_id }},
+                branch_id: {{ auth()->user()->currentBranch->id }},
+                created_by: {{ auth()->user()->id }},
+                client_name: '{{ $client->name }}',
+                client_phone: '{{ $client->phone_number }}',
+                payment_phone: '{{ $client->payment_phone_number }}',
+                visit_id: '{{ $client->visit_id }}',
+                items: cart,
+                subtotal: parseFloat(document.getElementById('invoice-subtotal').textContent.replace('UGX ', '').replace(',', '')),
+                package_adjustment: 0,
+                account_balance_adjustment: 0,
+                service_charge: parseFloat(document.getElementById('invoice-service-charge').textContent.replace('UGX ', '').replace(',', '')),
+                total_amount: parseFloat(document.getElementById('invoice-final-total').textContent.replace('UGX ', '').replace(',', '')),
+                amount_paid: 0,
+                balance_due: parseFloat(document.getElementById('invoice-final-total').textContent.replace('UGX ', '').replace(',', '')),
+                payment_methods: {{ json_encode($client->payment_methods ?? []) }},
+                payment_status: 'pending',
+                status: 'confirmed',
+                notes: ''
+            };
+            
+            // Send AJAX request to save invoice
+            fetch('/invoices/store', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                                   document.querySelector('input[name="_token"]')?.value,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify(invoiceData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    const successDiv = document.createElement('div');
+                    successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center';
+                    successDiv.innerHTML = `
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Invoice saved successfully! Invoice #${data.invoice.invoice_number}
+                    `;
+                    document.body.appendChild(successDiv);
+                    
+                    setTimeout(() => {
+                        successDiv.remove();
+                    }, 5000);
+                    
+                    // Clear cart
+                    cart = [];
+                    updateCartDisplay();
+                    
+                    // Close modal
+                    closeInvoicePreview();
+                    
+                    // Update invoice number for next invoice
+                    document.getElementById('invoice-number').textContent = data.next_invoice_number;
+                    
+                } else {
+                    throw new Error(data.message || 'Failed to save invoice');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                
+                // Show error message
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center';
+                errorDiv.innerHTML = `
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                    Error: ${error.message}
+                `;
+                document.body.appendChild(errorDiv);
+                
+                setTimeout(() => {
+                    errorDiv.remove();
+                }, 5000);
+            });
         }
         
         function closeInvoicePreview() {
