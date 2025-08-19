@@ -341,7 +341,7 @@
     </div>
     
     <!-- Client Confirmation Modal -->
-    <div id="client-confirmation-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+    <div id="client-confirmation-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center hidden">
         <div class="relative bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4">
             <!-- Header -->
             <div class="bg-gray-50 px-6 py-4 rounded-t-lg border-b">
@@ -500,6 +500,26 @@
             // Load initial invoice number
             loadInvoiceNumber();
             
+            // Add click outside to close for client confirmation modal
+            const clientModal = document.getElementById('client-confirmation-modal');
+            if (clientModal) {
+                clientModal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeClientConfirmation();
+                    }
+                });
+            }
+            
+            // Add click outside to close for invoice modal
+            const invoiceModal = document.getElementById('invoice-modal');
+            if (invoiceModal) {
+                invoiceModal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeInvoicePreview();
+                    }
+                });
+            }
+            
             const quantityInputs = document.querySelectorAll('.quantity-input');
             quantityInputs.forEach(input => {
                 input.addEventListener('change', function() {
@@ -650,7 +670,21 @@
         }
         
         function closeClientConfirmation() {
-            document.getElementById('client-confirmation-modal').classList.add('hidden');
+            const modal = document.getElementById('client-confirmation-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                // Also remove from body scroll lock if needed
+                document.body.style.overflow = 'auto';
+            }
+        }
+        
+        function showClientConfirmation() {
+            const modal = document.getElementById('client-confirmation-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                // Prevent body scroll when modal is open
+                document.body.style.overflow = 'hidden';
+            }
         }
         
         function printClientDetails() {
@@ -755,7 +789,12 @@
             calculateServiceCharge(subtotal);
             
             // Show modal
-            document.getElementById('invoice-modal').classList.remove('hidden');
+            const modal = document.getElementById('invoice-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                // Prevent body scroll when modal is open
+                document.body.style.overflow = 'hidden';
+            }
         }
         
         function calculateServiceCharge(subtotal) {
@@ -915,7 +954,12 @@
         }
         
         function closeInvoicePreview() {
-            document.getElementById('invoice-modal').classList.add('hidden');
+            const modal = document.getElementById('invoice-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                // Also remove from body scroll lock if needed
+                document.body.style.overflow = 'auto';
+            }
         }
         
         function printInvoice() {
