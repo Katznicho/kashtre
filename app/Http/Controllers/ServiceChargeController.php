@@ -57,10 +57,10 @@ class ServiceChargeController extends Controller
         $user = Auth::user();
         $businessId = $user->business_id;
 
-        // Validate business exists and belongs to the user
+        // Validate business exists and is not the super business
         $business = Business::findOrFail($request->entity_id);
-        if ($business->id !== $businessId) {
-            abort(403, 'Unauthorized access to this business.');
+        if ($business->id === 1) {
+            abort(403, 'Cannot create service charges for the super business.');
         }
 
         // Create service charges
@@ -72,7 +72,7 @@ class ServiceChargeController extends Controller
                 'upper_bound' => $chargeData['upper_bound'] ?? null,
                 'lower_bound' => $chargeData['lower_bound'] ?? null,
                 'type' => $chargeData['type'],
-                'business_id' => $businessId,
+                'business_id' => $request->entity_id, // Use the selected business ID
                 'created_by' => $user->id,
             ]);
         }
