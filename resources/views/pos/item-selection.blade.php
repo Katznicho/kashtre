@@ -91,14 +91,14 @@
                                 <p class="text-sm text-gray-500 font-medium">Payment Phone Number</p>
                                 <span class="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">Editable</span>
                             </div>
-                            <div class="flex items-center space-x-3">
+                            <div class="flex items-center">
                                 <input type="tel" 
                                        id="payment-phone-edit" 
                                        value="{{ $client->payment_phone_number ?? '' }}" 
                                        placeholder="Enter payment phone number"
-                                       class="flex-1 text-lg font-semibold text-gray-900 bg-white border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                                       class="flex-1 text-lg font-semibold text-gray-900 bg-white border border-gray-300 rounded-l px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
                                 <button type="button" onclick="savePaymentPhone()" 
-                                        class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium shadow-sm border-0 min-w-[80px]">
+                                        class="bg-green-600 text-white px-4 py-2 rounded-r hover:bg-green-700 transition-colors text-sm font-medium shadow-sm border-0 border-l border-green-700">
                                     <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                     </svg>
