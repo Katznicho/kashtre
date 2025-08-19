@@ -80,12 +80,6 @@ class ServiceChargesTable extends Component implements HasForms, HasTable
                     ->searchable()
                     ->sortable(),
                 
-                TextColumn::make('name')
-                    ->label('Charge Name')
-                    ->searchable()
-                    ->sortable()
-                    ->weight('bold'),
-                
                 TextColumn::make('formatted_amount')
                     ->label('Amount')
                     ->formatStateUsing(fn (ServiceCharge $record): string => $record->formatted_amount)
