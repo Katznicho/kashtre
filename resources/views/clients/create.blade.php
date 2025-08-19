@@ -186,6 +186,7 @@
                                     <input type="tel" name="phone_number" id="phone_number" value="{{ old('phone_number') }}" required 
                                            placeholder="e.g., 0770123456 or +256770123456"
                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                    <p class="text-xs text-gray-500 mt-1">This is the primary contact number for communication</p>
                                 </div>
                                 
                                 <div>
@@ -258,66 +259,73 @@
                                 
                                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                                        <input type="checkbox" name="payment_methods[]" id="payment_packages" value="packages"
-                                               {{ in_array('packages', old('payment_methods', [])) ? 'checked' : '' }}
-                                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_packages" class="ml-3 text-sm font-medium text-gray-700">📦 Packages</label>
-                                    </div>
-                                    
-                                    <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                                         <input type="checkbox" name="payment_methods[]" id="payment_insurance" value="insurance"
                                                {{ in_array('insurance', old('payment_methods', [])) ? 'checked' : '' }}
                                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_insurance" class="ml-3 text-sm font-medium text-gray-700">🛡️ Insurance</label>
+                                        <label for="payment_insurance" class="ml-3 text-sm font-medium text-gray-700">
+                                            <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">1</span>
+                                            🛡️ Insurance
+                                        </label>
                                     </div>
                                     
                                     <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                                         <input type="checkbox" name="payment_methods[]" id="payment_credit_arrangement" value="credit_arrangement"
                                                {{ in_array('credit_arrangement', old('payment_methods', [])) ? 'checked' : '' }}
                                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_credit_arrangement" class="ml-3 text-sm font-medium text-gray-700">💳 Credit Arrangement</label>
-                                    </div>
-                                    
-                                    <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                                        <input type="checkbox" name="payment_methods[]" id="payment_deposits" value="deposits"
-                                               {{ in_array('deposits', old('payment_methods', [])) ? 'checked' : '' }}
-                                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_deposits" class="ml-3 text-sm font-medium text-gray-700">💰 Deposits/A/c Balance</label>
+                                        <label for="payment_credit_arrangement" class="ml-3 text-sm font-medium text-gray-700">
+                                            <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">2</span>
+                                            💳 Credit Arrangement
+                                        </label>
                                     </div>
                                     
                                     <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                                         <input type="checkbox" name="payment_methods[]" id="payment_mobile_money" value="mobile_money"
                                                {{ in_array('mobile_money', old('payment_methods', [])) ? 'checked' : '' }}
                                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_mobile_money" class="ml-3 text-sm font-medium text-gray-700">📱 MM (Mobile Money)</label>
+                                        <label for="payment_mobile_money" class="ml-3 text-sm font-medium text-gray-700">
+                                            <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">3</span>
+                                            📱 MM (Mobile Money)
+                                        </label>
                                     </div>
                                     
                                     <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                                         <input type="checkbox" name="payment_methods[]" id="payment_v_card" value="v_card"
                                                {{ in_array('v_card', old('payment_methods', [])) ? 'checked' : '' }}
                                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_v_card" class="ml-3 text-sm font-medium text-gray-700">💳 V Card (Virtual Card)</label>
+                                        <label for="payment_v_card" class="ml-3 text-sm font-medium text-gray-700">
+                                            <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">4</span>
+                                            💳 V Card (Virtual Card)
+                                        </label>
                                     </div>
                                     
                                     <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                                         <input type="checkbox" name="payment_methods[]" id="payment_p_card" value="p_card"
                                                {{ in_array('p_card', old('payment_methods', [])) ? 'checked' : '' }}
                                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_p_card" class="ml-3 text-sm font-medium text-gray-700">💳 P Card (Physical Card)</label>
+                                        <label for="payment_p_card" class="ml-3 text-sm font-medium text-gray-700">
+                                            <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">5</span>
+                                            💳 P Card (Physical Card)
+                                        </label>
                                     </div>
                                     
                                     <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                                         <input type="checkbox" name="payment_methods[]" id="payment_bank_transfer" value="bank_transfer"
                                                {{ in_array('bank_transfer', old('payment_methods', [])) ? 'checked' : '' }}
                                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_bank_transfer" class="ml-3 text-sm font-medium text-gray-700">🏦 Bank Transfer</label>
+                                        <label for="payment_bank_transfer" class="ml-3 text-sm font-medium text-gray-700">
+                                            <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">6</span>
+                                            🏦 Bank Transfer
+                                        </label>
                                     </div>
                                     
                                     <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                                         <input type="checkbox" name="payment_methods[]" id="payment_cash" value="cash"
                                                {{ in_array('cash', old('payment_methods', [])) ? 'checked' : '' }}
                                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_cash" class="ml-3 text-sm font-medium text-gray-700">💵 Cash</label>
+                                        <label for="payment_cash" class="ml-3 text-sm font-medium text-gray-700">
+                                            <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">7</span>
+                                            💵 Cash
+                                        </label>
                                     </div>
                                 </div>
                                 
@@ -341,6 +349,7 @@
                                         <input type="tel" name="payment_phone_number" id="payment_phone_number" value="{{ old('payment_phone_number') }}" 
                                                placeholder="e.g., 0770123456 or +256770123456"
                                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                        <p class="text-xs text-gray-500 mt-1">This number will be used specifically for mobile money payments</p>
                                     </div>
                                     
                                     <div class="flex items-end">
@@ -351,7 +360,7 @@
                                     </div>
                                 </div>
                                 
-                                <p class="text-sm text-blue-700 mt-2">This number will be used for mobile money payments</p>
+                                <p class="text-sm text-blue-700 mt-2">This number is different from the contact phone number and is used exclusively for payment transactions</p>
                             </div>
                         </div>
                     </div>
@@ -435,11 +444,12 @@
                                 
                                 <div>
                                     <label for="nok_phone_number" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Phone Number <span class="text-red-500">*</span>
+                                        Contact Phone Number <span class="text-red-500">*</span>
                                     </label>
                                     <input type="tel" name="nok_phone_number" id="nok_phone_number" value="{{ old('nok_phone_number') }}" required
                                            placeholder="e.g., 0770123456"
                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                    <p class="text-xs text-gray-500 mt-1">Contact number for next of kin</p>
                                 </div>
                             </div>
                             
