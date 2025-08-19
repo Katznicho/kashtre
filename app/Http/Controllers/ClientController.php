@@ -292,4 +292,35 @@ class ClientController extends Controller
             'payment_methods' => $client->payment_methods
         ]);
     }
+
+    /**
+     * Update payment phone number for a client
+     */
+    public function updatePaymentPhone(Request $request, Client $client)
+    {
+        $user = Auth::user();
+        $business = $user->business;
+        
+        // Check if user has access to this client
+        if ($client->business_id !== $business->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access to client.'
+            ], 403);
+        }
+        
+        $validated = $request->validate([
+            'payment_phone_number' => 'nullable|string|max:255'
+        ]);
+        
+        $client->update([
+            'payment_phone_number' => $validated['payment_phone_number']
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment phone number updated successfully!',
+            'payment_phone_number' => $client->payment_phone_number
+        ]);
+    }
 }

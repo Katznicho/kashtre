@@ -76,8 +76,22 @@
                             </button>
                         </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            <p class="text-sm text-gray-500 mb-1">Phone Number</p>
+                            <p class="text-sm text-gray-500 mb-1">Contact Phone Number</p>
                             <p class="text-lg font-semibold text-gray-900">{{ $client->phone_number }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Payment Phone Number</p>
+                            <div class="flex items-center space-x-2">
+                                <input type="tel" 
+                                       id="payment-phone-edit" 
+                                       value="{{ $client->payment_phone_number ?? '' }}" 
+                                       placeholder="Enter payment phone number"
+                                       class="flex-1 text-lg font-semibold text-gray-900 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1">
+                                <button onclick="savePaymentPhone()" 
+                                        class="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors">
+                                    Save
+                                </button>
+                            </div>
                         </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Email Address</p>
@@ -849,6 +863,51 @@
             } else {
                 container.innerHTML = '<span class="text-sm text-gray-500">No payment methods specified</span>';
             }
+        }
+        
+        // Payment Phone Number Functions
+        function savePaymentPhone() {
+            const paymentPhoneInput = document.getElementById('payment-phone-edit');
+            const paymentPhone = paymentPhoneInput.value.trim();
+            
+            // Send AJAX request to update payment phone number
+            fetch(`/clients/{{ $client->id }}/update-payment-phone`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    payment_phone_number: paymentPhone
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    const successDiv = document.createElement('div');
+                    successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+                    successDiv.textContent = 'Payment phone number updated successfully!';
+                    document.body.appendChild(successDiv);
+                    
+                    setTimeout(() => {
+                        successDiv.remove();
+                    }, 3000);
+                    
+                    // Update the invoice preview modal payment phone number
+                    const invoicePaymentPhone = document.querySelector('#invoice-modal p strong:contains("Payment Phone:")');
+                    if (invoicePaymentPhone) {
+                        invoicePaymentPhone.nextSibling.textContent = paymentPhone || 'N/A';
+                    }
+                } else {
+                    alert('Error updating payment phone number: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error updating payment phone number');
+            });
         }
     </script>
     
