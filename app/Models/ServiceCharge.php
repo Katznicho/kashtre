@@ -5,6 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Business;
+use App\Models\Branch;
+use App\Models\ServicePoint;
+use App\Models\User;
 
 class ServiceCharge extends Model
 {
