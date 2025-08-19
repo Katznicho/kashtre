@@ -86,10 +86,6 @@
                                 Edit Payment Methods
                             </button>
                         </div>
-                        <div class="bg-gray-50 p-4 rounded-lg">
-                            <p class="text-sm text-gray-500 mb-1">Contact Phone Number</p>
-                            <p class="text-lg font-semibold text-gray-900">{{ $client->phone_number }}</p>
-                        </div>
                         <div class="bg-gray-50 p-4 rounded-lg border-2 border-dashed border-blue-200 hover:border-blue-300 transition-colors">
                             <div class="flex items-center justify-between mb-1">
                                 <p class="text-sm text-gray-500">Payment Phone Number</p>
@@ -110,6 +106,10 @@
                                 </button>
                             </div>
                             <p class="text-xs text-gray-500 mt-1">Click to edit payment phone number for mobile money transactions</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Contact Phone Number</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->phone_number }}</p>
                         </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Email Address</p>
