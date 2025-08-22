@@ -1070,7 +1070,7 @@
             confirmButton.disabled = true;
             
             // Send AJAX request to save invoice
-            fetch('/invoices/store', {
+            fetch('/invoices', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

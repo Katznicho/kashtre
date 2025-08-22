@@ -901,7 +901,7 @@
                 };
                 
                 // Save invoice
-                const response = await fetch('/invoices/store', {
+                const response = await fetch('/invoices', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
