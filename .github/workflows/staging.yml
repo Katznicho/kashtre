@@ -248,38 +248,38 @@ jobs:
               # Alternative approach using direct mysql if tinker fails
               echo "Using alternative migration marking approach..."
 
-              # Run migrations with verbose output and handle conflicts
+              # Run migrations with verbose output
               echo "Running migrations..."
               php artisan migrate --force --verbose || {
-                echo "Migration failed, attempting to resolve conflicts..."
-                # Try to mark any remaining conflicting migrations as run
-                php -r "
-                  require 'vendor/autoload.php';
-                  \$app = require_once 'bootstrap/app.php';
-                  \$kernel = \$app->make(Illuminate\Contracts\Console\Kernel::class);
-                  \$kernel->bootstrap();
-                  try {
-                    \$pendingMigrations = DB::table('migrations')->pluck('migration')->toArray();
-                    \$files = glob('database/migrations/*.php');
-                    foreach (\$files as \$file) {
-                      \$migrationName = basename(\$file, '.php');
-                      if (!in_array(\$migrationName, \$pendingMigrations)) {
-                        try {
-                          DB::table('migrations')->insert([
-                            'migration' => \$migrationName,
-                            'batch' => 1
-                          ]);
-                          echo 'Marked ' . \$migrationName . ' as run' . PHP_EOL;
-                        } catch (Exception \$e) {
-                          echo 'Failed to mark ' . \$migrationName . ': ' . \$e->getMessage() . PHP_EOL;
-                        }
-                      }
-                    }
-                  } catch (Exception \$e) {
-                    echo 'Error resolving migrations: ' . \$e->getMessage() . PHP_EOL;
-                  }
-                "
-                echo "Migration conflict resolution completed"
+                echo "Migration failed, checking for specific issues..."
+                
+                # Check which migrations are pending
+                echo "Checking pending migrations..."
+                php artisan migrate:status || echo "Failed to check migration status"
+                
+                # Try to run specific new migrations that might be failing
+                echo "Attempting to run new money tracking migrations individually..."
+                
+                # Run money accounts migration
+                echo "Running money accounts migration..."
+                php artisan migrate --path=database/migrations/2025_08_22_150000_create_money_accounts_table.php --force || echo "Money accounts migration failed"
+                
+                # Run money transfers migration
+                echo "Running money transfers migration..."
+                php artisan migrate --path=database/migrations/2025_08_22_150100_create_money_transfers_table.php --force || echo "Money transfers migration failed"
+                
+                # Run package tracking migration
+                echo "Running package tracking migration..."
+                php artisan migrate --path=database/migrations/2025_08_22_150200_create_package_tracking_table.php --force || echo "Package tracking migration failed"
+                
+                # Run nullable column modifications
+                echo "Running nullable column modifications..."
+                php artisan migrate --path=database/migrations/2025_08_22_151500_modify_money_transfers_allow_null_from_account.php --force || echo "From account nullable modification failed"
+                php artisan migrate --path=database/migrations/2025_08_22_152000_modify_money_transfers_allow_null_to_account.php --force || echo "To account nullable modification failed"
+                
+                # Final migration check
+                echo "Final migration status:"
+                php artisan migrate:status || echo "Failed to check final migration status"
               }
 
               # Check if seeding is needed (check for specific business email to avoid conflicts)
@@ -297,9 +297,15 @@ jobs:
               " 2>/dev/null)
               
               if [ "$BUSINESS_EXISTS" = "1" ]; then
-                echo "Core business data already exists, skipping seeding to avoid conflicts"
+                echo "Core business data already exists, running only new seeders"
+                # Run only the new seeders that don't conflict with existing data
+                echo "Running MoneyAccountsSeeder..."
+                php artisan db:seed --class=MoneyAccountsSeeder --force --verbose || echo "MoneyAccountsSeeder failed but continuing"
+                
+                echo "Running CityHealthClinicItemsSeeder..."
+                php artisan db:seed --class=CityHealthClinicItemsSeeder --force --verbose || echo "CityHealthClinicItemsSeeder failed but continuing"
               else
-                echo "No core business data found, running seeders"
+                echo "No core business data found, running all seeders"
                 php artisan db:seed --force --verbose || echo "Seeding failed but continuing deployment"
               fi
 
@@ -347,9 +353,32 @@ jobs:
           echo "Verifying Livewire components..."
           php artisan livewire:list || echo "Livewire list failed"
           
-          # Final optimization
-          echo "Running final optimization..."
-          php artisan optimize || echo "Final optimize failed"
+                        # Final optimization
+              echo "Running final optimization..."
+              php artisan optimize || echo "Final optimize failed"
+              
+              # Verify database tables
+              echo "Verifying database tables..."
+              php -r "
+                require 'vendor/autoload.php';
+                \$app = require_once 'bootstrap/app.php';
+                \$kernel = \$app->make(Illuminate\Contracts\Console\Kernel::class);
+                \$kernel->bootstrap();
+                try {
+                  \$tables = DB::select('SHOW TABLES');
+                  echo 'Total tables: ' . count(\$tables) . PHP_EOL;
+                  echo 'Tables: ' . implode(', ', array_map(function(\$table) { return array_values(\$table)[0]; }, \$tables)) . PHP_EOL;
+                  
+                  // Check specific new tables
+                  \$newTables = ['money_accounts', 'money_transfers', 'package_tracking'];
+                  foreach (\$newTables as \$table) {
+                    \$exists = Schema::hasTable(\$table);
+                    echo 'Table ' . \$table . ': ' . (\$exists ? 'EXISTS' : 'MISSING') . PHP_EOL;
+                  }
+                } catch (Exception \$e) {
+                  echo 'Database verification failed: ' . \$e->getMessage() . PHP_EOL;
+                }
+              " || echo "Database verification failed"
 
               # Restart queue workers if applicable
               php artisan queue:restart || echo "Queue restart not available"
