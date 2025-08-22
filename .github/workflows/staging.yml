@@ -9,9 +9,6 @@ jobs:
   deploy:
     name: Deploy Staging Branch
     runs-on: ubuntu-latest
-    env:
-      ACTIONS_RUNNER_DEBUG: true
-      ACTIONS_STEP_DEBUG: true
 
     steps:
       # Step 1: Checkout the code
@@ -22,30 +19,17 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.2'
           extensions: mbstring, xml, bcmath, ctype, json, tokenizer, curl
           coverage: none
 
-      # Step 3: Install Composer dependencies
-      - name: Install Composer dependencies
-        run: composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs
-
-      # Step 4: Install sshpass
+      # Step 3: Install sshpass
       - name: Install sshpass
         run: |
           sudo apt-get update
-          sudo apt-get install -y sshpass || { echo "Failed to install sshpass"; exit 1; }
-          sshpass -v || { echo "sshpass not found after installation"; exit 1; }
+          sudo apt-get install -y sshpass
 
-      # Step 5: Test SSH Connection
-      - name: Test SSH Connection
-        run: |
-          echo "Testing SSH connection to ${{ secrets.FTP_SERVER }}:65002..."
-          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} whoami || { echo "SSH connection failed"; exit 1; }
-          echo "SSH connection successful, testing directory access..."
-          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "echo 'Test command execution' && ls -la /home/u242329769/domains/staging.kashtre.com/public_html" || { echo "Directory access failed"; exit 1; }
-
-      # Step 6: Deploy to Hostinger via SSH
+      # Step 4: Deploy to Hostinger via SSH
       - name: Deploy to Hostinger
         env:
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
@@ -53,11 +37,7 @@ jobs:
           # Define deployment directory
           DEPLOY_DIR="/home/u242329769/domains/staging.kashtre.com/public_html"
 
-          # Debug: List local files in GITHUB_WORKSPACE
-          echo "Local files in GITHUB_WORKSPACE:"
-          ls -la $GITHUB_WORKSPACE
-
-          # Copy files using rsync with sshpass, excluding unnecessary files, with --delete to remove old files
+          # Copy files using rsync with sshpass, excluding unnecessary files
           echo "Starting file transfer with rsync..."
           sshpass -p "$FTP_PASSWORD" rsync -avz --delete \
             --exclude '.env' \
@@ -72,318 +52,46 @@ jobs:
             --exclude 'storage/framework/sessions/' \
             --exclude 'storage/framework/views/' \
             --exclude 'vendor/' \
-            --timeout=600 \
-            --progress \
-            -e "ssh -p 65002 -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o ServerAliveInterval=30 -o ServerAliveCountMax=3" \
-            $GITHUB_WORKSPACE/ ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }}:"$DEPLOY_DIR" || { echo "rsync failed"; exit 1; }
+            -e "ssh -p 65002 -o StrictHostKeyChecking=no" \
+            $GITHUB_WORKSPACE/ ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }}:"$DEPLOY_DIR"
           
           echo "File transfer completed successfully"
 
-          # Run SSH commands to verify and configure
-          echo "Running post-deployment configuration..."
-          sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} bash -c '
+          # Run post-deployment setup
+          echo "Running post-deployment setup..."
+          sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} bash -c '
             DEPLOY_DIR="/home/u242329769/domains/staging.kashtre.com/public_html"
-            cd "$DEPLOY_DIR" || { echo "Failed to change directory to $DEPLOY_DIR"; exit 1; }
+            cd "$DEPLOY_DIR"
 
-            # Debug: List directory contents after rsync
-            echo "Directory contents after rsync:"
-            ls -la
+            # Install Composer dependencies with ignore platform requirements
+            echo "Installing Composer dependencies..."
+            composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs --prefer-dist
 
-            # Debug: Check public/build directory
-            echo "Contents of public/build:"
-            ls -la public/build || echo "public/build directory not found (manually uploaded)"
+            # Set permissions
+            chmod -R 755 storage bootstrap/cache
 
-            # Debug: Check system information
-            echo "System information:"
-            php --version || echo "PHP version check failed"
-            which composer || echo "Composer not found in PATH"
-            composer --version || echo "Composer version check failed"
-            
-            # Debug: Check .env contents (sanitized)
-            if [ -f ".env" ]; then
-              echo ".env exists"
-              grep -v "DB_" .env || echo "Failed to read .env"
-            else
-              echo "Error: .env file not found"
-              exit 1
-            fi
+            # Clear all caches
+            echo "Clearing caches..."
+            php artisan optimize:clear || echo "Cache clear failed but continuing"
 
-            # Debug: Check vendor directory
-            if [ -d "vendor" ]; then
-              echo "vendor directory exists"
-              ls -la vendor/ | head -10
-            else
-              echo "Error: vendor directory not found - attempting to install dependencies..."
-              composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs --prefer-dist || { echo "Composer install failed"; exit 1; }
-            fi
+            # Run migrations
+            echo "Running migrations..."
+            php artisan migrate --force || echo "Migration failed but continuing"
 
-            # Debug: Check composer autoload files
-            if [ -f "vendor/autoload.php" ]; then
-              echo "vendor/autoload.php exists"
-            else
-              echo "Error: vendor/autoload.php not found - attempting to rebuild autoloader..."
-              composer dump-autoload --optimize --classmap-authoritative || { echo "Autoloader rebuild failed"; exit 1; }
-            fi
-            
-            # Test autoloader functionality with detailed error reporting
-            echo "Testing autoloader with detailed diagnostics..."
-            php -r "
-                error_reporting(E_ALL);
-                ini_set('display_errors', 1);
-                try {
-                    require 'vendor/autoload.php';
-                    echo 'Autoloader test successful';
-                } catch (Exception \$e) {
-                    echo 'Autoloader error: ' . \$e->getMessage();
-                } catch (Error \$e) {
-                    echo 'Autoloader fatal error: ' . \$e->getMessage();
-                }
-            " || echo "Autoloader test failed with exit code: $?"
-            
-            # Check autoloader file contents
-            echo "Checking autoloader file contents..."
-            head -20 vendor/autoload.php || echo "Cannot read autoload.php"
-            
-            # Check if Composer classes exist
-            echo "Checking for Composer classes..."
-            php -r "
-                if (class_exists('Composer\\Autoload\\ClassLoader')) {
-                    echo 'ClassLoader exists';
-                } else {
-                    echo 'ClassLoader not found';
-                }
-            " || echo "ClassLoader check failed"
-            
-            # Check for the specific problematic class
-            echo "Checking for Composer\\InstalledVersions..."
-            php -r "
-                if (class_exists('Composer\\InstalledVersions')) {
-                    echo 'InstalledVersions exists';
-                } else {
-                    echo 'InstalledVersions not found';
-                }
-            " || echo "InstalledVersions check failed"
-            
-            # Check composer.json and composer.lock
-            echo "Checking composer files..."
-            ls -la composer.* || echo "Composer files not found"
-            
-            # Try to regenerate autoloader with verbose output
-            echo "Regenerating autoloader with verbose output..."
-            composer dump-autoload --optimize --classmap-authoritative -v || echo "Verbose autoloader generation failed"
+            # Run seeders
+            echo "Running seeders..."
+            php artisan db:seed --class=MoneyAccountsSeeder --force || echo "MoneyAccountsSeeder failed but continuing"
+            php artisan db:seed --class=CityHealthClinicItemsSeeder --force || echo "CityHealthClinicItemsSeeder failed but continuing"
 
-            # Set permissions for storage and cache directories
-            if [ -d "storage" ] && [ -d "bootstrap/cache" ]; then
-              chmod -R 755 storage bootstrap/cache
-              chown -R u242329769:u242329769 storage bootstrap/cache
-            else
-              echo "Warning: storage or bootstrap/cache directory not found"
-            fi
+            # Create storage link
+            php artisan storage:link || echo "Storage link already exists"
 
-            # Verify PHP is available
-            if command -v php >/dev/null 2>&1; then
-              echo "PHP found: $(php -v)"
-            else
-              echo "Error: PHP not found on server"
-              exit 1
-            fi
+            # Final optimization
+            echo "Final optimization..."
+            php artisan optimize || echo "Optimize failed but continuing"
 
-            # Verify artisan exists before running commands
-            if [ -f "artisan" ]; then
-              # Debug: List available migrations
-              echo "Listing migrations:"
-              ls -la database/migrations
-
-              # Debug: Check migrations table
-              php artisan migrate:status || echo "Failed to check migration status"
-
-              # Ensure migrations table exists
-              php artisan migrate:install || echo "Failed to create migrations table"
-
-              # Remove conflicting migration files that should not exist
-              echo "Removing conflicting migration files..."
-              rm -f database/migrations/2025_07_01_000000_create_users_table.php || echo "Migration file not found (good)"
-              rm -f database/migrations/2025_07_02_000000_add_two_factor_columns_to_users_table.php || echo "Migration file not found (good)"
-
-              # Create temporary directory for PsySH if needed
-              mkdir -p /tmp/psysh-runtime || echo "PsySH runtime dir creation skipped"
-              export XDG_RUNTIME_DIR=/tmp/psysh-runtime
-
-              # Mark existing migrations as run to prevent conflicts
-              echo "Marking existing migrations as already run..."
-              
-              # Check if users table exists and mark the migration as run
-              USERS_EXISTS=$(php -r "
-                require 'vendor/autoload.php';
-                \$app = require_once 'bootstrap/app.php';
-                \$kernel = \$app->make(Illuminate\Contracts\Console\Kernel::class);
-                \$kernel->bootstrap();
-                try {
-                  \$exists = Schema::hasTable('users');
-                  echo \$exists ? '1' : '0';
-                } catch (Exception \$e) {
-                  echo '0';
-                }
-              " 2>/dev/null)
-              
-              if [ "$USERS_EXISTS" = "1" ]; then
-                echo "Users table exists, marking 2014_10_12_000000_create_users_table as run"
-                php artisan migrate:status | grep "2014_10_12_000000_create_users_table" || php -r "
-                  require 'vendor/autoload.php';
-                  \$app = require_once 'bootstrap/app.php';
-                  \$kernel = \$app->make(Illuminate\Contracts\Console\Kernel::class);
-                  \$kernel->bootstrap();
-                  try {
-                    DB::table('migrations')->insert([
-                      'migration' => '2014_10_12_000000_create_users_table',
-                      'batch' => 1
-                    ]);
-                    echo 'Migration marked as run successfully';
-                  } catch (Exception \$e) {
-                    echo 'Migration already marked as run or failed: ' . \$e->getMessage();
-                  }
-                "
-              fi
-              
-              # Alternative approach using direct mysql if tinker fails
-              echo "Using alternative migration marking approach..."
-
-              # Run migrations with verbose output
-              echo "Running migrations..."
-              php artisan migrate --force --verbose || {
-                echo "Migration failed, checking for specific issues..."
-                
-                # Check which migrations are pending
-                echo "Checking pending migrations..."
-                php artisan migrate:status || echo "Failed to check migration status"
-                
-                # Try to run specific new migrations that might be failing
-                echo "Attempting to run new money tracking migrations individually..."
-                
-                # Run money accounts migration
-                echo "Running money accounts migration..."
-                php artisan migrate --path=database/migrations/2025_08_22_150000_create_money_accounts_table.php --force || echo "Money accounts migration failed"
-                
-                # Run money transfers migration
-                echo "Running money transfers migration..."
-                php artisan migrate --path=database/migrations/2025_08_22_150100_create_money_transfers_table.php --force || echo "Money transfers migration failed"
-                
-                # Run package tracking migration
-                echo "Running package tracking migration..."
-                php artisan migrate --path=database/migrations/2025_08_22_150200_create_package_tracking_table.php --force || echo "Package tracking migration failed"
-                
-                # Run nullable column modifications
-                echo "Running nullable column modifications..."
-                php artisan migrate --path=database/migrations/2025_08_22_151500_modify_money_transfers_allow_null_from_account.php --force || echo "From account nullable modification failed"
-                php artisan migrate --path=database/migrations/2025_08_22_152000_modify_money_transfers_allow_null_to_account.php --force || echo "To account nullable modification failed"
-                
-                # Final migration check
-                echo "Final migration status:"
-                php artisan migrate:status || echo "Failed to check final migration status"
-              }
-
-              # Check if seeding is needed (check for specific business email to avoid conflicts)
-              BUSINESS_EXISTS=$(php -r "
-                require 'vendor/autoload.php';
-                \$app = require_once 'bootstrap/app.php';
-                \$kernel = \$app->make(Illuminate\Contracts\Console\Kernel::class);
-                \$kernel->bootstrap();
-                try {
-                  \$exists = DB::table('businesses')->where('email', 'katznicho@gmail.com')->exists();
-                  echo \$exists ? '1' : '0';
-                } catch (Exception \$e) {
-                  echo '0';
-                }
-              " 2>/dev/null)
-              
-              if [ "$BUSINESS_EXISTS" = "1" ]; then
-                echo "Core business data already exists, running only new seeders"
-                # Run only the new seeders that don't conflict with existing data
-                echo "Running MoneyAccountsSeeder..."
-                php artisan db:seed --class=MoneyAccountsSeeder --force --verbose || echo "MoneyAccountsSeeder failed but continuing"
-                
-                echo "Running CityHealthClinicItemsSeeder..."
-                php artisan db:seed --class=CityHealthClinicItemsSeeder --force --verbose || echo "CityHealthClinicItemsSeeder failed but continuing"
-              else
-                echo "No core business data found, running all seeders"
-                php artisan db:seed --force --verbose || echo "Seeding failed but continuing deployment"
-              fi
-
-              # Create storage link
-              php artisan storage:link || echo "Storage link already exists or failed to create"
-
-                        # Install/update Composer dependencies
-          echo "Installing Composer dependencies..."
-          composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs --prefer-dist || echo "Composer install failed"
-          
-          # Verify composer installation
-          echo "Verifying Composer installation..."
-          composer --version || echo "Composer not found"
-          ls -la vendor/ | head -5 || echo "vendor directory not found"
-          
-          # Clear and rebuild autoloader
-          echo "Rebuilding Composer autoloader..."
-          composer dump-autoload --optimize --classmap-authoritative || echo "Composer autoload rebuild failed"
-          
-          # Verify autoloader
-          echo "Verifying autoloader..."
-          php -r "require 'vendor/autoload.php'; echo 'Autoloader working';" || echo "Autoloader verification failed"
-
-          # Clear all caches first
-          echo "Clearing application caches..."
-          php artisan optimize:clear || echo "Optimize clear failed"
-          php artisan config:clear || echo "Config clear failed"
-          php artisan cache:clear || echo "Cache clear failed"
-          php artisan route:clear || echo "Route clear failed"
-          php artisan view:clear || echo "View clear failed"
-          php artisan bootstrap:clear || echo "Bootstrap clear failed"
-          
-          # Clear Livewire cache and rediscover components
-          echo "Setting up Livewire components..."
-          php artisan livewire:clear-cache || echo "Livewire cache clear failed"
-          php artisan livewire:discover || echo "Livewire discover failed"
-          
-          # Rebuild caches
-          echo "Rebuilding application caches..."
-          php artisan config:cache || echo "Config cache failed"
-          php artisan route:cache || echo "Route cache failed"
-          php artisan view:cache || echo "View cache failed"
-          
-          # Verify Livewire components are discovered
-          echo "Verifying Livewire components..."
-          php artisan livewire:list || echo "Livewire list failed"
-          
-                        # Final optimization
-              echo "Running final optimization..."
-              php artisan optimize || echo "Final optimize failed"
-              
-              # Verify database tables
-              echo "Verifying database tables..."
-              php -r "
-                require 'vendor/autoload.php';
-                \$app = require_once 'bootstrap/app.php';
-                \$kernel = \$app->make(Illuminate\Contracts\Console\Kernel::class);
-                \$kernel->bootstrap();
-                try {
-                  \$tables = DB::select('SHOW TABLES');
-                  echo 'Total tables: ' . count(\$tables) . PHP_EOL;
-                  echo 'Tables: ' . implode(', ', array_map(function(\$table) { return array_values(\$table)[0]; }, \$tables)) . PHP_EOL;
-                  
-                  // Check specific new tables
-                  \$newTables = ['money_accounts', 'money_transfers', 'package_tracking'];
-                  foreach (\$newTables as \$table) {
-                    \$exists = Schema::hasTable(\$table);
-                    echo 'Table ' . \$table . ': ' . (\$exists ? 'EXISTS' : 'MISSING') . PHP_EOL;
-                  }
-                } catch (Exception \$e) {
-                  echo 'Database verification failed: ' . \$e->getMessage() . PHP_EOL;
-                }
-              " || echo "Database verification failed"
-
-              # Restart queue workers if applicable
-              php artisan queue:restart || echo "Queue restart not available"
-            else
-              echo "Error: artisan file not found"
-              exit 1
-            fi
+            # Verify deployment
+            echo "Deployment verification:"
+            php artisan --version || echo "Artisan not working"
+            echo "Deployment completed!"
           ' 
