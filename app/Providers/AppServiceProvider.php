@@ -16,7 +16,8 @@ use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use App\Livewire\Items\SimpleItems;
 use App\Livewire\Items\CompositeItems;
-use App\Livewire\Admin\Admins;
+use App\Livewire\Admins;
+use App\Livewire\AuditLogs;
 
 
 
@@ -54,7 +55,8 @@ class AppServiceProvider extends ServiceProvider
          // Register Livewire components
          Livewire::component('items.simple-items', SimpleItems::class);
          Livewire::component('items.composite-items', CompositeItems::class);
-         Livewire::component('admin.admins', Admins::class);
+         Livewire::component('admins', Admins::class);
+         Livewire::component('audit-logs', AuditLogs::class);
          
 
     }

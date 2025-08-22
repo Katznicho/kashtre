@@ -13,7 +13,7 @@
                     @endif
                 </div>
 
-                @livewire('audit-log.list-audit-logs')
+                @livewire('audit-logs')
             </div>
         </div>
 
