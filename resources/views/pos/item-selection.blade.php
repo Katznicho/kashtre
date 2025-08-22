@@ -440,7 +440,7 @@
                     </div>
                     <div class="flex justify-between">
                         <span>Package Adjustment:</span>
-                        <span>UGX -0</span>
+                        <span id="package-adjustment-display">UGX 0.00</span>
                     </div>
                     <div class="flex justify-between">
                         <span>Account Balance(A/c) Adjustment:</span>
@@ -746,14 +746,19 @@
             
             invoiceTable.innerHTML = tableHTML;
             
+            // Calculate package adjustment
+            const packageAdjustment = await calculatePackageAdjustment();
+            
             // Calculate totals with dynamic service charge
             const serviceCharge = await calculateServiceCharge(subtotal);
-            const finalTotal = parseFloat(subtotal) + parseFloat(serviceCharge);
+            const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
+            const finalTotal = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
             
             // Update invoice summary
             document.getElementById('invoice-subtotal').textContent = `UGX ${parseFloat(subtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('package-adjustment-display').textContent = `UGX ${parseFloat(packageAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('service-charge-display').textContent = `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('invoice-amount-due').textContent = `UGX ${parseFloat(subtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('invoice-amount-due').textContent = `UGX ${parseFloat(adjustedSubtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('invoice-final-total').textContent = `UGX ${parseFloat(finalTotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
             // Show modal
@@ -803,8 +808,10 @@
                     subtotal += parseFloat(item.price || 0) * parseInt(item.quantity || 0);
                 });
                 
+                const packageAdjustment = await calculatePackageAdjustment();
                 const serviceCharge = await calculateServiceCharge(subtotal);
-                const totalAmount = parseFloat(subtotal) + parseFloat(serviceCharge);
+                const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
+                const totalAmount = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
                 
                 // Get payment phone and methods
                 const paymentPhone = document.getElementById('payment-phone-edit')?.value || '';
@@ -875,7 +882,7 @@
                     visit_id: '{{ $client->visit_id }}',
                     items: cart,
                     subtotal: subtotal,
-                    package_adjustment: 0,
+                    package_adjustment: packageAdjustment,
                     account_balance_adjustment: 0,
                     service_charge: serviceCharge,
                     total_amount: totalAmount,
@@ -1137,6 +1144,35 @@
                 }
             } catch (error) {
                 console.error('Error calculating service charge:', error);
+                return 0;
+            }
+        }
+        
+        async function calculatePackageAdjustment() {
+            try {
+                const response = await fetch('/invoices/package-adjustment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        client_id: {{ $client->id }},
+                        business_id: {{ auth()->user()->business->id }},
+                        items: cart
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    return parseFloat(data.total_adjustment) || 0;
+                } else {
+                    console.error('Package adjustment calculation error:', data.message);
+                    return 0;
+                }
+            } catch (error) {
+                console.error('Error calculating package adjustment:', error);
                 return 0;
             }
         }

@@ -11,6 +11,100 @@ use Illuminate\Support\Facades\DB;
 class InvoiceController extends Controller
 {
     /**
+     * Calculate package adjustment for a client
+     */
+    public function calculatePackageAdjustment(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'client_id' => 'required|exists:clients,id',
+                'business_id' => 'required|exists:businesses,id',
+                'items' => 'required|array',
+            ]);
+
+            $clientId = $validated['client_id'];
+            $businessId = $validated['business_id'];
+            $items = $validated['items'];
+
+            // For now, we'll implement a simple package adjustment calculation
+            // This will be enhanced once the PackageUsage model is properly set up
+            $totalAdjustment = 0;
+            $adjustmentDetails = [];
+
+            // Get client's previous invoices with packages
+            $previousInvoices = Invoice::where('client_id', $clientId)
+                ->where('business_id', $businessId)
+                ->where('status', '!=', 'cancelled')
+                ->whereJsonLength('items', '>', 0)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            foreach ($items as $item) {
+                $itemId = $item['id'] ?? $item['item_id'];
+                $quantity = $item['quantity'] ?? 1;
+                $price = $item['price'] ?? 0;
+
+                // Check if this item is available in any previous package purchases
+                foreach ($previousInvoices as $invoice) {
+                    $invoiceItems = $invoice->items ?? [];
+                    
+                    foreach ($invoiceItems as $invoiceItem) {
+                        $invoiceItemId = $invoiceItem['id'] ?? $invoiceItem['item_id'];
+                        
+                        // If this item was part of a package in a previous invoice
+                        if ($invoiceItemId == $itemId && isset($invoiceItem['package_info'])) {
+                            $packageInfo = $invoiceItem['package_info'];
+                            $packageExpiry = $packageInfo['expiry_date'] ?? null;
+                            
+                            // Check if package is still valid
+                            if ($packageExpiry && now()->lt($packageExpiry)) {
+                                $availableQuantity = $packageInfo['available_quantity'] ?? 0;
+                                
+                                if ($availableQuantity > 0) {
+                                    $quantityToUse = min($quantity, $availableQuantity);
+                                    $itemAdjustment = $quantityToUse * $price;
+                                    $totalAdjustment += $itemAdjustment;
+                                    
+                                    $adjustmentDetails[] = [
+                                        'item_id' => $itemId,
+                                        'item_name' => $item['name'] ?? 'Unknown',
+                                        'quantity_adjusted' => $quantityToUse,
+                                        'adjustment_amount' => $itemAdjustment,
+                                        'package_invoice' => $invoice->invoice_number,
+                                        'package_expiry' => $packageExpiry,
+                                    ];
+                                    
+                                    // Update the quantity for this item
+                                    $quantity -= $quantityToUse;
+                                    
+                                    // If we've used all available quantity, break
+                                    if ($quantity <= 0) break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // If we've processed all items, break
+                    if ($quantity <= 0) break;
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'total_adjustment' => $totalAdjustment,
+                'details' => $adjustmentDetails,
+                'message' => $totalAdjustment > 0 ? 'Package adjustments applied' : 'No valid package adjustments found'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error calculating package adjustment: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Store a new invoice
      */
     public function store(Request $request)
