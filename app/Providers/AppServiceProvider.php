@@ -13,6 +13,9 @@ use App\Observers\ModelActivityObserver;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
+use App\Livewire\Items\ListSimpleItems;
+use App\Livewire\Items\ListCompositeItems;
 
 
 class AppServiceProvider extends ServiceProvider
@@ -45,5 +48,9 @@ class AppServiceProvider extends ServiceProvider
          User::observe(ModelActivityObserver::class);
          Business::observe(ModelActivityObserver::class);
          Transaction::observe(ModelActivityObserver::class);
+         
+         // Register Livewire components manually
+         Livewire::component('items.list-simple-items', ListSimpleItems::class);
+         Livewire::component('items.list-composite-items', ListCompositeItems::class);
     }
 }
