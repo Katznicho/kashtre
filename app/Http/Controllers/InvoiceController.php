@@ -21,9 +21,11 @@ class InvoiceController extends Controller
             $user = Auth::user();
             $business = $user->business;
             
+            // Generate invoice number
+            $invoiceNumber = Invoice::generateInvoiceNumber($business->id);
+            
             // Validate request
             $validated = $request->validate([
-                'invoice_number' => 'required|string|unique:invoices,invoice_number',
                 'client_id' => 'required|exists:clients,id',
                 'business_id' => 'required|exists:businesses,id',
                 'branch_id' => 'required|exists:branches,id',
@@ -46,12 +48,9 @@ class InvoiceController extends Controller
                 'notes' => 'nullable|string',
             ]);
             
-            // Calculate service charge based on business settings
-            $calculatedServiceCharge = $this->calculateServiceCharge($business->id, $validated['subtotal']);
-            
             // Create invoice
             $invoice = Invoice::create([
-                'invoice_number' => $validated['invoice_number'],
+                'invoice_number' => $invoiceNumber,
                 'client_id' => $validated['client_id'],
                 'business_id' => $validated['business_id'],
                 'branch_id' => $validated['branch_id'],
@@ -64,16 +63,43 @@ class InvoiceController extends Controller
                 'subtotal' => $validated['subtotal'],
                 'package_adjustment' => $validated['package_adjustment'] ?? 0,
                 'account_balance_adjustment' => $validated['account_balance_adjustment'] ?? 0,
-                'service_charge' => $calculatedServiceCharge,
-                'total_amount' => $validated['subtotal'] + $calculatedServiceCharge,
+                'service_charge' => $validated['service_charge'],
+                'total_amount' => $validated['total_amount'],
                 'amount_paid' => $validated['amount_paid'] ?? 0,
-                'balance_due' => ($validated['subtotal'] + $calculatedServiceCharge) - ($validated['amount_paid'] ?? 0),
+                'balance_due' => $validated['balance_due'],
                 'payment_methods' => $validated['payment_methods'] ?? [],
                 'payment_status' => $validated['payment_status'],
                 'status' => $validated['status'],
                 'notes' => $validated['notes'] ?? '',
                 'confirmed_at' => $validated['status'] === 'confirmed' ? now() : null,
             ]);
+            
+            // Create transaction record for the payment
+            if ($validated['amount_paid'] > 0) {
+                $paymentMethods = $validated['payment_methods'] ?? [];
+                $primaryMethod = !empty($paymentMethods) ? $paymentMethods[0] : 'cash';
+                
+                \App\Models\Transaction::create([
+                    'business_id' => $validated['business_id'],
+                    'amount' => $validated['amount_paid'],
+                    'reference' => $invoiceNumber,
+                    'description' => 'Payment for invoice ' . $invoiceNumber . ' - ' . $validated['client_name'],
+                    'status' => 'completed',
+                    'type' => 'debit', // Changed from 'payment' to 'debit' (valid enum value)
+                    'origin' => 'web', // Changed from 'invoice' to 'web' (valid enum value)
+                    'phone_number' => $validated['payment_phone'] ?? $validated['client_phone'],
+                    'provider' => in_array($primaryMethod, ['mtn', 'airtel']) ? $primaryMethod : 'mtn', // Ensure valid provider
+                    'service' => 'invoice_payment',
+                    'date' => now(),
+                    'currency' => 'UGX',
+                    'names' => $validated['client_name'],
+                    'email' => null,
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                    'method' => $primaryMethod,
+                    'transaction_for' => 'main', // Changed from 'invoice_payment' to 'main' (valid enum value)
+                ]);
+            }
             
             // Generate next invoice number
             $nextInvoiceNumber = Invoice::generateInvoiceNumber($business->id);
@@ -137,6 +163,87 @@ class InvoiceController extends Controller
     }
     
     /**
+     * Calculate service charge for AJAX request (new endpoint)
+     */
+    public function serviceCharge(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'subtotal' => 'required|numeric|min:0',
+                'business_id' => 'required|exists:businesses,id',
+                'branch_id' => 'nullable|exists:branches,id',
+            ]);
+            
+            $businessId = $validated['business_id'];
+            $subtotal = $validated['subtotal'];
+            $branchId = $validated['branch_id'] ?? null;
+            
+            // Try to get service charge for branch first, then business
+            $serviceCharge = null;
+            
+            if ($branchId) {
+                $serviceCharge = ServiceCharge::where('business_id', $businessId)
+                    ->where('entity_type', 'branch')
+                    ->where('entity_id', $branchId)
+                    ->where('is_active', true)
+                    ->first();
+            }
+            
+            // If no branch service charge, try business level
+            if (!$serviceCharge) {
+                $serviceCharge = ServiceCharge::where('business_id', $businessId)
+                    ->where('entity_type', 'business')
+                    ->where('is_active', true)
+                    ->first();
+            }
+            
+            if (!$serviceCharge) {
+                return response()->json([
+                    'success' => true,
+                    'service_charge' => 0,
+                    'message' => 'No service charge configured. Please contact admin to set up service charges.',
+                ]);
+            }
+            
+            // Calculate service charge based on type and bounds
+            $calculatedCharge = 0;
+            
+            if ($serviceCharge->type === 'percentage') {
+                $calculatedCharge = ($subtotal * $serviceCharge->amount) / 100;
+            } else {
+                $calculatedCharge = $serviceCharge->amount;
+            }
+            
+            // Apply bounds if set
+            if ($serviceCharge->lower_bound !== null && $calculatedCharge < $serviceCharge->lower_bound) {
+                $calculatedCharge = $serviceCharge->lower_bound;
+            }
+            
+            if ($serviceCharge->upper_bound !== null && $calculatedCharge > $serviceCharge->upper_bound) {
+                $calculatedCharge = $serviceCharge->upper_bound;
+            }
+            
+            return response()->json([
+                'success' => true,
+                'service_charge' => $calculatedCharge,
+                'service_charge_info' => [
+                    'type' => $serviceCharge->type,
+                    'amount' => $serviceCharge->amount,
+                    'lower_bound' => $serviceCharge->lower_bound,
+                    'upper_bound' => $serviceCharge->upper_bound,
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error calculating service charge: ' . $e->getMessage(),
+                'service_charge' => 0,
+            ], 500);
+        }
+    }
+    
+    /**
      * Generate next invoice number
      */
     public function generateInvoiceNumber(Request $request)
@@ -152,15 +259,58 @@ class InvoiceController extends Controller
     /**
      * Display a listing of invoices
      */
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
         $business = $user->business;
         
-        $invoices = Invoice::where('business_id', $business->id)
-            ->with(['client', 'branch', 'createdBy'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+        $query = Invoice::where('business_id', $business->id)
+            ->with(['client', 'branch', 'createdBy']);
+        
+        // Filter by client if specified
+        if ($request->has('client_id')) {
+            $query->where('client_id', $request->client_id);
+        }
+        
+        // Filter by status if specified
+        if ($request->has('status') && $request->status !== '') {
+            $query->where('status', $request->status);
+        }
+        
+        // Filter by payment status if specified
+        if ($request->has('payment_status') && $request->payment_status !== '') {
+            $query->where('payment_status', $request->payment_status);
+        }
+        
+        // Filter by date range if specified
+        if ($request->has('date_filter') && $request->date_filter !== '') {
+            switch ($request->date_filter) {
+                case 'today':
+                    $query->whereDate('created_at', today());
+                    break;
+                case 'week':
+                    $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                    break;
+                case 'month':
+                    $query->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year);
+                    break;
+                case 'year':
+                    $query->whereYear('created_at', now()->year);
+                    break;
+            }
+        }
+        
+        // Search functionality
+        if ($request->has('search') && $request->search !== '') {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('invoice_number', 'like', "%{$search}%")
+                  ->orWhere('client_name', 'like', "%{$search}%")
+                  ->orWhere('client_phone', 'like', "%{$search}%");
+            });
+        }
+        
+        $invoices = $query->orderBy('created_at', 'desc')->paginate(20);
         
         return view('invoices.index', compact('invoices'));
     }
@@ -196,5 +346,40 @@ class InvoiceController extends Controller
         $invoice->markAsPrinted();
         
         return view('invoices.print', compact('invoice'));
+    }
+    
+    /**
+     * Cancel invoice
+     */
+    public function cancel(Invoice $invoice)
+    {
+        $user = Auth::user();
+        
+        // Check if user has access to this invoice
+        if ($invoice->business_id !== $user->business_id) {
+            abort(403, 'Unauthorized access to invoice.');
+        }
+        
+        // Check if invoice can be cancelled
+        if ($invoice->status === 'cancelled') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invoice is already cancelled.'
+            ], 400);
+        }
+        
+        try {
+            $invoice->cancel();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Invoice cancelled successfully.'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to cancel invoice: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

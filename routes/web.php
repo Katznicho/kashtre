@@ -125,8 +125,10 @@ Route::post('/clients/{client}/update-payment-phone', [ClientController::class, 
 
 // Invoice routes
 Route::post('/invoices/store', [InvoiceController::class, 'store'])->name('invoices.store');
-Route::get('/invoices/service-charge', [InvoiceController::class, 'getServiceCharge'])->name('invoices.service-charge');
+Route::post('/invoices/service-charge', [InvoiceController::class, 'serviceCharge'])->name('invoices.service-charge');
 Route::get('/invoices/generate-number', [InvoiceController::class, 'generateInvoiceNumber'])->name('invoices.generate-number');
+Route::get('/invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('invoices.print');
+Route::patch('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
 Route::resource('invoices', InvoiceController::class);
     Route::get('/pos/item-selection/{client}', [TransactionController::class, 'itemSelection'])->name('pos.item-selection');
     

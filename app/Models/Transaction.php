@@ -29,16 +29,11 @@ class Transaction extends Model
         'email',
         'ip_address',
         'user_agent',
-        'date',
         'method',
         'transaction_for'
      ];
 
-     //relationship
-     public function user()
-     {
-         return $this->belongsTo(User::class);
-     }
+
 
      //relationship
      public function business()

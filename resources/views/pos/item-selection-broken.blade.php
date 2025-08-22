@@ -1,5 +1,4 @@
 <x-app-layout>
-    <meta name="csrf-token" content="{{ csrf_token() }}">
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
@@ -96,12 +95,12 @@
                                 <span class="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">Editable</span>
                             </div>
                             <div class="space-y-2">
-                                <input type="tel"
-                                       id="payment-phone-edit"
-                                       value="{{ $client->payment_phone_number ?? '' }}"
+                                <input type="tel" 
+                                       id="payment-phone-edit" 
+                                       value="{{ $client->payment_phone_number ?? '' }}" 
                                        placeholder="Enter payment phone number"
                                        class="w-full text-lg font-semibold text-gray-900 bg-white border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-                                <button type="button" onclick="savePaymentPhone()"
+                                <button type="button" onclick="savePaymentPhone()" 
                                         class="w-full bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium">
                                     Save Payment Phone
                                 </button>
@@ -540,20 +539,16 @@
         });
         
         function addToCart(itemId, itemName, itemPrice, quantity) {
-            // Ensure proper number types
-            const price = parseFloat(itemPrice) || 0;
-            const qty = parseInt(quantity) || 0;
-            
             // Check if item already exists in cart
             const existingItem = cart.find(item => item.id === itemId);
             if (existingItem) {
-                existingItem.quantity = qty; // Update quantity instead of adding
+                existingItem.quantity = quantity; // Update quantity instead of adding
             } else {
                 cart.push({
                     id: itemId,
                     name: itemName,
-                    price: price,
-                    quantity: qty
+                    price: itemPrice,
+                    quantity: quantity
                 });
             }
             
@@ -585,9 +580,9 @@
             let totalAmount = 0;
             
             cart.forEach((item, index) => {
-                const itemTotal = parseFloat(item.price || 0) * parseInt(item.quantity || 0);
+                const itemTotal = (item.price || 0) * (item.quantity || 0);
                 totalItems += 1; // Count unique items
-                totalQuantity += parseInt(item.quantity || 0); // Sum of all quantities
+                totalQuantity += (item.quantity || 0); // Sum of all quantities
                 totalAmount += itemTotal;
                 
                 receiptHTML += `
@@ -615,7 +610,7 @@
             receiptContainer.innerHTML = receiptHTML;
             totalItemsSpan.textContent = totalItems; // This now shows total quantity of all items
             totalQuantitySpan.textContent = totalQuantity; // This now shows total quantity of all items
-            totalAmountSpan.textContent = `UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            totalAmountSpan.textContent = `UGX ${totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         }
         
         function removeFromCart(index) {
@@ -631,7 +626,7 @@
             updateReceiptDisplay();
         }
         
-        // Show client confirmation modal on page load
+                // Show client confirmation modal on page load
         document.addEventListener('DOMContentLoaded', function() {
             showClientConfirmation();
         });
@@ -715,12 +710,13 @@
             }, 500);
         }
 
-        async function showInvoicePreview() {
+        function showInvoicePreview() {
             if (cart.length === 0) {
                 Swal.fire({
+                    title: 'No Items in Cart',
+                    text: 'Please add items to cart before previewing invoice',
                     icon: 'warning',
-                    title: 'Empty Cart',
-                    text: 'Please add items to cart before previewing invoice'
+                    confirmButtonColor: '#F59E0B'
                 });
                 return;
             }
@@ -746,15 +742,16 @@
             
             invoiceTable.innerHTML = tableHTML;
             
-            // Calculate totals with dynamic service charge
-            const serviceCharge = await calculateServiceCharge(subtotal);
-            const finalTotal = parseFloat(subtotal) + parseFloat(serviceCharge);
-            
-            // Update invoice summary
-            document.getElementById('invoice-subtotal').textContent = `UGX ${parseFloat(subtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('service-charge-display').textContent = `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('invoice-amount-due').textContent = `UGX ${parseFloat(subtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('invoice-final-total').textContent = `UGX ${parseFloat(finalTotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            // Calculate service charge dynamically
+            calculateServiceCharge(subtotal).then(serviceCharge => {
+                const finalTotal = subtotal + serviceCharge;
+                
+                // Update invoice summary
+                document.getElementById('invoice-subtotal').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                document.getElementById('service-charge-display').textContent = `UGX ${serviceCharge.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                document.getElementById('invoice-amount-due').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                document.getElementById('invoice-final-total').textContent = `UGX ${finalTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            });
             
             // Show modal
             document.getElementById('invoice-modal').classList.remove('hidden');
@@ -762,193 +759,6 @@
         
         function closeInvoicePreview() {
             document.getElementById('invoice-modal').classList.add('hidden');
-        }
-        
-        async function confirmAndSaveInvoice() {
-            if (cart.length === 0) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Empty Cart',
-                    text: 'Please add items to cart before saving invoice'
-                });
-                return;
-            }
-            
-            // Confirm with SweetAlert2
-            const result = await Swal.fire({
-                title: 'Confirm Invoice',
-                text: 'Are you sure you want to save this invoice?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'Yes, save it!',
-                cancelButtonText: 'Cancel'
-            });
-            
-            if (!result.isConfirmed) {
-                return;
-            }
-            
-            // Show loading state
-            const button = event.target;
-            const originalText = button.textContent;
-            button.textContent = 'Saving...';
-            button.disabled = true;
-            
-            try {
-                // Calculate totals
-                let subtotal = 0;
-                cart.forEach(item => {
-                    subtotal += parseFloat(item.price || 0) * parseInt(item.quantity || 0);
-                });
-                
-                const serviceCharge = await calculateServiceCharge(subtotal);
-                const totalAmount = parseFloat(subtotal) + parseFloat(serviceCharge);
-                
-                // Get payment phone and methods
-                const paymentPhone = document.getElementById('payment-phone-edit')?.value || '';
-                const paymentMethods = Array.from(document.querySelectorAll('input[name="payment_methods[]"]:checked'))
-                    .map(cb => cb.value);
-                
-                // Check if mobile money is selected and process payment
-                let paymentResult = null;
-                let amountPaid = 0;
-                
-                if (paymentMethods.includes('mobile_money') && paymentPhone) {
-                    // Show payment processing dialog
-                    Swal.fire({
-                        title: 'Processing Mobile Money Payment',
-                        html: `
-                            <div class="text-center">
-                                <div class="mb-4">
-                                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                                </div>
-                                <p class="text-lg font-semibold">UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-                                <p class="text-sm text-gray-600">To: ${paymentPhone}</p>
-                                <p class="text-sm text-gray-500 mt-2">Please wait while we process your payment...</p>
-                            </div>
-                        `,
-                        showConfirmButton: false,
-                        allowOutsideClick: false,
-                        allowEscapeKey: false
-                    });
-                    
-                    // Process mobile money payment
-                    paymentResult = await processMobileMoneyPayment(totalAmount, paymentPhone);
-                    
-                    if (paymentResult.success) {
-                        amountPaid = totalAmount;
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Payment Successful!',
-                            html: `
-                                <div class="text-center">
-                                    <p class="text-lg font-semibold text-green-600">UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-                                    <p class="text-sm text-gray-600">Transaction ID: ${paymentResult.transaction_id}</p>
-                                    <p class="text-sm text-gray-500">Paid via Mobile Money</p>
-                                </div>
-                            `,
-                            timer: 3000,
-                            showConfirmButton: false
-                        });
-                    } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Payment Failed',
-                            text: 'Mobile money payment could not be processed. Please try again.',
-                            confirmButtonText: 'OK'
-                        });
-                        return;
-                    }
-                }
-                
-                // Prepare invoice data with all required fields
-                const invoiceData = {
-                    client_id: {{ $client->id }},
-                    business_id: {{ auth()->user()->business->id }},
-                    branch_id: {{ auth()->user()->currentBranch->id ?? 'null' }},
-                    created_by: {{ auth()->id() }},
-                    client_name: '{{ $client->name }}',
-                    client_phone: '{{ $client->phone_number }}',
-                    payment_phone: paymentPhone,
-                    visit_id: '{{ $client->visit_id }}',
-                    items: cart,
-                    subtotal: subtotal,
-                    package_adjustment: 0,
-                    account_balance_adjustment: 0,
-                    service_charge: serviceCharge,
-                    total_amount: totalAmount,
-                    amount_paid: amountPaid,
-                    balance_due: totalAmount - amountPaid,
-                    payment_methods: paymentMethods,
-                    payment_status: amountPaid >= totalAmount ? 'paid' : 'pending',
-                    status: 'confirmed',
-                    notes: ''
-                };
-                
-                // Save invoice
-                const response = await fetch('/invoices/store', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify(invoiceData)
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Clear cart
-                    cart = [];
-                    updateReceiptDisplay();
-                    
-                    // Close invoice preview
-                    closeInvoicePreview();
-                    
-                    // Show success with options
-                    const result = await Swal.fire({
-                        icon: 'success',
-                        title: 'Invoice Saved!',
-                        text: 'Invoice has been saved successfully.',
-                        showCancelButton: true,
-                        confirmButtonText: 'View Invoice',
-                        cancelButtonText: 'Print Invoice',
-                        showDenyButton: true,
-                        denyButtonText: 'Stay Here'
-                    });
-                    
-                    if (result.isConfirmed) {
-                        // View invoice
-                        window.location.href = `/invoices/${data.invoice.id}`;
-                    } else if (result.dismiss === Swal.DismissReason.cancel) {
-                        // Print invoice
-                        window.open(`/invoices/${data.invoice.id}/print`, '_blank');
-                    }
-                    // If "Stay Here" is clicked, do nothing
-                    
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error!',
-                        text: 'Error saving invoice: ' + (data.message || 'Unknown error')
-                    });
-                }
-                
-            } catch (error) {
-                console.error('Error saving invoice:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error!',
-                    text: 'Error saving invoice. Please try again.'
-                });
-            } finally {
-                // Restore button state
-                button.textContent = originalText;
-                button.disabled = false;
-            }
         }
         
         function printInvoice() {
@@ -1049,149 +859,337 @@
                     closePaymentMethodsModal();
                     
                     // Show success message
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success!',
-                        text: 'Payment methods updated successfully!',
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
+                    const successDiv = document.createElement('div');
+                    successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+                    successDiv.textContent = 'Payment methods updated successfully!';
+                    document.body.appendChild(successDiv);
+                    
+                    setTimeout(() => {
+                        successDiv.remove();
+                    }, 3000);
                 } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error!',
-                        text: 'Error updating payment methods: ' + data.message
-                    });
+                    alert('Error updating payment methods: ' + data.message);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error!',
-                    text: 'Error updating payment methods'
-                });
+                alert('Error updating payment methods');
             });
         }
         
         function updatePaymentMethodsDisplay(methods) {
             const container = document.querySelector('.payment-methods-display');
+            const paymentPhoneSection = document.getElementById('payment-phone-section');
+            
             if (methods.length > 0) {
                 container.innerHTML = methods.map((method, index) => 
                     `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                         ${index + 1}. ${method.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </span>`
                 ).join('');
+                
+                // Show/hide payment phone section based on mobile money selection
+                const hasMobileMoney = methods.includes('mobile_money');
+                if (hasMobileMoney) {
+                    paymentPhoneSection.style.display = 'block';
+                } else {
+                    paymentPhoneSection.style.display = 'none';
+                }
             } else {
                 container.innerHTML = '<span class="text-sm text-gray-500">No payment methods specified</span>';
-            }
-            
-            // Show/hide payment phone section based on mobile money selection
-            const paymentPhoneSection = document.getElementById('payment-phone-section');
-            if (methods.includes('mobile_money')) {
-                paymentPhoneSection.style.display = 'block';
-            } else {
                 paymentPhoneSection.style.display = 'none';
             }
         }
         
-        async function processMobileMoneyPayment(amount, phoneNumber) {
-            // Simulate mobile money payment processing
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    // Simulate successful payment
-                    resolve({
-                        success: true,
-                        transaction_id: 'MM_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-                        amount: amount,
-                        phone: phoneNumber,
-                        status: 'success',
-                        message: 'Payment processed successfully'
-                    });
-                }, 2000); // Simulate 2 second processing time
-            });
-        }
-        
-        async function calculateServiceCharge(subtotal) {
-            try {
-                const response = await fetch('/invoices/service-charge', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        subtotal: subtotal,
-                        business_id: {{ auth()->user()->business->id }},
-                        branch_id: {{ auth()->user()->currentBranch->id ?? 'null' }}
-                    })
-                });
-                
-                const data = await response.json();
-                if (data.success) {
-                    return parseFloat(data.service_charge) || 0;
-                } else {
-                    console.error('Service charge calculation error:', data.message);
-                    return 0;
-                }
-            } catch (error) {
-                console.error('Error calculating service charge:', error);
-                return 0;
-            }
-        }
-        
         function savePaymentPhone() {
-            const phoneInput = document.getElementById('payment-phone-edit');
-            const phoneNumber = phoneInput.value.trim();
-            const button = event.target;
-            const originalText = button.textContent;
+            const paymentPhoneInput = document.getElementById('payment-phone-edit');
+            const saveButton = paymentPhoneInput.nextElementSibling;
+            const originalText = saveButton.innerHTML;
+            const paymentPhone = paymentPhoneInput.value.trim();
             
             // Show loading state
-            button.textContent = 'Saving...';
-            button.disabled = true;
+            saveButton.innerHTML = '<svg class="w-4 h-4 inline mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>Saving...';
+            saveButton.disabled = true;
             
+            // Get CSRF token
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                             document.querySelector('input[name="_token"]')?.value;
+            
+            if (!csrfToken) {
+                Swal.fire({
+                    title: 'Security Error',
+                    text: 'CSRF token not found. Please refresh the page and try again.',
+                    icon: 'error',
+                    confirmButtonColor: '#EF4444'
+                });
+                saveButton.innerHTML = originalText;
+                saveButton.disabled = false;
+                return;
+            }
+            
+            // Send AJAX request to update payment phone number
             fetch(`/clients/{{ $client->id }}/update-payment-phone`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'X-CSRF-TOKEN': csrfToken,
                     'Accept': 'application/json',
                 },
                 body: JSON.stringify({
-                    payment_phone_number: phoneNumber
+                    payment_phone_number: paymentPhone
                 })
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
+                    // Show success message using SweetAlert2
                     Swal.fire({
-                        icon: 'success',
                         title: 'Success!',
                         text: 'Payment phone number updated successfully!',
-                        timer: 2000,
-                        showConfirmButton: false
+                        icon: 'success',
+                        timer: 3000,
+                        showConfirmButton: false,
+                        confirmButtonColor: '#10B981'
                     });
+                    
+                    // Add visual feedback to the input field
+                    paymentPhoneInput.classList.add('border-green-500');
+                    setTimeout(() => {
+                        paymentPhoneInput.classList.remove('border-green-500');
+                    }, 2000);
                 } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error!',
-                        text: 'Error updating payment phone number: ' + data.message
-                    });
+                    throw new Error(data.message || 'Unknown error occurred');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
                 Swal.fire({
+                    title: 'Error',
+                    text: 'Error: ' + error.message,
                     icon: 'error',
-                    title: 'Error!',
-                    text: 'Error updating payment phone number'
+                    confirmButtonColor: '#EF4444'
                 });
             })
             .finally(() => {
                 // Restore button state
-                button.textContent = originalText;
-                button.disabled = false;
+                saveButton.innerHTML = originalText;
+                saveButton.disabled = false;
+            });
+        }
+        
+        async function confirmAndSaveInvoice() {
+            if (cart.length === 0) {
+                Swal.fire({
+                    title: 'No Items in Cart',
+                    text: 'Please add items to cart before confirming invoice',
+                    icon: 'warning',
+                    confirmButtonColor: '#F59E0B'
+                });
+                return;
+            }
+            
+            // Show confirmation dialog using SweetAlert2
+            const result = await Swal.fire({
+                title: 'Confirm Invoice',
+                text: 'Are you sure you want to confirm and save this invoice? This action cannot be undone.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#10B981',
+                cancelButtonColor: '#6B7280',
+                confirmButtonText: 'Yes, Save Invoice',
+                cancelButtonText: 'Cancel'
+            });
+            
+            if (!result.isConfirmed) {
+                return;
+            }
+            
+            // Get CSRF token
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                             document.querySelector('input[name="_token"]')?.value;
+            
+            if (!csrfToken) {
+                Swal.fire({
+                    title: 'Security Error',
+                    text: 'CSRF token not found. Please refresh the page and try again.',
+                    icon: 'error',
+                    confirmButtonColor: '#EF4444'
+                });
+                return;
+            }
+            
+            // Calculate totals
+            let subtotal = 0;
+            cart.forEach(item => {
+                subtotal += (item.price || 0) * (item.quantity || 0);
+            });
+            
+            // Get service charge from display
+            const serviceChargeText = document.getElementById('service-charge-display').textContent;
+            const serviceCharge = parseFloat(serviceChargeText.replace('UGX ', '').replace(',', '')) || 0;
+            
+            // Get payment phone number
+            const paymentPhone = document.getElementById('payment-phone-edit')?.value || '';
+            
+            // Get payment methods
+            const paymentMethods = @json($client->payment_methods ?? []);
+            
+            // Prepare invoice data
+            const invoiceData = {
+                client_id: {{ $client->id }},
+                business_id: {{ Auth::user()->business_id }},
+                branch_id: {{ Auth::user()->current_branch_id ?? 1 }},
+                created_by: {{ Auth::user()->id }},
+                client_name: '{{ $client->name }}',
+                client_phone: '{{ $client->phone_number }}',
+                payment_phone: paymentPhone,
+                visit_id: '{{ $client->visit_id }}',
+                items: cart,
+                subtotal: subtotal,
+                package_adjustment: 0, // Will be calculated by backend
+                account_balance_adjustment: 0, // Will be calculated by backend
+                service_charge: serviceCharge,
+                total_amount: subtotal + serviceCharge,
+                amount_paid: 0,
+                balance_due: subtotal + serviceCharge,
+                payment_methods: paymentMethods,
+                payment_status: 'pending',
+                status: 'confirmed',
+                notes: ''
+            };
+            
+            // Show loading state
+            const confirmButton = document.querySelector('button[onclick="confirmAndSaveInvoice()"]');
+            const originalText = confirmButton.innerHTML;
+            confirmButton.innerHTML = '<svg class="w-4 h-4 inline mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>Saving...';
+            confirmButton.disabled = true;
+            
+            // Send AJAX request to save invoice
+            fetch('/invoices/store', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify(invoiceData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Show success message using SweetAlert2
+                    const result = await Swal.fire({
+                        title: 'Invoice Saved Successfully!',
+                        html: `
+                            <div class="text-center">
+                                <div class="text-lg font-semibold text-green-600 mb-2">
+                                    Invoice Number: ${data.invoice.invoice_number}
+                                </div>
+                                <p class="text-gray-600">Your invoice has been saved to the database.</p>
+                            </div>
+                        `,
+                        icon: 'success',
+                        showCancelButton: true,
+                        confirmButtonColor: '#2563EB',
+                        cancelButtonColor: '#6B7280',
+                        confirmButtonText: 'View Invoice',
+                        cancelButtonText: 'Stay Here',
+                        showDenyButton: true,
+                        denyButtonColor: '#059669',
+                        denyButtonText: 'Print Invoice'
+                    });
+                    
+                    if (result.isConfirmed) {
+                        // View invoice
+                        window.location.href = `/invoices/${data.invoice.id}`;
+                    } else if (result.isDenied) {
+                        // Print invoice
+                        printInvoice();
+                    }
+                    
+                    // Clear cart
+                    cart = [];
+                    updateReceiptDisplay();
+                    
+                    // Close invoice modal
+                    closeInvoicePreview();
+                    
+
+                    
+                } else {
+                    throw new Error(data.message || 'Unknown error occurred');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    title: 'Error Saving Invoice',
+                    text: 'Error saving invoice: ' + error.message,
+                    icon: 'error',
+                    confirmButtonColor: '#EF4444'
+                });
+            })
+            .finally(() => {
+                // Restore button state
+                confirmButton.innerHTML = originalText;
+                confirmButton.disabled = false;
+            });
+        }
+        
+        function calculateServiceCharge(subtotal) {
+            return new Promise((resolve, reject) => {
+                // Get CSRF token
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                                 document.querySelector('input[name="_token"]')?.value;
+                
+                if (!csrfToken) {
+                    console.warn('CSRF token not found, using default service charge');
+                    resolve(0); // Default to 0 if no service charge configured
+                    return;
+                }
+                
+                // Send AJAX request to calculate service charge
+                fetch('/invoices/service-charge', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        subtotal: subtotal,
+                        business_id: {{ Auth::user()->business_id }},
+                        branch_id: {{ Auth::user()->current_branch_id ?? 1 }}
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        resolve(data.service_charge || 0);
+                    } else {
+                        console.warn('Service charge calculation failed:', data.message);
+                        resolve(0); // Default to 0 if calculation fails
+                    }
+                })
+                .catch(error => {
+                    console.error('Error calculating service charge:', error);
+                    resolve(0); // Default to 0 if error occurs
+                });
             });
         }
     </script>
