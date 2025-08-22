@@ -24,59 +24,112 @@ class Admins extends Component implements HasForms, HasTable
             ->query(User::query()->where('business_id', 1)->latest()->with('business'))
             ->columns([
                 Tables\Columns\ImageColumn::make('profile_photo_url')
-                    ->label('Photo')
+                    ->label('Profile Photo')
                     ->circular()
-                    ->defaultImageUrl(url('https://ui-avatars.com/api/?name=' . urlencode('Admin User') . '&color=7F9CF5&background=EBF4FF')),
+                    ->defaultImageUrl(url('path/to/default/image.jpg')),
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Name')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('email')
-                    ->label('Email')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'active' => 'success',
+                        'inactive' => 'warning',
+                        'suspended' => 'danger',
+                        default => 'gray',
+                    })
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('business.name')
-                    ->label('Business')
+                    ->label('Business Name')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->default('N/A'),
+                Tables\Columns\TextColumn::make('branch.name')
+                    ->label('Branch Name')
+                    ->searchable()
+                    ->sortable()
+                    ->default('N/A'),
+                Tables\Columns\TextColumn::make('email_verified_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Created')
                     ->dateTime()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')
-                    ->label('Updated')
                     ->dateTime()
-                    ->sortable(),
-            ])
-            ->filters([
-                Tables\Filters\SelectFilter::make('business')
-                    ->relationship('business', 'name')
-                    ->label('Filter by Business'),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('deleted_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->url(fn (User $record): string => route('admins.show', $record))
-                    ->openUrlInNewTab(),
-                Tables\Actions\EditAction::make()
-                    ->url(fn (User $record): string => route('admins.edit', $record))
-                    ->openUrlInNewTab(),
-                Tables\Actions\DeleteAction::make()
-                    ->requiresConfirmation()
-                    ->modalHeading('Delete Admin')
-                    ->modalDescription('Are you sure you want to delete this admin? This action cannot be undone.')
-                    ->modalSubmitActionLabel('Yes, delete admin')
-                    ->action(function (User $record) {
-                        $record->delete();
-                    }),
+                Tables\Actions\Action::make('show')
+                    ->label('Show')
+                    // ->visible(fn() => in_array('View Admin Users', Auth::user()->permissions))
+                    ->url(fn(User $record): string => route('admins.show', $record->id))
+                    ->icon('heroicon-o-eye')
+                    ->color('info'),
+
+                // Tables\Actions\Action::make('edit')
+                //     ->label('Edit')
+                //     ->url(fn(User $record): string => route('admins.edit', $record->id))
+                //     ->icon('heroicon-o-pencil')
+                //     ->color('primary'),
+                Tables\Actions\Action::make('update_status')
+                    ->label('Change Status')
+                    ->visible(fn() => in_array('Update Status', Auth::user()->permissions))
+                    ->form([
+                        \Filament\Forms\Components\Select::make('status')
+                            ->options([
+                                'active' => 'Active',
+                                'inactive' => 'Inactive',
+                                'suspended' => 'Suspended',
+                            ])
+                            ->required(),
+                    ])
+                    ->action(function (User $record, array $data): void {
+                        $record->update(['status' => $data['status']]);
+                    })
+                    ->icon('heroicon-o-pencil')
+                    ->color('primary'),
+                Tables\Actions\Action::make('impersonate')
+                    ->label('Impersonate')
+                    ->visible(fn() => in_array('Impersonate', Auth::user()->permissions))
+                    ->url(fn (User $record): string => route('impersonate', $record->id))
+                    ->color('warning')
+                    ->icon('heroicon-o-user')
+                    ->visible(fn (User $record): bool => Auth::user()->id !== $record->id)
+                    ->requiresConfirmation(),
             ])
             ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make()
-                    ->requiresConfirmation()
-                    ->modalHeading('Delete Selected Admins')
-                    ->modalDescription('Are you sure you want to delete the selected admins? This action cannot be undone.')
-                    ->modalSubmitActionLabel('Yes, delete admins'),
-            ])
-            ->defaultSort('created_at', 'desc');
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('update_status_bulk')
+                        ->label('Update Status')
+                        ->visible(fn() => in_array('Update Status', Auth::user()->permissions))
+                        ->form([
+                            \Filament\Forms\Components\Select::make('status')
+                                ->options([
+                                    'active' => 'Active',
+                                    'inactive' => 'Inactive',
+                                    'suspended' => 'Suspended',
+                                ])
+                                ->required(),
+                        ])
+                        ->action(function (array $records, array $data): void {
+                            User::whereIn('id', $records)->update(['status' => $data['status']]);
+                        })
+                        ->icon('heroicon-o-pencil')
+                        ->color('primary'),
+                ]),
+            ]);
     }
 
     public function render(): View
