@@ -30,7 +30,7 @@
                         <option value="">Select a contractor</option>
                         @foreach($contractors as $contractor)
                             <option value="{{ $contractor->id }}" {{ old('contractor_profile_id') == $contractor->id ? 'selected' : '' }}>
-                                {{ $contractor->user->name }} - {{ $contractor->business->name }}
+                                {{ $contractor->user ? $contractor->user->name : 'Unknown User' }} - {{ $contractor->business ? $contractor->business->name : 'Unknown Business' }}
                             </option>
                         @endforeach
                     </select>
