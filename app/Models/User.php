@@ -101,6 +101,11 @@ class User extends Authenticatable
         return $this->belongsTo(Branch::class);
     }
 
+    public function contractorProfile()
+    {
+        return $this->hasOne(ContractorProfile::class);
+    }
+
     /**
      * Get the current working branch for the user
      */
