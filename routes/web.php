@@ -126,7 +126,6 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
 Route::post('/clients/{client}/update-payment-phone', [ClientController::class, 'updatePaymentPhone'])->name('clients.update-payment-phone');
 
 // Invoice routes
-Route::post('/invoices/store', [InvoiceController::class, 'store'])->name('invoices.store');
 Route::post('/invoices/service-charge', [InvoiceController::class, 'serviceCharge'])->name('invoices.service-charge');
 Route::post('/invoices/package-adjustment', [InvoiceController::class, 'calculatePackageAdjustment'])->name('invoices.package-adjustment');
 Route::get('/invoices/generate-number', [InvoiceController::class, 'generateInvoiceNumber'])->name('invoices.generate-number');

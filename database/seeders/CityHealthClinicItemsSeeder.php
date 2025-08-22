@@ -20,15 +20,25 @@ class CityHealthClinicItemsSeeder extends Seeder
     {
         $this->command->info('Creating comprehensive items for City Health Clinic...');
         
-        // Find City Health Clinic
+        // Find or create City Health Clinic
         $business = Business::where('name', 'LIKE', '%City Health Clinic%')->first();
         
         if (!$business) {
-            $this->command->error('City Health Clinic not found!');
-            return;
+            $this->command->info('City Health Clinic not found, creating it...');
+            $business = Business::create([
+                'name' => 'City Health Clinic',
+                'email' => 'info@cityhealthclinic.com',
+                'phone' => '+256700000000',
+                'address' => 'Kampala, Uganda',
+                'account_number' => 'KS' . time(),
+            ]);
+            $this->command->info("Created business: {$business->name}");
         }
         
         $this->command->info("Found business: {$business->name}");
+        
+        // Create basic data if it doesn't exist
+        $this->createBasicData($business);
         
         // Get basic data
         $groups = Group::where('business_id', $business->id)->get();
@@ -467,5 +477,72 @@ class CityHealthClinicItemsSeeder extends Seeder
             ($item->contractor_account_id ? " - Contractor Item" : " - Hospital Item"));
         
         return $item;
+    }
+    
+    private function createBasicData($business)
+    {
+        // Create groups if they don't exist
+        $groups = [
+            'Medicines', 'Medical Supplies', 'Laboratory Tests', 
+            'Consultations', 'Procedures', 'Services'
+        ];
+        
+        foreach ($groups as $groupName) {
+            if (!Group::where('name', $groupName)->where('business_id', $business->id)->exists()) {
+                Group::create([
+                    'uuid' => Str::uuid(),
+                    'business_id' => $business->id,
+                    'name' => $groupName,
+                    'description' => $groupName . ' for ' . $business->name
+                ]);
+                $this->command->info("Created group: {$groupName}");
+            }
+        }
+        
+        // Create departments if they don't exist
+        $departments = [
+            'Pharmacy', 'Laboratory', 'Outpatient Department', 'Surgery'
+        ];
+        
+        foreach ($departments as $deptName) {
+            if (!Department::where('name', $deptName)->where('business_id', $business->id)->exists()) {
+                Department::create([
+                    'uuid' => Str::uuid(),
+                    'business_id' => $business->id,
+                    'name' => $deptName,
+                    'description' => $deptName . ' for ' . $business->name
+                ]);
+                $this->command->info("Created department: {$deptName}");
+            }
+        }
+        
+        // Create units if they don't exist
+        $units = [
+            'Tablets', 'Capsules', 'Bottles', 'Pieces', 'Tests', 'Consultations', 'Procedures'
+        ];
+        
+        foreach ($units as $unitName) {
+            if (!ItemUnit::where('name', $unitName)->where('business_id', $business->id)->exists()) {
+                ItemUnit::create([
+                    'uuid' => Str::uuid(),
+                    'business_id' => $business->id,
+                    'name' => $unitName,
+                    'description' => $unitName . ' unit for ' . $business->name
+                ]);
+                $this->command->info("Created unit: {$unitName}");
+            }
+        }
+        
+        // Create a default branch if none exists
+        if ($business->branches->isEmpty()) {
+            $branch = $business->branches()->create([
+                'uuid' => Str::uuid(),
+                'name' => 'Main Branch',
+                'email' => 'main@cityhealthclinic.com',
+                'phone' => '+256700000001',
+                'address' => 'Kampala, Uganda'
+            ]);
+            $this->command->info("Created branch: {$branch->name}");
+        }
     }
 }
