@@ -292,7 +292,10 @@
                             <li><a href="{{ route('sub-groups.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Sub Groups</a></li>
                             @endif
                             @if(in_array('Manage Service Charges', $permissions))
-                            <li><a href="{{ route('service-charges.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Service Charges</a></li>
+                            <li><a href="{{ route('service-charges.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Entity Service Charges</a></li>
+                            @endif
+                            @if(in_array('Manage Contractor Service Charges', $permissions))
+                            <li><a href="{{ route('contractor-service-charges.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Contractor Service Charges</a></li>
                             @endif
                              @if(in_array('Bulk Validations Upload', $permissions)) 
                             <li><a href="{{ route('bulk.upload.form') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Bulk Upload</a></li>

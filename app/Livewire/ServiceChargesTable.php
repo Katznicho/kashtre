@@ -36,15 +36,23 @@ class ServiceChargesTable extends Component implements HasForms, HasTable
         return $table
             ->query($query)
             ->columns([
-                TextColumn::make('business_id')
-                    ->label('Business')
+                // TextColumn::make('entity_type')
+                //     ->label('Entity Type')
+                //     ->badge()
+                //     ->color(fn (string $state): string => match ($state) {
+                //         'business' => 'primary',
+                //         'contractor' => 'success',
+                //         'branch' => 'warning',
+                //         'service_point' => 'info',
+                //         default => 'gray',
+                //     })
+                //     ->formatStateUsing(fn (string $state): string => ucfirst($state))
+                //     ->sortable(),
+                
+                TextColumn::make('entity_name')
+                    ->label('Entity')
                     ->formatStateUsing(function (ServiceCharge $record): string {
-                        try {
-                            $business = \App\Models\Business::find($record->business_id);
-                            return $business ? $business->name : 'Unknown Business';
-                        } catch (\Exception $e) {
-                            return 'Business #' . $record->business_id;
-                        }
+                        return $record->entity_name;
                     })
                     ->searchable()
                     ->sortable(),
@@ -93,13 +101,13 @@ class ServiceChargesTable extends Component implements HasForms, HasTable
                     ->sortable(),
             ])
             ->filters([
-                SelectFilter::make('business_id')
-                    ->label('Business')
-                    ->options(function () {
-                        return \App\Models\Business::where('id', '!=', 1)
-                            ->pluck('name', 'id')
-                            ->toArray();
-                    }),
+                SelectFilter::make('entity_type')
+                    ->label('Entity Type')
+                    ->options([
+                        'business' => 'Business',
+                        'branch' => 'Branch',
+                        'service_point' => 'Service Point',
+                    ]),
                 
                 SelectFilter::make('type')
                     ->label('Charge Type')
@@ -120,32 +128,26 @@ class ServiceChargesTable extends Component implements HasForms, HasTable
                     ->label('View')
                     ->icon('heroicon-o-eye')
                     ->color('primary')
+                    ->visible(fn() => in_array('Manage Service Charges', Auth::user()->permissions))
                     ->url(fn (ServiceCharge $record): string => route('service-charges.show', $record)),
                 
                 // EditAction::make()
                 //     ->label('Edit')
                 //     ->icon('heroicon-o-pencil')
+                //     ->visible(fn() => in_array('Manage Service Charges', Auth::user()->permissions))
                 //     ->url(fn (ServiceCharge $record): string => route('service-charges.edit', $record)),
                 
                 DeleteAction::make()
                     ->label('Delete')
                     ->icon('heroicon-o-trash')
                     ->color('danger')
+                    ->visible(fn() => in_array('Manage Service Charges', Auth::user()->permissions))
                     ->requiresConfirmation()
                     ->modalHeading('Delete Service Charge')
                     ->modalDescription('Are you sure you want to delete this service charge? This action cannot be undone.')
                     ->modalSubmitActionLabel('Yes, delete service charge')
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make()
-                        ->label('Delete Selected')
-                        ->requiresConfirmation()
-                        ->modalHeading('Delete Selected Service Charges')
-                        ->modalDescription('Are you sure you want to delete the selected service charges? This action cannot be undone.')
-                        ->modalSubmitActionLabel('Yes, delete selected service charges'),
-                ]),
-            ])
+           
             ->defaultSort('created_at', 'desc')
             ->striped()
             ->paginated([10, 25, 50, 100]);

@@ -2,7 +2,7 @@
 <div class="container mx-auto px-4 py-8">
     <div class="max-w-6xl mx-auto">
         <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-900">Create Service Charges</h1>
+            <h1 class="text-3xl font-bold text-gray-900">Create Entity Service Charges</h1>
             <a href="{{ route('service-charges.index') }}" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
                 Back to List
             </a>
@@ -21,28 +21,19 @@
         <form action="{{ route('service-charges.store') }}" method="POST" class="bg-white shadow-md rounded-lg p-6">
             @csrf
             
-            <!-- Business Selection -->
+            <!-- Entity Selection -->
             <div class="mb-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">Select Business</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label for="entity_id" class="block text-sm font-medium text-gray-700 mb-2">
-                            Business/Hospital*
-                        </label>
-                        <select id="entity_id" name="entity_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
-                            <option value="">Select Business</option>
-                            @foreach($businesses as $business)
-                                <option value="{{ $business->id }}">
-                                    {{ $business->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <!-- Hidden field for entity_type -->
-                        <input type="hidden" name="entity_type" value="business">
-                    </div>
-                </div>
+                <label for="entity_id" class="block text-sm font-medium text-gray-700 mb-2">
+                    Entity *
+                </label>
+                <select name="entity_id" id="entity_id" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <option value="">Select an entity</option>
+                    @foreach($businesses as $business)
+                        <option value="{{ $business->id }}" {{ old('entity_id') == $business->id ? 'selected' : '' }}>
+                            {{ $business->name }}
+                        </option>
+                    @endforeach
+                </select>
             </div>
 
             <!-- Service Charges Repeater -->
@@ -83,25 +74,25 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Upper Bound
+                    Lower Bound *
                 </label>
-                <input type="number" name="service_charges[INDEX][upper_bound]" step="0.01" min="0" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                <input type="number" name="service_charges[INDEX][lower_bound]" step="0.01" min="0" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required placeholder="Enter lower bound">
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Lower Bound
+                    Upper Bound *
                 </label>
-                <input type="number" name="service_charges[INDEX][lower_bound]" step="0.01" min="0" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="0.00">
+                <input type="number" name="service_charges[INDEX][upper_bound]" step="0.01" min="0" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required placeholder="Enter upper bound">
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Charge*
+                    Charge *
                 </label>
-                <input type="number" name="service_charges[INDEX][amount]" step="0.01" min="0" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required placeholder="0.00">
+                <input type="number" name="service_charges[INDEX][amount]" step="0.01" min="0" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required placeholder="Enter amount">
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Service Charge Type*
+                    Service Charge Type *
                 </label>
                 <select name="service_charges[INDEX][type]" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
                     <option value="">Select Type</option>

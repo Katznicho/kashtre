@@ -5,22 +5,21 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Models\Business;
-use App\Models\Branch;
-use App\Models\ServicePoint;
-use App\Models\User;
+use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
-class ServiceCharge extends Model
+class ContractorServiceCharge extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'entity_type',
-        'entity_id',
+        'uuid',
+        'contractor_profile_id',
         'amount',
         'upper_bound',
         'lower_bound',
         'type',
+        'description',
         'is_active',
         'business_id',
         'created_by',
@@ -37,12 +36,12 @@ class ServiceCharge extends Model
      * Validation rules for the model.
      */
     public static $rules = [
-        'entity_type' => 'required|in:business,branch,service_point',
-        'entity_id' => 'required|integer',
+        'contractor_profile_id' => 'required|integer|exists:contractor_profiles,id',
         'amount' => 'required|numeric|min:0',
         'upper_bound' => 'nullable|numeric|min:0',
         'lower_bound' => 'nullable|numeric|min:0',
         'type' => 'required|in:fixed,percentage',
+        'description' => 'nullable|string|max:500',
         'is_active' => 'boolean',
         'business_id' => 'required|integer|exists:businesses,id',
         'created_by' => 'required|integer|exists:users,id',
@@ -52,10 +51,9 @@ class ServiceCharge extends Model
      * Custom validation messages.
      */
     public static $messages = [
-        'entity_type.required' => 'Entity type is required.',
-        'entity_type.in' => 'Entity type must be business, branch, or service_point.',
-        'entity_id.required' => 'Entity ID is required.',
-        'entity_id.integer' => 'Entity ID must be a valid integer.',
+        'contractor_profile_id.required' => 'Contractor profile is required.',
+        'contractor_profile_id.integer' => 'Contractor profile ID must be a valid integer.',
+        'contractor_profile_id.exists' => 'Selected contractor profile does not exist.',
         'amount.required' => 'Amount is required.',
         'amount.numeric' => 'Amount must be a valid number.',
         'amount.min' => 'Amount must be greater than or equal to 0.',
@@ -65,6 +63,8 @@ class ServiceCharge extends Model
         'lower_bound.min' => 'Lower bound must be greater than or equal to 0.',
         'type.required' => 'Type is required.',
         'type.in' => 'Type must be either fixed or percentage.',
+        'description.string' => 'Description must be a valid string.',
+        'description.max' => 'Description cannot exceed 500 characters.',
         'business_id.required' => 'Business ID is required.',
         'business_id.integer' => 'Business ID must be a valid integer.',
         'business_id.exists' => 'Selected business does not exist.',
@@ -73,24 +73,33 @@ class ServiceCharge extends Model
         'created_by.exists' => 'Selected user does not exist.',
     ];
 
-    /**
-     * Boot method to add model events.
-     */
     protected static function booted()
     {
-        static::saving(function ($serviceCharge) {
+        static::creating(function ($contractorServiceCharge) {
+            $contractorServiceCharge->uuid = (string) Str::uuid();
+        });
+
+        static::saving(function ($contractorServiceCharge) {
             // Validate bounds relationship
-            if ($serviceCharge->upper_bound !== null && $serviceCharge->lower_bound !== null) {
-                if ($serviceCharge->upper_bound <= $serviceCharge->lower_bound) {
+            if ($contractorServiceCharge->upper_bound !== null && $contractorServiceCharge->lower_bound !== null) {
+                if ($contractorServiceCharge->upper_bound <= $contractorServiceCharge->lower_bound) {
                     throw new \InvalidArgumentException('Upper bound must be greater than lower bound.');
                 }
             }
             
             // Validate percentage limits
-            if ($serviceCharge->type === 'percentage' && $serviceCharge->amount > 100) {
+            if ($contractorServiceCharge->type === 'percentage' && $contractorServiceCharge->amount > 100) {
                 throw new \InvalidArgumentException('Percentage amount cannot exceed 100%.');
             }
         });
+    }
+
+    /**
+     * Get the contractor profile that owns the service charge.
+     */
+    public function contractorProfile(): BelongsTo
+    {
+        return $this->belongsTo(ContractorProfile::class);
     }
 
     /**
@@ -110,14 +119,6 @@ class ServiceCharge extends Model
     }
 
     /**
-     * Get the entity that this service charge applies to.
-     */
-    public function entity()
-    {
-        return $this->morphTo();
-    }
-
-    /**
      * Scope to filter by active service charges.
      */
     public function scopeActive($query)
@@ -134,11 +135,11 @@ class ServiceCharge extends Model
     }
 
     /**
-     * Scope to filter by entity type.
+     * Scope to filter by contractor profile.
      */
-    public function scopeForEntityType($query, $entityType)
+    public function scopeForContractor($query, $contractorProfileId)
     {
-        return $query->where('entity_type', $entityType);
+        return $query->where('contractor_profile_id', $contractorProfileId);
     }
 
     /**
@@ -154,24 +155,18 @@ class ServiceCharge extends Model
     }
 
     /**
-     * Get the entity name.
+     * Get the contractor name.
      */
-    public function getEntityNameAttribute(): string
+    public function getContractorNameAttribute(): string
     {
-        try {
-            switch ($this->entity_type) {
-                case 'business':
-                    return Business::find($this->entity_id)?->name ?? 'Unknown Business';
-                case 'branch':
-                    return Branch::find($this->entity_id)?->name ?? 'Unknown Branch';
-                case 'service_point':
-                    return ServicePoint::find($this->entity_id)?->name ?? 'Unknown Service Point';
-                
-                default:
-                    return 'Unknown Entity';
-            }
-        } catch (\Exception $e) {
-            return 'Error: ' . $e->getMessage();
-        }
+        return $this->contractorProfile->user->name ?? 'Unknown Contractor';
+    }
+
+    /**
+     * Get the route key name.
+     */
+    public function getRouteKeyName()
+    {
+        return 'uuid';
     }
 }

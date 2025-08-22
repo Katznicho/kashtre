@@ -2,7 +2,7 @@
 <div class="container mx-auto px-4 py-8">
     <div class="max-w-4xl mx-auto">
         <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-900">Edit Service Charge</h1>
+            <h1 class="text-3xl font-bold text-gray-900">Edit Entity Service Charge</h1>
             <a href="{{ route('service-charges.index') }}" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
                 Back to List
             </a>
@@ -22,21 +22,36 @@
             @csrf
             @method('PUT')
             
-            <!-- Business Selection -->
+            <!-- Entity Selection -->
             <div class="mb-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">Business Selection</h2>
-                <div>
-                    <label for="business_id" class="block text-sm font-medium text-gray-700 mb-2">
-                        Business*
-                    </label>
-                    <select id="business_id" name="business_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
-                        <option value="">Select Business</option>
-                        @foreach($businesses as $business)
-                            <option value="{{ $business->id }}" {{ old('business_id', $serviceCharge->business_id) == $business->id ? 'selected' : '' }}>
-                                {{ $business->name }}
-                            </option>
-                        @endforeach
-                    </select>
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">Entity Selection</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="entity_type" class="block text-sm font-medium text-gray-700 mb-2">
+                            Entity Type*
+                        </label>
+                        <select id="entity_type" name="entity_type" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+                            <option value="">Select Entity Type</option>
+                            <option value="business" {{ old('entity_type', $serviceCharge->entity_type) === 'business' ? 'selected' : '' }}>Business/Hospital</option>
+
+                        </select>
+                    </div>
+                    <div>
+                        <label for="entity_id" class="block text-sm font-medium text-gray-700 mb-2">
+                            Entity*
+                        </label>
+                        <select id="entity_id" name="entity_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+                            <option value="">Select Entity</option>
+                            @if($serviceCharge->entity_type === 'business')
+                                @foreach($businesses as $business)
+                                    <option value="{{ $business->id }}" {{ old('entity_id', $serviceCharge->entity_id) == $business->id ? 'selected' : '' }}>
+                                        {{ $business->name }}
+                                    </option>
+                                @endforeach
+
+                            @endif
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -104,4 +119,39 @@
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const entityTypeSelect = document.getElementById('entity_type');
+    const entityIdSelect = document.getElementById('entity_id');
+
+    // Entity type change handler
+    entityTypeSelect.addEventListener('change', function() {
+        const entityType = this.value;
+        entityIdSelect.innerHTML = '<option value="">Loading...</option>';
+        
+        if (!entityType) {
+            entityIdSelect.innerHTML = '<option value="">Select Entity Type First</option>';
+            return;
+        }
+
+        // Fetch entities based on type
+        fetch(`/service-charges/get-entities?entity_type=${entityType}`)
+            .then(response => response.json())
+            .then(data => {
+                entityIdSelect.innerHTML = '<option value="">Select Entity</option>';
+                data.forEach(entity => {
+                    const option = document.createElement('option');
+                    option.value = entity.id;
+                    option.textContent = entity.name;
+                    entityIdSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching entities:', error);
+                entityIdSelect.innerHTML = '<option value="">Error loading entities</option>';
+            });
+    });
+});
+</script>
 </x-app-layout>

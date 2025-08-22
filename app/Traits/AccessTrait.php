@@ -63,6 +63,7 @@ trait AccessTrait
     public static $masters = [
         "Service Points" => ['View Service Points', 'Edit Service Points', 'Add Service Points', 'Delete Service Points', 'Bulky Update Service Points'],
         "Service Charges" => ['Manage Service Charges'],
+        "Contractor Service Charges" => ['Manage Contractor Service Charges'],
         "Departments" => ['View Departments', 'Edit Departments', 'Add Departments', 'Delete Departments', 'Bulky Update Departments'],
         "Qualifications" => ['View Qualifications', 'Edit Qualifications', 'Add Qualifications', 'Delete Qualifications', 'Bulky Update Qualifications'],
         "Titles" => ['View Titles', 'Edit Titles', 'Add Titles', 'Delete Titles', 'Bulky Update Titles'],

@@ -2,11 +2,13 @@
 <div class="container mx-auto px-4 py-8">
     <div class="max-w-2xl mx-auto">
         <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-900">Service Charge Details</h1>
+            <h1 class="text-3xl font-bold text-gray-900">Entity Service Charge Details</h1>
             <div class="flex space-x-2">
-                <a href="{{ route('service-charges.edit', $serviceCharge) }}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                    Edit
-                </a>
+                @if(in_array('Manage Service Charges', Auth::user()->permissions))
+                    <a href="{{ route('service-charges.edit', $serviceCharge) }}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                        Edit
+                    </a>
+                @endif
                 <a href="{{ route('service-charges.index') }}" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
                     Back to List
                 </a>
@@ -59,7 +61,7 @@
                     </div>
                     
                     <div>
-                        <h3 class="text-lg font-medium text-gray-900 mb-4">Business Information</h3>
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Entity Information</h3>
                         <dl class="space-y-3">
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Business</dt>
@@ -83,8 +85,8 @@
                                 </dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Entity ID</dt>
-                                <dd class="text-sm text-gray-900">{{ $serviceCharge->entity_type }} #{{ $serviceCharge->entity_id }}</dd>
+                                <dt class="text-sm font-medium text-gray-500">Entity</dt>
+                                <dd class="text-sm text-gray-900">{{ $serviceCharge->entity_name }}</dd>
                             </div>
                         </dl>
                     </div>
