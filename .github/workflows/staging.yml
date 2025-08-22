@@ -28,7 +28,7 @@ jobs:
 
       # Step 3: Install Composer dependencies
       - name: Install Composer dependencies
-        run: composer install --no-dev --optimize-autoloader --no-interaction
+        run: composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs
 
       # Step 4: Install sshpass
       - name: Install sshpass
