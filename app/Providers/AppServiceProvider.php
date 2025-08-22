@@ -18,6 +18,7 @@ use App\Livewire\Items\SimpleItems;
 use App\Livewire\Items\CompositeItems;
 use App\Livewire\Admins;
 use App\Livewire\AuditLogs;
+use App\Livewire\Transactions\Transactions;
 
 
 
@@ -57,6 +58,7 @@ class AppServiceProvider extends ServiceProvider
          Livewire::component('items.composite-items', CompositeItems::class);
          Livewire::component('admins', Admins::class);
          Livewire::component('audit-logs', AuditLogs::class);
+         Livewire::component('transactions.transactions', Transactions::class);
          
 
     }

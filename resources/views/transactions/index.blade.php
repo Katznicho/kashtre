@@ -8,7 +8,7 @@
 
                 </div>
 
-                @livewire('transactions.list-transactions')
+                @livewire('transactions.transactions')
             </div>
         </div>
 
