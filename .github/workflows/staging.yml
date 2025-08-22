@@ -63,35 +63,104 @@ jobs:
             DEPLOY_DIR="/home/u242329769/domains/staging.kashtre.com/public_html"
             cd "$DEPLOY_DIR"
 
+            # Check Composer version
+            echo "Composer version:"
+            composer --version || echo "Composer not found"
+
             # Install Composer dependencies with ignore platform requirements
             echo "Installing Composer dependencies..."
             composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs --prefer-dist
 
+            # Fix autoloader issues for Composer 1
+            echo "Fixing autoloader for Composer 1..."
+            composer dump-autoload --optimize --classmap-authoritative --no-dev
+
             # Set permissions
             chmod -R 755 storage bootstrap/cache
 
-            # Clear all caches
-            echo "Clearing caches..."
-            php artisan optimize:clear || echo "Cache clear failed but continuing"
+            # Try to run artisan commands with error suppression
+            echo "Testing artisan..."
+            php artisan --version 2>/dev/null || echo "Artisan not working, trying alternative approach"
 
-            # Run migrations
-            echo "Running migrations..."
-            php artisan migrate --force || echo "Migration failed but continuing"
+            # Alternative approach: Run migrations directly with PHP
+            echo "Running migrations directly..."
+            php -r "
+              require_once '\''vendor/autoload.php'\'';
+              \$app = require_once '\''bootstrap/app.php'\'';
+              \$kernel = \$app->make(Illuminate\Contracts\Console\Kernel::class);
+              \$kernel->bootstrap();
+              
+              try {
+                echo '\''Running migrations...'\'' . PHP_EOL;
+                \$migrator = \$app->make('\''Illuminate\Database\Migrations\Migrator'\'');
+                \$migrator->run(database_path('\''migrations'\''), []);
+                echo '\''Migrations completed successfully'\'' . PHP_EOL;
+              } catch (Exception \$e) {
+                echo '\''Migration error: '\'' . \$e->getMessage() . PHP_EOL;
+              }
+            " || echo "Direct migration failed"
 
-            # Run seeders
-            echo "Running seeders..."
-            php artisan db:seed --class=MoneyAccountsSeeder --force || echo "MoneyAccountsSeeder failed but continuing"
-            php artisan db:seed --class=CityHealthClinicItemsSeeder --force || echo "CityHealthClinicItemsSeeder failed but continuing"
+            # Run seeders directly
+            echo "Running seeders directly..."
+            php -r "
+              require_once '\''vendor/autoload.php'\'';
+              \$app = require_once '\''bootstrap/app.php'\'';
+              \$kernel = \$app->make(Illuminate\Contracts\Console\Kernel::class);
+              \$kernel->bootstrap();
+              
+              try {
+                echo '\''Running MoneyAccountsSeeder...'\'' . PHP_EOL;
+                \$seeder = new App\Seeders\MoneyAccountsSeeder();
+                \$seeder->run();
+                echo '\''MoneyAccountsSeeder completed'\'' . PHP_EOL;
+              } catch (Exception \$e) {
+                echo '\''MoneyAccountsSeeder error: '\'' . \$e->getMessage() . PHP_EOL;
+              }
+              
+              try {
+                echo '\''Running CityHealthClinicItemsSeeder...'\'' . PHP_EOL;
+                \$seeder = new App\Seeders\CityHealthClinicItemsSeeder();
+                \$seeder->run();
+                echo '\''CityHealthClinicItemsSeeder completed'\'' . PHP_EOL;
+              } catch (Exception \$e) {
+                echo '\''CityHealthClinicItemsSeeder error: '\'' . \$e->getMessage() . PHP_EOL;
+              }
+            " || echo "Direct seeding failed"
 
-            # Create storage link
-            php artisan storage:link || echo "Storage link already exists"
-
-            # Final optimization
-            echo "Final optimization..."
-            php artisan optimize || echo "Optimize failed but continuing"
+            # Create storage link manually
+            echo "Creating storage link..."
+            if [ ! -L "public/storage" ]; then
+              ln -sf ../storage/app/public public/storage
+              echo "Storage link created"
+            else
+              echo "Storage link already exists"
+            fi
 
             # Verify deployment
             echo "Deployment verification:"
-            php artisan --version || echo "Artisan not working"
+            echo "Checking if artisan works:"
+            php artisan --version 2>/dev/null || echo "Artisan still not working"
+            
+            echo "Checking database tables:"
+            php -r "
+              require_once '\''vendor/autoload.php'\'';
+              \$app = require_once '\''bootstrap/app.php'\'';
+              \$kernel = \$app->make(Illuminate\Contracts\Console\Kernel::class);
+              \$kernel->bootstrap();
+              
+              try {
+                \$tables = DB::select('\''SHOW TABLES'\'');
+                echo '\''Total tables: '\'' . count(\$tables) . PHP_EOL;
+                
+                \$newTables = ['\''money_accounts'\'', '\''money_transfers'\'', '\''package_tracking'\''];
+                foreach (\$newTables as \$table) {
+                  \$exists = Schema::hasTable(\$table);
+                  echo '\''Table '\'' . \$table . '\'': '\'' . (\$exists ? '\''EXISTS'\'' : '\''MISSING'\'') . PHP_EOL;
+                }
+              } catch (Exception \$e) {
+                echo '\''Database check failed: '\'' . \$e->getMessage() . PHP_EOL;
+              }
+            " || echo "Database verification failed"
+            
             echo "Deployment completed!"
           ' 
