@@ -46,7 +46,7 @@
                 </div>
                 @endif
 
-                @livewire('admin.list-admins')
+                @livewire('admin.admins')
             </div>
         </div>
 

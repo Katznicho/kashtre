@@ -13,9 +13,7 @@ use App\Observers\ModelActivityObserver;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
-use Livewire\Livewire;
-use App\Livewire\Items\SimpleItems;
-use App\Livewire\Items\CompositeItems;
+
 
 
 class AppServiceProvider extends ServiceProvider
