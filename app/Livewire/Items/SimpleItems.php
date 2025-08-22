@@ -19,17 +19,22 @@ use Livewire\Component;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 
-class ListItems extends Component implements HasForms, HasTable
+class SimpleItems extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
 
     public function table(Table $table): Table
     {
-        $query = \App\Models\Item::query()->where('business_id', '!=', 1)->latest();
+        $query = \App\Models\Item::query()
+            ->where('business_id', '!=', 1)
+            ->whereIn('type', ['service', 'good']) // Filter for simple items only
+            ->latest();
+            
         if (auth()->check() && auth()->user()->business_id !== 1) {
             $query->where('business_id', auth()->user()->business_id);
         }
+        
         return $table
             ->query($query)
             ->columns([
@@ -42,7 +47,13 @@ class ListItems extends Component implements HasForms, HasTable
                     ->searchable(['name']),
                 TextColumn::make('code')
                     ->searchable(),
-                TextColumn::make('type'),
+                TextColumn::make('type')
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        'service' => 'blue',
+                        'good' => 'green',
+                        default => 'gray',
+                    }),
                 TextColumn::make('group.name')
                     ->label('Group')
                     ->sortable()
@@ -90,28 +101,24 @@ class ListItems extends Component implements HasForms, HasTable
                         ->searchable()
                         ->multiple(),
                 ] : []),
+                SelectFilter::make('type')
+                    ->label('Item Type')
+                    ->options([
+                        'service' => 'Service',
+                        'good' => 'Good',
+                    ])
+                    ->multiple(),
             ])
             ->actions([
                 \Filament\Tables\Actions\ViewAction::make()
                     ->url(fn (Item $record): string => route('items.show', $record))
                     ->visible(fn() => in_array('View Items', auth()->user()->permissions ?? [])),
-                // \Filament\Tables\Actions\EditAction::make()
-                //     ->url(fn (Item $record): string => route('items.edit', $record))
-                //     ->visible(fn() => in_array('Edit Items', auth()->user()->permissions ?? [])),
-                // \Filament\Tables\Actions\DeleteAction::make()
-                //     ->visible(fn() => in_array('Delete Items', auth()->user()->permissions ?? [])),
             ])
-            ->bulkActions([
-
-                // \Filament\Tables\Actions\BulkActionGroup::make([
-                //                     \Filament\Tables\Actions\DeleteBulkAction::make()
-                //     ->visible(fn() => in_array('Delete Items', auth()->user()->permissions ?? [])),
-                // ]),
-            ]);
+            ->bulkActions([]);
     }
 
     public function render(): View
     {
-        return view('livewire.items.list-items');
+        return view('livewire.items.simple_items');
     }
 }

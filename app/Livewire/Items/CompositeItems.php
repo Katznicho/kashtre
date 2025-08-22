@@ -19,7 +19,7 @@ use Livewire\Component;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 
-class ListSimpleItems extends Component implements HasForms, HasTable
+class CompositeItems extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
@@ -28,7 +28,7 @@ class ListSimpleItems extends Component implements HasForms, HasTable
     {
         $query = \App\Models\Item::query()
             ->where('business_id', '!=', 1)
-            ->whereIn('type', ['service', 'good']) // Filter for simple items only
+            ->whereIn('type', ['package', 'bulk']) // Filter for composite items only
             ->latest();
             
         if (auth()->check() && auth()->user()->business_id !== 1) {
@@ -50,32 +50,13 @@ class ListSimpleItems extends Component implements HasForms, HasTable
                 TextColumn::make('type')
                     ->badge()
                     ->color(fn(string $state): string => match ($state) {
-                        'service' => 'blue',
-                        'good' => 'green',
+                        'package' => 'purple',
+                        'bulk' => 'orange',
                         default => 'gray',
                     }),
-                TextColumn::make('group.name')
-                    ->label('Group')
-                    ->sortable()
-                    ->searchable(),
-                TextColumn::make('subgroup.name')
-                    ->label('Subgroup')
-                    ->sortable()
-                    ->searchable(),
-                TextColumn::make('department.name')
-                    ->label('Department')
-                    ->sortable()
-                    ->searchable(),
-                TextColumn::make('itemUnit.name')
-                    ->label('Unit of Measure')
-                    ->sortable(),
                 TextColumn::make('default_price')
                     ->label('Default Price')
                     ->money('UGX')
-                    ->sortable(),
-                TextColumn::make('hospital_share')
-                    ->label('Company/Entity')
-                    ->formatStateUsing(fn (string $state): string => $state . '%')
                     ->sortable(),
                 TextColumn::make('contractor.user.name')
                     ->label('Contractor')
@@ -104,8 +85,8 @@ class ListSimpleItems extends Component implements HasForms, HasTable
                 SelectFilter::make('type')
                     ->label('Item Type')
                     ->options([
-                        'service' => 'Service',
-                        'good' => 'Good',
+                        'package' => 'Package',
+                        'bulk' => 'Bulk',
                     ])
                     ->multiple(),
             ])
@@ -119,6 +100,6 @@ class ListSimpleItems extends Component implements HasForms, HasTable
 
     public function render(): View
     {
-        return view('livewire.items.list-simple-items');
+        return view('livewire.items.composite_items');
     }
 }

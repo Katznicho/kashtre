@@ -38,7 +38,7 @@
                         </div>
                         
                         <!-- Livewire Component for Simple Items -->
-                        @livewire('items.list-simple-items')
+                        @livewire('items.simple-items')
                     </div>
 
                     <!-- Composite Items Tab Content -->
@@ -50,7 +50,7 @@
                         </div>
                         
                         <!-- Livewire Component for Composite Items -->
-                        @livewire('items.list-composite-items')
+                        @livewire('items.composite-items')
                     </div>
                 </div>
 

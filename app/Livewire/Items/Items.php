@@ -19,22 +19,17 @@ use Livewire\Component;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 
-class ListCompositeItems extends Component implements HasForms, HasTable
+class Items extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
 
     public function table(Table $table): Table
     {
-        $query = \App\Models\Item::query()
-            ->where('business_id', '!=', 1)
-            ->whereIn('type', ['package', 'bulk']) // Filter for composite items only
-            ->latest();
-            
+        $query = \App\Models\Item::query()->where('business_id', '!=', 1)->latest();
         if (auth()->check() && auth()->user()->business_id !== 1) {
             $query->where('business_id', auth()->user()->business_id);
         }
-        
         return $table
             ->query($query)
             ->columns([
@@ -47,16 +42,29 @@ class ListCompositeItems extends Component implements HasForms, HasTable
                     ->searchable(['name']),
                 TextColumn::make('code')
                     ->searchable(),
-                TextColumn::make('type')
-                    ->badge()
-                    ->color(fn(string $state): string => match ($state) {
-                        'package' => 'purple',
-                        'bulk' => 'orange',
-                        default => 'gray',
-                    }),
+                TextColumn::make('type'),
+                TextColumn::make('group.name')
+                    ->label('Group')
+                    ->sortable()
+                    ->searchable(),
+                TextColumn::make('subgroup.name')
+                    ->label('Subgroup')
+                    ->sortable()
+                    ->searchable(),
+                TextColumn::make('department.name')
+                    ->label('Department')
+                    ->sortable()
+                    ->searchable(),
+                TextColumn::make('itemUnit.name')
+                    ->label('Unit of Measure')
+                    ->sortable(),
                 TextColumn::make('default_price')
                     ->label('Default Price')
                     ->money('UGX')
+                    ->sortable(),
+                TextColumn::make('hospital_share')
+                    ->label('Company/Entity')
+                    ->formatStateUsing(fn (string $state): string => $state . '%')
                     ->sortable(),
                 TextColumn::make('contractor.user.name')
                     ->label('Contractor')
@@ -82,24 +90,28 @@ class ListCompositeItems extends Component implements HasForms, HasTable
                         ->searchable()
                         ->multiple(),
                 ] : []),
-                SelectFilter::make('type')
-                    ->label('Item Type')
-                    ->options([
-                        'package' => 'Package',
-                        'bulk' => 'Bulk',
-                    ])
-                    ->multiple(),
             ])
             ->actions([
                 \Filament\Tables\Actions\ViewAction::make()
                     ->url(fn (Item $record): string => route('items.show', $record))
                     ->visible(fn() => in_array('View Items', auth()->user()->permissions ?? [])),
+                // \Filament\Tables\Actions\EditAction::make()
+                //     ->url(fn (Item $record): string => route('items.edit', $record))
+                //     ->visible(fn() => in_array('Edit Items', auth()->user()->permissions ?? [])),
+                // \Filament\Tables\Actions\DeleteAction::make()
+                //     ->visible(fn() => in_array('Delete Items', auth()->user()->permissions ?? [])),
             ])
-            ->bulkActions([]);
+            ->bulkActions([
+
+                // \Filament\Tables\Actions\BulkActionGroup::make([
+                //                     \Filament\Tables\Actions\DeleteBulkAction::make()
+                //     ->visible(fn() => in_array('Delete Items', auth()->user()->permissions ?? [])),
+                // ]),
+            ]);
     }
 
     public function render(): View
     {
-        return view('livewire.items.list-composite-items');
+        return view('livewire.items.items');
     }
 }
