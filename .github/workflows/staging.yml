@@ -9,6 +9,9 @@ jobs:
   deploy:
     name: Deploy Staging Branch
     runs-on: ubuntu-latest
+    env:
+      ACTIONS_RUNNER_DEBUG: true
+      ACTIONS_STEP_DEBUG: true
 
     steps:
       # Step 1: Checkout the code
@@ -19,17 +22,28 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.3'
           extensions: mbstring, xml, bcmath, ctype, json, tokenizer, curl
           coverage: none
 
-      # Step 3: Install sshpass
+      # Step 3: Install Composer dependencies
+      - name: Install Composer dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction
+
+      # Step 4: Install sshpass
       - name: Install sshpass
         run: |
           sudo apt-get update
-          sudo apt-get install -y sshpass
+          sudo apt-get install -y sshpass || { echo "Failed to install sshpass"; exit 1; }
+          sshpass -v || { echo "sshpass not found after installation"; exit 1; }
 
-      # Step 4: Deploy to Hostinger via SSH
+      # Step 5: Test SSH Connection
+      - name: Test SSH Connection
+        run: |
+          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} whoami
+          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "echo 'Test command execution' && ls -la /home/u242329769/domains/staging.kashtre.com/public_html"
+
+      # Step 6: Deploy to Hostinger via SSH
       - name: Deploy to Hostinger
         env:
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
@@ -37,130 +51,15 @@ jobs:
           # Define deployment directory
           DEPLOY_DIR="/home/u242329769/domains/staging.kashtre.com/public_html"
 
-          # Copy files using rsync with sshpass, excluding unnecessary files
-          echo "Starting file transfer with rsync..."
-          sshpass -p "$FTP_PASSWORD" rsync -avz --delete \
-            --exclude '.env' \
-            --exclude '.htaccess' \
-            --exclude 'node_modules/' \
-            --exclude '.git/' \
-            --exclude 'tests/' \
-            --exclude '.DS_Store' \
-            --exclude '*.log' \
-            --exclude 'storage/logs/' \
-            --exclude 'storage/framework/cache/' \
-            --exclude 'storage/framework/sessions/' \
-            --exclude 'storage/framework/views/' \
-            --exclude 'vendor/' \
-            -e "ssh -p 65002 -o StrictHostKeyChecking=no" \
-            $GITHUB_WORKSPACE/ ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }}:"$DEPLOY_DIR"
-          
-          echo "File transfer completed successfully"
+          # Debug: List local files in GITHUB_WORKSPACE
+          echo "Local files in GITHUB_WORKSPACE:"
+          ls -la $GITHUB_WORKSPACE
 
-          # Run post-deployment setup
-          echo "Running post-deployment setup..."
-          sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} bash -c '
-            DEPLOY_DIR="/home/u242329769/domains/staging.kashtre.com/public_html"
-            cd "$DEPLOY_DIR"
+          # Copy files using rsync with sshpass, excluding .env and .htaccess
+          sshpass -p "$FTP_PASSWORD" rsync -avz --exclude '.env' --exclude '.htaccess' -e "ssh -p 65002 -o StrictHostKeyChecking=no" $GITHUB_WORKSPACE/ ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }}:"$DEPLOY_DIR"
 
-            # Check Composer version
-            echo "Composer version:"
-            composer --version || echo "Composer not found"
+          # Step 1: Set permissions and create storage link
+          sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "cd /home/u242329769/domains/staging.kashtre.com/public_html && echo '✓ Setting permissions...' && chmod -R 755 storage bootstrap/cache 2>/dev/null || echo 'Warning: Could not set permissions' && echo '✓ Creating storage link...' && php artisan storage:link"
 
-            # Install Composer dependencies with ignore platform requirements
-            echo "Installing Composer dependencies..."
-            composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs --prefer-dist
-
-            # Fix autoloader issues for Composer 1
-            echo "Fixing autoloader for Composer 1..."
-            composer dump-autoload --optimize --classmap-authoritative --no-dev
-
-            # Set permissions
-            chmod -R 755 storage bootstrap/cache
-
-            # Try to run artisan commands with error suppression
-            echo "Testing artisan..."
-            php artisan --version 2>/dev/null || echo "Artisan not working, trying alternative approach"
-
-            # Alternative approach: Run migrations directly with PHP
-            echo "Running migrations directly..."
-            php -r "
-              require_once '\''vendor/autoload.php'\'';
-              \$app = require_once '\''bootstrap/app.php'\'';
-              \$kernel = \$app->make(Illuminate\Contracts\Console\Kernel::class);
-              \$kernel->bootstrap();
-              
-              try {
-                echo '\''Running migrations...'\'' . PHP_EOL;
-                \$migrator = \$app->make('\''Illuminate\Database\Migrations\Migrator'\'');
-                \$migrator->run(database_path('\''migrations'\''), []);
-                echo '\''Migrations completed successfully'\'' . PHP_EOL;
-              } catch (Exception \$e) {
-                echo '\''Migration error: '\'' . \$e->getMessage() . PHP_EOL;
-              }
-            " || echo "Direct migration failed"
-
-            # Run seeders directly
-            echo "Running seeders directly..."
-            php -r "
-              require_once '\''vendor/autoload.php'\'';
-              \$app = require_once '\''bootstrap/app.php'\'';
-              \$kernel = \$app->make(Illuminate\Contracts\Console\Kernel::class);
-              \$kernel->bootstrap();
-              
-              try {
-                echo '\''Running MoneyAccountsSeeder...'\'' . PHP_EOL;
-                \$seeder = new App\Seeders\MoneyAccountsSeeder();
-                \$seeder->run();
-                echo '\''MoneyAccountsSeeder completed'\'' . PHP_EOL;
-              } catch (Exception \$e) {
-                echo '\''MoneyAccountsSeeder error: '\'' . \$e->getMessage() . PHP_EOL;
-              }
-              
-              try {
-                echo '\''Running CityHealthClinicItemsSeeder...'\'' . PHP_EOL;
-                \$seeder = new App\Seeders\CityHealthClinicItemsSeeder();
-                \$seeder->run();
-                echo '\''CityHealthClinicItemsSeeder completed'\'' . PHP_EOL;
-              } catch (Exception \$e) {
-                echo '\''CityHealthClinicItemsSeeder error: '\'' . \$e->getMessage() . PHP_EOL;
-              }
-            " || echo "Direct seeding failed"
-
-            # Create storage link manually
-            echo "Creating storage link..."
-            if [ ! -L "public/storage" ]; then
-              ln -sf ../storage/app/public public/storage
-              echo "Storage link created"
-            else
-              echo "Storage link already exists"
-            fi
-
-            # Verify deployment
-            echo "Deployment verification:"
-            echo "Checking if artisan works:"
-            php artisan --version 2>/dev/null || echo "Artisan still not working"
-            
-            echo "Checking database tables:"
-            php -r "
-              require_once '\''vendor/autoload.php'\'';
-              \$app = require_once '\''bootstrap/app.php'\'';
-              \$kernel = \$app->make(Illuminate\Contracts\Console\Kernel::class);
-              \$kernel->bootstrap();
-              
-              try {
-                \$tables = DB::select('\''SHOW TABLES'\'');
-                echo '\''Total tables: '\'' . count(\$tables) . PHP_EOL;
-                
-                \$newTables = ['\''money_accounts'\'', '\''money_transfers'\'', '\''package_tracking'\''];
-                foreach (\$newTables as \$table) {
-                  \$exists = Schema::hasTable(\$table);
-                  echo '\''Table '\'' . \$table . '\'': '\'' . (\$exists ? '\''EXISTS'\'' : '\''MISSING'\'') . PHP_EOL;
-                }
-              } catch (Exception \$e) {
-                echo '\''Database check failed: '\'' . \$e->getMessage() . PHP_EOL;
-              }
-            " || echo "Database verification failed"
-            
-            echo "Deployment completed!"
-          ' 
+          # Step 2: Run migrations and optimize
+          sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "cd /home/u242329769/domains/staging.kashtre.com/public_html && echo '✓ Running migrations...' && php artisan migrate --force --verbose && echo '✓ Running seeders...' && php artisan db:seed --class=MoneyAccountsSeeder --force && php artisan db:seed --class=CityHealthClinicItemsSeeder --force && echo '✓ Clearing and caching...' && php artisan optimize:clear && php artisan config:cache && php artisan route:cache && echo '✓ Deployment completed successfully'" 
