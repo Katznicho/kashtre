@@ -870,6 +870,12 @@
                     }
                 }
                 
+                // Prepare cart items with total_amount for each item
+                const itemsWithTotals = cart.map(item => ({
+                    ...item,
+                    total_amount: parseFloat(item.price || 0) * parseInt(item.quantity || 0)
+                }));
+                
                 // Prepare invoice data with all required fields
                 const invoiceData = {
                     client_id: {{ $client->id }},
@@ -880,7 +886,7 @@
                     client_phone: '{{ $client->phone_number }}',
                     payment_phone: paymentPhone,
                     visit_id: '{{ $client->visit_id }}',
-                    items: cart,
+                    items: itemsWithTotals,
                     subtotal: subtotal,
                     package_adjustment: packageAdjustment,
                     account_balance_adjustment: 0,

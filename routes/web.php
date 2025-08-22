@@ -33,6 +33,8 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ServiceChargeController;
 use App\Http\Controllers\ContractorServiceChargeController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\ServiceDeliveryController;
+use App\Http\Controllers\MoneyTrackingController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -131,6 +133,20 @@ Route::get('/invoices/generate-number', [InvoiceController::class, 'generateInvo
 Route::get('/invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('invoices.print');
 Route::patch('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
 Route::resource('invoices', InvoiceController::class);
+
+// Service Delivery routes
+Route::post('/service-delivery/deliver-item', [ServiceDeliveryController::class, 'deliverItem'])->name('service-delivery.deliver-item');
+Route::post('/service-delivery/deliver-multiple', [ServiceDeliveryController::class, 'deliverMultipleItems'])->name('service-delivery.deliver-multiple');
+Route::get('/service-delivery/pending/{invoice}', [ServiceDeliveryController::class, 'getPendingDelivery'])->name('service-delivery.pending');
+Route::get('/service-delivery/history/{invoice}', [ServiceDeliveryController::class, 'getDeliveryHistory'])->name('service-delivery.history');
+
+// Money Tracking routes
+Route::get('/money-tracking/dashboard', [MoneyTrackingController::class, 'dashboard'])->name('money-tracking.dashboard');
+Route::get('/money-tracking/client-account/{client}', [MoneyTrackingController::class, 'getClientAccount'])->name('money-tracking.client-account');
+Route::get('/money-tracking/contractor-account/{contractor}', [MoneyTrackingController::class, 'getContractorAccount'])->name('money-tracking.contractor-account');
+Route::get('/money-tracking/transfer-history', [MoneyTrackingController::class, 'getTransferHistory'])->name('money-tracking.transfer-history');
+Route::get('/money-tracking/account-summary', [MoneyTrackingController::class, 'getAccountSummary'])->name('money-tracking.account-summary');
+Route::post('/money-tracking/process-refund', [MoneyTrackingController::class, 'processRefund'])->name('money-tracking.process-refund');
     Route::get('/pos/item-selection/{client}', [TransactionController::class, 'itemSelection'])->name('pos.item-selection');
     
     // Admin bulk operations

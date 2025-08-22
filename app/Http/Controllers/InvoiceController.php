@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Invoice;
 use App\Models\ServiceCharge;
+use App\Models\Client;
+use App\Services\MoneyTrackingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -114,6 +116,7 @@ class InvoiceController extends Controller
             
             $user = Auth::user();
             $business = $user->business;
+            $moneyTrackingService = new MoneyTrackingService();
             
             // Generate invoice number
             $invoiceNumber = Invoice::generateInvoiceNumber($business->id);
@@ -142,6 +145,9 @@ class InvoiceController extends Controller
                 'notes' => 'nullable|string',
             ]);
             
+            // Get client
+            $client = Client::find($validated['client_id']);
+            
             // Create invoice
             $invoice = Invoice::create([
                 'invoice_number' => $invoiceNumber,
@@ -168,21 +174,35 @@ class InvoiceController extends Controller
                 'confirmed_at' => $validated['status'] === 'confirmed' ? now() : null,
             ]);
             
-            // Create transaction record for the payment
+            // MONEY TRACKING: Step 1 - Process payment received
             if ($validated['amount_paid'] > 0) {
                 $paymentMethods = $validated['payment_methods'] ?? [];
                 $primaryMethod = !empty($paymentMethods) ? $paymentMethods[0] : 'cash';
                 
+                // Process payment through money tracking system
+                $moneyTrackingService->processPaymentReceived(
+                    $client,
+                    $validated['amount_paid'],
+                    $invoiceNumber,
+                    $primaryMethod,
+                    [
+                        'invoice_id' => $invoice->id,
+                        'payment_methods' => $paymentMethods,
+                        'payment_phone' => $validated['payment_phone']
+                    ]
+                );
+                
+                // Create transaction record for the payment
                 \App\Models\Transaction::create([
                     'business_id' => $validated['business_id'],
                     'amount' => $validated['amount_paid'],
                     'reference' => $invoiceNumber,
                     'description' => 'Payment for invoice ' . $invoiceNumber . ' - ' . $validated['client_name'],
                     'status' => 'completed',
-                    'type' => 'debit', // Changed from 'payment' to 'debit' (valid enum value)
-                    'origin' => 'web', // Changed from 'invoice' to 'web' (valid enum value)
+                    'type' => 'debit',
+                    'origin' => 'web',
                     'phone_number' => $validated['payment_phone'] ?? $validated['client_phone'],
-                    'provider' => in_array($primaryMethod, ['mtn', 'airtel']) ? $primaryMethod : 'mtn', // Ensure valid provider
+                    'provider' => in_array($primaryMethod, ['mtn', 'airtel']) ? $primaryMethod : 'mtn',
                     'service' => 'invoice_payment',
                     'date' => now(),
                     'currency' => 'UGX',
@@ -191,8 +211,19 @@ class InvoiceController extends Controller
                     'ip_address' => request()->ip(),
                     'user_agent' => request()->userAgent(),
                     'method' => $primaryMethod,
-                    'transaction_for' => 'main', // Changed from 'invoice_payment' to 'main' (valid enum value)
+                    'transaction_for' => 'main',
                 ]);
+            }
+            
+            // MONEY TRACKING: Step 2 - Process order confirmation (move money to suspense accounts)
+            if ($validated['status'] === 'confirmed') {
+                $items = $validated['items'];
+                $moneyTrackingService->processOrderConfirmed($invoice, $items);
+            }
+            
+            // MONEY TRACKING: Step 3 - Process service charge
+            if ($validated['service_charge'] > 0) {
+                $moneyTrackingService->processServiceCharge($invoice, $validated['service_charge']);
             }
             
             // Generate next invoice number
