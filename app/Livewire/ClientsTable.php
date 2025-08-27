@@ -90,6 +90,12 @@ class ClientsTable extends Component implements HasForms, HasTable
                     ->formatStateUsing(fn (string $state): string => ucfirst($state))
                     ->sortable(),
                 
+                TextColumn::make('balance')
+                    ->label('Balance')
+                    ->money('UGX')
+                    ->sortable()
+                    ->color(fn (float $state): string => $state > 0 ? 'success' : 'gray'),
+                
                 TextColumn::make('created_at')
                     ->label('Registered')
                     ->dateTime('M d, Y')
@@ -159,6 +165,12 @@ class ClientsTable extends Component implements HasForms, HasTable
                     ->icon('heroicon-o-eye')
                     ->color('primary')
                     ->url(fn (Client $record): string => route('clients.show', $record)),
+                
+                Action::make('balance_history')
+                    ->label('Balance History')
+                    ->icon('heroicon-o-currency-dollar')
+                    ->color('info')
+                    ->url(fn (Client $record): string => route('balance-history.show', $record)),
                 
                 // EditAction::make()
                 //     ->label('Edit')

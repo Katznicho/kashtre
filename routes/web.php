@@ -33,8 +33,15 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ServiceChargeController;
 use App\Http\Controllers\ContractorServiceChargeController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\QuotationController;
+use App\Http\Controllers\PackageTrackingController;
+use App\Http\Controllers\BalanceHistoryController;
+use App\Http\Controllers\BusinessBalanceHistoryController;
+use App\Http\Controllers\ContractorBalanceHistoryController;
 use App\Http\Controllers\ServiceDeliveryController;
 use App\Http\Controllers\MoneyTrackingController;
+use App\Http\Controllers\ServiceQueueController;
+use App\Http\Controllers\ServiceDeliveryQueueController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -79,6 +86,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource("qualifications", QualificationController::class);
     Route::resource("rooms", RoomController::class);
     Route::resource("service-points", ServicePointController::class);
+    Route::resource("service-queues", ServiceQueueController::class)->except(['create', 'store']);
+    
+    // Additional service queue routes
+    Route::post('/service-queues/{serviceQueue}/start', [ServiceQueueController::class, 'startProcessing'])->name('service-queues.start');
+    Route::post('/service-queues/{serviceQueue}/complete', [ServiceQueueController::class, 'complete'])->name('service-queues.complete');
+    Route::post('/service-queues/{serviceQueue}/cancel', [ServiceQueueController::class, 'cancel'])->name('service-queues.cancel');
+    Route::get('/service-queues/service-point/{servicePoint}/stats', [ServiceQueueController::class, 'getStats'])->name('service-queues.stats');
+Route::get('/service-queues/service-point/{servicePoint}/queues', [ServiceQueueController::class, 'getServicePointQueues'])->name('service-queues.service-point-queues');
+
+// Service Delivery Queue routes
+Route::post('/service-delivery-queues/{serviceDeliveryQueue}/move-to-partially-done', [ServiceDeliveryQueueController::class, 'moveToPartiallyDone'])->name('service-delivery-queues.move-to-partially-done');
+Route::post('/service-delivery-queues/{serviceDeliveryQueue}/move-to-completed', [ServiceDeliveryQueueController::class, 'moveToCompleted'])->name('service-delivery-queues.move-to-completed');
+Route::get('/service-delivery-queues/service-point/{servicePointId}/items', [ServiceDeliveryQueueController::class, 'getServicePointItems'])->name('service-delivery-queues.service-point-items');
+Route::get('/service-delivery-queues/service-point/{servicePointId}/pending', [ServiceDeliveryQueueController::class, 'showPendingItems'])->name('service-delivery-queues.pending');
+Route::get('/service-delivery-queues/service-point/{servicePointId}/completed', [ServiceDeliveryQueueController::class, 'showCompletedItems'])->name('service-delivery-queues.completed');
+    
     Route::resource("sections", SectionController::class);
     Route::resource("item-units", ItemUnitController::class);
     
@@ -128,10 +151,41 @@ Route::post('/clients/{client}/update-payment-phone', [ClientController::class, 
 // Invoice routes
 Route::post('/invoices/service-charge', [InvoiceController::class, 'serviceCharge'])->name('invoices.service-charge');
 Route::post('/invoices/package-adjustment', [InvoiceController::class, 'calculatePackageAdjustment'])->name('invoices.package-adjustment');
+Route::post('/invoices/balance-adjustment', [InvoiceController::class, 'calculateBalanceAdjustment'])->name('invoices.balance-adjustment');
+
+// Balance History Routes
+Route::get('/balance-history', [BalanceHistoryController::class, 'index'])->name('balance-history.index');
+Route::get('/balance-history/{clientId}', [BalanceHistoryController::class, 'show'])->name('balance-history.show');
+
+// Business Balance History Routes
+Route::get('/business-balance-history', [BusinessBalanceHistoryController::class, 'index'])->name('business-balance-history.index');
+Route::get('/business-balance-history/{business}', [BusinessBalanceHistoryController::class, 'show'])->name('business-balance-history.show');
+
+// Contractor Balance History Routes
+Route::get('/contractor-balance-history', [ContractorBalanceHistoryController::class, 'index'])->name('contractor-balance-history.index');
+Route::get('/contractor-balance-history/{contractorProfile}', [ContractorBalanceHistoryController::class, 'show'])->name('contractor-balance-history.show');
+Route::get('/balance-history/{clientId}/json', [BalanceHistoryController::class, 'getBalanceHistory'])->name('balance-history.json');
+Route::post('/balance-history/{clientId}/credit', [BalanceHistoryController::class, 'addCredit'])->name('balance-history.add-credit');
+Route::post('/balance-history/{clientId}/adjustment', [BalanceHistoryController::class, 'addAdjustment'])->name('balance-history.add-adjustment');
 Route::get('/invoices/generate-number', [InvoiceController::class, 'generateInvoiceNumber'])->name('invoices.generate-number');
+Route::post('/invoices/generate-invoice-number', [InvoiceController::class, 'generateInvoiceNumber'])->name('invoices.generate-invoice-number');
+Route::post('/invoices/{invoice}/generate-quotation', [QuotationController::class, 'generateFromInvoice'])->name('invoices.generate-quotation');
 Route::get('/invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('invoices.print');
 Route::patch('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
 Route::resource('invoices', InvoiceController::class);
+
+// Quotation routes
+Route::get('/quotations/{quotation}/print', [QuotationController::class, 'print'])->name('quotations.print');
+Route::patch('/quotations/{quotation}/status', [QuotationController::class, 'updateStatus'])->name('quotations.update-status');
+Route::patch('/quotations/{quotation}/accept', [QuotationController::class, 'accept'])->name('quotations.accept');
+Route::patch('/quotations/{quotation}/reject', [QuotationController::class, 'reject'])->name('quotations.reject');
+Route::resource('quotations', QuotationController::class);
+
+// Package Tracking Routes
+Route::get('/package-tracking/dashboard', [PackageTrackingController::class, 'dashboard'])->name('package-tracking.dashboard');
+Route::post('/package-tracking/{packageTracking}/use-quantity', [PackageTrackingController::class, 'useQuantity'])->name('package-tracking.use-quantity');
+Route::get('/clients/{client}/packages', [PackageTrackingController::class, 'clientPackages'])->name('package-tracking.client-packages');
+Route::resource('package-tracking', PackageTrackingController::class)->except(['create', 'store']);
 
 // Service Delivery routes
 Route::post('/service-delivery/deliver-item', [ServiceDeliveryController::class, 'deliverItem'])->name('service-delivery.deliver-item');

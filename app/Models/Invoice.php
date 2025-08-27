@@ -71,6 +71,11 @@ class Invoice extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function quotations()
+    {
+        return $this->hasMany(Quotation::class);
+    }
+
     // Scopes
     public function scopeForBusiness($query, $businessId)
     {

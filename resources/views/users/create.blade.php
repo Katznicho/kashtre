@@ -60,7 +60,7 @@ return ['id' => $sp->id, 'name' => $sp->name];
             <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6">
                 <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-6">Create New User</h2>
 
-                <form action="{{ route('users.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+                <form action="{{ route('users.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6" @submit="handleFormSubmit">
                     @csrf
 
                     <div x-data="{ open: true }" class="mb-4 border rounded">
@@ -127,8 +127,8 @@ return ['id' => $sp->id, 'name' => $sp->name];
                         <div x-show="open" class="p-4 space-y-4">
                             <!-- Business Info fields start -->
                             <div>
-                                <label for="business_id">Business <span class="text-red-500">*</span></label>
-                                <select name="business_id" id="business_id" required class="form-select w-full" x-model="selectedBusinessId" @change="updateBranches" :disabled="userBusinessId !== 1">
+                                <label for="business_id">Business <span class="text-red-500" x-show="userBusinessId === 1">*</span></label>
+                                <select name="business_id" id="business_id" :required="userBusinessId === 1" class="form-select w-full" x-model="selectedBusinessId" @change="updateBranches" :disabled="userBusinessId !== 1">
                                     <option value="" disabled selected>Select Business</option>
                                     @foreach($businesses as $id => $business)
                                         @if(Auth::user()->business_id == 1 || Auth::user()->business_id == $id)
@@ -210,12 +210,12 @@ return ['id' => $sp->id, 'name' => $sp->name];
                                     Service Points <span class="text-red-500">*</span>
                                 </label>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-                                    <template x-for="sp in filteredServicePoints" :key="sp.id">
-                                        <label class="inline-flex items-center">
-                                            <input type="checkbox" name="service_points[]" :value="sp.name" class="form-checkbox">
-                                            <span class="ml-2" x-text="sp.name"></span>
-                                        </label>
-                                    </template>
+                                                                    <template x-for="sp in filteredServicePoints" :key="sp.id">
+                                    <label class="inline-flex items-center">
+                                        <input type="checkbox" name="service_points[]" :value="sp.id" class="form-checkbox">
+                                        <span class="ml-2" x-text="sp.name"></span>
+                                    </label>
+                                </template>
                                 </div>
                             </div>
 
@@ -415,6 +415,15 @@ return ['id' => $sp->id, 'name' => $sp->name];
                         this.sectionsByBusiness[this.selectedBusinessId] : [];
                     this.filteredTitles = this.selectedBusinessId && this.titlesByBusiness[this.selectedBusinessId] ?
                         this.titlesByBusiness[this.selectedBusinessId] : [];
+                },
+                handleFormSubmit(event) {
+                    // If user is not from super business, ensure business_id is set
+                    if (this.userBusinessId !== 1) {
+                        const businessSelect = document.getElementById('business_id');
+                        if (businessSelect) {
+                            businessSelect.value = this.userBusinessId;
+                        }
+                    }
                 }
             }
         }

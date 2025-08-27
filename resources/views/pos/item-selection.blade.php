@@ -126,18 +126,26 @@
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Client Statement</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-blue-50 p-4 rounded-lg text-center">
-                            <p class="text-sm text-gray-500 mb-1">Current Balance</p>
-                            <p class="text-xl font-bold text-gray-900">UGX {{ number_format($client->balance ?? 0, 2) }}</p>
+                            <div class="flex justify-between items-center mb-2">
+                                <p class="text-sm text-gray-500">Current Balance</p>
+                                <button onclick="refreshClientBalance()" class="text-blue-600 hover:text-blue-800 text-sm">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                            </div>
+                            <p class="text-xl font-bold text-gray-900" id="client-balance-display">UGX {{ number_format($client->balance ?? 0, 2) }}</p>
                         </div>
                         <div class="bg-yellow-50 p-4 rounded-lg text-center">
                             <p class="text-sm text-gray-500 mb-1">Total Transactions</p>
                             <p class="text-xl font-bold text-yellow-600">0</p>
                         </div>
                     </div>
-                    <div class="mt-4">
+                    <div class="mt-4 flex space-x-2">
                         <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
                             View Detailed Client Statement
                         </button>
+                        <a href="{{ route('balance-history.show', $client->id) }}" target="_blank" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                            View Balance History
+                        </a>
                     </div>
                 </div>
             </div>
@@ -209,7 +217,7 @@
                                 
                                 <div id="items-container" class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
                                     @forelse($items as $item)
-                                    <div class="item-row px-4 py-3 hover:bg-gray-50" data-item-name="{{ strtolower($item->name) }}" data-item-other-names="{{ strtolower($item->other_names ?? '') }}">
+                                    <div class="item-row px-4 py-3 hover:bg-gray-50" data-item-name="{{ strtolower($item->name) }}" data-item-other-names="{{ strtolower($item->other_names ?? '') }}" data-item-type="{{ $item->type ?? 'N/A' }}">
                                         <div class="grid grid-cols-2 gap-4 items-center">
                                             <div>
                                                 <span class="text-sm text-gray-900">{{ $item->name }}</span>
@@ -219,7 +227,7 @@
                                                 @if($item->other_names)
                                                 <p class="text-xs text-gray-600 mt-1">Other Names: {{ $item->other_names }}</p>
                                                 @endif
-                                                <p class="text-xs text-blue-600 mt-1 price-display">
+                                                <p class="text-xs text-blue-600 mt-1 price-display" style="display: none;">
                                                     Price: UGX {{ number_format($item->final_price ?? 0, 2) }}
                                                     @if(isset($item->final_price) && $item->final_price != $item->default_price)
                                                         <span class="text-green-600">(Branch Price)</span>
@@ -236,7 +244,8 @@
                                                        class="quantity-input w-20 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                        data-item-id="{{ $item->id }}" 
                                                        data-item-price="{{ $item->final_price ?? 0 }}"
-                                                       data-item-name="{{ $item->name }}">
+                                                       data-item-name="{{ $item->name }}"
+                                                       data-item-type="{{ $item->type ?? 'N/A' }}">
                                             </div>
                                         </div>
                                     </div>
@@ -262,16 +271,19 @@
                             </div>
                         </div>
                         
-                        <!-- Right Column: Receipt -->
+                        <!-- Right Column: Request/Order Summary -->
                         <div>
-                            <h4 class="text-md font-medium text-gray-900 mb-4">Receipt</h4>
+                            <h4 class="text-md font-medium text-gray-900 mb-4">Request/Order Summary</h4>
                             
-                            <!-- Receipt Table -->
+                            <!-- Request/Order Summary Table -->
                             <div class="border border-gray-200 rounded-lg overflow-hidden">
                                 <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                                    <div class="grid grid-cols-4 gap-4">
+                                    <div class="grid grid-cols-5 gap-4">
                                         <div>
                                             <span class="text-sm font-medium text-gray-700">Item</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-sm font-medium text-gray-700">Type</span>
                                         </div>
                                         <div>
                                             <span class="text-sm font-medium text-gray-700">Quantity</span>
@@ -285,14 +297,14 @@
                                     </div>
                                 </div>
                                 
-                                <div id="receipt-items" class="divide-y divide-gray-200 min-h-32">
+                                <div id="request-order-summary-items" class="divide-y divide-gray-200 min-h-32">
                                     <div class="px-4 py-8">
                                         <p class="text-sm text-gray-500 text-center">No items selected</p>
                                     </div>
                                 </div>
                             </div>
                             
-                            <!-- Receipt Summary -->
+                            <!-- Request/Order Summary -->
                             <div class="mt-4 bg-gray-50 p-4 rounded-lg">
                                 <div class="flex justify-between items-center mb-2">
                                     <span class="text-sm text-gray-600">Unique Items:</span>
@@ -388,15 +400,19 @@
         </div>
     </div>
 
-    <!-- Invoice Preview Modal -->
+    <!-- Order/Request Summary Modal -->
     <div id="invoice-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
         <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
             <div class="mt-3">
                 <!-- Invoice Header -->
                 <div class="text-center mb-6">
                     <h2 class="text-2xl font-bold text-gray-800 mb-2">Invoice Preview</h2>
-                    <div class="bg-blue-600 text-white py-2 px-4 rounded-lg">
-                        <span class="text-lg font-semibold">Pro Invoice</span>
+                    <div class="bg-blue-600 text-white py-2 px-4 rounded-lg mb-2">
+                        <span class="text-lg font-semibold">Invoice</span>
+                    </div>
+                    <div class="bg-gray-100 py-2 px-4 rounded-lg border">
+                        <span class="text-sm text-gray-600">Invoice Number:</span>
+                        <span id="invoice-number-display" class="text-lg font-bold text-gray-800 ml-2">Generating...</span>
                     </div>
                 </div>
                 
@@ -406,7 +422,8 @@
                         <p><strong>Payment Phone:</strong> {{ $client->payment_phone_number ?? 'N/A' }}</p>
                         <p><strong>Client:</strong> {{ $client->name }} {{ $client->client_id }}</p>
                         <p><strong>Visit ID:</strong> {{ $client->visit_id }}</p>
-                        <p><strong>Branch ID:</strong> {{ auth()->user()->currentBranch->id ?? 'N/A' }}</p>
+                        <p><strong>Branch Name:</strong> {{ auth()->user()->currentBranch->name ?? 'N/A' }}</p>
+                        <p><strong>Account Balance:</strong> <span class="text-blue-600 font-semibold">UGX {{ number_format($client->balance ?? 0, 2) }}</span></p>
                     </div>
                     <div>
                         <p><strong>Date:</strong> {{ now()->format('n/j/Y') }}</p>
@@ -421,6 +438,7 @@
                         <thead>
                             <tr class="bg-blue-600 text-white">
                                 <th class="border border-gray-300 px-4 py-2 text-left">Item</th>
+                                <th class="border border-gray-300 px-4 py-2 text-center">Type</th>
                                 <th class="border border-gray-300 px-4 py-2 text-center">Quantity</th>
                                 <th class="border border-gray-300 px-4 py-2 text-right">Price</th>
                                 <th class="border border-gray-300 px-4 py-2 text-right">Amount</th>
@@ -430,6 +448,16 @@
                             <!-- Items will be populated by JavaScript -->
                         </tbody>
                     </table>
+                </div>
+                
+                <!-- Package Adjustment Details -->
+                <div id="package-adjustment-details" class="mb-6 hidden">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Package Adjustments Applied</h3>
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div id="package-adjustment-list" class="space-y-2">
+                            <!-- Package adjustment details will be populated by JavaScript -->
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Financial Summary -->
@@ -444,7 +472,7 @@
                     </div>
                     <div class="flex justify-between">
                         <span>Account Balance(A/c) Adjustment:</span>
-                        <span>UGX 0</span>
+                        <span id="balance-adjustment-display">UGX 0.00</span>
                     </div>
                     <div class="flex justify-between">
                         <span>Amount Due:</span>
@@ -453,6 +481,9 @@
                     <div class="flex justify-between">
                         <span>Service Charge:</span>
                         <span id="service-charge-display">UGX 0.00</span>
+                    </div>
+                    <div class="text-xs text-gray-500 text-right italic" id="service-charge-note">
+                        No charges for this amount range
                     </div>
                     <div class="flex justify-between text-lg font-bold border-t pt-2">
                         <span>Final Total:</span>
@@ -467,9 +498,6 @@
                     </button>
                     <button onclick="confirmAndSaveInvoice()" class="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
                         Confirm & Save
-                    </button>
-                    <button onclick="printInvoice()" class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-                        Print Preview
                     </button>
                 </div>
             </div>
@@ -495,12 +523,13 @@
                     const rawPrice = this.dataset.itemPrice;
                     const itemPrice = parseFloat(rawPrice) || 0;
                     const quantity = parseInt(this.value) || 0;
+                    const itemType = this.dataset.itemType || 'N/A';
                     
                     // Debug logging
-                    console.log('Item:', itemName, 'Raw Price:', rawPrice, 'Parsed Price:', itemPrice, 'Quantity:', quantity);
+                    console.log('Item:', itemName, 'Raw Price:', rawPrice, 'Parsed Price:', itemPrice, 'Quantity:', quantity, 'Type:', itemType);
                     
                     if (quantity > 0) {
-                        addToCart(itemId, itemName, itemPrice, quantity);
+                        addToCart(itemId, itemName, itemPrice, quantity, itemType);
                         // Don't reset the input value - keep the state
                     } else if (quantity === 0) {
                         // Remove item from cart if quantity is 0
@@ -539,7 +568,7 @@
             });
         });
         
-        function addToCart(itemId, itemName, itemPrice, quantity) {
+        function addToCart(itemId, itemName, itemPrice, quantity, itemType) {
             // Ensure proper number types
             const price = parseFloat(itemPrice) || 0;
             const qty = parseInt(quantity) || 0;
@@ -553,33 +582,34 @@
                     id: itemId,
                     name: itemName,
                     price: price,
-                    quantity: qty
+                    quantity: qty,
+                    type: itemType || 'N/A'
                 });
             }
             
-            updateReceiptDisplay();
+            updateRequestOrderSummaryDisplay();
         }
         
         function removeFromCartByItemId(itemId) {
             cart = cart.filter(item => item.id !== itemId);
-            updateReceiptDisplay();
+            updateRequestOrderSummaryDisplay();
         }
         
-        function updateReceiptDisplay() {
-            const receiptContainer = document.getElementById('receipt-items');
+        function updateRequestOrderSummaryDisplay() {
+            const requestOrderSummaryContainer = document.getElementById('request-order-summary-items');
             const totalItemsSpan = document.getElementById('total-items');
             const totalQuantitySpan = document.getElementById('total-quantity');
             const totalAmountSpan = document.getElementById('total-amount');
             
             if (cart.length === 0) {
-                receiptContainer.innerHTML = '<div class="px-4 py-8"><p class="text-sm text-gray-500 text-center">No items selected</p></div>';
+                requestOrderSummaryContainer.innerHTML = '<div class="px-4 py-8"><p class="text-sm text-gray-500 text-center">No items selected</p></div>';
                 totalItemsSpan.textContent = '0';
                 totalQuantitySpan.textContent = '0';
                 totalAmountSpan.textContent = 'UGX 0.00';
                 return;
             }
             
-            let receiptHTML = '';
+            let requestOrderSummaryHTML = '';
             let totalItems = 0;
             let totalQuantity = 0;
             let totalAmount = 0;
@@ -590,11 +620,14 @@
                 totalQuantity += parseInt(item.quantity || 0); // Sum of all quantities
                 totalAmount += itemTotal;
                 
-                receiptHTML += `
+                requestOrderSummaryHTML += `
                     <div class="px-4 py-3">
-                        <div class="grid grid-cols-4 gap-4 items-center">
+                        <div class="grid grid-cols-5 gap-4 items-center">
                             <div>
                                 <span class="text-sm text-gray-900 font-medium">${item.name}</span>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-600">${item.type || 'N/A'}</span>
                             </div>
                             <div>
                                 <span class="text-sm text-gray-900">${item.quantity}</span>
@@ -612,7 +645,7 @@
                 `;
             });
             
-            receiptContainer.innerHTML = receiptHTML;
+            requestOrderSummaryContainer.innerHTML = requestOrderSummaryHTML;
             totalItemsSpan.textContent = totalItems; // This now shows total quantity of all items
             totalQuantitySpan.textContent = totalQuantity; // This now shows total quantity of all items
             totalAmountSpan.textContent = `UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
@@ -628,7 +661,7 @@
                 quantityInput.value = 0;
             }
             
-            updateReceiptDisplay();
+            updateRequestOrderSummaryDisplay();
         }
         
         // Show client confirmation modal on page load
@@ -725,6 +758,31 @@
                 return;
             }
             
+            // Generate invoice number
+            try {
+                const response = await fetch('/invoices/generate-invoice-number', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        business_id: {{ auth()->user()->business->id }}
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.invoice_number) {
+                    document.getElementById('invoice-number-display').textContent = data.invoice_number;
+                } else {
+                    document.getElementById('invoice-number-display').textContent = 'Error generating invoice number';
+                }
+            } catch (error) {
+                console.error('Error generating invoice number:', error);
+                document.getElementById('invoice-number-display').textContent = 'Error generating invoice number';
+            }
+            
             // Populate invoice items table
             const invoiceTable = document.getElementById('invoice-items-table');
             let tableHTML = '';
@@ -737,6 +795,7 @@
                 tableHTML += `
                     <tr class="bg-white">
                         <td class="border border-gray-300 px-4 py-2">${item.name}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-center">${item.type || 'N/A'}</td>
                         <td class="border border-gray-300 px-4 py-2 text-center">${item.quantity}</td>
                         <td class="border border-gray-300 px-4 py-2 text-right">UGX ${(item.price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         <td class="border border-gray-300 px-4 py-2 text-right">UGX ${itemTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
@@ -747,18 +806,62 @@
             invoiceTable.innerHTML = tableHTML;
             
             // Calculate package adjustment
-            const packageAdjustment = await calculatePackageAdjustment();
+            const packageAdjustmentData = await calculatePackageAdjustment();
+            const packageAdjustment = packageAdjustmentData.total_adjustment;
+            
+            // Show package adjustment details if any adjustments were made
+            if (packageAdjustmentData.details && packageAdjustmentData.details.length > 0) {
+                const adjustmentDetailsContainer = document.getElementById('package-adjustment-details');
+                const adjustmentList = document.getElementById('package-adjustment-list');
+                
+                let detailsHTML = '';
+                packageAdjustmentData.details.forEach(detail => {
+                    detailsHTML += `
+                        <div class="flex justify-between items-center text-sm">
+                            <div>
+                                <span class="font-medium text-gray-800">${detail.item_name}</span>
+                                <span class="text-gray-600"> (${detail.quantity_adjusted} × UGX ${(detail.adjustment_amount / detail.quantity_adjusted).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})})</span>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-medium text-green-800">-UGX ${detail.adjustment_amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                <div class="text-xs text-gray-500">From: ${detail.package_name}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                adjustmentList.innerHTML = detailsHTML;
+                adjustmentDetailsContainer.classList.remove('hidden');
+            } else {
+                document.getElementById('package-adjustment-details').classList.add('hidden');
+            }
             
             // Calculate totals with dynamic service charge
             const serviceCharge = await calculateServiceCharge(subtotal);
             const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
-            const finalTotal = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
+            const subtotalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
+            
+            // Calculate balance adjustment
+            const balanceAdjustmentData = await calculateBalanceAdjustment(subtotalWithServiceCharge);
+            const balanceAdjustment = balanceAdjustmentData.balance_adjustment;
+            const finalTotal = parseFloat(subtotalWithServiceCharge) - parseFloat(balanceAdjustment);
             
             // Update invoice summary
             document.getElementById('invoice-subtotal').textContent = `UGX ${parseFloat(subtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('package-adjustment-display').textContent = `UGX ${parseFloat(packageAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('service-charge-display').textContent = `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('invoice-amount-due').textContent = `UGX ${parseFloat(adjustedSubtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            // Display service charge or "No Service Charges" if zero
+            const serviceChargeElement = document.getElementById('service-charge-display');
+            const serviceChargeNote = document.getElementById('service-charge-note');
+            
+            if (parseFloat(serviceCharge) > 0) {
+                serviceChargeElement.textContent = `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                serviceChargeNote.style.display = 'none';
+            } else {
+                serviceChargeElement.textContent = 'UGX 0.00';
+                serviceChargeNote.style.display = 'block';
+            }
+            document.getElementById('balance-adjustment-display').textContent = `UGX ${parseFloat(balanceAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('invoice-amount-due').textContent = `UGX ${parseFloat(subtotalWithServiceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('invoice-final-total').textContent = `UGX ${parseFloat(finalTotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
             // Show modal
@@ -767,6 +870,14 @@
         
         function closeInvoicePreview() {
             document.getElementById('invoice-modal').classList.add('hidden');
+            
+            // Reset service charge display to default state
+            const serviceChargeElement = document.getElementById('service-charge-display');
+            const serviceChargeNote = document.getElementById('service-charge-note');
+            if (serviceChargeElement && serviceChargeNote) {
+                serviceChargeElement.textContent = 'UGX 0.00';
+                serviceChargeNote.style.display = 'block';
+            }
         }
         
         async function confirmAndSaveInvoice() {
@@ -808,10 +919,29 @@
                     subtotal += parseFloat(item.price || 0) * parseInt(item.quantity || 0);
                 });
                 
-                const packageAdjustment = await calculatePackageAdjustment();
+                const packageAdjustmentData = await calculatePackageAdjustment();
+                const packageAdjustment = parseFloat(packageAdjustmentData.total_adjustment) || 0;
                 const serviceCharge = await calculateServiceCharge(subtotal);
                 const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
-                const totalAmount = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
+                const subtotalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
+                
+                // Calculate balance adjustment
+                const balanceAdjustmentData = await calculateBalanceAdjustment(subtotalWithServiceCharge);
+                const balanceAdjustment = parseFloat(balanceAdjustmentData.balance_adjustment) || 0;
+                const totalAmount = parseFloat(subtotalWithServiceCharge) - parseFloat(balanceAdjustment);
+                
+                console.log('Calculated values:', {
+                    subtotal: subtotal,
+                    packageAdjustment: packageAdjustment,
+                    serviceCharge: serviceCharge,
+                    serviceChargeDisplay: parseFloat(serviceCharge) > 0 ? `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : 'UGX 0.00 (No charges for this amount range)',
+                    adjustedSubtotal: adjustedSubtotal,
+                    subtotalWithServiceCharge: subtotalWithServiceCharge,
+                    balanceAdjustment: balanceAdjustment,
+                    totalAmount: totalAmount,
+                    totalAmountType: typeof totalAmount,
+                    isNaN: isNaN(totalAmount)
+                });
                 
                 // Get payment phone and methods
                 const paymentPhone = document.getElementById('payment-phone-edit')?.value || '';
@@ -823,6 +953,14 @@
                 let amountPaid = 0;
                 
                 if (paymentMethods.includes('mobile_money') && paymentPhone) {
+                    console.log('Processing mobile money payment:', { 
+                        totalAmount, 
+                        paymentPhone,
+                        totalAmountType: typeof totalAmount,
+                        isNaN: isNaN(totalAmount),
+                        parseFloatResult: parseFloat(totalAmount)
+                    });
+                    
                     // Show payment processing dialog
                     Swal.fire({
                         title: 'Processing Mobile Money Payment',
@@ -876,10 +1014,24 @@
                     total_amount: parseFloat(item.price || 0) * parseInt(item.quantity || 0)
                 }));
                 
+                // Get the invoice number from the display
+                const invoiceNumber = document.getElementById('invoice-number-display').textContent;
+                
+                // Validate invoice number
+                if (!invoiceNumber || invoiceNumber === 'Generating...' || invoiceNumber === 'Error generating invoice number') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Invalid Invoice Number',
+                        text: 'Please wait for the invoice number to be generated before saving.'
+                    });
+                    return;
+                }
+                
                 // Prepare invoice data with all required fields
                 const invoiceData = {
+                    invoice_number: invoiceNumber,
                     client_id: {{ $client->id }},
-                    business_id: {{ auth()->user()->business->id }},
+                    business_id: {{ auth()->user()->business_id }},
                     branch_id: {{ auth()->user()->currentBranch->id ?? 'null' }},
                     created_by: {{ auth()->id() }},
                     client_name: '{{ $client->name }}',
@@ -887,18 +1039,20 @@
                     payment_phone: paymentPhone,
                     visit_id: '{{ $client->visit_id }}',
                     items: itemsWithTotals,
-                    subtotal: subtotal,
-                    package_adjustment: packageAdjustment,
-                    account_balance_adjustment: 0,
-                    service_charge: serviceCharge,
-                    total_amount: totalAmount,
-                    amount_paid: amountPaid,
-                    balance_due: totalAmount - amountPaid,
+                    subtotal: parseFloat(subtotal),
+                    package_adjustment: parseFloat(packageAdjustment),
+                    account_balance_adjustment: parseFloat(balanceAdjustment),
+                    service_charge: parseFloat(serviceCharge),
+                    total_amount: parseFloat(totalAmount),
+                    amount_paid: parseFloat(amountPaid),
+                    balance_due: parseFloat(totalAmount - amountPaid),
                     payment_methods: paymentMethods,
                     payment_status: amountPaid >= totalAmount ? 'paid' : 'pending',
                     status: 'confirmed',
                     notes: ''
                 };
+                
+                console.log('Invoice data being sent:', invoiceData);
                 
                 // Save invoice
                 const response = await fetch('/invoices', {
@@ -916,16 +1070,21 @@
                 if (data.success) {
                     // Clear cart
                     cart = [];
-                    updateReceiptDisplay();
+                    updateRequestOrderSummaryDisplay();
                     
-                    // Close invoice preview
+                    // Close order/request summary
                     closeInvoicePreview();
                     
                     // Show success with options
                     const result = await Swal.fire({
                         icon: 'success',
                         title: 'Invoice Saved!',
-                        text: 'Invoice has been saved successfully.',
+                        html: `
+                            <div class="text-center">
+                                <p class="mb-2">Invoice has been saved successfully.</p>
+                                <p class="text-sm text-gray-600">Invoice Number: <strong>${invoiceNumber}</strong></p>
+                            </div>
+                        `,
                         showCancelButton: true,
                         confirmButtonText: 'View Invoice',
                         cancelButtonText: 'Print Invoice',
@@ -938,7 +1097,24 @@
                         window.location.href = `/invoices/${data.invoice.id}`;
                     } else if (result.dismiss === Swal.DismissReason.cancel) {
                         // Print invoice
-                        window.open(`/invoices/${data.invoice.id}/print`, '_blank');
+                        const printWindow = window.open(`/invoices/${data.invoice.id}/print`, '_blank');
+                        
+                        // Show print confirmation
+                        setTimeout(() => {
+                            Swal.fire({
+                                icon: 'info',
+                                title: 'Print Window Opened',
+                                html: `
+                                    <div class="text-center">
+                                        <p class="mb-2">Invoice print window has been opened.</p>
+                                        <p class="text-sm text-gray-600">Invoice Number: <strong>${invoiceNumber}</strong></p>
+                                        <p class="text-xs text-gray-500 mt-2">Please check the new tab/window for printing options.</p>
+                                    </div>
+                                `,
+                                timer: 3000,
+                                showConfirmButton: false
+                            });
+                        }, 1000);
                     }
                     // If "Stay Here" is clicked, do nothing
                     
@@ -964,66 +1140,7 @@
             }
         }
         
-        function printInvoice() {
-            // Create a print-friendly version
-            const printWindow = window.open('', '_blank');
-            const modalContent = document.querySelector('#invoice-modal .relative').cloneNode(true);
-            
-            // Remove action buttons from print version
-            const actionButtons = modalContent.querySelector('.flex.justify-end.space-x-4');
-            if (actionButtons) {
-                actionButtons.remove();
-            }
-            
-            // Add print styles
-            const printStyles = `
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 20px; }
-                    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                    th { background-color: #2563eb; color: white; }
-                    .text-center { text-align: center; }
-                    .text-right { text-align: right; }
-                    .text-left { text-align: left; }
-                    .font-bold { font-weight: bold; }
-                    .bg-blue-600 { background-color: #2563eb; }
-                    .text-white { color: white; }
-                    .py-2 { padding-top: 8px; padding-bottom: 8px; }
-                    .px-4 { padding-left: 16px; padding-right: 16px; }
-                    .rounded-lg { border-radius: 8px; }
-                    .mb-6 { margin-bottom: 24px; }
-                    .space-y-2 > * + * { margin-top: 8px; }
-                    .border-t { border-top: 1px solid #ddd; }
-                    .pt-2 { padding-top: 8px; }
-                    @media print {
-                        body { margin: 0; }
-                        .no-print { display: none; }
-                    }
-                </style>
-            `;
-            
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Invoice - ${new Date().toLocaleDateString()}</title>
-                    ${printStyles}
-                </head>
-                <body>
-                    ${modalContent.outerHTML}
-                </body>
-                </html>
-            `);
-            
-            printWindow.document.close();
-            printWindow.focus();
-            
-            // Wait for content to load then print
-            setTimeout(() => {
-                printWindow.print();
-                printWindow.close();
-            }, 500);
-        }
+
         
         // Payment Methods Modal Functions
         function openPaymentMethodsModal() {
@@ -1136,7 +1253,7 @@
                     },
                     body: JSON.stringify({
                         subtotal: subtotal,
-                        business_id: {{ auth()->user()->business->id }},
+                        business_id: {{ auth()->user()->business_id }},
                         branch_id: {{ auth()->user()->currentBranch->id ?? 'null' }}
                     })
                 });
@@ -1156,6 +1273,7 @@
         
         async function calculatePackageAdjustment() {
             try {
+                console.log('Cart data being sent to package adjustment:', cart);
                 const response = await fetch('/invoices/package-adjustment', {
                     method: 'POST',
                     headers: {
@@ -1165,21 +1283,109 @@
                     },
                     body: JSON.stringify({
                         client_id: {{ $client->id }},
-                        business_id: {{ auth()->user()->business->id }},
+                        business_id: {{ auth()->user()->business_id }},
                         items: cart
                     })
                 });
                 
                 const data = await response.json();
                 if (data.success) {
-                    return parseFloat(data.total_adjustment) || 0;
+                    return {
+                        total_adjustment: parseFloat(data.total_adjustment) || 0,
+                        details: data.details || []
+                    };
                 } else {
                     console.error('Package adjustment calculation error:', data.message);
-                    return 0;
+                    return { total_adjustment: 0, details: [] };
                 }
             } catch (error) {
                 console.error('Error calculating package adjustment:', error);
-                return 0;
+                return { total_adjustment: 0, details: [] };
+            }
+        }
+        
+        async function calculateBalanceAdjustment(totalAmount) {
+            try {
+                const response = await fetch('/invoices/balance-adjustment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        client_id: {{ $client->id }},
+                        total_amount: totalAmount
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    return {
+                        balance_adjustment: parseFloat(data.balance_adjustment) || 0,
+                        client_balance: parseFloat(data.client_balance) || 0,
+                        remaining_balance: parseFloat(data.remaining_balance) || 0
+                    };
+                } else {
+                    console.error('Balance adjustment calculation error:', data.message);
+                    return { balance_adjustment: 0, client_balance: 0, remaining_balance: 0 };
+                }
+            } catch (error) {
+                console.error('Error calculating balance adjustment:', error);
+                return { balance_adjustment: 0, client_balance: 0, remaining_balance: 0 };
+            }
+        }
+        
+        async function refreshClientBalance() {
+            try {
+                const response = await fetch('/invoices/balance-adjustment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        client_id: {{ $client->id }},
+                        total_amount: 0 // Just to get current balance
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    const balanceDisplay = document.getElementById('client-balance-display');
+                    const formattedBalance = `UGX ${parseFloat(data.client_balance).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    balanceDisplay.textContent = formattedBalance;
+                    
+                    // Update balance in invoice preview if it's open
+                    const invoicePreviewBalance = document.querySelector('#invoice-preview-modal .text-blue-600.font-semibold');
+                    if (invoicePreviewBalance) {
+                        invoicePreviewBalance.textContent = formattedBalance;
+                    }
+                    
+                    // Show success message
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Balance Updated',
+                        text: `Current balance: ${formattedBalance}`,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    console.error('Error refreshing balance:', data.message);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to refresh balance'
+                    });
+                }
+            } catch (error) {
+                console.error('Error refreshing client balance:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to refresh balance'
+                });
             }
         }
         

@@ -133,6 +133,52 @@ class User extends Authenticatable
         return null;
     }
 
+    /**
+     * Get the service points assigned to this user
+     */
+    public function servicePoints()
+    {
+        if ($this->service_points) {
+            return ServicePoint::whereIn('id', $this->service_points);
+        }
+        return collect();
+    }
+
+    /**
+     * Get the service queues for this user's service points
+     */
+    public function serviceQueues()
+    {
+        if ($this->service_points) {
+            return ServiceQueue::whereIn('service_point_id', $this->service_points);
+        }
+        return collect();
+    }
+
+    /**
+     * Get pending queues for user's service points
+     */
+    public function pendingQueues()
+    {
+        return $this->serviceQueues()->pending()->orderBy('queue_number');
+    }
+
+    /**
+     * Get in-progress queues for user's service points
+     */
+    public function inProgressQueues()
+    {
+        return $this->serviceQueues()->inProgress()->orderBy('started_at');
+    }
+
+    /**
+     * Get completed queues for user's service points today
+     */
+    public function completedQueuesToday()
+    {
+        return $this->serviceQueues()->completed()->today()->orderBy('completed_at', 'desc');
+    }
+
     protected static function booted()
     {
         static::creating(function ($user) {

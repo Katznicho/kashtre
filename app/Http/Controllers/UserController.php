@@ -61,13 +61,17 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
+        // Determine if business_id should be required based on current user's business
+        $isSuperBusiness = Auth::user()->business_id == 1;
+        $businessIdRule = $isSuperBusiness ? 'required|exists:businesses,id' : 'nullable|exists:businesses,id';
+        
         $validated = $request->validate([
             'surname' => 'required|string|max:255',
             'first_name' => 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'email' => 'required|email|unique:users,email',
             'status' => 'required|in:active,inactive,suspended',
-            'business_id' => 'required|exists:businesses,id',
+            'business_id' => $businessIdRule,
             'branch_id' => 'required|exists:branches,id',
             'profile_photo_path' => 'nullable|image|max:2048',
             'phone' => 'required|string|max:255',
@@ -78,6 +82,7 @@ class UserController extends Controller
             'section_id' => 'required|exists:sections,id',
             'title_id' => 'required|exists:titles,id',
             'service_points' => 'nullable|array',
+            'service_points.*' => 'exists:service_points,id',
             'allowed_branches' => 'nullable|array',
             'permissions_menu' => 'required|array',
             // Contractor profile fields (conditionally required)
@@ -94,6 +99,11 @@ class UserController extends Controller
             if ($request->hasFile('profile_photo_path')) {
                 $path = $request->file('profile_photo_path')->store('profile_photos', 'public');
                 $validated['profile_photo_path'] = $path;
+            }
+
+            // For non-super business users, use their business_id if business_id is not provided
+            if (!$isSuperBusiness && empty($validated['business_id'])) {
+                $validated['business_id'] = Auth::user()->business_id;
             }
 
             // Create the user
@@ -180,13 +190,18 @@ class UserController extends Controller
     public function update(Request $request, $id)
     {
         $user = User::findOrFail($id);
+        
+        // Determine if business_id should be required based on current user's business
+        $isSuperBusiness = Auth::user()->business_id == 1;
+        $businessIdRule = $isSuperBusiness ? 'required|exists:businesses,id' : 'nullable|exists:businesses,id';
+        
         $validated = $request->validate([
             'surname' => 'required|string|max:255',
             'first_name' => 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'status' => 'required|in:active,inactive,suspended',
-            'business_id' => 'required|exists:businesses,id',
+            'business_id' => $businessIdRule,
             'branch_id' => 'required|exists:branches,id',
             'profile_photo_path' => 'nullable|image|max:2048',
             'phone' => 'required|string|max:255',
@@ -197,7 +212,9 @@ class UserController extends Controller
             'section_id' => 'required|exists:sections,id',
             'title_id' => 'required|exists:titles,id',
             'service_points' => 'nullable|array',
+            'service_points.*' => 'exists:service_points,id',
             'allowed_branches' => 'nullable|array',
+            'allowed_branches.*' => 'exists:branches,id',
             'permissions_menu' => 'required|array',
             // Contractor profile fields (conditionally required)
             'bank_name' => 'required_if:permissions_menu.*,Contractor|string|nullable',
@@ -210,6 +227,12 @@ class UserController extends Controller
                 $path = $request->file('profile_photo_path')->store('profile_photos', 'public');
                 $validated['profile_photo_path'] = $path;
             }
+            
+            // For non-super business users, use their business_id if business_id is not provided
+            if (!$isSuperBusiness && empty($validated['business_id'])) {
+                $validated['business_id'] = Auth::user()->business_id;
+            }
+            
             $user->update([
                 'name' => $validated['name'],
                 'email' => $validated['email'],

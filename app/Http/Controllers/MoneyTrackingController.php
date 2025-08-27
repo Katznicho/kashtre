@@ -27,38 +27,45 @@ class MoneyTrackingController extends Controller
     {
         $user = Auth::user();
         $business = $user->business;
+        $isSuperBusiness = $business->id === 1; // Kashtre super business
 
         // Get account balances
         $accountBalances = $this->getAccountBalances($business);
 
-        // Get recent transfers
-        $recentTransfers = MoneyTransfer::where('business_id', $business->id)
-            ->with(['fromAccount', 'toAccount', 'client', 'invoice'])
-            ->orderBy('created_at', 'desc')
-            ->limit(20)
-            ->get();
+        // Get recent transfers - for super business, show all transfers
+        $transfersQuery = MoneyTransfer::with(['fromAccount', 'toAccount', 'client', 'invoice', 'business']);
+        if (!$isSuperBusiness) {
+            $transfersQuery->where('business_id', $business->id);
+        }
+        $recentTransfers = $transfersQuery->orderBy('created_at', 'desc')->limit(20)->get();
 
         // Get client accounts with balances
-        $clientAccounts = MoneyAccount::where('business_id', $business->id)
-            ->where('type', 'client_account')
-            ->with('client')
-            ->orderBy('balance', 'desc')
-            ->limit(10)
-            ->get();
+        $clientAccountsQuery = MoneyAccount::where('type', 'client_account')->with('client', 'business');
+        if (!$isSuperBusiness) {
+            $clientAccountsQuery->where('business_id', $business->id);
+        }
+        $clientAccounts = $clientAccountsQuery->orderBy('balance', 'desc')->limit(10)->get();
 
         // Get contractor accounts with balances
-        $contractorAccounts = MoneyAccount::where('business_id', $business->id)
-            ->where('type', 'contractor_account')
-            ->with('contractorProfile.user')
-            ->orderBy('balance', 'desc')
-            ->limit(10)
-            ->get();
+        $contractorAccountsQuery = MoneyAccount::where('type', 'contractor_account')->with('contractorProfile.user', 'business');
+        if (!$isSuperBusiness) {
+            $contractorAccountsQuery->where('business_id', $business->id);
+        }
+        $contractorAccounts = $contractorAccountsQuery->orderBy('balance', 'desc')->limit(10)->get();
+
+        // For super business, get business summary
+        $businessSummary = null;
+        if ($isSuperBusiness) {
+            $businessSummary = $this->getBusinessSummary();
+        }
 
         return view('money-tracking.dashboard', compact(
             'accountBalances',
             'recentTransfers',
             'clientAccounts',
-            'contractorAccounts'
+            'contractorAccounts',
+            'isSuperBusiness',
+            'businessSummary'
         ));
     }
 
@@ -276,6 +283,49 @@ class MoneyTrackingController extends Controller
                 'message' => 'Failed to process refund: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Get business summary for super business
+     */
+    private function getBusinessSummary()
+    {
+        $businesses = Business::where('id', '>', 1)->get(); // Exclude Kashtre super business
+        
+        $summary = [];
+        foreach ($businesses as $business) {
+            // Get total balances for this business
+            $totalClientBalance = MoneyAccount::where('business_id', $business->id)
+                ->where('type', 'client_account')
+                ->sum('balance');
+                
+            $totalContractorBalance = MoneyAccount::where('business_id', $business->id)
+                ->where('type', 'contractor_account')
+                ->sum('balance');
+                
+            $totalSuspenseBalance = MoneyAccount::where('business_id', $business->id)
+                ->whereIn('type', ['package_suspense_account', 'general_suspense_account', 'kashtre_suspense_account'])
+                ->sum('balance');
+                
+            $totalBusinessBalance = MoneyAccount::where('business_id', $business->id)
+                ->where('type', 'business_account')
+                ->sum('balance');
+            
+            $summary[] = [
+                'business' => $business,
+                'total_client_balance' => $totalClientBalance,
+                'total_contractor_balance' => $totalContractorBalance,
+                'total_suspense_balance' => $totalSuspenseBalance,
+                'total_business_balance' => $totalBusinessBalance,
+                'total_transfers' => MoneyTransfer::where('business_id', $business->id)->count(),
+                'recent_transfers' => MoneyTransfer::where('business_id', $business->id)
+                    ->orderBy('created_at', 'desc')
+                    ->limit(5)
+                    ->get()
+            ];
+        }
+        
+        return $summary;
     }
 
     /**

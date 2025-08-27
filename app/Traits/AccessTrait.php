@@ -112,6 +112,14 @@ trait AccessTrait
         "Items" => ['View Items', 'Edit Items', 'Add Items', 'Delete Items', 'Bulk Upload Items'],
     ];
 
+    public static $finance = [
+        "Finance" => ['View Finance', 'Manage Finance', 'View Business Balance History', 'View Client Balance History', 'View Money Tracking'],
+    ];
+
+    public static $packageTracking = [
+        "Package Tracking" => ['View Package Tracking', 'Edit Package Tracking', 'Add Package Tracking', 'Delete Package Tracking', 'View Package History'],
+    ];
+
     public static function spreadArrayKeys($assocArray)
     {
         $result = [];
@@ -151,7 +159,9 @@ trait AccessTrait
                 static::$clientAccess,
                 static::$staffAccess,
                 static::$reportAccess,
-                static::$bulkUpload
+                static::$bulkUpload,
+                static::$finance,
+                static::$packageTracking
             )
         );
         return $roles;
@@ -180,6 +190,8 @@ trait AccessTrait
         "Staff Access" => self::$staffAccess,
         "Report Access" => self::$reportAccess,
         "Bulk Upload" => self::$bulkUpload,
+        "Finance" => self::$finance,
+        "Package Tracking" => self::$packageTracking,
     ];
 
     if (!empty($exclude)) {

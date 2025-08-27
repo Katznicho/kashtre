@@ -63,6 +63,12 @@ class RecentClientsTable extends Component implements HasForms, HasTable
                     ->formatStateUsing(fn (string $state): string => ucfirst($state))
                     ->size('sm'),
                 
+                TextColumn::make('balance')
+                    ->label('Balance')
+                    ->money('UGX')
+                    ->size('sm')
+                    ->color(fn (float $state): string => $state > 0 ? 'success' : 'gray'),
+                
                 TextColumn::make('created_at')
                     ->label('Registered')
                     ->dateTime('M d, Y')
@@ -82,6 +88,13 @@ class RecentClientsTable extends Component implements HasForms, HasTable
                     ->color('primary')
                     ->size('sm')
                     ->url(fn (Client $record): string => route('clients.show', $record)),
+                
+                Action::make('balance_history')
+                    ->label('Balance')
+                    ->icon('heroicon-o-currency-dollar')
+                    ->color('info')
+                    ->size('sm')
+                    ->url(fn (Client $record): string => route('balance-history.show', $record)),
             ])
             ->paginated(false)
             ->striped();

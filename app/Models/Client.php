@@ -70,6 +70,11 @@ class Client extends Model
         return $this->belongsTo(Branch::class);
     }
 
+    public function balanceHistories()
+    {
+        return $this->hasMany(BalanceHistory::class);
+    }
+
     /**
      * Get the full name of the client
      */

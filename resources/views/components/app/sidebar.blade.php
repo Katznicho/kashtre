@@ -58,6 +58,18 @@
                         </a>
                     </li>
 
+                    <!-- Service Points: for users with assigned service points -->
+                    @if(auth()->user()->service_points)
+                    <li>
+                        <a href="{{ route('service-queues.index') }}" class="flex items-center pl-4 pr-3 py-2 rounded-lg text-gray-700 hover:text-blue-700 hover:bg-blue-50">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                            </svg>
+                            <span class="text-sm font-medium ml-3 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">Service Points</span>
+                        </a>
+                    </li>
+                    @endif
+
                     <!-- Admin Group -->
                     @if(Auth::user()->business_id == 1)
                     <li>
@@ -158,6 +170,27 @@
                     </li>
                     @endif
 
+                    <!-- Package Tracking Group -->
+                    @if(in_array('View Package Tracking', $permissions))
+                    <li>
+                        <button @click="openGroup === 'package-tracking' ? openGroup = '' : openGroup = 'package-tracking'" :class="openGroup === 'package-tracking' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                                </svg>
+                                <span class="ml-3">Package Tracking</span>
+                            </span>
+                            <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'package-tracking' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <ul x-show="openGroup === 'package-tracking'" x-collapse class="mt-1 space-y-1 pl-10">
+                            <li><a href="{{ route('package-tracking.dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Dashboard</a></li>
+                            <li><a href="{{ route('package-tracking.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>All Packages</a></li>
+                        </ul>
+                    </li>
+                    @endif
+
                     <!-- Manage Finance -->
                     @if(in_array('View Finance', $permissions))
                     <li>
@@ -174,6 +207,9 @@
                         </button>
                         <ul x-show="openGroup === 'finance'" x-collapse class="mt-1 space-y-1 pl-10">
                             <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Finance Dashboard</a></li>
+                            <li><a href="{{ route('balance-history.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Client Balance History</a></li>
+                        <li><a href="{{ route('business-balance-history.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Business Balance History</a></li>
+                        <li><a href="{{ route('contractor-balance-history.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Contractor Balance History</a></li>
                             <li><a href="{{ route('money-tracking.dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Money Tracking</a></li>
                         </ul>
                     </li>

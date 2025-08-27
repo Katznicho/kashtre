@@ -14,6 +14,7 @@ class Transaction extends Model
 
      protected $fillable = [
         'business_id',
+        'branch_id',
         'amount',
         'reference',
         'description',
@@ -35,10 +36,15 @@ class Transaction extends Model
 
 
 
-     //relationship
+     //relationships
      public function business()
      {
          return $this->belongsTo(Business::class);
+     }
+
+     public function branch()
+     {
+         return $this->belongsTo(Branch::class);
      }
 
      protected static function booted()

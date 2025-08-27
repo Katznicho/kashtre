@@ -1,0 +1,208 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\ServiceDeliveryQueue;
+use App\Models\Business;
+use App\Models\ContractorProfile;
+use App\Services\MoneyTrackingService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Exception;
+
+class ServiceDeliveryQueueController extends Controller
+{
+    /**
+     * Move an item to partially done status
+     */
+    public function moveToPartiallyDone(ServiceDeliveryQueue $serviceDeliveryQueue)
+    {
+        try {
+            // Check if user has access to this service point
+            $user = auth()->user();
+            $servicePoint = $serviceDeliveryQueue->servicePoint;
+            
+            if (!$this->userHasAccessToServicePoint($user, $servicePoint)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have access to this service point.'
+                ], 403);
+            }
+
+            // Process money transfers
+            $moneyTrackingService = app(MoneyTrackingService::class);
+            $moneyTrackingService->processServiceDeliveryMoneyTransfer($serviceDeliveryQueue, $user);
+
+            // Update the item status
+            $serviceDeliveryQueue->markAsPartiallyDone($user->id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Item moved to partially done successfully. Money transfers processed.',
+                'data' => [
+                    'id' => $serviceDeliveryQueue->id,
+                    'status' => $serviceDeliveryQueue->status,
+                    'partially_done_at' => $serviceDeliveryQueue->partially_done_at
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Failed to move item to partially done', [
+                'item_id' => $serviceDeliveryQueue->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to move item to partially done. Please try again.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Move item to completed status
+     */
+    public function moveToCompleted(ServiceDeliveryQueue $serviceDeliveryQueue)
+    {
+        try {
+            // Check if user has access to this service point
+            $user = Auth::user();
+            $servicePoint = $serviceDeliveryQueue->servicePoint;
+            
+            if (!$this->userHasAccessToServicePoint($user, $servicePoint)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have access to this service point.'
+                ], 403);
+            }
+
+            $serviceDeliveryQueue->markAsCompleted();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Item marked as completed successfully.',
+                'item' => $serviceDeliveryQueue->fresh()
+            ]);
+        } catch (Exception $e) {
+            Log::error('ServiceDeliveryQueueController@moveToCompleted error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while completing the item.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get all items for a service point
+     */
+    public function getServicePointItems($servicePointId)
+    {
+        try {
+            $user = Auth::user();
+            
+            // Check if user has access to this service point
+            if (!$this->userHasAccessToServicePoint($user, $servicePointId)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have access to this service point.'
+                ], 403);
+            }
+
+            $items = ServiceDeliveryQueue::where('service_point_id', $servicePointId)
+                ->with(['client', 'invoice'])
+                ->orderBy('queued_at')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'items' => $items
+            ]);
+        } catch (Exception $e) {
+            Log::error('ServiceDeliveryQueueController@getServicePointItems error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while fetching items.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Show all pending items for a service point
+     */
+    public function showPendingItems($servicePointId)
+    {
+        try {
+            $user = Auth::user();
+            $servicePoint = \App\Models\ServicePoint::findOrFail($servicePointId);
+            
+            // Check if user has access to this service point
+            if (!$this->userHasAccessToServicePoint($user, $servicePoint)) {
+                abort(403, 'You do not have access to this service point.');
+            }
+
+            $pendingItems = ServiceDeliveryQueue::where('service_point_id', $servicePointId)
+                ->where('status', 'pending')
+                ->with(['client', 'invoice'])
+                ->orderBy('queued_at')
+                ->paginate(50);
+
+            return view('service-delivery-queue.pending', compact('pendingItems', 'servicePoint'));
+        } catch (Exception $e) {
+            Log::error('ServiceDeliveryQueueController@showPendingItems error: ' . $e->getMessage());
+            abort(500, 'An error occurred while fetching pending items.');
+        }
+    }
+
+    /**
+     * Show all completed items for a service point
+     */
+    public function showCompletedItems($servicePointId)
+    {
+        try {
+            $user = Auth::user();
+            $servicePoint = \App\Models\ServicePoint::findOrFail($servicePointId);
+            
+            // Check if user has access to this service point
+            if (!$this->userHasAccessToServicePoint($user, $servicePoint)) {
+                abort(403, 'You do not have access to this service point.');
+            }
+
+            $completedItems = ServiceDeliveryQueue::where('service_point_id', $servicePointId)
+                ->where('status', 'completed')
+                ->whereDate('completed_at', today())
+                ->with(['client', 'invoice'])
+                ->orderBy('completed_at', 'desc')
+                ->paginate(50);
+
+            return view('service-delivery-queue.completed', compact('completedItems', 'servicePoint'));
+        } catch (Exception $e) {
+            Log::error('ServiceDeliveryQueueController@showCompletedItems error: ' . $e->getMessage());
+            abort(500, 'An error occurred while fetching completed items.');
+        }
+    }
+
+    /**
+     * Check if user has access to a service point
+     */
+    private function userHasAccessToServicePoint($user, $servicePoint)
+    {
+        if (is_numeric($servicePoint)) {
+            $servicePoint = \App\Models\ServicePoint::find($servicePoint);
+        }
+        
+        if (!$servicePoint) {
+            return false;
+        }
+
+        // Check if user has service_points assigned
+        if (!$user->service_points) {
+            return false;
+        }
+
+        // Check if the service point is in user's assigned service points
+        return in_array($servicePoint->id, $user->service_points);
+    }
+}

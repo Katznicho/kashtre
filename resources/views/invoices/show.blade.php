@@ -1,22 +1,40 @@
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Invoice Details') }} - {{ $invoice->invoice_number }}
-            </h2>
-            <div class="flex space-x-3">
-                <a href="{{ route('invoices.index') }}" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">
-                    Back to Invoices
-                </a>
-                <a href="{{ route('invoices.print', $invoice) }}" target="_blank" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-                    Print Invoice
-                </a>
-            </div>
-        </div>
-    </x-slot>
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <!-- Page Header -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                            {{ __('Invoice Details') }} - {{ $invoice->invoice_number }}
+                        </h2>
+                        <div class="flex space-x-3">
+                            <a href="{{ route('invoices.index') }}" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">
+                                Back to Invoices
+                            </a>
+                            <a href="{{ route('invoices.print', $invoice) }}" target="_blank" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                                Print Invoice
+                            </a>
+                            <button onclick="generateQuotation({{ $invoice->id }})" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
+                                Generate Quotation
+                            </button>
+                            @if($invoice->quotations->count() > 0)
+                                @php
+                                    $latestQuotation = $invoice->quotations->sortByDesc('created_at')->first();
+                                @endphp
+                                <a href="{{ route('quotations.print', $latestQuotation) }}" target="_blank" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors">
+                                    Print Quotation
+                                </a>
+                            @else
+                                <button disabled class="px-4 py-2 bg-gray-400 text-white rounded cursor-not-allowed" title="No quotations generated yet. Use 'Generate Quotation' button first.">
+                                    Print Quotation
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
             <!-- Invoice Header -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6">
@@ -264,4 +282,102 @@
             </div>
         </div>
     </div>
+
+    <script>
+        async function generateQuotation(invoiceId) {
+            try {
+                console.log('Generating quotation for invoice:', invoiceId);
+                
+                // Check if CSRF token exists
+                const csrfToken = document.querySelector('meta[name="csrf-token"]');
+                if (!csrfToken) {
+                    console.error('CSRF token not found');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        text: 'CSRF token not found. Please refresh the page and try again.'
+                    });
+                    return;
+                }
+                
+                // Show loading state
+                Swal.fire({
+                    title: 'Generating Quotation...',
+                    html: `
+                        <div class="text-center">
+                            <div class="mb-4">
+                                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                            </div>
+                            <p class="text-sm text-gray-600">Please wait while we generate your quotation...</p>
+                        </div>
+                    `,
+                    showConfirmButton: false,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false
+                });
+
+                console.log('Making API call to:', `/invoices/${invoiceId}/generate-quotation`);
+                
+                // Make API call to generate quotation
+                const response = await fetch(`/invoices/${invoiceId}/generate-quotation`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken.getAttribute('content'),
+                        'Accept': 'application/json',
+                    }
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Quotation Generated!',
+                        html: `
+                            <div class="text-center">
+                                <p class="mb-2">Quotation has been generated successfully.</p>
+                                <p class="text-sm text-gray-600">Quotation Number: <strong>${data.quotation_number}</strong></p>
+                            </div>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: 'View Quotation',
+                        cancelButtonText: 'Print Quotation',
+                        showDenyButton: true,
+                        denyButtonText: 'Stay Here'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // View quotation
+                            window.open(`/quotations/${data.quotation_id}`, '_blank');
+                        } else if (result.dismiss === Swal.DismissReason.cancel) {
+                            // Print quotation
+                            window.open(`/quotations/${data.quotation_id}/print`, '_blank');
+                        }
+                        // If "Stay Here" is clicked, do nothing
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        text: data.message || 'Failed to generate quotation'
+                    });
+                }
+            } catch (error) {
+                console.error('Error generating quotation:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: `An error occurred while generating the quotation: ${error.message}`
+                });
+            }
+        }
+    </script>
 </x-app-layout>

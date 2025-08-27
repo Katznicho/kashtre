@@ -37,99 +37,114 @@ class Transactions extends Component implements HasForms, HasTable
         return $table
             ->query($query)
             ->columns([
-                Tables\Columns\TextColumn::make('date')
-                    ->label('Date')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('amount')
+                // Time column
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Time')
+                    ->dateTime('M d, Y H:i:s')
                     ->sortable()
-                    ->money('UGX')
                     ->searchable(),
 
+                // Name column
+                Tables\Columns\TextColumn::make('names')
+                    ->label('Name')
+                    ->searchable()
+                    ->sortable()
+                    ->limit(30),
+
+                // Client ID column (using reference as client identifier)
                 Tables\Columns\TextColumn::make('reference')
+                    ->label('Client ID')
                     ->searchable()
                     ->copyable()
                     ->sortable()
-                    ->label('Payment Reference')
+                    ->limit(20),
 
-                    ,
-
+                // Description column
                 Tables\Columns\TextColumn::make('description')
-                    ->limit(40),
-
-                Tables\Columns\TextColumn::make('transaction_for')
-                    ->label('Transaction For')
+                    ->label('Description')
+                    ->limit(40)
+                    ->searchable()
                     ->sortable(),
+
+                // Amount column
+                Tables\Columns\TextColumn::make('amount')
+                    ->label('Amount')
+                    ->sortable()
+                    ->money('UGX')
+                    ->searchable()
+                    ->alignRight(),
+
+                // Method column
+                Tables\Columns\TextColumn::make('method')
+                    ->label('Method')
+                    ->sortable()
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'mobile_money' => 'success',
+                        'card' => 'info',
+                        'bank_transfer' => 'warning',
+                        'crypto' => 'danger',
+                        default => 'gray',
+                    }),
+
+                // Status column
+                Auth::user()?->business_id == 1
+                    ? Tables\Columns\SelectColumn::make('status')
+                        ->options([
+                            'pending' => 'Pending',
+                            'completed' => 'Completed',
+                            'failed' => 'Failed',
+                            'cancelled' => 'Cancelled',
+                            'processing' => 'Processing',
+                        ])
+                        ->label('Status')
+                        ->sortable()
+                    : Tables\Columns\TextColumn::make('status')
+                        ->label('Status')
+                        ->sortable()
+                        ->badge()
+                        ->color(fn (string $state): string => match ($state) {
+                            'completed' => 'success',
+                            'pending' => 'warning',
+                            'processing' => 'info',
+                            'failed' => 'danger',
+                            'cancelled' => 'gray',
+                            default => 'gray',
+                        }),
+
+                // Additional columns for admin users
+                Tables\Columns\TextColumn::make('branch.name')
+                    ->label('Branch')
+                    ->searchable()
+                    ->sortable()
+                    ->visible(Auth::user()?->business_id === 1),
 
                 Tables\Columns\TextColumn::make('business.name')
                     ->label('Business')
                     ->searchable()
-                    ->sortable(),
-
-
-                Auth::user()?->business_id == 1
-                    ? Tables\Columns\SelectColumn::make('status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'completed' => 'Completed',
-                        'failed' => 'Failed',
-                        'cancelled' => 'Cancelled',
-                        'processing' => 'Processing',
-                    ])
-                    ->label('Status')
                     ->sortable()
-                    : Tables\Columns\TextColumn::make('status')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('type')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('origin')
-                    ->sortable()
-                    ->visible(Auth::user()?->business_id === 1)
-                    ,
+                    ->visible(Auth::user()?->business_id === 1),
 
                 Tables\Columns\TextColumn::make('phone_number')
-                    ->searchable(),
+                    ->label('Phone')
+                    ->searchable()
+                    ->visible(Auth::user()?->business_id === 1),
 
                 Tables\Columns\TextColumn::make('provider')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('service'),
-
-                Tables\Columns\TextColumn::make('date')
-                    ->date()
-                    ->label('Date')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('currency')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('names')
-                    ->searchable(),
-
-                Tables\Columns\TextColumn::make('email')
-                    ->searchable(),
-
-                Tables\Columns\TextColumn::make('ip_address')
-                    ->visible(Auth::user()?->business_id === 1)
-                    ,
-
-                Tables\Columns\TextColumn::make('user_agent')
-                    ->visible(Auth::user()?->business_id === 1)
-                    ,
-
-                Tables\Columns\TextColumn::make('method')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
+                    ->label('Provider')
                     ->sortable()
-                    ->label('Created At'),
+                    ->visible(Auth::user()?->business_id === 1),
 
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
+                Tables\Columns\TextColumn::make('type')
+                    ->label('Type')
                     ->sortable()
-                    ->label('Updated At'),
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'credit' => 'success',
+                        'debit' => 'danger',
+                        default => 'gray',
+                    })
+                    ->visible(Auth::user()?->business_id === 1),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')

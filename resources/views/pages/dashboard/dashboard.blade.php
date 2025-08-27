@@ -45,6 +45,32 @@
                 </div>
             </div>
 
+            <!-- Service Points Quick Access - Moved up for prominence -->
+            @if(auth()->user()->service_points)
+                <div class="mb-6 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">Service Points Dashboard</h3>
+                                <p class="text-sm text-gray-600">Manage your service points and client queues</p>
+                            </div>
+                        </div>
+                        <a href="{{ route('service-queues.index') }}" 
+                           class="bg-[#011478] hover:bg-[#011478]/90 text-white px-6 py-3 rounded-lg font-semibold transition duration-200 flex items-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                            <span>View Service Points</span>
+                        </a>
+                    </div>
+                </div>
+            @endif
+
             <!-- Main Content -->
             <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm p-6">
                 <!-- Dashboard Content -->

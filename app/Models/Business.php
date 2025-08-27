@@ -27,6 +27,11 @@ class Business extends Model
         'date'
     ];
 
+    protected $casts = [
+        'account_balance' => 'decimal:2',
+        'date' => 'date',
+    ];
+
     // a businness has many users
     public function users()
     {

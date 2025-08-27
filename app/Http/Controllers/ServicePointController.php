@@ -37,7 +37,29 @@ class ServicePointController extends Controller
      */
     public function show(ServicePoint $servicePoint)
     {
-        //
+        // Check if user has access to this service point
+        $user = auth()->user();
+        
+        // Check if the service point is in the user's assigned service points
+        if (!$user->service_points || !in_array($servicePoint->id, $user->service_points)) {
+            abort(403, 'You do not have access to this service point.');
+        }
+
+        // Load the service point with its queues and related data
+        $servicePoint->load([
+            'pendingDeliveryQueues.client',
+            'pendingDeliveryQueues.invoice',
+            'partiallyDoneDeliveryQueues.client', 
+            'partiallyDoneDeliveryQueues.invoice',
+            'partiallyDoneDeliveryQueues.startedByUser',
+            'serviceDeliveryQueues' => function($query) {
+                $query->where('status', 'completed')
+                      ->whereDate('completed_at', today())
+                      ->with(['client', 'invoice']);
+            }
+        ]);
+
+        return view('service-points.show', compact('servicePoint'));
     }
 
     /**

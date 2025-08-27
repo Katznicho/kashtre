@@ -256,7 +256,13 @@
 
                     <!-- Financial Information -->
                     <div class="bg-gray-50 p-4 rounded-lg mb-8">
-                        <h4 class="text-md font-medium text-gray-900 mb-4">Financial Information</h4>
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-md font-medium text-gray-900">Financial Information</h4>
+                            <a href="{{ route('balance-history.show', $client) }}" 
+                               class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                View Balance History
+                            </a>
+                        </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="text-sm font-medium text-gray-500">Current Balance</label>

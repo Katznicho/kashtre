@@ -9,9 +9,11 @@ use App\Services\MoneyTrackingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class InvoiceController extends Controller
 {
+    protected $currentInvoice;
     /**
      * Calculate package adjustment for a client
      */
@@ -28,66 +30,78 @@ class InvoiceController extends Controller
             $businessId = $validated['business_id'];
             $items = $validated['items'];
 
-            // For now, we'll implement a simple package adjustment calculation
-            // This will be enhanced once the PackageUsage model is properly set up
             $totalAdjustment = 0;
             $adjustmentDetails = [];
 
-            // Get client's previous invoices with packages
-            $previousInvoices = Invoice::where('client_id', $clientId)
+            // Get client's valid package tracking records
+            $validPackages = \App\Models\PackageTracking::where('client_id', $clientId)
                 ->where('business_id', $businessId)
-                ->where('status', '!=', 'cancelled')
-                ->whereJsonLength('items', '>', 0)
-                ->orderBy('created_at', 'desc')
+                ->where('status', 'active')
+                ->where('remaining_quantity', '>', 0)
+                ->where('valid_until', '>=', now()->toDateString())
+                ->with(['packageItem.packageItems.includedItem'])
                 ->get();
 
             foreach ($items as $item) {
                 $itemId = $item['id'] ?? $item['item_id'];
                 $quantity = $item['quantity'] ?? 1;
-                $price = $item['price'] ?? 0;
+                $remainingQuantity = $quantity;
+                
+                // Get the item price from the database
+                $itemModel = \App\Models\Item::find($itemId);
+                $price = $itemModel ? $itemModel->default_price : 0;
 
-                // Check if this item is available in any previous package purchases
-                foreach ($previousInvoices as $invoice) {
-                    $invoiceItems = $invoice->items ?? [];
+                // Check if this item is included in any valid packages
+                foreach ($validPackages as $packageTracking) {
+                    if ($remainingQuantity <= 0) break;
+
+                    // Check if the current item is included in this package
+                    $packageItems = $packageTracking->packageItem->packageItems;
                     
-                    foreach ($invoiceItems as $invoiceItem) {
-                        $invoiceItemId = $invoiceItem['id'] ?? $invoiceItem['item_id'];
-                        
-                        // If this item was part of a package in a previous invoice
-                        if ($invoiceItemId == $itemId && isset($invoiceItem['package_info'])) {
-                            $packageInfo = $invoiceItem['package_info'];
-                            $packageExpiry = $packageInfo['expiry_date'] ?? null;
+                    foreach ($packageItems as $packageItem) {
+                        if ($packageItem->included_item_id == $itemId) {
+                            // Check max quantity constraint from package_items table
+                            $maxQuantity = $packageItem->max_quantity ?? null;
+                            $fixedQuantity = $packageItem->fixed_quantity ?? null;
                             
-                            // Check if package is still valid
-                            if ($packageExpiry && now()->lt($packageExpiry)) {
-                                $availableQuantity = $packageInfo['available_quantity'] ?? 0;
+                            // Determine how much quantity can be used from this package
+                            $availableFromPackage = $packageTracking->remaining_quantity;
+                            
+                            if ($maxQuantity !== null) {
+                                // If max_quantity is set, limit by that
+                                $availableFromPackage = min($availableFromPackage, $maxQuantity);
+                            } elseif ($fixedQuantity !== null) {
+                                // If fixed_quantity is set, use that
+                                $availableFromPackage = min($availableFromPackage, $fixedQuantity);
+                            }
+                            
+                            // Calculate how much we can actually use
+                            $quantityToUse = min($remainingQuantity, $availableFromPackage);
+                            
+                            if ($quantityToUse > 0) {
+                                $itemAdjustment = $quantityToUse * $price;
+                                $totalAdjustment += $itemAdjustment;
                                 
-                                if ($availableQuantity > 0) {
-                                    $quantityToUse = min($quantity, $availableQuantity);
-                                    $itemAdjustment = $quantityToUse * $price;
-                                    $totalAdjustment += $itemAdjustment;
-                                    
-                                    $adjustmentDetails[] = [
-                                        'item_id' => $itemId,
-                                        'item_name' => $item['name'] ?? 'Unknown',
-                                        'quantity_adjusted' => $quantityToUse,
-                                        'adjustment_amount' => $itemAdjustment,
-                                        'package_invoice' => $invoice->invoice_number,
-                                        'package_expiry' => $packageExpiry,
-                                    ];
-                                    
-                                    // Update the quantity for this item
-                                    $quantity -= $quantityToUse;
-                                    
-                                    // If we've used all available quantity, break
-                                    if ($quantity <= 0) break;
-                                }
+                                $adjustmentDetails[] = [
+                                    'item_id' => $itemId,
+                                    'item_name' => $item['name'] ?? 'Unknown',
+                                    'quantity_adjusted' => $quantityToUse,
+                                    'adjustment_amount' => $itemAdjustment,
+                                    'package_name' => $packageTracking->packageItem->name,
+                                    'package_tracking_id' => $packageTracking->id,
+                                    'package_expiry' => $packageTracking->valid_until->format('Y-m-d'),
+                                    'remaining_in_package' => $packageTracking->remaining_quantity - $quantityToUse,
+                                    'max_quantity' => $maxQuantity,
+                                    'fixed_quantity' => $fixedQuantity,
+                                ];
+                                
+                                $remainingQuantity -= $quantityToUse;
+                                
+                                // If we've used all available quantity from this package, break
+                                if ($remainingQuantity <= 0) break;
                             }
                         }
                     }
-                    
-                    // If we've processed all items, break
-                    if ($quantity <= 0) break;
                 }
             }
 
@@ -118,11 +132,9 @@ class InvoiceController extends Controller
             $business = $user->business;
             $moneyTrackingService = new MoneyTrackingService();
             
-            // Generate invoice number
-            $invoiceNumber = Invoice::generateInvoiceNumber($business->id);
-            
             // Validate request
             $validated = $request->validate([
+                'invoice_number' => 'nullable|string|unique:invoices,invoice_number',
                 'client_id' => 'required|exists:clients,id',
                 'business_id' => 'required|exists:businesses,id',
                 'branch_id' => 'required|exists:branches,id',
@@ -147,6 +159,9 @@ class InvoiceController extends Controller
             
             // Get client
             $client = Client::find($validated['client_id']);
+            
+            // Use provided invoice number or generate one
+            $invoiceNumber = $validated['invoice_number'] ?? Invoice::generateInvoiceNumber($business->id);
             
             // Create invoice
             $invoice = Invoice::create([
@@ -174,6 +189,9 @@ class InvoiceController extends Controller
                 'confirmed_at' => $validated['status'] === 'confirmed' ? now() : null,
             ]);
             
+            // Store current invoice for balance history
+            $this->currentInvoice = $invoice;
+            
             // MONEY TRACKING: Step 1 - Process payment received
             if ($validated['amount_paid'] > 0) {
                 $paymentMethods = $validated['payment_methods'] ?? [];
@@ -193,11 +211,15 @@ class InvoiceController extends Controller
                 );
                 
                 // Create transaction record for the payment
+                // Build description with purchased items
+                $itemsDescription = $this->buildItemsDescription($validated['items']);
+                
                 \App\Models\Transaction::create([
                     'business_id' => $validated['business_id'],
+                    'branch_id' => $validated['branch_id'],
                     'amount' => $validated['amount_paid'],
                     'reference' => $invoiceNumber,
-                    'description' => 'Payment for invoice ' . $invoiceNumber . ' - ' . $validated['client_name'],
+                    'description' => $itemsDescription,
                     'status' => 'completed',
                     'type' => 'debit',
                     'origin' => 'web',
@@ -226,6 +248,20 @@ class InvoiceController extends Controller
                 $moneyTrackingService->processServiceCharge($invoice, $validated['service_charge']);
             }
             
+            // PACKAGE TRACKING: Create package tracking records for package items
+            $this->createPackageTrackingRecords($invoice, $validated['items']);
+            
+            // PACKAGE ADJUSTMENT: Update package usage for items covered by packages
+            $this->updatePackageUsage($invoice, $validated['items']);
+            
+            // BALANCE ADJUSTMENT: Update client balance if balance adjustment was used
+            if ($validated['account_balance_adjustment'] > 0) {
+                $this->updateClientBalance($client, $validated['account_balance_adjustment']);
+            }
+            
+            // SERVICE POINT QUEUING: Queue items at their respective service points
+            $this->queueItemsAtServicePoints($invoice, $validated['items']);
+            
             // Generate next invoice number
             $nextInvoiceNumber = Invoice::generateInvoiceNumber($business->id);
             
@@ -249,26 +285,70 @@ class InvoiceController extends Controller
     }
     
     /**
+     * Build description with purchased items
+     */
+    private function buildItemsDescription($items)
+    {
+        if (empty($items)) {
+            return 'Payment for services';
+        }
+        
+        $itemDescriptions = [];
+        foreach ($items as $item) {
+            $name = $item['name'] ?? 'Unknown Item';
+            $quantity = $item['quantity'] ?? 1;
+            $type = $item['type'] ?? '';
+            
+            $description = $name;
+            if ($quantity > 1) {
+                $description .= " (x{$quantity})";
+            }
+            if (!empty($type)) {
+                $description .= " - {$type}";
+            }
+            
+            $itemDescriptions[] = $description;
+        }
+        
+        // Limit description length to avoid database issues
+        $fullDescription = implode(', ', $itemDescriptions);
+        if (strlen($fullDescription) > 500) {
+            $fullDescription = substr($fullDescription, 0, 497) . '...';
+        }
+        
+        return $fullDescription;
+    }
+
+    /**
      * Calculate service charge for a business
      */
     public function calculateServiceCharge($businessId, $subtotal)
     {
-        // Get service charge settings for the business
+        // Get service charge settings for the business based on amount range
+        // Order by lower_bound DESC to get the highest applicable range
         $serviceCharge = ServiceCharge::where('business_id', $businessId)
             ->where('entity_type', 'business')
             ->where('is_active', true)
+            ->where('lower_bound', '<=', $subtotal)
+            ->where('upper_bound', '>=', $subtotal)
+            ->orderBy('lower_bound', 'desc')
             ->first();
         
         if (!$serviceCharge) {
-            return 0; // No service charge configured
+            return 0; // No service charge configured for this amount range
         }
         
-        // Calculate based on type and amount
-        if ($serviceCharge->type === 'percentage') {
-            return ($subtotal * $serviceCharge->amount) / 100;
-        } else {
+        // For fixed charges, return the amount directly
+        if ($serviceCharge->type === 'fixed') {
             return $serviceCharge->amount;
         }
+        
+        // For percentage charges, calculate based on amount
+        if ($serviceCharge->type === 'percentage') {
+            return ($subtotal * $serviceCharge->amount) / 100;
+        }
+        
+        return 0;
     }
     
     /**
@@ -311,6 +391,8 @@ class InvoiceController extends Controller
                     ->where('entity_type', 'branch')
                     ->where('entity_id', $branchId)
                     ->where('is_active', true)
+                    ->where('lower_bound', '<=', $subtotal)
+                    ->where('upper_bound', '>=', $subtotal)
                     ->first();
             }
             
@@ -319,6 +401,9 @@ class InvoiceController extends Controller
                 $serviceCharge = ServiceCharge::where('business_id', $businessId)
                     ->where('entity_type', 'business')
                     ->where('is_active', true)
+                    ->where('lower_bound', '<=', $subtotal)
+                    ->where('upper_bound', '>=', $subtotal)
+                    ->orderBy('lower_bound', 'desc')
                     ->first();
             }
             
@@ -330,22 +415,14 @@ class InvoiceController extends Controller
                 ]);
             }
             
-            // Calculate service charge based on type and bounds
+            // Calculate service charge based on type
             $calculatedCharge = 0;
             
             if ($serviceCharge->type === 'percentage') {
                 $calculatedCharge = ($subtotal * $serviceCharge->amount) / 100;
             } else {
+                // For fixed charges, return the amount directly
                 $calculatedCharge = $serviceCharge->amount;
-            }
-            
-            // Apply bounds if set
-            if ($serviceCharge->lower_bound !== null && $calculatedCharge < $serviceCharge->lower_bound) {
-                $calculatedCharge = $serviceCharge->lower_bound;
-            }
-            
-            if ($serviceCharge->upper_bound !== null && $calculatedCharge > $serviceCharge->upper_bound) {
-                $calculatedCharge = $serviceCharge->upper_bound;
             }
             
             return response()->json([
@@ -368,6 +445,40 @@ class InvoiceController extends Controller
         }
     }
     
+    /**
+     * Calculate balance adjustment for a client
+     */
+    public function calculateBalanceAdjustment(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'client_id' => 'required|exists:clients,id',
+                'total_amount' => 'required|numeric|min:0',
+            ]);
+            
+            $client = Client::find($validated['client_id']);
+            $clientBalance = $client->balance ?? 0;
+            $totalAmount = $validated['total_amount'];
+            
+            // Calculate how much balance can be used
+            $balanceAdjustment = min($clientBalance, $totalAmount);
+            
+            return response()->json([
+                'success' => true,
+                'balance_adjustment' => $balanceAdjustment,
+                'client_balance' => $clientBalance,
+                'remaining_balance' => $clientBalance - $balanceAdjustment,
+                'message' => $balanceAdjustment > 0 ? 'Balance adjustment applied' : 'No balance available for adjustment'
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error calculating balance adjustment: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     /**
      * Generate next invoice number
      */
@@ -452,6 +563,9 @@ class InvoiceController extends Controller
             abort(403, 'Unauthorized access to invoice.');
         }
         
+        // Load the invoice with quotations relationship
+        $invoice->load('quotations');
+        
         return view('invoices.show', compact('invoice'));
     }
     
@@ -505,6 +619,221 @@ class InvoiceController extends Controller
                 'success' => false,
                 'message' => 'Failed to cancel invoice: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+
+
+    /**
+     * Create package tracking records for package items
+     */
+    private function createPackageTrackingRecords($invoice, $items)
+    {
+        foreach ($items as $item) {
+            $itemId = $item['id'] ?? $item['item_id'] ?? null;
+            if (!$itemId) continue;
+
+            // Get the item from database to check if it's a package
+            $itemModel = \App\Models\Item::find($itemId);
+            if (!$itemModel || $itemModel->type !== 'package') continue;
+
+            // Get included items for this package from package_items table
+            $packageItems = $itemModel->packageItems()->with('includedItem')->get();
+            if ($packageItems->isEmpty()) continue;
+
+            $quantity = $item['quantity'] ?? 1;
+            $packagePrice = $item['price'] ?? 0;
+
+            foreach ($packageItems as $packageItem) {
+                $includedItem = $packageItem->includedItem;
+                $includedItemId = $includedItem->id;
+                $maxQuantity = $packageItem->max_quantity ?? 1;
+                $includedItemPrice = $includedItem->default_price ?? 0;
+
+                // Calculate total quantity for this included item
+                $totalQuantity = $maxQuantity * $quantity;
+
+                // Create package tracking record
+                \App\Models\PackageTracking::create([
+                    'business_id' => $invoice->business_id,
+                    'client_id' => $invoice->client_id,
+                    'invoice_id' => $invoice->id,
+                    'package_item_id' => $itemId,
+                    'included_item_id' => $includedItemId,
+                    'total_quantity' => $totalQuantity,
+                    'used_quantity' => 0,
+                    'remaining_quantity' => $totalQuantity,
+                    'valid_from' => now()->toDateString(),
+                    'valid_until' => now()->addDays(365)->toDateString(), // Default 1 year validity
+                    'status' => 'active',
+                    'package_price' => $packagePrice,
+                    'item_price' => $includedItemPrice,
+                    'notes' => "Package: {$itemModel->name}, Invoice: {$invoice->invoice_number}"
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Queue items at their respective service points
+     */
+    private function queueItemsAtServicePoints($invoice, $items)
+    {
+        foreach ($items as $item) {
+            $itemId = $item['id'] ?? $item['item_id'] ?? null;
+            if (!$itemId) continue;
+
+            // Get the item from database
+            $itemModel = \App\Models\Item::find($itemId);
+            if (!$itemModel) continue;
+
+            $quantity = $item['quantity'] ?? 1;
+
+            // Handle regular items with service points
+            if ($itemModel->service_point_id) {
+                // Create service delivery queue record for the main item
+                \App\Models\ServiceDeliveryQueue::create([
+                    'business_id' => $invoice->business_id,
+                    'branch_id' => $invoice->branch_id,
+                    'service_point_id' => $itemModel->service_point_id,
+                    'invoice_id' => $invoice->id,
+                    'client_id' => $invoice->client_id,
+                    'item_id' => $itemId,
+                    'item_name' => $item['name'] ?? $itemModel->name,
+                    'quantity' => $quantity,
+                    'price' => $item['price'] ?? $itemModel->default_price ?? 0,
+                    'status' => 'pending',
+                    'priority' => 'normal',
+                    'notes' => "Invoice: {$invoice->invoice_number}, Client: {$invoice->client_name}",
+                    'queued_at' => now(),
+                    'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
+                ]);
+            }
+
+            // Handle package items - queue each included item at its respective service point
+            if ($itemModel->type === 'package') {
+                $packageItems = $itemModel->packageItems()->with('includedItem')->get();
+                
+                foreach ($packageItems as $packageItem) {
+                    $includedItem = $packageItem->includedItem;
+                    $maxQuantity = $packageItem->max_quantity ?? 1;
+                    $totalQuantity = $maxQuantity * $quantity;
+
+                    // Only queue if the included item has a service point
+                    if ($includedItem->service_point_id) {
+                        \App\Models\ServiceDeliveryQueue::create([
+                            'business_id' => $invoice->business_id,
+                            'branch_id' => $invoice->branch_id,
+                            'service_point_id' => $includedItem->service_point_id,
+                            'invoice_id' => $invoice->id,
+                            'client_id' => $invoice->client_id,
+                            'item_id' => $includedItem->id,
+                            'item_name' => $includedItem->name,
+                            'quantity' => $totalQuantity,
+                            'price' => $includedItem->default_price ?? 0,
+                            'status' => 'pending',
+                            'priority' => 'normal',
+                            'notes' => "Package: {$itemModel->name}, Invoice: {$invoice->invoice_number}, Client: {$invoice->client_name}",
+                            'queued_at' => now(),
+                            'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
+                        ]);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Update package usage for items covered by packages
+     */
+    private function updatePackageUsage($invoice, $items)
+    {
+        $clientId = $invoice->client_id;
+        $businessId = $invoice->business_id;
+
+        // Get client's valid package tracking records
+        $validPackages = \App\Models\PackageTracking::where('client_id', $clientId)
+            ->where('business_id', $businessId)
+            ->where('status', 'active')
+            ->where('remaining_quantity', '>', 0)
+            ->where('valid_until', '>=', now()->toDateString())
+            ->with(['packageItem.packageItems.includedItem'])
+            ->get();
+
+        foreach ($items as $item) {
+            $itemId = $item['id'] ?? $item['item_id'];
+            $quantity = $item['quantity'] ?? 1;
+            $remainingQuantity = $quantity;
+
+            // Check if this item is included in any valid packages
+            foreach ($validPackages as $packageTracking) {
+                if ($remainingQuantity <= 0) break;
+
+                // Check if the current item is included in this package
+                $packageItems = $packageTracking->packageItem->packageItems;
+                
+                foreach ($packageItems as $packageItem) {
+                    if ($packageItem->included_item_id == $itemId) {
+                        // Check max quantity constraint from package_items table
+                        $maxQuantity = $packageItem->max_quantity ?? null;
+                        $fixedQuantity = $packageItem->fixed_quantity ?? null;
+                        
+                        // Determine how much quantity can be used from this package
+                        $availableFromPackage = $packageTracking->remaining_quantity;
+                        
+                        if ($maxQuantity !== null) {
+                            // If max_quantity is set, limit by that
+                            $availableFromPackage = min($availableFromPackage, $maxQuantity);
+                        } elseif ($fixedQuantity !== null) {
+                            // If fixed_quantity is set, use that
+                            $availableFromPackage = min($availableFromPackage, $fixedQuantity);
+                        }
+                        
+                        // Calculate how much we can actually use
+                        $quantityToUse = min($remainingQuantity, $availableFromPackage);
+                        
+                        if ($quantityToUse > 0) {
+                            // Update package tracking record
+                            $packageTracking->useQuantity($quantityToUse);
+                            
+                            $remainingQuantity -= $quantityToUse;
+                            
+                            // If we've used all available quantity from this package, break
+                            if ($remainingQuantity <= 0) break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Update client balance when balance adjustment is used
+     */
+    private function updateClientBalance($client, $balanceAdjustment)
+    {
+        try {
+            $currentBalance = $client->balance ?? 0;
+            $newBalance = $currentBalance - $balanceAdjustment;
+            
+            // Ensure balance doesn't go negative
+            $newBalance = max(0, $newBalance);
+            
+            $client->update(['balance' => $newBalance]);
+            
+            // Record balance history
+            \App\Models\BalanceHistory::recordPayment(
+                $client,
+                $this->currentInvoice ?? null,
+                $balanceAdjustment,
+                'balance_adjustment',
+                'POS Balance Adjustment'
+            );
+            
+            Log::info("Client balance updated: Client ID {$client->id}, Adjustment: {$balanceAdjustment}, Old Balance: {$currentBalance}, New Balance: {$newBalance}");
+            
+        } catch (\Exception $e) {
+            Log::error('Error updating client balance: ' . $e->getMessage());
         }
     }
 }

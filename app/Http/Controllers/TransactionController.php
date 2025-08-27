@@ -75,7 +75,7 @@ class TransactionController extends Controller
     {
         // Check if user has access to this client
         $user = auth()->user();
-        if ($client->business_id !== $user->business->id) {
+        if ($client->business_id !== $user->business_id) {
             abort(403, 'Unauthorized access to client.');
         }
 
@@ -83,7 +83,7 @@ class TransactionController extends Controller
         $currentBranch = $user->currentBranch;
 
         // Fetch items that belong to this hospital/business
-        $items = Item::where('business_id', $user->business->id)
+        $items = Item::where('business_id', $user->business_id)
                     ->orderBy('name')
                     ->get();
 
@@ -91,7 +91,7 @@ class TransactionController extends Controller
         $branchPrices = [];
         if ($currentBranch) {
             $branchPrices = BranchItemPrice::where('branch_id', $currentBranch->id)
-                ->where('business_id', $user->business->id)
+                ->where('business_id', $user->business_id)
                 ->pluck('price', 'item_id')
                 ->toArray();
         }

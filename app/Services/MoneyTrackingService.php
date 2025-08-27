@@ -13,6 +13,8 @@ use App\Models\ContractorProfile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Exception;
+use App\Models\BusinessBalanceHistory;
+use App\Models\ContractorBalanceHistory;
 
 class MoneyTrackingService
 {
@@ -487,5 +489,318 @@ class MoneyTrackingService
     {
         $account = $this->getOrCreateContractorAccount($contractor);
         return $account->balance;
+    }
+
+    /**
+     * Process money transfers when service delivery item moves to partially done
+     */
+    public function processServiceDeliveryMoneyTransfer($serviceDeliveryQueue, $user = null)
+    {
+        DB::beginTransaction();
+        
+        try {
+            $invoice = $serviceDeliveryQueue->invoice;
+            $item = $serviceDeliveryQueue->item;
+            $business = Business::find($invoice->business_id);
+            
+            // Get the item amount (considering package adjustments)
+            $itemAmount = $this->calculateItemAmount($invoice, $item);
+            
+            // Get service charge for this invoice
+            $serviceCharge = $invoice->service_charge ?? 0;
+            
+            // Get business account
+            $businessAccount = $this->getOrCreateBusinessAccount($business);
+            
+            // Get Kashtre account (business_id = 1)
+            $kashtreAccount = $this->getOrCreateKashtreAccount();
+            
+            // Transfer item amount to business account
+            $this->transferMoney(
+                $this->getOrCreateGeneralSuspenseAccount($business),
+                $businessAccount,
+                $itemAmount,
+                'service_delivered',
+                $invoice,
+                $item,
+                "Service delivery payment for {$item->name}"
+            );
+            
+            // Record business balance history
+            BusinessBalanceHistory::recordChange(
+                $business->id,
+                $businessAccount->id,
+                $itemAmount,
+                'credit',
+                "Service delivery payment for {$item->name}",
+                'service_delivery_queue',
+                $serviceDeliveryQueue->id,
+                [
+                    'invoice_id' => $invoice->id,
+                    'item_id' => $item->id,
+                    'client_id' => $invoice->client_id
+                ],
+                $user ? $user->id : null
+            );
+            
+            // Initialize business share amount (will be updated if contractor share exists)
+            $businessShare = $itemAmount;
+            
+            // Transfer service charge to Kashtre account
+            if ($serviceCharge > 0) {
+                $this->transferMoney(
+                    $this->getOrCreateKashtreSuspenseAccount($business),
+                    $kashtreAccount,
+                    $serviceCharge,
+                    'service_charge',
+                    $invoice,
+                    $item,
+                    "Service charge for invoice #{$invoice->invoice_number}"
+                );
+                
+                // Record Kashtre balance history
+                BusinessBalanceHistory::recordChange(
+                    1, // Kashtre business_id
+                    $kashtreAccount->id,
+                    $serviceCharge,
+                    'credit',
+                    "Service charge for invoice #{$invoice->invoice_number}",
+                    'service_delivery_queue',
+                    $serviceDeliveryQueue->id,
+                    [
+                        'invoice_id' => $invoice->id,
+                        'item_id' => $item->id,
+                        'client_id' => $invoice->client_id,
+                        'business_id' => $business->id
+                    ],
+                    $user ? $user->id : null
+                );
+            }
+            
+            // Handle contractor share if item has contractor
+            if ($item->contractor_account_id) {
+                $contractor = ContractorProfile::find($item->contractor_account_id);
+                if ($contractor && $item->hospital_share < 100) {
+                    $contractorShare = ($itemAmount * (100 - $item->hospital_share)) / 100;
+                    $businessShare = $itemAmount - $contractorShare;
+                    
+                    // Transfer contractor share to contractor account
+                    $contractorAccount = $this->getOrCreateContractorAccount($contractor);
+                    
+                    $this->transferMoney(
+                        $businessAccount,
+                        $contractorAccount,
+                        $contractorShare,
+                        'contractor_share',
+                        $invoice,
+                        $item,
+                        "Contractor share for {$item->name}"
+                    );
+                    
+                    // Record contractor balance history
+                    ContractorBalanceHistory::recordChange(
+                        $contractor->id,
+                        $contractorAccount->id,
+                        $contractorShare,
+                        'credit',
+                        "Contractor share for {$item->name}",
+                        'service_delivery_queue',
+                        $serviceDeliveryQueue->id,
+                        [
+                            'invoice_id' => $invoice->id,
+                            'item_id' => $item->id,
+                            'client_id' => $invoice->client_id,
+                            'business_id' => $business->id
+                        ],
+                        $user ? $user->id : null
+                    );
+                    
+                    // Record business balance history for contractor share
+                    BusinessBalanceHistory::recordChange(
+                        $business->id,
+                        $businessAccount->id,
+                        $contractorShare,
+                        'debit',
+                        "Contractor share payment for {$item->name}",
+                        'service_delivery_queue',
+                        $serviceDeliveryQueue->id,
+                        [
+                            'invoice_id' => $invoice->id,
+                            'item_id' => $item->id,
+                            'client_id' => $invoice->client_id,
+                            'contractor_id' => $contractor->id
+                        ],
+                        $user ? $user->id : null
+                    );
+                    
+                    // Update contractor account balance
+                    $contractor->increment('account_balance', $contractorShare);
+                    
+                    // Update business account balance
+                    $business->increment('account_balance', $businessShare);
+                }
+            }
+            
+            // Update business account balance (business share amount)
+            $business->increment('account_balance', $businessShare);
+            
+            DB::commit();
+            
+            Log::info("Service delivery money transfer processed", [
+                'service_delivery_queue_id' => $serviceDeliveryQueue->id,
+                'invoice_id' => $invoice->id,
+                'item_id' => $item->id,
+                'item_amount' => $itemAmount,
+                'service_charge' => $serviceCharge,
+                'business_id' => $business->id
+            ]);
+            
+            return true;
+            
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error("Failed to process service delivery money transfer", [
+                'service_delivery_queue_id' => $serviceDeliveryQueue->id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+    
+    /**
+     * Calculate item amount considering package adjustments
+     */
+    private function calculateItemAmount($invoice, $item)
+    {
+        // Get the original item price from invoice items array
+        $invoiceItem = null;
+        if ($invoice->items && is_array($invoice->items)) {
+            foreach ($invoice->items as $invItem) {
+                if (isset($invItem['id']) && $invItem['id'] == $item->id) {
+                    $invoiceItem = $invItem;
+                    break;
+                }
+            }
+        }
+        
+        if (!$invoiceItem) {
+            return 0;
+        }
+        
+        $originalAmount = ($invoiceItem['quantity'] ?? 0) * ($invoiceItem['price'] ?? 0);
+        
+        // Apply package adjustment if any
+        if ($invoice->package_adjustment > 0) {
+            // Calculate package adjustment for this specific item
+            $packageAdjustment = $this->calculateItemPackageAdjustment($invoice, $item);
+            $originalAmount -= $packageAdjustment;
+        }
+        
+        return max(0, $originalAmount);
+    }
+    
+    /**
+     * Calculate package adjustment for a specific item
+     */
+    private function calculateItemPackageAdjustment($invoice, $item)
+    {
+        // Get the item from invoice items array
+        $invoiceItem = null;
+        if ($invoice->items && is_array($invoice->items)) {
+            foreach ($invoice->items as $invItem) {
+                if (isset($invItem['id']) && $invItem['id'] == $item->id) {
+                    $invoiceItem = $invItem;
+                    break;
+                }
+            }
+        }
+        
+        if (!$invoiceItem) {
+            return 0;
+        }
+        
+        $itemTotal = ($invoiceItem['quantity'] ?? 0) * ($invoiceItem['price'] ?? 0);
+        
+        // Calculate total invoice amount from items array
+        $totalInvoiceAmount = 0;
+        if ($invoice->items && is_array($invoice->items)) {
+            foreach ($invoice->items as $invItem) {
+                $totalInvoiceAmount += ($invItem['quantity'] ?? 0) * ($invItem['price'] ?? 0);
+            }
+        }
+        
+        if ($totalInvoiceAmount > 0) {
+            return ($itemTotal / $totalInvoiceAmount) * $invoice->package_adjustment;
+        }
+        
+        return 0;
+    }
+    
+    /**
+     * Get or create business account
+     */
+    private function getOrCreateBusinessAccount(Business $business)
+    {
+        return MoneyAccount::firstOrCreate([
+            'business_id' => $business->id,
+            'type' => 'business_account'
+        ], [
+            'name' => "Business Account - {$business->name}",
+            'description' => "Business account for {$business->name}",
+            'balance' => 0,
+            'currency' => 'UGX',
+            'is_active' => true
+        ]);
+    }
+    
+    /**
+     * Get or create Kashtre account
+     */
+    private function getOrCreateKashtreAccount()
+    {
+        return MoneyAccount::firstOrCreate([
+            'business_id' => 1, // Kashtre business_id
+            'type' => 'kashtre_account'
+        ], [
+            'name' => "Kashtre Account",
+            'description' => "Kashtre platform account",
+            'balance' => 0,
+            'currency' => 'UGX',
+            'is_active' => true
+        ]);
+    }
+    
+    /**
+     * Get or create general suspense account
+     */
+    private function getOrCreateGeneralSuspenseAccount(Business $business)
+    {
+        return MoneyAccount::firstOrCreate([
+            'business_id' => $business->id,
+            'type' => 'general_suspense_account'
+        ], [
+            'name' => "General Suspense Account - {$business->name}",
+            'description' => "General suspense account for {$business->name}",
+            'balance' => 0,
+            'currency' => 'UGX',
+            'is_active' => true
+        ]);
+    }
+    
+    /**
+     * Get or create Kashtre suspense account
+     */
+    private function getOrCreateKashtreSuspenseAccount(Business $business)
+    {
+        return MoneyAccount::firstOrCreate([
+            'business_id' => $business->id,
+            'type' => 'kashtre_suspense_account'
+        ], [
+            'name' => "Kashtre Suspense Account - {$business->name}",
+            'description' => "Kashtre suspense account for {$business->name}",
+            'balance' => 0,
+            'currency' => 'UGX',
+            'is_active' => true
+        ]);
     }
 }

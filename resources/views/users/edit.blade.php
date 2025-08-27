@@ -59,7 +59,7 @@
     <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
         <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6">
             <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-6">Edit User</h2>
-            <form action="{{ route('users.update', $user->id) }}" method="POST" enctype="multipart/form-data" class="space-y-6" @submit="console.log('Form submitted')">
+            <form action="{{ route('users.update', $user->id) }}" method="POST" enctype="multipart/form-data" class="space-y-6" @submit="handleFormSubmit">
                 @csrf
                 @method('PUT')
 
@@ -125,8 +125,8 @@
                     </button>
                     <div x-show="open" class="p-4 space-y-4">
                         <div>
-                            <label for="business_id">Business <span class="text-red-500">*</span></label>
-                            <select name="business_id" id="business_id" required class="form-select w-full" x-model="selectedBusinessId" @change="updateBranches" :disabled="userBusinessId !== 1">
+                            <label for="business_id">Business <span class="text-red-500" x-show="userBusinessId === 1">*</span></label>
+                            <select name="business_id" id="business_id" :required="userBusinessId === 1" class="form-select w-full" x-model="selectedBusinessId" @change="updateBranches" :disabled="userBusinessId !== 1">
                                 <option value="" disabled>Select Business</option>
                                 @foreach($businesses as $id => $business)
                                     @if(Auth::user()->business_id == 1 || Auth::user()->business_id == $id)
@@ -209,7 +209,7 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
                                 <template x-for="sp in filteredServicePoints" :key="sp.id">
                                     <label class="inline-flex items-center">
-                                        <input type="checkbox" name="service_points[]" :value="sp.name" class="form-checkbox" :checked="{{ json_encode($user->service_points ?? []) }}.includes(sp.name)">
+                                        <input type="checkbox" name="service_points[]" :value="sp.id" class="form-checkbox" :checked="{{ json_encode($user->service_points ?? []) }}.includes(sp.id)">
                                         <span class="ml-2" x-text="sp.name"></span>
                                     </label>
                                 </template>
@@ -310,7 +310,7 @@
 
                 <div class="flex justify-end space-x-4 pt-4">
                     <a href="{{ route('users.index') }}" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400">Cancel</a>
-                    <button type="submit" class="px-4 py-2 bg-[#011478] text-white rounded-md hover:bg-[#011478]/90" @click="console.log('Button clicked')">Update User</button>
+                    <button type="submit" class="px-4 py-2 bg-[#011478] text-white rounded-md hover:bg-[#011478]/90">Update User</button>
                 </div>
             </form>
         </div>
@@ -412,6 +412,15 @@
                         this.filteredTitles = this.selectedBusinessId && this.titlesByBusiness[this.selectedBusinessId]
                             ? this.titlesByBusiness[this.selectedBusinessId]
                             : [];
+                    },
+                    handleFormSubmit(event) {
+                        // If user is not from super business, ensure business_id is set
+                        if (this.userBusinessId !== 1) {
+                            const businessSelect = document.getElementById('business_id');
+                            if (businessSelect) {
+                                businessSelect.value = this.userBusinessId;
+                            }
+                        }
                     }
                 }
             }

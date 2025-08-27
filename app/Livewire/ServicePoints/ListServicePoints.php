@@ -58,6 +58,17 @@ class ListServicePoints extends Component implements HasForms, HasTable
                     ->wrap()
                     ->toggleable(),
 
+                Tables\Columns\TextColumn::make('pending_items_count')
+                    ->label('Pending Items')
+                    ->getStateUsing(function (ServicePoint $record) {
+                        return $record->pendingDeliveryQueues()->count();
+                    })
+                    ->badge()
+                    ->color(fn (string $state): string => match (true) {
+                        $state > 0 => 'warning',
+                        default => 'success',
+                    }),
+
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Created At')
                     ->dateTime()
@@ -87,6 +98,22 @@ class ListServicePoints extends Component implements HasForms, HasTable
                 ] : []),
             ])
             ->actions([
+                Tables\Actions\Action::make('view_queued_items')
+                    ->label('View Queued Items')
+                    ->icon('heroicon-o-eye')
+                    ->color('info')
+                    ->modalHeading('Queued Items at ' . fn(ServicePoint $record) => $record->name)
+                    ->modalContent(function (ServicePoint $record) {
+                        $queuedItems = $record->pendingDeliveryQueues()->with(['client', 'invoice'])->get();
+                        
+                        if ($queuedItems->isEmpty()) {
+                            return view('livewire.service_points.no-queued-items');
+                        }
+                        
+                        return view('livewire.service_points.queued-items-list', compact('queuedItems'));
+                    })
+                    ->modalWidth('4xl'),
+
                 EditAction::make()
                     ->label('Edit Service Point')
                 
