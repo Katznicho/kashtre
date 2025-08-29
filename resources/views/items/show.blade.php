@@ -115,24 +115,7 @@
                             <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->itemUnit->name ?? 'Not assigned' }}</p>
                         </div>
 
-                        @if($item->branchServicePoints->count() > 0)
-                        <div>
-                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Branch Service Points</label>
-                            <div class="mt-1 space-y-1">
-                                @foreach($item->branchServicePoints as $branchServicePoint)
-                                    <p class="text-sm text-gray-900 dark:text-white">
-                                        <span class="font-medium">{{ $branchServicePoint->branch->name }}:</span> 
-                                        {{ $branchServicePoint->servicePoint->name }}
-                                    </p>
-                                @endforeach
-                            </div>
-                        </div>
-                        @else
-                        <div>
-                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Branch Service Points</label>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">No service points assigned</p>
-                        </div>
-                        @endif
+
                     </div>
                     @endif
                 </div>
