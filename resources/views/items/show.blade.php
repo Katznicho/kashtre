@@ -267,6 +267,7 @@
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Branch</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Price</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Service Points</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Last Updated</th>
                                 </tr>
@@ -284,6 +285,22 @@
                                             <span class="ml-2 text-xs {{ $branchPrice->price > $item->default_price ? 'text-red-600' : 'text-green-600' }}">
                                                 ({{ $branchPrice->price > $item->default_price ? '+' : '' }}{{ number_format((($branchPrice->price - $item->default_price) / $item->default_price) * 100, 1) }}%)
                                             </span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                        @php
+                                            $branchServicePoints = $item->branchServicePoints->where('branch_id', $branchPrice->branch_id);
+                                        @endphp
+                                        @if($branchServicePoints->count() > 0)
+                                            <div class="space-y-1">
+                                                @foreach($branchServicePoints as $branchServicePoint)
+                                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                                        {{ $branchServicePoint->servicePoint->name ?? 'N/A' }}
+                                                    </span>
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            <span class="text-gray-400 text-xs">No service points assigned</span>
                                         @endif
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
