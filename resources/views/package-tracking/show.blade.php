@@ -37,11 +37,11 @@
                             </div>
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Package Item</dt>
-                                <dd class="mt-1 text-sm text-gray-900">{{ $packageTracking->packageItem->name }}</dd>
+                                <dd class="mt-1 text-sm text-gray-900">{{ $packageTracking->packageItem->other_names ?? $packageTracking->packageItem->name }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Included Item</dt>
-                                <dd class="mt-1 text-sm text-gray-900">{{ $packageTracking->includedItem->name }}</dd>
+                                <dd class="mt-1 text-sm text-gray-900">{{ $packageTracking->includedItem->other_names ?? $packageTracking->includedItem->name }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Status</dt>
@@ -154,7 +154,7 @@
                                         @foreach($packageItems as $packageItem)
                                             <tr>
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="text-sm font-medium text-gray-900">{{ $packageItem->includedItem->name }}</div>
+                                                    <div class="text-sm font-medium text-gray-900">{{ $packageItem->includedItem->other_names ?? $packageItem->includedItem->name }}</div>
                                                     <div class="text-sm text-gray-500">{{ $packageItem->includedItem->description ?? 'No description' }}</div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">

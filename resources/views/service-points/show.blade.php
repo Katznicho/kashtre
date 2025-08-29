@@ -139,7 +139,7 @@
                                                             {{ $item->client->name ?? 'N/A' }}
                                                         </td>
                                                         <td class="px-4 py-3 text-gray-900 font-medium">
-                                                            {{ $item->item_name }}
+                                                            {{ $item->item->other_names ?? $item->item_name }}
                                                         </td>
                                                         <td class="px-4 py-3 text-gray-600 font-semibold">
                                                             {{ number_format($item->price, 0) }} UGX
@@ -188,7 +188,7 @@
                                                             {{ $item->client->name ?? 'N/A' }}
                                                         </td>
                                                         <td class="px-4 py-3 text-gray-900 font-medium">
-                                                            {{ $item->item_name }}
+                                                            {{ $item->item->other_names ?? $item->item_name }}
                                                         </td>
                                                         <td class="px-4 py-3 text-gray-600 font-semibold">
                                                             {{ number_format($item->price, 0) }} UGX
@@ -240,7 +240,7 @@
                                                             {{ $item->client->name ?? 'N/A' }}
                                                         </td>
                                                         <td class="px-4 py-3 text-gray-900 font-medium">
-                                                            {{ $item->item_name }}
+                                                            {{ $item->item->other_names ?? $item->item_name }}
                                                         </td>
                                                         <td class="px-4 py-3 text-gray-600 font-semibold">
                                                             {{ number_format($item->price, 0) }} UGX

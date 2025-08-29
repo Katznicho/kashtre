@@ -235,7 +235,7 @@
                                             <select name="package_items[{{ $index }}][included_item_id]" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                                 <option value="">Select Item</option>
                                                 @foreach($availableItems as $availableItem)
-                                                    <option value="{{ $availableItem->id }}" {{ $packageItem->included_item_id == $availableItem->id ? 'selected' : '' }}>{{ $availableItem->name }} ({{ $availableItem->code }})</option>
+                                                    <option value="{{ $availableItem->id }}" {{ $packageItem->included_item_id == $availableItem->id ? 'selected' : '' }}>{{ $availableItem->other_names ?? $availableItem->name }} ({{ $availableItem->code }})</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -255,7 +255,7 @@
                                             <select name="package_items[0][included_item_id]" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                                 <option value="">Select Item</option>
                                                 @foreach($availableItems as $availableItem)
-                                                    <option value="{{ $availableItem->id }}">{{ $availableItem->name }} ({{ $availableItem->code }})</option>
+                                                    <option value="{{ $availableItem->id }}">{{ $availableItem->other_names ?? $availableItem->name }} ({{ $availableItem->code }})</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -291,7 +291,7 @@
                                             <select name="bulk_items[{{ $index }}][included_item_id]" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                                 <option value="">Select Item</option>
                                                 @foreach($availableItems as $availableItem)
-                                                    <option value="{{ $availableItem->id }}" {{ $bulkItem->included_item_id == $availableItem->id ? 'selected' : '' }}>{{ $availableItem->name }} ({{ $availableItem->code }})</option>
+                                                    <option value="{{ $availableItem->id }}" {{ $bulkItem->included_item_id == $availableItem->id ? 'selected' : '' }}>{{ $availableItem->other_names ?? $availableItem->name }} ({{ $availableItem->code }})</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -311,7 +311,7 @@
                                             <select name="bulk_items[0][included_item_id]" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                                 <option value="">Select Item</option>
                                                 @foreach($availableItems as $availableItem)
-                                                    <option value="{{ $availableItem->id }}">{{ $availableItem->name }} ({{ $availableItem->code }})</option>
+                                                    <option value="{{ $availableItem->id }}">{{ $availableItem->other_names ?? $availableItem->name }} ({{ $availableItem->code }})</option>
                                                 @endforeach
                                             </select>
                                         </div>

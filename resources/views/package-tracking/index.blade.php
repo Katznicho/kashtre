@@ -87,13 +87,13 @@
                                                 <div class="text-sm text-gray-500">{{ $package->invoice->created_at->format('M d, Y') }}</div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900">{{ $package->packageItem->name }}</div>
+                                                <div class="text-sm text-gray-900">{{ $package->packageItem->other_names ?? $package->packageItem->name }}</div>
                                                 <div class="text-xs text-gray-500">
                                                     {{ $package->packageItem->packageItems->count() }} items included
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900">{{ $package->includedItem->name }}</div>
+                                                <div class="text-sm text-gray-900">{{ $package->includedItem->other_names ?? $package->includedItem->name }}</div>
                                                 <div class="text-xs text-gray-500">
                                                     @if($package->packageItem->packageItems->count() > 1)
                                                         +{{ $package->packageItem->packageItems->count() - 1 }} more items

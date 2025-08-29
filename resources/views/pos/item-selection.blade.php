@@ -220,7 +220,7 @@
                                     <div class="item-row px-4 py-3 hover:bg-gray-50" data-item-name="{{ strtolower($item->name) }}" data-item-other-names="{{ strtolower($item->other_names ?? '') }}" data-item-type="{{ $item->type ?? 'N/A' }}">
                                         <div class="grid grid-cols-2 gap-4 items-center">
                                             <div>
-                                                <span class="text-sm text-gray-900">{{ $item->name }}</span>
+                                                <span class="text-sm text-gray-900">{{ $item->other_names ?? $item->name }}</span>
                                                 @if($item->description)
                                                 <p class="text-xs text-gray-500 mt-1">{{ $item->description }}</p>
                                                 @endif
