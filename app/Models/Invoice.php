@@ -108,13 +108,14 @@ class Invoice extends Model
     {
         return $this->is_service_charge_processed === true;
     }
-    public static function generateInvoiceNumber($businessId)
+    public static function generateInvoiceNumber($businessId, $type = 'invoice')
     {
-        $prefix = 'INV';
+        // Use 'P' prefix for proforma invoices, 'INV' for regular invoices
+        $prefix = ($type === 'proforma') ? 'P' : 'INV';
         $year = date('Y');
         $month = date('m');
         
-        // Get the last invoice number for this business and month
+        // Get the last invoice number for this business and month with the same prefix
         $lastInvoice = self::where('business_id', $businessId)
             ->where('invoice_number', 'like', "{$prefix}{$year}{$month}%")
             ->orderBy('invoice_number', 'desc')

@@ -161,7 +161,9 @@ class InvoiceController extends Controller
             $client = Client::find($validated['client_id']);
             
             // Use provided invoice number or generate one
-            $invoiceNumber = $validated['invoice_number'] ?? Invoice::generateInvoiceNumber($business->id);
+            // Determine if this is a proforma invoice (draft status) or regular invoice
+            $invoiceType = ($validated['status'] === 'draft') ? 'proforma' : 'invoice';
+            $invoiceNumber = $validated['invoice_number'] ?? Invoice::generateInvoiceNumber($business->id, $invoiceType);
             
             // Create invoice
             $invoice = Invoice::create([
@@ -257,8 +259,8 @@ class InvoiceController extends Controller
             // SERVICE POINT QUEUING: Queue items at their respective service points
             $this->queueItemsAtServicePoints($invoice, $validated['items']);
             
-            // Generate next invoice number
-            $nextInvoiceNumber = Invoice::generateInvoiceNumber($business->id);
+            // Generate next invoice number (default to regular invoice type)
+            $nextInvoiceNumber = Invoice::generateInvoiceNumber($business->id, 'invoice');
             
             DB::commit();
             
@@ -608,7 +610,7 @@ class InvoiceController extends Controller
                     'type' => 'debit',
                     'origin' => 'web',
                     'phone_number' => $validated['phone_number'],
-                    'provider' => 'yoapi',
+                    'provider' => 'yo',
                     'service' => 'mobile_money_payment',
                     'date' => now(),
                     'currency' => 'UGX',

@@ -21,6 +21,7 @@ class CheckPaymentStatus extends Command
         $pendingTransactions = Transaction::where('status', 'pending')
             ->whereNotNull('reference')
             ->where('method', 'mobile_money')
+            ->where('provider', 'yo')
             ->with(['business', 'client'])
             ->get();
 
