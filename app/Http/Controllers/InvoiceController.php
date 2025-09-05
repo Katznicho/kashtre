@@ -604,7 +604,8 @@ class InvoiceController extends Controller
                     'client_id' => $validated['client_id'],
                     'invoice_id' => null, // Will be set when invoice is created
                     'amount' => $validated['amount'],
-                    'reference' => $result['TransactionReference'],
+                    'reference' => $validated['invoice_number'], // Use invoice number as reference
+                    'external_reference' => $result['TransactionReference'], // Store YoAPI TransactionReference
                     'description' => $description,
                     'status' => 'pending',
                     'type' => 'debit',

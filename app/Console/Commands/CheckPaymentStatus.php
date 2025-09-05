@@ -34,17 +34,18 @@ class CheckPaymentStatus extends Command
 
         foreach ($pendingTransactions as $transaction) {
             try {
-                if (!$transaction->reference) {
-                    Log::warning("No reference found for transaction ID: {$transaction->id}");
+                if (!$transaction->external_reference) {
+                    Log::warning("No external reference found for transaction ID: {$transaction->id}");
                     continue;
                 }
 
-                // Check payment status with YoAPI
-                $statusCheck = $yoPayments->ac_transaction_check_status($transaction->reference);
+                // Check payment status with YoAPI using external_reference
+                $statusCheck = $yoPayments->ac_transaction_check_status($transaction->external_reference);
 
                 Log::info("YoAPI status check response for transaction {$transaction->id}", [
                     'transaction_id' => $transaction->id,
                     'reference' => $transaction->reference,
+                    'external_reference' => $transaction->external_reference,
                     'response' => $statusCheck
                 ]);
 

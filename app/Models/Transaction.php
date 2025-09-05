@@ -19,6 +19,7 @@ class Transaction extends Model
         'invoice_id',
         'amount',
         'reference',
+        'external_reference',
         'description',
         'status',
         'type',
