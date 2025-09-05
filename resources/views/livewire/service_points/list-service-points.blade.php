@@ -98,7 +98,7 @@
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
-                            @foreach($this->getTableQuery()->get() as $servicePoint)
+                            @foreach($this->getServicePoints() as $servicePoint)
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm font-medium text-gray-900">{{ $servicePoint->name }}</div>

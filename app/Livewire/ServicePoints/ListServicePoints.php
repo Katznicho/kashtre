@@ -26,6 +26,17 @@ class ListServicePoints extends Component implements HasForms, HasTable
     use InteractsWithForms;
     use InteractsWithTable;
 
+    public function getServicePoints()
+    {
+        $query = ServicePoint::query()->where('business_id', '!=', 1)->latest();
+
+        if (Auth::check() && Auth::user()->business_id !== 1) {
+            $query->where('business_id', Auth::user()->business_id);
+        }
+
+        return $query->with(['business', 'branch'])->get();
+    }
+
     public function table(Table $table): Table
     {
         $query = ServicePoint::query()->where('business_id', '!=', 1)->latest();
