@@ -1,9 +1,9 @@
 <?php
-
 namespace App\Payments;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Psr7\Response;
 
 class Curl
 {
@@ -36,24 +36,15 @@ class Curl
 
     public static function Post($url, $headers, $body)
     {
-        return self::request('POST', $url, $headers, $body);
-    }
 
-    public static function PostToken($url, $headers, $body)
-    {
-        return self::request('POST', $url, $headers, $body);
-    }
-
-    private static function request($method, $url, $headers, $body)
-    {
         if (!self::$client) {
             self::initialize();
         }
-
+        
         $headers = array_merge(self::$defaultHeaders, $headers);
 
         try {
-            $response = self::$client->request($method, $url, [
+            $response = self::$client->request('POST', $url, [
                 'headers' => $headers,
                 'body' => $body
             ]);
@@ -64,7 +55,28 @@ class Curl
         }
     }
 
-    private static function processResponse($response)
+    public static function PostToken($url, $headers, $body)
+    {
+
+        if (!self::$client) {
+            self::initialize();
+        }
+        
+        $headers = array_merge(self::$defaultHeaders, $headers);
+
+        try {
+            $response = self::$client->request('POST', $url, [
+                'headers' => $headers,
+                'body' => $body
+            ]);
+
+            return self::processResponse($response);
+        } catch (GuzzleException $e) {
+            return self::formatErrorResponse($e->getMessage());
+        }
+    }
+
+    private static function processResponse(Response $response)
     {
         $statusCode = $response->getStatusCode();
         $body = $response->getBody()->getContents();

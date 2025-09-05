@@ -58,8 +58,8 @@
                         </a>
                     </li>
 
-                    <!-- Service Points: for users with assigned service points -->
-                    @if(auth()->user()->service_points)
+                    <!-- Service Points: for users with assigned service points (exclude business_id = 1) -->
+                    @if(auth()->user()->service_points && auth()->user()->business_id != 1)
                     <li>
                         <a href="{{ route('service-queues.index') }}" class="flex items-center pl-4 pr-3 py-2 rounded-lg text-gray-700 hover:text-blue-700 hover:bg-blue-50">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

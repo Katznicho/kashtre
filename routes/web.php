@@ -110,7 +110,6 @@ Route::get('/service-delivery-queues/service-point/{servicePointId}/completed', 
 
 // Queue reset routes (for testing)
 Route::post('/service-delivery-queues/service-point/{servicePointId}/reset', [ServiceDeliveryQueueController::class, 'resetServicePointQueues'])->name('service-delivery-queues.reset-service-point');
-Route::post('/service-delivery-queues/reset-all', [ServiceDeliveryQueueController::class, 'resetAllServicePointQueues'])->name('service-delivery-queues.reset-all');
     
     Route::resource("sections", SectionController::class);
     Route::resource("item-units", ItemUnitController::class);
