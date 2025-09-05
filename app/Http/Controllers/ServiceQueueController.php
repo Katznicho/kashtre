@@ -21,7 +21,9 @@ class ServiceQueueController extends Controller
             $user = Auth::user();
             
             // Get service points assigned to the user
-            $servicePoints = $user->service_points ? ServicePoint::whereIn('id', $user->service_points)->get() : collect();
+            $servicePoints = $user->service_points ? ServicePoint::whereIn('id', $user->service_points)
+                ->with(['business', 'branch', 'serviceQueues', 'serviceDeliveryQueues'])
+                ->get() : collect();
             
             return view('service-queues.index', compact('servicePoints'));
         } catch (\Exception $e) {

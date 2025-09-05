@@ -36,15 +36,15 @@
                             <div class="p-6">
                                 <div class="grid grid-cols-3 gap-4 mb-4">
                                     <div class="text-center">
-                                        <div class="text-xl font-bold text-yellow-600">{{ $servicePoint->queue_stats['pending'] }}</div>
+                                        <div class="text-xl font-bold text-yellow-600">{{ $servicePoint->queue_stats['pending'] ?? 0 }}</div>
                                         <div class="text-xs text-gray-600">Pending</div>
                                     </div>
                                     <div class="text-center">
-                                        <div class="text-xl font-bold text-orange-600">{{ $servicePoint->queue_stats['partially_done'] }}</div>
+                                        <div class="text-xl font-bold text-orange-600">{{ $servicePoint->queue_stats['partially_done'] ?? 0 }}</div>
                                         <div class="text-xs text-gray-600">In Progress</div>
                                     </div>
                                     <div class="text-center">
-                                        <div class="text-xl font-bold text-green-600">{{ $servicePoint->queue_stats['completed_today'] }}</div>
+                                        <div class="text-xl font-bold text-green-600">{{ $servicePoint->queue_stats['completed_today'] ?? 0 }}</div>
                                         <div class="text-xs text-gray-600">Completed</div>
                                     </div>
                                 </div>
@@ -52,10 +52,10 @@
                                 <!-- Quick Preview -->
                                 <div class="text-center">
                                     <div class="text-sm text-gray-600 mb-2">
-                                        @if($servicePoint->queue_stats['pending'] > 0)
-                                            <span class="text-yellow-600 font-medium">{{ $servicePoint->queue_stats['pending'] }} clients waiting</span>
-                                        @elseif($servicePoint->queue_stats['partially_done'] > 0)
-                                            <span class="text-orange-600 font-medium">{{ $servicePoint->queue_stats['partially_done'] }} in progress</span>
+                                        @if(($servicePoint->queue_stats['pending'] ?? 0) > 0)
+                                            <span class="text-yellow-600 font-medium">{{ $servicePoint->queue_stats['pending'] ?? 0 }} clients waiting</span>
+                                        @elseif(($servicePoint->queue_stats['partially_done'] ?? 0) > 0)
+                                            <span class="text-orange-600 font-medium">{{ $servicePoint->queue_stats['partially_done'] ?? 0 }} in progress</span>
                                         @else
                                             <span class="text-green-600 font-medium">No active clients</span>
                                         @endif
