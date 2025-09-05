@@ -46,16 +46,14 @@ class EmptyClientBalances extends Command
         $this->info('Starting to empty balances...');
         
         try {
-            DB::transaction(function () {
-                // 1. Empty client balances in clients table
-                $this->emptyClientBalances();
-                
-                // 2. Empty money accounts (suspense accounts)
-                $this->emptyMoneyAccounts();
-                
-                // 3. Clear balance history
-                $this->clearBalanceHistory();
-            });
+            // 1. Empty client balances in clients table
+            $this->emptyClientBalances();
+            
+            // 2. Empty money accounts (suspense accounts)
+            $this->emptyMoneyAccounts();
+            
+            // 3. Clear balance history
+            $this->clearBalanceHistory();
             
             $this->newLine();
             $this->info('✅ Successfully emptied all client balances and suspense accounts!');
@@ -63,7 +61,7 @@ class EmptyClientBalances extends Command
             
         } catch (\Exception $e) {
             $this->error('❌ Error occurred: ' . $e->getMessage());
-            $this->error('Operation rolled back due to error.');
+            $this->error('Operation failed due to error.');
         }
     }
 

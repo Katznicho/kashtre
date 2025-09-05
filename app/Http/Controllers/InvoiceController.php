@@ -211,8 +211,8 @@ class InvoiceController extends Controller
                 );
                 
                 // Create transaction record for the payment
-                // Build description with purchased items
-                $itemsDescription = $this->buildItemsDescription($validated['items']);
+                // Build description with purchased items, client, and business information
+                $itemsDescription = $this->buildItemsDescription($validated['items'], $client, $business, $invoiceNumber);
                 
                 \App\Models\Transaction::create([
                     'business_id' => $validated['business_id'],
@@ -285,9 +285,9 @@ class InvoiceController extends Controller
     }
     
     /**
-     * Build description with purchased items
+     * Build description with purchased items, client, and business information
      */
-    private function buildItemsDescription($items)
+    private function buildItemsDescription($items, $client = null, $business = null, $invoiceNumber = null)
     {
         if (empty($items)) {
             return 'Payment for services';
@@ -310,10 +310,42 @@ class InvoiceController extends Controller
             $itemDescriptions[] = $description;
         }
         
-        // Limit description length to avoid database issues
-        $fullDescription = implode(', ', $itemDescriptions);
-        if (strlen($fullDescription) > 500) {
-            $fullDescription = substr($fullDescription, 0, 497) . '...';
+        // Build comprehensive description
+        $itemsText = implode(', ', $itemDescriptions);
+        
+        // Add client information if available
+        $clientInfo = '';
+        if ($client) {
+            $clientInfo = " for {$client->name}";
+            if ($client->client_id) {
+                $clientInfo .= " (ID: {$client->client_id})";
+            }
+        }
+        
+        // Add business information if available
+        $businessInfo = '';
+        if ($business) {
+            $businessInfo = " at {$business->name}";
+        }
+        
+        // Add invoice number if available
+        $invoiceInfo = '';
+        if ($invoiceNumber) {
+            $invoiceInfo = " - Invoice: {$invoiceNumber}";
+        }
+        
+        // Combine all information
+        $fullDescription = "Payment for: {$itemsText}{$clientInfo}{$businessInfo}{$invoiceInfo}";
+        
+        // Limit description length to avoid database issues (mobile money APIs have character limits)
+        if (strlen($fullDescription) > 200) {
+            // Prioritize items and client info, truncate business/invoice info if needed
+            $truncatedItems = substr($itemsText, 0, 150);
+            $fullDescription = "Payment for: {$truncatedItems}{$clientInfo}";
+            
+            if (strlen($fullDescription) > 200) {
+                $fullDescription = substr($fullDescription, 0, 197) . '...';
+            }
         }
         
         return $fullDescription;
@@ -495,6 +527,74 @@ class InvoiceController extends Controller
         return response()->json([
             'invoice_number' => $invoiceNumber,
         ]);
+    }
+    
+    /**
+     * Process mobile money payment with comprehensive description
+     */
+    public function processMobileMoneyPayment(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'amount' => 'required|numeric|min:0',
+                'phone_number' => 'required|string',
+                'client_id' => 'required|exists:clients,id',
+                'business_id' => 'required|exists:businesses,id',
+                'items' => 'required|array',
+                'invoice_number' => 'nullable|string',
+            ]);
+            
+            $client = Client::find($validated['client_id']);
+            $business = \App\Models\Business::find($validated['business_id']);
+            
+            // Build comprehensive payment description
+            $description = $this->buildItemsDescription(
+                $validated['items'], 
+                $client, 
+                $business, 
+                $validated['invoice_number']
+            );
+            
+            // Format phone number for mobile money API
+            $phone = $validated['phone_number'];
+            if (str_starts_with($phone, '0')) {
+                $phone = '256' . substr($phone, 1);
+            }
+            
+            // Initialize YoAPI for mobile money payment
+            $username = env('API_USERNAME', '100589248779');
+            $password = env('API_PASSWORD', 'bVXo-BDBw-KF5x-JSAS-9tm0-jORW-rYqX-7EGn');
+            
+            $yoPayments = new \App\Payments\YoAPI($username, $password);
+            $yoPayments->set_instant_notification_url(env('YO_CALLBACK_URL', 'https://webhook.site/396126eb-cc9b-4c57-a7a9-58f43d2b7935'));
+            $yoPayments->set_external_reference(time());
+            
+            // Process payment
+            $result = $yoPayments->ac_deposit_funds($phone, $validated['amount'], $description);
+            
+            if (isset($result['TransactionReference'])) {
+                return response()->json([
+                    'success' => true,
+                    'transaction_id' => $result['TransactionReference'],
+                    'status' => $result['Status'] ?? 'pending',
+                    'message' => 'Mobile money payment request sent successfully',
+                    'description' => $description
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to initiate mobile money payment',
+                    'error' => $result['StatusMessage'] ?? 'Unknown error'
+                ], 400);
+            }
+            
+        } catch (\Exception $e) {
+            Log::error('Mobile money payment error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error processing mobile money payment: ' . $e->getMessage()
+            ], 500);
+        }
     }
     
     /**

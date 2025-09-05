@@ -1340,20 +1340,55 @@
         }
         
         async function processMobileMoneyPayment(amount, phoneNumber) {
-            // Simulate mobile money payment processing
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    // Simulate successful payment
-                    resolve({
+            try {
+                // Prepare payment data
+                const paymentData = {
+                    amount: amount,
+                    phone_number: phoneNumber,
+                    client_id: {{ $client->id }},
+                    business_id: {{ auth()->user()->business_id }},
+                    items: cart,
+                    invoice_number: document.getElementById('invoice-number-display').textContent
+                };
+                
+                // Send payment request to backend
+                const response = await fetch('/invoices/mobile-money-payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(paymentData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    return {
                         success: true,
-                        transaction_id: 'MM_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                        transaction_id: result.transaction_id,
                         amount: amount,
                         phone: phoneNumber,
-                        status: 'success',
-                        message: 'Payment processed successfully'
-                    });
-                }, 2000); // Simulate 2 second processing time
-            });
+                        status: result.status || 'success',
+                        message: result.message || 'Payment processed successfully',
+                        description: result.description
+                    };
+                } else {
+                    return {
+                        success: false,
+                        message: result.message || 'Payment failed',
+                        error: result.error
+                    };
+                }
+            } catch (error) {
+                console.error('Mobile money payment error:', error);
+                return {
+                    success: false,
+                    message: 'Error processing mobile money payment',
+                    error: error.message
+                };
+            }
         }
         
         async function calculateServiceCharge(subtotal) {

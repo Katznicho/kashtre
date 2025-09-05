@@ -161,6 +161,7 @@ Route::post('/clients/{client}/update-payment-phone', [ClientController::class, 
 Route::post('/invoices/service-charge', [InvoiceController::class, 'serviceCharge'])->name('invoices.service-charge');
 Route::post('/invoices/package-adjustment', [InvoiceController::class, 'calculatePackageAdjustment'])->name('invoices.package-adjustment');
 Route::post('/invoices/balance-adjustment', [InvoiceController::class, 'calculateBalanceAdjustment'])->name('invoices.balance-adjustment');
+Route::post('/invoices/mobile-money-payment', [InvoiceController::class, 'processMobileMoneyPayment'])->name('invoices.mobile-money-payment');
 
 // Balance Statement Routes
 Route::get('/balance-statement', [BalanceHistoryController::class, 'index'])->name('balance-statement.index');

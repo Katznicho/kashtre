@@ -41,7 +41,8 @@ class YoPayments extends Controller
             $commissionPercentage = Auth::user()->entity->Commission ?? 0;
             $serviceCharge = ($commissionPercentage / 100) * $grandTotal;
 
-            $description = 'Payment of ' . $grandTotal . ' for reference number: ' . Str::uuid();
+            // Build comprehensive description with items and entity information
+            $description = $this->buildPaymentDescription($productIds, $quantities, $customer, $grandTotal);
             $status = config('status.payment_status.pending');
 
             $sale = Sale::create([
@@ -126,10 +127,8 @@ class YoPayments extends Controller
     public function checkPaymentStatus($transactionReference)
     {
         try {
-            // $username = config('yopay.username'); // Load from config or env
-            // $password = config('yopay.password'); // Load from config or env
-
-
+            $username = '100589248779';
+            $password = 'bVXo-BDBw-KF5x-JSAS-9tm0-jORW-rYqX-7EGn';
 
             $YoPayments = new YoAPI($username, $password);
             $statusCheck = $YoPayments->ac_transaction_check_status($transactionReference);
@@ -202,5 +201,66 @@ class YoPayments extends Controller
     public function destroy(string $id)
     {
         //
+    }
+    
+    /**
+     * Build comprehensive payment description with items and entity information
+     */
+    private function buildPaymentDescription($productIds, $quantities, $customer, $grandTotal)
+    {
+        $itemDescriptions = [];
+        
+        // Get product details
+        foreach ($productIds as $index => $productId) {
+            $product = Product::find($productId);
+            if ($product) {
+                $name = $product->Name ?? 'Unknown Item';
+                $quantity = $quantities[$index] ?? 1;
+                
+                $description = $name;
+                if ($quantity > 1) {
+                    $description .= " (x{$quantity})";
+                }
+                
+                $itemDescriptions[] = $description;
+            }
+        }
+        
+        // Build comprehensive description
+        $itemsText = implode(', ', $itemDescriptions);
+        
+        // Add client information
+        $clientInfo = '';
+        if ($customer) {
+            $clientInfo = " for {$customer->FirstName} {$customer->LastName}";
+            if ($customer->ClientID) {
+                $clientInfo .= " (ID: {$customer->ClientID})";
+            }
+        }
+        
+        // Add business information
+        $businessInfo = '';
+        if (Auth::user()->entity) {
+            $businessInfo = " at " . (Auth::user()->entity->Name ?? 'Medical Centre');
+        }
+        
+        // Add reference number
+        $referenceNumber = Str::uuid();
+        
+        // Combine all information
+        $fullDescription = "Payment for: {$itemsText}{$clientInfo}{$businessInfo} - Ref: {$referenceNumber}";
+        
+        // Limit description length to avoid mobile money API character limits
+        if (strlen($fullDescription) > 200) {
+            // Prioritize items and client info, truncate business info if needed
+            $truncatedItems = substr($itemsText, 0, 120);
+            $fullDescription = "Payment for: {$truncatedItems}{$clientInfo} - Ref: {$referenceNumber}";
+            
+            if (strlen($fullDescription) > 200) {
+                $fullDescription = substr($fullDescription, 0, 197) . '...';
+            }
+        }
+        
+        return $fullDescription;
     }
 }
