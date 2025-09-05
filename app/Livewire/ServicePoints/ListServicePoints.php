@@ -102,7 +102,7 @@ class ListServicePoints extends Component implements HasForms, HasTable
                     ->label('View Queued Items')
                     ->icon('heroicon-o-eye')
                     ->color('info')
-                    ->modalHeading('Queued Items at ' . fn(ServicePoint $record) => $record->name)
+                    ->modalHeading(fn(ServicePoint $record) => 'Queued Items at ' . $record->name)
                     ->modalContent(function (ServicePoint $record) {
                         $queuedItems = $record->pendingDeliveryQueues()->with(['client', 'invoice'])->get();
                         
