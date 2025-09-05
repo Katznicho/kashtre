@@ -16,7 +16,7 @@ return new class extends Migration
             $table->id();
             $table->uuid('uuid')->unique()->index();
             $table->foreignId('business_id')->nullable()->constrained('businesses')->onDelete('cascade')->index();
-            $table->foreignId('branch_id')->nullable()->index();
+            $table->foreignId('branch_id')->nullable()->constrained('branches')->onDelete('cascade')->index();
             $table->string('amount')->nullable();
             $table->string('reference')->index(); // used for lookups
             $table->string('description')->nullable();
