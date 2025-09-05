@@ -14,11 +14,11 @@ return new class extends Migration
         Schema::create('package_usages', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique()->index();
-            $table->foreignId('client_id')->constrained('clients')->onDelete('cascade')->index();
-            $table->foreignId('business_id')->constrained('businesses')->onDelete('cascade')->index();
-            $table->foreignId('invoice_id')->constrained('invoices')->onDelete('cascade')->index(); // Invoice where package was purchased
-            $table->foreignId('package_item_id')->constrained('items')->onDelete('cascade')->index(); // The package item
-            $table->foreignId('included_item_id')->constrained('items')->onDelete('cascade')->index(); // The specific item within the package
+            $table->foreignId('client_id')->constrained('clients', 'id', 'package_usages_client_id_fk')->onDelete('cascade')->index();
+            $table->foreignId('business_id')->constrained('businesses', 'id', 'package_usages_business_id_fk')->onDelete('cascade')->index();
+            $table->foreignId('invoice_id')->constrained('invoices', 'id', 'package_usages_invoice_id_fk')->onDelete('cascade')->index(); // Invoice where package was purchased
+            $table->foreignId('package_item_id')->constrained('items', 'id', 'package_usages_package_item_id_fk')->onDelete('cascade')->index(); // The package item
+            $table->foreignId('included_item_id')->constrained('items', 'id', 'package_usages_included_item_id_fk')->onDelete('cascade')->index(); // The specific item within the package
             $table->integer('quantity_available')->default(1); // How many of this item are available in the package
             $table->integer('quantity_used')->default(0); // How many have been used
             $table->date('purchase_date'); // When the package was purchased
