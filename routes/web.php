@@ -244,12 +244,6 @@ Route::post('/money-tracking/process-refund', [MoneyTrackingController::class, '
     // routes/web.php
     // Route::get('/users/{user:uuid}', [UserController::class, 'show']);
 
-
-
-
-
-
-
     Route::get('/test-mail-view', function () {
         return view('mail.bot'); // 
     });
