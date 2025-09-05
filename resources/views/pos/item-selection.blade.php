@@ -343,9 +343,9 @@
                         <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
                             <div class="grid grid-cols-4 gap-4">
                                 <div><span class="text-sm font-medium text-gray-700">Item</span></div>
+                                <div><span class="text-sm font-medium text-gray-700">Type</span></div>
                                 <div><span class="text-sm font-medium text-gray-700">Quantity</span></div>
                                 <div><span class="text-sm font-medium text-gray-700">Amount</span></div>
-                                <div><span class="text-sm font-medium text-gray-700">Status</span></div>
                             </div>
                         </div>
                         <div class="p-4">
@@ -690,7 +690,7 @@
                 
                 requestOrderSummaryHTML += `
                     <div class="px-4 py-3">
-                        <div class="grid grid-cols-5 gap-4 items-center">
+                        <div class="grid grid-cols-4 gap-4 items-center">
                             <div>
                                 <span class="text-sm text-gray-900 font-medium">${item.name}</span>
                             </div>
@@ -700,11 +700,9 @@
                             <div>
                                 <span class="text-sm text-gray-900">${item.quantity}</span>
                             </div>
-                            <div>
+                            <div class="flex justify-between items-center">
                                 <span class="text-sm text-blue-600">UGX ${(item.price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                            </div>
-                            <div>
-                                <button class="text-red-500 hover:text-red-700 text-sm" onclick="removeFromCart(${index})">
+                                <button class="text-red-500 hover:text-red-700 text-sm ml-2" onclick="removeFromCart(${index})">
                                     Remove
                                 </button>
                             </div>

@@ -161,9 +161,8 @@ class InvoiceController extends Controller
             $client = Client::find($validated['client_id']);
             
             // Use provided invoice number or generate one
-            // Determine if this is a proforma invoice (draft status) or regular invoice
-            $invoiceType = ($validated['status'] === 'draft') ? 'proforma' : 'invoice';
-            $invoiceNumber = $validated['invoice_number'] ?? Invoice::generateInvoiceNumber($business->id, $invoiceType);
+            // Always start as proforma invoice (P prefix)
+            $invoiceNumber = $validated['invoice_number'] ?? Invoice::generateInvoiceNumber($business->id, 'proforma');
             
             // Create invoice
             $invoice = Invoice::create([
@@ -259,8 +258,8 @@ class InvoiceController extends Controller
             // SERVICE POINT QUEUING: Queue items at their respective service points
             $this->queueItemsAtServicePoints($invoice, $validated['items']);
             
-            // Generate next invoice number (default to regular invoice type)
-            $nextInvoiceNumber = Invoice::generateInvoiceNumber($business->id, 'invoice');
+            // Generate next invoice number (default to proforma type)
+            $nextInvoiceNumber = Invoice::generateInvoiceNumber($business->id, 'proforma');
             
             DB::commit();
             
@@ -519,7 +518,7 @@ class InvoiceController extends Controller
     public function generateInvoiceNumber(Request $request)
     {
         $businessId = $request->input('business_id');
-        $invoiceNumber = Invoice::generateInvoiceNumber($businessId);
+        $invoiceNumber = Invoice::generateInvoiceNumber($businessId, 'proforma');
         
         return response()->json([
             'invoice_number' => $invoiceNumber,
