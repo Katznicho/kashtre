@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 class CheckPaymentStatus extends Command
 {
     protected $signature = 'payments:check-status'; 
-    protected $description = 'Check and update payment statuses from YoPayments asynchronously';
+    protected $description = 'Check and update YoAPI payment statuses using external_reference field';
 
     public function handle()
     {
