@@ -552,8 +552,23 @@ class InvoiceController extends Controller
             
             // Format phone number for mobile money API
             $phone = $validated['phone_number'];
-            if (str_starts_with($phone, '0')) {
+            
+            // Remove any non-numeric characters except + at the beginning
+            $phone = preg_replace('/[^0-9+]/', '', $phone);
+            
+            // Handle different phone number formats
+            if (str_starts_with($phone, '+256')) {
+                // Remove the + prefix for YoAPI
+                $phone = substr($phone, 1);
+            } elseif (str_starts_with($phone, '256')) {
+                // Already in correct format
+                $phone = $phone;
+            } elseif (str_starts_with($phone, '0')) {
+                // Convert from local format (0XXXXXXXXX) to international (256XXXXXXXXX)
                 $phone = '256' . substr($phone, 1);
+            } else {
+                // Assume it's already in international format without +
+                $phone = $phone;
             }
             
             // Initialize YoAPI for mobile money payment
@@ -563,7 +578,8 @@ class InvoiceController extends Controller
             
             // Log payment attempt details
             Log::info('Mobile money payment attempt', [
-                'phone' => $phone,
+                'original_phone' => $validated['phone_number'],
+                'formatted_phone' => $phone,
                 'amount' => $validated['amount'],
                 'description' => $description,
                 'client_id' => $validated['client_id'],
@@ -614,7 +630,9 @@ class InvoiceController extends Controller
                     'internal_transaction_id' => $transaction->id
                 ]);
             } else {
-                $errorMessage = isset($result['ErrorMessage']) ? "Mobile Money payment failed: {$result['ErrorMessage']}" : 'Mobile Money payment failed: Unknown error.';
+                $errorMessage = isset($result['StatusMessage']) ? "Mobile Money payment failed: {$result['StatusMessage']}" : 
+                               (isset($result['ErrorMessage']) ? "Mobile Money payment failed: {$result['ErrorMessage']}" : 
+                               'Mobile Money payment failed: Unknown error.');
                 
                 Log::error('Mobile money payment failed', [
                     'result' => $result,
