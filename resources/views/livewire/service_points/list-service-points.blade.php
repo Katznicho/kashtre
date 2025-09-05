@@ -142,7 +142,7 @@
             <!-- Active Queues Tab -->
             <div id="content-active" class="tab-content hidden">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    @foreach($this->getTableQuery()->get() as $servicePoint)
+                    @foreach($this->getServicePoints() as $servicePoint)
                         @php
                             $activeQueues = $servicePoint->serviceDeliveryQueues()->whereIn('status', ['pending', 'partially_done'])->count();
                         @endphp
@@ -170,7 +170,7 @@
             <!-- Pending Items Tab -->
             <div id="content-pending" class="tab-content hidden">
                 <div class="space-y-4">
-                    @foreach($this->getTableQuery()->get() as $servicePoint)
+                    @foreach($this->getServicePoints() as $servicePoint)
                         @php
                             $pendingItems = $servicePoint->pendingDeliveryQueues()->with(['client', 'invoice'])->get();
                         @endphp
@@ -221,7 +221,7 @@
             <!-- Completed Today Tab -->
             <div id="content-completed" class="tab-content hidden">
                 <div class="space-y-4">
-                    @foreach($this->getTableQuery()->get() as $servicePoint)
+                    @foreach($this->getServicePoints() as $servicePoint)
                         @php
                             $completedItems = $servicePoint->serviceDeliveryQueues()->where('status', 'completed')->whereDate('completed_at', today())->with(['client', 'invoice'])->get();
                         @endphp
