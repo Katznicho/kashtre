@@ -235,12 +235,13 @@ class ServicePointController extends Controller
                     $item->status = $status;
                     $item->save();
 
+                    // DISABLED: Service charge is now processed in InvoiceController with suspense system
                     // Process service charge ONCE per invoice
-                    if (!$serviceChargeProcessed && $item->invoice) {
-                        $invoice = $item->invoice;
-                        $this->processServiceCharge($invoice, $moneyTrackingService, $client);
-                        $serviceChargeProcessed = true;
-                    }
+                    // if (!$serviceChargeProcessed && $item->invoice) {
+                    //     $invoice = $item->invoice;
+                    //     $this->processServiceCharge($invoice, $moneyTrackingService, $client);
+                    //     $serviceChargeProcessed = true;
+                    // }
 
                     // Process money movements for finalized items
                     try {

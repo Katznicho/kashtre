@@ -22,33 +22,11 @@
                                 <p class="text-2xl font-bold text-blue-600">UGX {{ number_format($client->available_balance ?? 0, 2) }}</p>
                                 <p class="text-sm text-gray-500">Total Balance</p>
                                 <p class="text-lg font-semibold text-gray-700">UGX {{ number_format($client->total_balance ?? 0, 2) }}</p>
-
+                                @if(($client->suspense_balance ?? 0) > 0)
+                                    <p class="text-xs text-orange-600">({{ number_format($client->suspense_balance ?? 0, 2) }} in temporary accounts)</p>
+                                @endif
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Financial Status Summary -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
-                <div class="p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Financial Status Summary</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <!-- Available Balance -->
-                        <div class="text-center p-4 bg-blue-50 rounded-lg">
-                            <div class="text-2xl font-bold text-blue-600">UGX {{ number_format($client->available_balance ?? 0, 2) }}</div>
-                            <div class="text-sm text-gray-600 mt-1">Available Balance</div>
-                            <div class="text-xs text-gray-500 mt-1">Money you can use</div>
-                        </div>
-                        
-                        <!-- Total Balance -->
-                        <div class="text-center p-4 bg-green-50 rounded-lg">
-                            <div class="text-2xl font-bold text-green-600">UGX {{ number_format($client->total_balance ?? 0, 2) }}</div>
-                            <div class="text-sm text-gray-600 mt-1">Total Balance</div>
-                            <div class="text-xs text-gray-500 mt-1">Available + Suspense</div>
-                        </div>
-                        
-
                     </div>
                 </div>
             </div>
@@ -57,16 +35,13 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6">
                     <div class="flex justify-between items-center mb-4">
-                        <div>
-                            <h3 class="text-lg font-medium text-gray-900">Transaction History</h3>
-                            <p class="text-sm text-gray-500">Complete record of all financial transactions</p>
-                        </div>
+                        <h3 class="text-lg font-medium text-gray-900">Balance Statement</h3>
                         <div class="flex space-x-2">
-                            <button onclick="exportStatement()" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition-colors text-sm">
-                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                                Export
+                            <button onclick="addCredit()" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm">
+                                Add Credit
+                            </button>
+                            <button onclick="addAdjustment()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm">
+                                Add Adjustment
                             </button>
                         </div>
                     </div>
@@ -76,58 +51,18 @@
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                                            <div class="flex items-center">
-                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                                </svg>
-                                                Date & Time
-                                            </div>
-                                        </th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                                            <div class="flex items-center">
-                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                                </svg>
-                                                Transaction Type
-                                            </div>
-                                        </th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                                            <div class="flex items-center">
-                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                                </svg>
-                                                Description
-                                            </div>
-                                        </th>
-
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                                            <div class="flex items-center">
-                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
-                                                </svg>
-                                                Amount
-                                            </div>
-                                        </th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                                            <div class="flex items-center">
-                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.122 2.122"></path>
-                                                </svg>
-                                                Reference
-                                            </div>
-                                        </th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                                            <div class="flex items-center">
-                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                                </svg>
-                                                User
-                                            </div>
-                                        </th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Previous Balance</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Change</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Balance</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                                     </tr>
                                 </thead>
-                                <tbody id="balance-statement-table" class="bg-white divide-y divide-gray-200">
+                                <tbody class="bg-white divide-y divide-gray-200">
                                     @foreach($balanceHistories as $history)
                                         <tr>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -135,13 +70,10 @@
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
-                                                    @if($history->change_amount > 0) bg-green-100 text-green-800
-                                                    @else bg-red-100 text-red-800 @endif">
-                                                    @if($history->change_amount > 0)
-                                                        Credit
-                                                    @else
-                                                        Debit
-                                                    @endif
+                                                    @if($history->transaction_type === 'credit') bg-green-100 text-green-800
+                                                    @elseif($history->transaction_type === 'payment') bg-red-100 text-red-800
+                                                    @else bg-yellow-100 text-yellow-800 @endif">
+                                                    {{ ucfirst($history->transaction_type) }}
                                                 </span>
                                             </td>
                                             <td class="px-6 py-4 text-sm text-gray-900">
@@ -150,20 +82,28 @@
                                                     <p class="text-xs text-gray-500 mt-1">{{ $history->notes }}</p>
                                                 @endif
                                             </td>
-
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" data-amount="{{ $history->change_amount > 0 ? '+' : '' }}{{ number_format($history->change_amount, 2) }}">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                UGX {{ number_format($history->previous_balance, 2) }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <span class="@if($history->change_amount > 0) text-green-600 @else text-red-600 @endif">
-                                                    {{ $history->change_amount > 0 ? '+' : '' }}UGX {{ number_format(abs($history->change_amount), 2) }}
+                                                    {{ $history->getFormattedChangeAmount() }}
                                                 </span>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                @if($history->invoice_id && $history->invoice)
-                                                    Invoice #{{ $history->invoice->invoice_number }}
-                                                @elseif($history->reference_number)
-                                                    {{ $history->reference_number }}
+                                                UGX {{ number_format($history->new_balance, 2) }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                @if($history->payment_method)
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                                        {{ ucfirst(str_replace('_', ' ', $history->payment_method)) }}
+                                                    </span>
                                                 @else
-                                                    -
+                                                    <span class="text-gray-400">N/A</span>
                                                 @endif
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {{ $history->reference_number ?? '-' }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {{ $history->user ? $history->user->name : 'System' }}
@@ -188,80 +128,196 @@
         </div>
     </div>
 
+    <!-- Add Credit Modal -->
+    <div id="creditModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Add Credit</h3>
+                <form id="creditForm">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Amount</label>
+                        <input type="number" step="0.01" min="0.01" id="creditAmount" required
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Description</label>
+                        <input type="text" id="creditDescription" required
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Reference Number (Optional)</label>
+                        <input type="text" id="creditReference"
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Notes (Optional)</label>
+                        <textarea id="creditNotes" rows="3"
+                                  class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-2">
+                        <button type="button" onclick="closeCreditModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400">
+                            Cancel
+                        </button>
+                        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
+                            Add Credit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
+    <!-- Add Adjustment Modal -->
+    <div id="adjustmentModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Add Adjustment</h3>
+                <form id="adjustmentForm">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Amount (Positive for credit, negative for debit)</label>
+                        <input type="number" step="0.01" id="adjustmentAmount" required
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Description</label>
+                        <input type="text" id="adjustmentDescription" required
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Reference Number (Optional)</label>
+                        <input type="text" id="adjustmentReference"
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Notes (Optional)</label>
+                        <textarea id="adjustmentNotes" rows="3"
+                                  class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-2">
+                        <button type="button" onclick="closeAdjustmentModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400">
+                            Cancel
+                        </button>
+                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                            Add Adjustment
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <script>
-
-
-
-
-        function exportStatement() {
-            // Get the current date for filename
-            const now = new Date();
-            const dateStr = now.toISOString().split('T')[0];
-            const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-            
-            // Create CSV content
-            let csvContent = "data:text/csv;charset=utf-8,";
-            
-            // Add header
-            csvContent += "Date & Time,Transaction Type,Description,Amount,Reference,User\n";
-            
-            // Get all table rows
-            const rows = document.querySelectorAll('#balance-statement-table tr');
-            
-            rows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                const rowData = [];
-                
-                cells.forEach((cell, index) => {
-                    let cellText = cell.textContent.trim();
-                    
-                    // Clean up the data
-                    if (index === 0) { // Date
-                        rowData.push(cellText);
-                    } else if (index === 1) { // Transaction Type
-                        rowData.push(cellText);
-                    } else if (index === 2) { // Description
-                        rowData.push(cellText.replace(/"/g, '""')); // Escape quotes
-                    } else if (index === 3) { // Amount (from change_amount)
-                        // Get the amount from the data attribute or calculate it
-                        const amountCell = row.querySelector('[data-amount]');
-                        if (amountCell) {
-                            rowData.push(amountCell.dataset.amount);
-                        } else {
-                            rowData.push(cellText);
-                        }
-                    } else if (index === 4) { // Reference
-                        rowData.push(cellText);
-                    } else if (index === 5) { // User
-                        rowData.push(cellText);
-                    }
-                });
-                
-                csvContent += rowData.map(field => `"${field}"`).join(',') + '\n';
-            });
-            
-            // Create download link
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `client_statement_${dateStr}_${timeStr}.csv`);
-            document.body.appendChild(link);
-            
-            // Trigger download
-            link.click();
-            document.body.removeChild(link);
-            
-            // Show success message
-            Swal.fire({
-                icon: 'success',
-                title: 'Export Successful',
-                text: 'Balance statement has been exported to CSV',
-                timer: 2000,
-                showConfirmButton: false
-            });
+        function addCredit() {
+            document.getElementById('creditModal').classList.remove('hidden');
         }
+
+        function closeCreditModal() {
+            document.getElementById('creditModal').classList.add('hidden');
+            document.getElementById('creditForm').reset();
+        }
+
+        function addAdjustment() {
+            document.getElementById('adjustmentModal').classList.remove('hidden');
+        }
+
+        function closeAdjustmentModal() {
+            document.getElementById('adjustmentModal').classList.add('hidden');
+            document.getElementById('adjustmentForm').reset();
+        }
+
+        document.getElementById('creditForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                amount: document.getElementById('creditAmount').value,
+                description: document.getElementById('creditDescription').value,
+                reference_number: document.getElementById('creditReference').value,
+                notes: document.getElementById('creditNotes').value,
+                _token: '{{ csrf_token() }}'
+            };
+
+            try {
+                const response = await fetch('{{ route("balance-statement.add-credit", $client->id) }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: data.message
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.message
+                    });
+                }
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to add credit'
+                });
+            }
+        });
+
+        document.getElementById('adjustmentForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                amount: document.getElementById('adjustmentAmount').value,
+                description: document.getElementById('adjustmentDescription').value,
+                reference_number: document.getElementById('adjustmentReference').value,
+                notes: document.getElementById('adjustmentNotes').value,
+                _token: '{{ csrf_token() }}'
+            };
+
+            try {
+                const response = await fetch('{{ route("balance-statement.add-adjustment", $client->id) }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: data.message
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.message
+                    });
+                }
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to add adjustment'
+                });
+            }
+        });
     </script>
 </x-app-layout>
 

@@ -134,7 +134,7 @@ class BalanceHistory extends Model
         ]);
     }
 
-    public static function recordCredit($client, $amount, $description, $referenceNumber = null, $notes = null)
+    public static function recordCredit($client, $amount, $description, $referenceNumber = null, $notes = null, $paymentMethod = null)
     {
         // Calculate previous balance from existing balance history records
         $previousBalance = self::where('client_id', $client->id)
@@ -155,10 +155,11 @@ class BalanceHistory extends Model
             'description' => $description,
             'reference_number' => $referenceNumber,
             'notes' => $notes,
+            'payment_method' => $paymentMethod,
         ]);
     }
 
-    public static function recordDebit($client, $amount, $description, $referenceNumber = null, $notes = null)
+    public static function recordDebit($client, $amount, $description, $referenceNumber = null, $notes = null, $paymentMethod = null)
     {
         // Calculate previous balance from existing balance history records
         $previousBalance = self::where('client_id', $client->id)
@@ -179,6 +180,7 @@ class BalanceHistory extends Model
             'description' => $description,
             'reference_number' => $referenceNumber,
             'notes' => $notes,
+            'payment_method' => $paymentMethod,
         ]);
     }
 

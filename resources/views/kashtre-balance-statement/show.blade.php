@@ -25,21 +25,21 @@
         </div>
 
         <!-- Summary Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <!-- Total Balance -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <!-- Available Balance -->
             <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
                 <div class="text-center">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Total Balance</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Available Balance</h3>
                     <p class="text-3xl font-bold text-blue-600">
-                        UGX {{ number_format($kashtreBalanceHistories->sum(function($history) { return $history->type === 'credit' ? $history->amount : -$history->amount; }), 2) }}
+                        UGX {{ number_format($kashtreBalanceHistories->where('type', 'credit')->sum('amount') - $kashtreBalanceHistories->where('type', 'debit')->sum('amount'), 2) }}
                     </p>
                 </div>
             </div>
 
-            <!-- Total Credits -->
+            <!-- Total Balance -->
             <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
                 <div class="text-center">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Total Credits</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Total Balance</h3>
                     <p class="text-3xl font-bold text-green-600">
                         UGX {{ number_format($kashtreBalanceHistories->where('type', 'credit')->sum('amount'), 2) }}
                     </p>
@@ -52,16 +52,6 @@
                     <h3 class="text-lg font-semibold text-gray-900 mb-2">Total Debits</h3>
                     <p class="text-3xl font-bold text-red-600">
                         UGX {{ number_format($kashtreBalanceHistories->where('type', 'debit')->sum('amount'), 2) }}
-                    </p>
-                </div>
-            </div>
-
-            <!-- Transaction Count -->
-            <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                <div class="text-center">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Transactions</h3>
-                    <p class="text-3xl font-bold text-purple-600">
-                        {{ $kashtreBalanceHistories->total() }}
                     </p>
                 </div>
             </div>
@@ -81,6 +71,7 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
@@ -119,6 +110,15 @@
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    @if($history->payment_method)
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                            {{ ucfirst(str_replace('_', ' ', $history->payment_method)) }}
+                                        </span>
+                                    @else
+                                        <span class="text-gray-400">N/A</span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {{ $history->reference_number ?? 'N/A' }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -136,7 +136,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-6 py-8 text-center text-gray-500">
+                                <td colspan="8" class="px-6 py-8 text-center text-gray-500">
                                     No transactions found.
                                 </td>
                             </tr>

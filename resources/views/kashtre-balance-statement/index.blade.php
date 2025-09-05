@@ -18,7 +18,7 @@
 
         <!-- Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <!-- Total Balance -->
+            <!-- Available Balance -->
             <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
                 <div class="flex items-center">
                     <div class="p-3 rounded-full bg-blue-100 text-blue-600">
@@ -27,15 +27,15 @@
                         </svg>
                     </div>
                     <div class="ml-4">
-                        <h3 class="text-lg font-semibold text-gray-900">Total Balance</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">Available Balance</h3>
                         <p class="text-2xl font-bold text-blue-600">
-                            UGX {{ number_format($kashtreBalanceHistories->sum(function($history) { return $history->type === 'credit' ? $history->amount : -$history->amount; }), 2) }}
+                            UGX {{ number_format($kashtreBalanceHistories->where('type', 'credit')->sum('amount') - $kashtreBalanceHistories->where('type', 'debit')->sum('amount'), 2) }}
                         </p>
                     </div>
                 </div>
             </div>
 
-            <!-- Total Credits -->
+            <!-- Total Balance -->
             <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
                 <div class="flex items-center">
                     <div class="p-3 rounded-full bg-green-100 text-green-600">
@@ -44,7 +44,7 @@
                         </svg>
                     </div>
                     <div class="ml-4">
-                        <h3 class="text-lg font-semibold text-gray-900">Total Credits</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">Total Balance</h3>
                         <p class="text-2xl font-bold text-green-600">
                             UGX {{ number_format($kashtreBalanceHistories->where('type', 'credit')->sum('amount'), 2) }}
                         </p>

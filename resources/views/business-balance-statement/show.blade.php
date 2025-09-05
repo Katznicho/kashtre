@@ -44,6 +44,9 @@
                                             Previous Balance
                                         </th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            New Balance
+                                        </th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Description
                                         </th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -69,6 +72,9 @@
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {{ number_format($history->previous_balance, 0) }} UGX
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                                                {{ number_format($history->new_balance, 0) }} UGX
                                             </td>
                                             <td class="px-6 py-4 text-sm text-gray-900">
                                                 {{ $history->description }}

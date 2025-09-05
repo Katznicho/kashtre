@@ -206,13 +206,7 @@
                             </svg>
                         </button>
                         <ul x-show="openGroup === 'finance'" x-collapse class="mt-1 space-y-1 pl-10">
-                            <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Finance Dashboard</a></li>
-                            <li><a href="{{ route('balance-statement.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Client Balance Statement</a></li>
-                            @if(Auth::user()->business_id == 1)
-                            <li><a href="{{ route('kashtre-balance-statement.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Kashtre Balance Statement</a></li>
-                            @endif
-                        <li><a href="{{ route('business-balance-statement.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Business Balance Statement</a></li>
-                            <li><a href="{{ route('money-tracking.dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Money Tracking</a></li>
+                            <li><a href="{{ route('business-balance-statement.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Business Account Statement</a></li>
                         </ul>
                     </li>
                     @endif

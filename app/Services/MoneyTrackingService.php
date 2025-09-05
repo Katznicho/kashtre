@@ -85,6 +85,24 @@ class MoneyTrackingService
     }
 
     /**
+     * Create or get client suspense account
+     */
+    public function getOrCreateClientSuspenseAccount(Client $client)
+    {
+        return MoneyAccount::firstOrCreate([
+            'business_id' => $client->business_id,
+            'client_id' => $client->id,
+            'type' => 'general_suspense_account'
+        ], [
+            'name' => "Client Suspense Account - {$client->name}",
+            'description' => "Holds client money in suspense until service delivery",
+            'balance' => 0,
+            'currency' => 'UGX',
+            'is_active' => true
+        ]);
+    }
+
+    /**
      * Create or get contractor account
      */
     public function getOrCreateContractorAccount(ContractorProfile $contractor)
@@ -103,20 +121,20 @@ class MoneyTrackingService
     }
 
     /**
-     * Step 1: Payment received - Money goes to client account
+     * Step 1: Payment received - Money goes to client suspense account
      */
     public function processPaymentReceived(Client $client, $amount, $reference, $paymentMethod, $metadata = [])
     {
         try {
             DB::beginTransaction();
 
-            $clientAccount = $this->getOrCreateClientAccount($client);
+            $clientSuspenseAccount = $this->getOrCreateClientSuspenseAccount($client);
             
             // Create transfer record
             $transfer = MoneyTransfer::create([
                 'business_id' => $client->business_id,
                 'from_account_id' => null, // External payment
-                'to_account_id' => $clientAccount->id,
+                'to_account_id' => $clientSuspenseAccount->id,
                 'amount' => $amount,
                 'currency' => 'UGX',
                 'status' => 'completed',
@@ -128,8 +146,8 @@ class MoneyTrackingService
                 'processed_at' => now()
             ]);
 
-            // Credit client account
-            $clientAccount->credit($amount);
+            // Credit client suspense account
+            $clientSuspenseAccount->credit($amount);
 
             // Record CREDIT transaction for payment received
             BalanceHistory::recordCredit(
@@ -137,15 +155,17 @@ class MoneyTrackingService
                 $amount,
                 "Payment received via {$paymentMethod}",
                 $reference,
-                "Payment received for invoice"
+                "Payment received for invoice",
+                $paymentMethod
             );
 
             DB::commit();
             
-            Log::info("Payment received: {$amount} UGX for client {$client->name}", [
+            Log::info("Payment received: {$amount} UGX for client {$client->name} (in suspense)", [
                 'client_id' => $client->id,
                 'reference' => $reference,
-                'transfer_id' => $transfer->id
+                'transfer_id' => $transfer->id,
+                'suspense_account_id' => $clientSuspenseAccount->id
             ]);
 
             return $transfer;
@@ -162,23 +182,89 @@ class MoneyTrackingService
     }
 
     /**
-     * Step 2: Order confirmed - Money moves to suspense accounts
-     * DISABLED: This method was creating unwanted MoneyTransfer records
-     * causing balance calculation issues. Only initial payment is needed.
+     * Step 2: Order confirmed - Show immediate debits to client
+     * Money stays in client suspense account, but debits are shown immediately
+     * Actual money movement happens later when "save and exit" is clicked
      */
     public function processOrderConfirmed(Invoice $invoice, $items)
     {
-        // DISABLED: This method was creating unwanted MoneyTransfer records
-        // that caused the balance calculation issues (UGX 39,950.00 problem)
-        // 
-        // The user only wants the initial payment transaction (CREDIT),
-        // not the complex transfer logic to suspense accounts.
-        //
-        // If you need to re-enable this functionality later, you'll need to
-        // fix the balance calculation logic to properly handle these transfers.
-        
-        Log::info("processOrderConfirmed DISABLED for invoice {$invoice->invoice_number} - transfers not needed");
-        return;
+        try {
+            DB::beginTransaction();
+
+            $client = $invoice->client;
+            $business = $invoice->business;
+            $debitRecords = [];
+
+            // Get client suspense account (money stays here)
+            $clientSuspenseAccount = $this->getOrCreateClientSuspenseAccount($client);
+
+            foreach ($items as $itemData) {
+                $itemId = $itemData['item_id'] ?? $itemData['id'] ?? null;
+                if (!$itemId) continue;
+                
+                $item = Item::find($itemId);
+                if (!$item) continue;
+                
+                $quantity = $itemData['quantity'] ?? 1;
+                $totalAmount = $itemData['total_amount'] ?? ($item->default_price * $quantity);
+
+                // Create debit record for client to see where their money is allocated
+                // Money stays in suspense account, but client sees the debit
+                $debitRecord = BalanceHistory::recordDebit(
+                    $client,
+                    $totalAmount,
+                    "Allocated for: {$item->name} (x{$quantity})",
+                    $invoice->invoice_number,
+                    "Order confirmed - Item allocated: {$item->name}"
+                );
+
+                $debitRecords[] = [
+                    'item_name' => $item->name,
+                    'quantity' => $quantity,
+                    'amount' => $totalAmount,
+                    'type' => 'item_allocation',
+                    'status' => 'suspense_account'
+                ];
+            }
+
+            // Create debit record for service charge if applicable
+            if ($invoice->service_charge > 0) {
+                BalanceHistory::recordDebit(
+                    $client,
+                    $invoice->service_charge,
+                    "Service Charge Allocated",
+                    $invoice->invoice_number,
+                    "Service charge allocated for invoice {$invoice->invoice_number}"
+                );
+
+                $debitRecords[] = [
+                    'item_name' => 'Service Charge',
+                    'quantity' => 1,
+                    'amount' => $invoice->service_charge,
+                    'type' => 'service_charge_allocation',
+                    'status' => 'suspense_account'
+                ];
+            }
+
+            DB::commit();
+
+            Log::info("Order confirmed with immediate debits shown (money in suspense)", [
+                'invoice_id' => $invoice->id,
+                'client_id' => $client->id,
+                'debit_records_count' => count($debitRecords),
+                'suspense_account_id' => $clientSuspenseAccount->id
+            ]);
+
+            return $debitRecords;
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error("Failed to process order confirmation with debits", [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
         
         // OLD CODE COMMENTED OUT BELOW:
         /*
@@ -355,23 +441,45 @@ class MoneyTrackingService
     }
 
     /**
-     * Process service charge
-     * DISABLED: This method was creating unwanted MoneyTransfer records
-     * causing balance calculation issues. Only initial payment is needed.
+     * Process service charge - Show immediate debit to client
+     * Money stays in client suspense account, but debit is shown immediately
+     * Actual money movement happens later when "save and exit" is clicked
      */
     public function processServiceCharge(Invoice $invoice, $serviceChargeAmount)
     {
-        // DISABLED: This method was creating unwanted MoneyTransfer records
-        // that caused the balance calculation issues (UGX 21,975.00 problem)
-        // 
-        // The user only wants the initial payment transaction (CREDIT),
-        // not the complex transfer logic to suspense accounts.
-        //
-        // If you need to re-enable this functionality later, you'll need to
-        // fix the balance calculation logic to properly handle these transfers.
-        
-        Log::info("processServiceCharge DISABLED for invoice {$invoice->invoice_number} - transfers not needed");
-        return;
+        try {
+            if ($serviceChargeAmount <= 0) {
+                return null;
+            }
+
+            $client = $invoice->client;
+
+            // Create debit record for service charge to show client where their money is allocated
+            // Money stays in suspense account, but client sees the debit
+            $debitRecord = BalanceHistory::recordDebit(
+                $client,
+                $serviceChargeAmount,
+                "Service Charge Allocated",
+                $invoice->invoice_number,
+                "Service charge allocated for invoice {$invoice->invoice_number}"
+            );
+
+            Log::info("Service charge debit recorded for client (money in suspense)", [
+                'invoice_id' => $invoice->id,
+                'client_id' => $client->id,
+                'service_charge_amount' => $serviceChargeAmount
+            ]);
+
+            return $debitRecord;
+
+        } catch (Exception $e) {
+            Log::error("Failed to process service charge debit", [
+                'invoice_id' => $invoice->id,
+                'service_charge_amount' => $serviceChargeAmount,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
         
         // OLD CODE COMMENTED OUT BELOW:
         /*
@@ -861,5 +969,102 @@ class MoneyTrackingService
             'currency' => 'UGX',
             'is_active' => true
         ]);
+    }
+
+    /**
+     * Process "Save and Exit" - Move money from client suspense account to final accounts
+     * This is called when the user clicks "save and exit" to finalize the order
+     */
+    public function processSaveAndExit(Invoice $invoice, $items)
+    {
+        try {
+            DB::beginTransaction();
+
+            $client = $invoice->client;
+            $business = $invoice->business;
+            $clientSuspenseAccount = $this->getOrCreateClientSuspenseAccount($client);
+            $transferRecords = [];
+
+            foreach ($items as $itemData) {
+                $itemId = $itemData['item_id'] ?? $itemData['id'] ?? null;
+                if (!$itemId) continue;
+                
+                $item = Item::find($itemId);
+                if (!$item) continue;
+                
+                $quantity = $itemData['quantity'] ?? 1;
+                $totalAmount = $itemData['total_amount'] ?? ($item->default_price * $quantity);
+
+                // Determine destination account based on item type
+                if ($item->contractor_account_id) {
+                    // Contractor item - move to contractor account
+                    $contractor = ContractorProfile::find($item->contractor_account_id);
+                    $destinationAccount = $this->getOrCreateContractorAccount($contractor);
+                    $transferDescription = "Contractor payment for: {$item->name}";
+                } else {
+                    // Business item - move to business account
+                    $destinationAccount = $this->getOrCreateBusinessAccount($business);
+                    $transferDescription = "Business payment for: {$item->name}";
+                }
+
+                // Transfer money from client suspense to destination account
+                $transfer = $this->transferMoney(
+                    $clientSuspenseAccount,
+                    $destinationAccount,
+                    $totalAmount,
+                    'save_and_exit',
+                    $invoice,
+                    $item,
+                    $transferDescription
+                );
+
+                $transferRecords[] = [
+                    'item_name' => $item->name,
+                    'amount' => $totalAmount,
+                    'destination' => $destinationAccount->name,
+                    'transfer_id' => $transfer->id
+                ];
+            }
+
+            // Handle service charge if applicable
+            if ($invoice->service_charge > 0) {
+                $kashtreSuspenseAccount = $this->getOrCreateKashtreSuspenseAccount($business);
+                
+                $transfer = $this->transferMoney(
+                    $clientSuspenseAccount,
+                    $kashtreSuspenseAccount,
+                    $invoice->service_charge,
+                    'save_and_exit',
+                    $invoice,
+                    null,
+                    "Service charge for invoice {$invoice->invoice_number}"
+                );
+
+                $transferRecords[] = [
+                    'item_name' => 'Service Charge',
+                    'amount' => $invoice->service_charge,
+                    'destination' => $kashtreSuspenseAccount->name,
+                    'transfer_id' => $transfer->id
+                ];
+            }
+
+            DB::commit();
+
+            Log::info("Save and exit processed - money moved from suspense accounts", [
+                'invoice_id' => $invoice->id,
+                'client_id' => $client->id,
+                'transfer_records_count' => count($transferRecords)
+            ]);
+
+            return $transferRecords;
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error("Failed to process save and exit", [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
     }
 }

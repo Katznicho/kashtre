@@ -113,23 +113,16 @@ class Client extends Model
 
     /**
      * Get the client's suspense balance (money in temporary accounts)
-     * This calculates based on balance history and current account state
+     * This should return the actual balance from the suspense account
      */
     public function getSuspenseBalanceAttribute()
     {
-        // Get total credits from balance history
-        $totalCredits = $this->balanceHistories()
-            ->where('transaction_type', 'credit')
-            ->sum('change_amount');
+        // Get the actual suspense account balance
+        $suspenseAccount = $this->suspenseAccounts()
+            ->where('type', 'general_suspense_account')
+            ->first();
         
-        // Get total debits from balance history
-        $totalDebits = $this->balanceHistories()
-            ->where('transaction_type', 'debit')
-            ->sum('change_amount');
-        
-        // Suspense balance = total credits - total debits
-        // This represents money that has been credited but is locked in suspense
-        return $totalCredits - $totalDebits;
+        return $suspenseAccount ? $suspenseAccount->balance : 0;
     }
 
     /**

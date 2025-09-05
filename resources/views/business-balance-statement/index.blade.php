@@ -24,8 +24,8 @@
         </div>
 
         <!-- Summary Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <!-- Total Balance -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <!-- Available Balance -->
             <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
                 <div class="flex items-center">
                     <div class="p-3 rounded-full bg-blue-100 text-blue-600">
@@ -34,15 +34,15 @@
                         </svg>
                     </div>
                     <div class="ml-4">
-                        <h3 class="text-lg font-semibold text-gray-900">Total Balance</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">Available Balance</h3>
                         <p class="text-2xl font-bold text-blue-600">
-                            UGX {{ number_format($businessBalanceHistories->sum('amount'), 2) }}
+                            UGX {{ number_format($businessBalanceHistories->where('type', 'credit')->sum('amount') - $businessBalanceHistories->where('type', 'debit')->sum('amount'), 2) }}
                         </p>
                     </div>
                 </div>
             </div>
 
-            <!-- Total Credits -->
+            <!-- Total Balance -->
             <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
                 <div class="flex items-center">
                     <div class="p-3 rounded-full bg-green-100 text-green-600">
@@ -51,7 +51,7 @@
                         </svg>
                     </div>
                     <div class="ml-4">
-                        <h3 class="text-lg font-semibold text-gray-900">Total Credits</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">Total Balance</h3>
                         <p class="text-2xl font-bold text-green-600">
                             UGX {{ number_format($businessBalanceHistories->where('type', 'credit')->sum('amount'), 2) }}
                         </p>
@@ -71,23 +71,6 @@
                         <h3 class="text-lg font-semibold text-gray-900">Total Debits</h3>
                         <p class="text-2xl font-bold text-red-600">
                             UGX {{ number_format($businessBalanceHistories->where('type', 'debit')->sum('amount'), 2) }}
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Transaction Count -->
-            <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-purple-100 text-purple-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                        </svg>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-lg font-semibold text-gray-900">Transactions</h3>
-                        <p class="text-2xl font-bold text-purple-600">
-                            {{ $businessBalanceHistories->total() }}
                         </p>
                     </div>
                 </div>

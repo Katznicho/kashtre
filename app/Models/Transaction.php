@@ -15,6 +15,8 @@ class Transaction extends Model
      protected $fillable = [
         'business_id',
         'branch_id',
+        'client_id',
+        'invoice_id',
         'amount',
         'reference',
         'description',
@@ -45,6 +47,16 @@ class Transaction extends Model
      public function branch()
      {
          return $this->belongsTo(Branch::class);
+     }
+
+     public function client()
+     {
+         return $this->belongsTo(Client::class);
+     }
+
+     public function invoice()
+     {
+         return $this->belongsTo(Invoice::class);
      }
 
      protected static function booted()

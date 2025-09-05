@@ -237,15 +237,10 @@ class InvoiceController extends Controller
                 ]);
             }
             
-            // MONEY TRACKING: Step 2 - Process order confirmation (move money to suspense accounts)
+            // MONEY TRACKING: Step 2 - Process order confirmation (includes service charge)
             if ($validated['status'] === 'confirmed') {
                 $items = $validated['items'];
                 $moneyTrackingService->processOrderConfirmed($invoice, $items);
-            }
-            
-            // MONEY TRACKING: Step 3 - Process service charge
-            if ($validated['service_charge'] > 0) {
-                $moneyTrackingService->processServiceCharge($invoice, $validated['service_charge']);
             }
             
             // PACKAGE TRACKING: Create package tracking records for package items
@@ -562,29 +557,76 @@ class InvoiceController extends Controller
             }
             
             // Initialize YoAPI for mobile money payment
-            $username = env('API_USERNAME', '100589248779');
-            $password = env('API_PASSWORD', 'bVXo-BDBw-KF5x-JSAS-9tm0-jORW-rYqX-7EGn');
+            $yoPayments = new \App\Payments\YoAPI(config('payments.yo_username'), config('payments.yo_password'));
+            $yoPayments->set_instant_notification_url('https://webhook.site/396126eb-cc9b-4c57-a7a9-58f43d2b7935');
+            $yoPayments->set_external_reference(uniqid());
             
-            $yoPayments = new \App\Payments\YoAPI($username, $password);
-            $yoPayments->set_instant_notification_url(env('YO_CALLBACK_URL', 'https://webhook.site/396126eb-cc9b-4c57-a7a9-58f43d2b7935'));
-            $yoPayments->set_external_reference(time());
+            // Log payment attempt details
+            Log::info('Mobile money payment attempt', [
+                'phone' => $phone,
+                'amount' => $validated['amount'],
+                'description' => $description,
+                'client_id' => $validated['client_id'],
+                'business_id' => $validated['business_id']
+            ]);
             
-            // Process payment
+            // Process payment through YoAPI
             $result = $yoPayments->ac_deposit_funds($phone, $validated['amount'], $description);
             
-            if (isset($result['TransactionReference'])) {
+            // Log the actual API response
+            Log::info('YoAPI actual response', ['result' => $result]);
+            
+            // Check if payment was successful (matching your working implementation)
+            if (isset($result['Status']) && $result['Status'] === 'OK' && isset($result['TransactionReference'])) {
+                
+                // Create transaction record for tracking
+                $transaction = \App\Models\Transaction::create([
+                    'business_id' => $validated['business_id'],
+                    'branch_id' => $client->branch_id ?? null,
+                    'client_id' => $validated['client_id'],
+                    'invoice_id' => null, // Will be set when invoice is created
+                    'amount' => $validated['amount'],
+                    'reference' => $result['TransactionReference'],
+                    'description' => $description,
+                    'status' => 'pending',
+                    'type' => 'debit',
+                    'origin' => 'web',
+                    'phone_number' => $validated['phone_number'],
+                    'provider' => 'yoapi',
+                    'service' => 'mobile_money_payment',
+                    'date' => now(),
+                    'currency' => 'UGX',
+                    'names' => $client->name,
+                    'email' => null,
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                    'method' => 'mobile_money',
+                    'transaction_for' => 'main',
+                ]);
+                
                 return response()->json([
                     'success' => true,
                     'transaction_id' => $result['TransactionReference'],
-                    'status' => $result['Status'] ?? 'pending',
-                    'message' => 'Mobile money payment request sent successfully',
-                    'description' => $description
+                    'status' => 'pending',
+                    'message' => 'Mobile Money payment request initiated successfully. Awaiting confirmation.',
+                    'description' => $description,
+                    'yoapi_response' => $result,
+                    'internal_transaction_id' => $transaction->id
                 ]);
             } else {
+                $errorMessage = isset($result['ErrorMessage']) ? "Mobile Money payment failed: {$result['ErrorMessage']}" : 'Mobile Money payment failed: Unknown error.';
+                
+                Log::error('Mobile money payment failed', [
+                    'result' => $result,
+                    'phone' => $phone,
+                    'amount' => $validated['amount'],
+                    'error_message' => $errorMessage
+                ]);
+                
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to initiate mobile money payment',
-                    'error' => $result['StatusMessage'] ?? 'Unknown error'
+                    'message' => $errorMessage,
+                    'yoapi_response' => $result
                 ], 400);
             }
             
