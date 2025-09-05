@@ -15,8 +15,8 @@ return new class extends Migration
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique()->index();
-            $table->foreignId('business_id')->nullable()->constrained('businesses')->onDelete('cascade')->index();
-            $table->foreignId('branch_id')->nullable()->constrained('branches')->onDelete('cascade')->index();
+            $table->unsignedBigInteger('business_id')->nullable()->index();
+            $table->unsignedBigInteger('branch_id')->nullable()->index();
             $table->string('amount')->nullable();
             $table->string('reference')->index(); // used for lookups
             $table->string('description')->nullable();
@@ -36,6 +36,10 @@ return new class extends Migration
             $table->enum('transaction_for', ['main', 'charge'])->default('main')->index();
             $table->timestamps();
             $table->softDeletes();
+            
+            // Foreign key constraints with explicit names
+            $table->foreign('business_id', 'transactions_business_id_fk')->references('id')->on('businesses')->onDelete('cascade');
+            $table->foreign('branch_id', 'transactions_branch_id_fk')->references('id')->on('branches')->onDelete('cascade');
         });
     }
 
