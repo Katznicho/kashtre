@@ -136,13 +136,16 @@
                 <div class="mb-6">
                     <h4 class="text-lg font-medium text-gray-900 mb-4">Financial Summary</h4>
                     <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-gray-50 p-4 rounded-lg text-center">
-                            <p class="text-sm text-gray-500 mb-1">Current Balance</p>
-                            <p class="text-xl font-bold text-gray-900">UGX {{ number_format($client->balance ?? 0, 2) }}</p>
+                        <div class="bg-blue-50 p-4 rounded-lg text-center">
+                            <p class="text-sm text-gray-500 mb-1">Available Balance</p>
+                            <p class="text-xl font-bold text-blue-600">UGX {{ number_format($client->available_balance ?? 0, 2) }}</p>
+                            @if(($client->suspense_balance ?? 0) > 0)
+                                <p class="text-xs text-orange-600">({{ number_format($client->suspense_balance ?? 0, 2) }} temporary)</p>
+                            @endif
                         </div>
-                        <div class="bg-green-50 p-4 rounded-lg text-center">
-                            <p class="text-sm text-gray-500 mb-1">Available Credit</p>
-                            <p class="text-xl font-bold text-green-600">UGX {{ number_format(($client->balance ?? 0) + 100000, 2) }}</p>
+                        <div class="bg-gray-50 p-4 rounded-lg text-center">
+                            <p class="text-sm text-gray-500 mb-1">Total Balance</p>
+                            <p class="text-lg font-semibold text-gray-700">UGX {{ number_format($client->total_balance ?? 0, 2) }}</p>
                         </div>
                     </div>
                 </div>

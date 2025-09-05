@@ -45,10 +45,10 @@
             </div>
         </div>
 
-        <!-- Today's Patients Card -->
+        <!-- Today's Clients Card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Today's Patients</h3>
+                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Today's Clients</h3>
                 <span class="text-xs text-gray-400">{{ now()->format('M d, Y') }}</span>
             </div>
             <div class="flex items-baseline">
@@ -57,7 +57,7 @@
                         ->whereDate('created_at', today())
                         ->count() }}
                 </span>
-                <span class="ml-2 text-sm text-gray-500">Patients</span>
+                <span class="ml-2 text-sm text-gray-500">Clients</span>
             </div>
         </div>
 
@@ -88,9 +88,9 @@
                 <i class="fas fa-clipboard-list mr-2"></i>
                 View Service Queues
             </a>
-            <a href="{{ route('contractor-balance-history.show', $contractorProfile->id) }}" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center">
+            <a href="{{ route('contractor-balance-statement.show', $contractorProfile->id) }}" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center">
                 <i class="fas fa-history mr-2"></i>
-                View Balance History
+                View Balance Statement
             </a>
         </div>
     </div>
@@ -156,7 +156,7 @@
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
@@ -198,7 +198,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 <h3 class="mt-2 text-sm font-medium text-gray-900">No recent activities</h3>
-                <p class="mt-1 text-sm text-gray-500">You haven't processed any patients yet.</p>
+                <p class="mt-1 text-sm text-gray-500">You haven't processed any clients yet.</p>
             </div>
         @endif
     </div>

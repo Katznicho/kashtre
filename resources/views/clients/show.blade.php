@@ -1,4 +1,5 @@
 <x-app-layout>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
@@ -254,19 +255,63 @@
                     </div>
                     @endif
 
+                    <!-- Client Statement -->
+                    <div class="bg-gray-50 p-4 rounded-lg mb-8">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-md font-medium text-gray-900">Client Statement</h4>
+                            <a href="{{ route('balance-statement.show', $client) }}" 
+                               class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                View Balance Statement
+                            </a>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-blue-50 p-4 rounded-lg text-center">
+                                <div class="flex justify-between items-center mb-2">
+                                    <p class="text-sm text-gray-500">Current Balance</p>
+                                    <button onclick="refreshClientBalance()" class="text-blue-600 hover:text-blue-800 text-sm">
+                                        <i class="fas fa-sync-alt"></i> Refresh
+                                    </button>
+                                </div>
+                                <div class="space-y-1">
+                                    <p class="text-lg font-bold text-gray-900" id="client-balance-display">
+                                        <span class="text-blue-600">Available:</span> UGX {{ number_format($client->available_balance ?? 0, 2) }}
+                                    </p>
+                                    <p class="text-sm text-gray-500" id="client-total-balance">
+                                        <span class="text-gray-600">Total:</span> UGX {{ number_format($client->total_balance ?? 0, 2) }}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="bg-yellow-50 p-4 rounded-lg text-center">
+                                <p class="text-sm text-gray-500 mb-1">Total Transactions</p>
+                                <p class="text-xl font-bold text-yellow-600">{{ \App\Models\BalanceHistory::where('client_id', $client->id)->count() }}</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex space-x-2">
+                            <a href="{{ route('balance-statement.show', $client) }}" 
+                               class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                                View Detailed Client Statement
+                            </a>
+                        </div>
+                    </div>
+
                     <!-- Financial Information -->
                     <div class="bg-gray-50 p-4 rounded-lg mb-8">
                         <div class="flex justify-between items-center mb-4">
                             <h4 class="text-md font-medium text-gray-900">Financial Information</h4>
-                            <a href="{{ route('balance-history.show', $client) }}" 
+                            <a href="{{ route('balance-statement.show', $client) }}" 
                                class="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                                View Balance History
+                                                                 View Balance Statement
                             </a>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="text-sm font-medium text-gray-500">Current Balance</label>
-                                <p class="text-sm text-gray-900">UGX {{ number_format($client->balance ?? 0, 2) }}</p>
+                                <label class="text-sm font-medium text-gray-500">Available Balance</label>
+                                <p class="text-sm text-blue-600 font-semibold">UGX {{ number_format($client->available_balance ?? 0, 2) }}</p>
+                                <label class="text-xs font-medium text-gray-400">Total Balance</label>
+                                <p class="text-xs text-gray-600">UGX {{ number_format($client->total_balance ?? 0, 2) }}</p>
+                                @if(($client->suspense_balance ?? 0) > 0)
+                                    <p class="text-xs text-orange-600">({{ number_format($client->suspense_balance ?? 0, 2) }} temporary)</p>
+                                @endif
                             </div>
                             <div>
                                 <label class="text-sm font-medium text-gray-500">Created Date</label>
@@ -358,4 +403,61 @@
             </div>
         </div>
     </div>
+
+    <script>
+        async function refreshClientBalance() {
+            try {
+                const response = await fetch('/invoices/balance-adjustment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({
+                        client_id: {{ $client->id }},
+                        total_amount: 0 // Just to get current balance
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const balanceDisplay = document.getElementById('client-balance-display');
+                    const totalBalanceDisplay = document.getElementById('client-total-balance');
+
+                    const availableBalance = parseFloat(data.available_balance || data.client_balance || 0);
+                    const totalBalance = parseFloat(data.total_balance || data.client_balance || 0);
+                    const suspenseBalance = parseFloat(data.suspense_balance || 0);
+
+                    // Update available balance display
+                    balanceDisplay.innerHTML = `<span class="text-blue-600">Available:</span> UGX ${availableBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+                    // Update total balance display
+                    totalBalanceDisplay.innerHTML = `<span class="text-gray-600">Total:</span> UGX ${totalBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+                    // Show success message
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Balance Updated',
+                        text: `Current balance: UGX ${availableBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.message || 'Failed to refresh balance'
+                    });
+                }
+            } catch (error) {
+                console.error('Error refreshing client balance:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to refresh balance'
+                });
+            }
+        }
+    </script>
 </x-app-layout>

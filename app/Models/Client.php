@@ -92,6 +92,63 @@ class Client extends Model
     }
 
     /**
+     * Get the client's total balance (including money in suspense accounts)
+     */
+    public function getTotalBalanceAttribute()
+    {
+        // Total balance should just be the suspense balance since available is always 0
+        // This represents the total amount credited to the client
+        return $this->getSuspenseBalanceAttribute();
+    }
+
+    /**
+     * Get the client's available balance (excluding money in suspense accounts)
+     */
+    public function getAvailableBalanceAttribute()
+    {
+        // Available balance should be 0 since money is immediately locked in suspense
+        // This represents money that the client can actually use
+        return 0;
+    }
+
+    /**
+     * Get the client's suspense balance (money in temporary accounts)
+     * This calculates based on balance history and current account state
+     */
+    public function getSuspenseBalanceAttribute()
+    {
+        // Get total credits from balance history
+        $totalCredits = $this->balanceHistories()
+            ->where('transaction_type', 'credit')
+            ->sum('change_amount');
+        
+        // Get total debits from balance history
+        $totalDebits = $this->balanceHistories()
+            ->where('transaction_type', 'debit')
+            ->sum('change_amount');
+        
+        // Suspense balance = total credits - total debits
+        // This represents money that has been credited but is locked in suspense
+        return $totalCredits - $totalDebits;
+    }
+
+    /**
+     * Get the client's money account
+     */
+    public function moneyAccount()
+    {
+        return $this->hasOne(MoneyAccount::class)->where('type', 'client_account');
+    }
+
+    /**
+     * Get the client's suspense accounts
+     */
+    public function suspenseAccounts()
+    {
+        return $this->hasMany(MoneyAccount::class)->whereIn('type', ['general_suspense_account', 'package_suspense_account']);
+    }
+
+    /**
      * Generate a unique client ID based on NIN, business, and branch
      * Format: 3 letters + 4 numbers + 1 letter
      */

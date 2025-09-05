@@ -30,7 +30,10 @@ class ServiceDeliveryQueue extends Model
         'partially_done_at',
         'completed_at',
         'assigned_to',
-        'started_by_user_id'
+        'started_by_user_id',
+        'is_money_moved',
+        'money_moved_at',
+        'money_moved_by_user_id'
     ];
 
     protected $casts = [
@@ -41,6 +44,8 @@ class ServiceDeliveryQueue extends Model
         'started_at' => 'datetime',
         'partially_done_at' => 'datetime',
         'completed_at' => 'datetime',
+        'is_money_moved' => 'boolean',
+        'money_moved_at' => 'datetime',
     ];
 
     // Relationships
@@ -120,6 +125,18 @@ class ServiceDeliveryQueue extends Model
         return $query->where('branch_id', $branchId);
     }
 
+    public function scopeMoneyMoved($query)
+    {
+        return $query->where('is_money_moved', true);
+    }
+
+    public function scopeMoneyNotMoved($query)
+    {
+        return $query->where('is_money_moved', false);
+    }
+
+
+
     // Methods
     public function markAsInProgress()
     {
@@ -184,6 +201,8 @@ class ServiceDeliveryQueue extends Model
         return $this->status === 'cancelled';
     }
 
+
+
     public function getStatusBadgeAttribute()
     {
         return match($this->status) {
@@ -205,6 +224,11 @@ class ServiceDeliveryQueue extends Model
             'urgent' => 'bg-red-100 text-red-800',
             default => 'bg-gray-100 text-gray-800'
         };
+    }
+
+    public function isMoneyMoved()
+    {
+        return $this->is_money_moved === true;
     }
 
     protected static function booted()

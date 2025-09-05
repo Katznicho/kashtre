@@ -5,6 +5,8 @@ namespace App\Livewire;
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Models\ContractorProfile;
+use App\Models\ContractorBalanceHistory;
+use App\Models\BusinessBalanceHistory;
 
 class Dashboard extends Component
 {
@@ -25,8 +27,12 @@ class Dashboard extends Component
         $this->isContractor = $this->contractorProfile !== null;
 
         if ($this->isContractor) {
-            // Contractor dashboard
-            $this->balance = $this->contractorProfile->account_balance;
+            // Contractor dashboard - calculate balance from contractor_balance_histories (source of truth)
+            $balanceHistory = \App\Models\ContractorBalanceHistory::where('contractor_profile_id', $this->contractorProfile->id)
+                ->selectRaw('SUM(CASE WHEN type = "credit" THEN amount ELSE -amount END) as calculated_balance')
+                ->first();
+            
+            $this->balance = $balanceHistory ? $balanceHistory->calculated_balance : 0;
             
             // Get assigned service points for this contractor
             $this->assignedServicePoints = \App\Models\ServicePoint::whereHas('serviceDeliveryQueues', function($query) use ($user) {
@@ -36,7 +42,25 @@ class Dashboard extends Component
             // Regular staff dashboard
             $this->business = $user->business;
             $this->currentBranch = $user->current_branch;
-            $this->balance = $this->business->account_balance;
+            
+            // Get the actual business account balance from MoneyAccount
+            // For Kashtre (business_id = 1), show kashtre_account balance
+            // For other businesses, show business_account balance
+            if ($this->business->id == 1) {
+                // Kashtre - calculate balance from business_balance_histories (source of truth)
+                $balanceHistory = BusinessBalanceHistory::where('business_id', $this->business->id)
+                    ->selectRaw('SUM(CASE WHEN type = "credit" THEN amount ELSE -amount END) as calculated_balance')
+                    ->first();
+                
+                $this->balance = $balanceHistory ? $balanceHistory->calculated_balance : 0;
+            } else {
+                // Other businesses - calculate balance from business_balance_histories (source of truth)
+                $balanceHistory = BusinessBalanceHistory::where('business_id', $this->business->id)
+                    ->selectRaw('SUM(CASE WHEN type = "credit" THEN amount ELSE -amount END) as calculated_balance')
+                    ->first();
+                
+                $this->balance = $balanceHistory ? $balanceHistory->calculated_balance : 0;
+            }
         }
 
         $this->lastUpdate = now()->format('H:i:s');

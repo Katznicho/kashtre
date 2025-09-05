@@ -132,7 +132,17 @@
                                     <i class="fas fa-sync-alt"></i> Refresh
                                 </button>
                             </div>
-                            <p class="text-xl font-bold text-gray-900" id="client-balance-display">UGX {{ number_format($client->balance ?? 0, 2) }}</p>
+                            <div class="space-y-1">
+                                <p class="text-lg font-bold text-gray-900" id="client-balance-display">
+                                    <span class="text-blue-600">Available:</span> UGX {{ number_format($client->available_balance ?? 0, 2) }}
+                                </p>
+                                <p class="text-sm text-gray-500" id="client-total-balance">
+                                    <span class="text-gray-600">Total:</span> UGX {{ number_format($client->total_balance ?? 0, 2) }}
+                                    @if(($client->suspense_balance ?? 0) > 0)
+                                        <span class="text-orange-600">({{ number_format($client->suspense_balance ?? 0, 2) }} temporary)</span>
+                                    @endif
+                                </p>
+                            </div>
                         </div>
                         <div class="bg-yellow-50 p-4 rounded-lg text-center">
                             <p class="text-sm text-gray-500 mb-1">Total Transactions</p>
@@ -143,8 +153,8 @@
                         <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
                             View Detailed Client Statement
                         </button>
-                        <a href="{{ route('balance-history.show', $client->id) }}" target="_blank" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
-                            View Balance History
+                                        <a href="{{ route('balance-statement.show', $client->id) }}" target="_blank" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                    View Balance Statement
                         </a>
                     </div>
                 </div>
@@ -220,12 +230,9 @@
                                     <div class="item-row px-4 py-3 hover:bg-gray-50" data-item-name="{{ strtolower($item->name) }}" data-item-other-names="{{ strtolower($item->other_names ?? '') }}" data-item-type="{{ $item->type ?? 'N/A' }}">
                                         <div class="grid grid-cols-2 gap-4 items-center">
                                             <div>
-                                                <span class="text-sm text-gray-900">{{ $item->other_names ?? $item->name }}</span>
+                                                <span class="text-sm text-gray-900">{{ $item->name }}</span>
                                                 @if($item->description)
                                                 <p class="text-xs text-gray-500 mt-1">{{ $item->description }}</p>
-                                                @endif
-                                                @if($item->other_names)
-                                                <p class="text-xs text-gray-600 mt-1">Other Names: {{ $item->other_names }}</p>
                                                 @endif
                                                 <p class="text-xs text-blue-600 mt-1 price-display" style="display: none;">
                                                     Price: UGX {{ number_format($item->final_price ?? 0, 2) }}
@@ -245,6 +252,7 @@
                                                        data-item-id="{{ $item->id }}" 
                                                        data-item-price="{{ $item->final_price ?? 0 }}"
                                                        data-item-name="{{ $item->name }}"
+                                                       data-item-other-names="{{ $item->other_names ?? '' }}"
                                                        data-item-type="{{ $item->type ?? 'N/A' }}">
                                             </div>
                                         </div>
@@ -406,7 +414,7 @@
             <div class="mt-3">
                 <!-- Invoice Header -->
                 <div class="text-center mb-6">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Invoice Preview</h2>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Proforma Invoice</h2>
                     <div class="bg-blue-600 text-white py-2 px-4 rounded-lg mb-2">
                         <span class="text-lg font-semibold">Invoice</span>
                     </div>
@@ -423,7 +431,6 @@
                         <p><strong>Client:</strong> {{ $client->name }} {{ $client->client_id }}</p>
                         <p><strong>Visit ID:</strong> {{ $client->visit_id }}</p>
                         <p><strong>Branch Name:</strong> {{ auth()->user()->currentBranch->name ?? 'N/A' }}</p>
-                        <p><strong>Account Balance:</strong> <span class="text-blue-600 font-semibold">UGX {{ number_format($client->balance ?? 0, 2) }}</span></p>
                     </div>
                     <div>
                         <p><strong>Date:</strong> {{ now()->format('n/j/Y') }}</p>
@@ -442,6 +449,7 @@
                                 <th class="border border-gray-300 px-4 py-2 text-center">Quantity</th>
                                 <th class="border border-gray-300 px-4 py-2 text-right">Price</th>
                                 <th class="border border-gray-300 px-4 py-2 text-right">Amount</th>
+
                             </tr>
                         </thead>
                         <tbody id="invoice-items-table">
@@ -491,10 +499,23 @@
                     </div>
                 </div>
                 
+                <!-- Package Tracking Numbers Summary -->
+                <div id="package-tracking-summary" class="mb-6 hidden">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Package Tracking Numbers</h3>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div id="package-tracking-list" class="space-y-2">
+                            <!-- Package tracking numbers will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Action Buttons -->
                 <div class="flex justify-end space-x-4 mt-6">
                     <button onclick="closeInvoicePreview()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">
                         Close
+                    </button>
+                    <button id="export-tracking-btn" onclick="exportPackageTrackingNumbers()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors hidden">
+                        Export Tracking Numbers
                     </button>
                     <button onclick="confirmAndSaveInvoice()" class="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
                         Confirm & Save
@@ -548,7 +569,7 @@
                     const itemName = row.dataset.itemName;
                     const itemOtherNames = row.dataset.itemOtherNames;
                     
-                    // Search in both item name and other names, but return entries in the items field
+                    // Search in both item name and other names
                     if (itemName.includes(searchTerm) || itemOtherNames.includes(searchTerm)) {
                         row.style.display = '';
                     } else {
@@ -566,7 +587,54 @@
                     element.style.display = this.checked ? 'block' : 'none';
                 });
             });
+            
         });
+        
+        // Show client confirmation modal on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            showClientConfirmation();
+        });
+        
+        function showClientConfirmation() {
+            document.getElementById('client-confirmation-modal').classList.remove('hidden');
+        }
+        
+        function closeClientConfirmation() {
+            document.getElementById('client-confirmation-modal').classList.add('hidden');
+        }
+        
+        function printClientDetails() {
+            // Create a print-friendly version of client details
+            const printWindow = window.open('', '_blank');
+            const modalContent = document.querySelector('#client-confirmation-modal .relative').cloneNode(true);
+            
+            // Remove action buttons from print version
+            const actionButtons = modalContent.querySelector('.bg-gray-100');
+            if (actionButtons) {
+                actionButtons.remove();
+            }
+            
+            // Add print-specific styling
+            const printStyle = document.createElement('style');
+            printStyle.textContent = `
+                body { font-family: Arial, sans-serif; }
+                .bg-blue-600 { background-color: #2563eb !important; color: white !important; }
+                .text-blue-600 { color: #2563eb !important; }
+                .border { border: 1px solid #d1d5db !important; }
+                .p-4 { padding: 1rem !important; }
+                .mb-4 { margin-bottom: 1rem !important; }
+                .text-center { text-align: center !important; }
+                .font-bold { font-weight: bold !important; }
+                .text-sm { font-size: 0.875rem !important; }
+                .text-gray-600 { color: #4b5563 !important; }
+            `;
+            
+            printWindow.document.head.appendChild(printStyle);
+            printWindow.document.body.appendChild(modalContent);
+            
+            printWindow.document.title = 'Client Details - Aziz';
+            printWindow.print();
+        }
         
         function addToCart(itemId, itemName, itemPrice, quantity, itemType) {
             // Ensure proper number types
@@ -664,11 +732,7 @@
             updateRequestOrderSummaryDisplay();
         }
         
-        // Show client confirmation modal on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            showClientConfirmation();
-        });
-        
+        // Client confirmation functions - defined globally
         function showClientConfirmation() {
             document.getElementById('client-confirmation-modal').classList.remove('hidden');
         }
@@ -730,7 +794,7 @@
                 <html>
                 <head>
                     <title>Client Details - ${new Date().toLocaleDateString()}</title>
-                    ${printStyles}
+                ${printStyles}
                 </head>
                 <body>
                     ${modalContent.outerHTML}
@@ -792,13 +856,20 @@
                 const itemTotal = (item.price || 0) * (item.quantity || 0);
                 subtotal += itemTotal;
                 
+                // Generate tracking number for packages
+                let trackingNumber = 'N/A';
+                if (item.type === 'package') {
+                    trackingNumber = generatePackageTrackingNumber(item.id, item.name);
+                }
+                
                 tableHTML += `
                     <tr class="bg-white">
                         <td class="border border-gray-300 px-4 py-2">${item.name}</td>
                         <td class="border border-gray-300 px-4 py-2 text-center">${item.type || 'N/A'}</td>
                         <td class="border border-gray-300 px-4 py-2 text-center">${item.quantity}</td>
-                        <td class="border border-gray-300 px-4 py-2 text-right">UGX ${(item.price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        <td class="border border-gray-300 px-4 py-2 text-right">UGX ${itemTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-right">UGX ${(item.price || 0).toLocaleString()}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-right">UGX ${itemTotal.toLocaleString()}</td>
+
                     </tr>
                 `;
             });
@@ -816,6 +887,9 @@
                 
                 let detailsHTML = '';
                 packageAdjustmentData.details.forEach(detail => {
+                    // Generate tracking number for package adjustments
+                    const packageTrackingNumber = generatePackageTrackingNumber(detail.package_id || 'adj_' + Date.now(), detail.package_name);
+                    
                     detailsHTML += `
                         <div class="flex justify-between items-center text-sm">
                             <div>
@@ -825,6 +899,7 @@
                             <div class="text-right">
                                 <div class="font-medium text-green-800">-UGX ${detail.adjustment_amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
                                 <div class="text-xs text-gray-500">From: ${detail.package_name}</div>
+                                <div class="text-xs text-blue-600 font-mono">${packageTrackingNumber}</div>
                             </div>
                         </div>
                     `;
@@ -834,6 +909,38 @@
                 adjustmentDetailsContainer.classList.remove('hidden');
             } else {
                 document.getElementById('package-adjustment-details').classList.add('hidden');
+            }
+            
+            // Show package tracking summary if there are packages in the cart
+            const packagesInCart = cart.filter(item => item.type === 'package');
+            if (packagesInCart.length > 0) {
+                const trackingSummaryContainer = document.getElementById('package-tracking-summary');
+                const trackingList = document.getElementById('package-tracking-list');
+                
+                let trackingHTML = '';
+                packagesInCart.forEach(package => {
+                    const trackingNumber = window.packageTrackingNumbers.get(package.id) || generatePackageTrackingNumber(package.id, package.name);
+                    trackingHTML += `
+                        <div class="flex justify-between items-center text-sm">
+                            <div>
+                                <span class="font-medium text-gray-800">${package.name}</span>
+                                <span class="text-gray-600"> (Qty: ${package.quantity})</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-blue-600 font-mono font-semibold">${trackingNumber}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                trackingList.innerHTML = trackingHTML;
+                trackingSummaryContainer.classList.remove('hidden');
+                
+                // Show export button for packages
+                document.getElementById('export-tracking-btn').classList.remove('hidden');
+            } else {
+                document.getElementById('package-tracking-summary').classList.add('hidden');
+                document.getElementById('export-tracking-btn').classList.add('hidden');
             }
             
             // Calculate totals with dynamic service charge
@@ -878,6 +985,13 @@
                 serviceChargeElement.textContent = 'UGX 0.00';
                 serviceChargeNote.style.display = 'block';
             }
+            
+            // Reset package tracking numbers
+            if (window.packageTrackingNumbers) {
+                window.packageTrackingNumbers.clear();
+            }
+            
+
         }
         
         async function confirmAndSaveInvoice() {
@@ -1354,13 +1468,27 @@
                 const data = await response.json();
                 if (data.success) {
                     const balanceDisplay = document.getElementById('client-balance-display');
-                    const formattedBalance = `UGX ${parseFloat(data.client_balance).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                    balanceDisplay.textContent = formattedBalance;
+                    const totalBalanceDisplay = document.getElementById('client-total-balance');
+                    
+                    const availableBalance = parseFloat(data.available_balance || data.client_balance || 0);
+                    const totalBalance = parseFloat(data.total_balance || data.client_balance || 0);
+                    const suspenseBalance = parseFloat(data.suspense_balance || 0);
+                    
+                    const formattedAvailableBalance = `Available: UGX ${availableBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    const formattedTotalBalance = `Total: UGX ${totalBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    
+                    balanceDisplay.innerHTML = `<span class="text-blue-600">Available:</span> UGX ${availableBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    
+                    let totalBalanceText = `<span class="text-gray-600">Total:</span> UGX ${totalBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    if (suspenseBalance > 0) {
+                        totalBalanceText += ` <span class="text-orange-600">(${suspenseBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} temporary)</span>`;
+                    }
+                    totalBalanceDisplay.innerHTML = totalBalanceText;
                     
                     // Update balance in invoice preview if it's open
                     const invoicePreviewBalance = document.querySelector('#invoice-preview-modal .text-blue-600.font-semibold');
                     if (invoicePreviewBalance) {
-                        invoicePreviewBalance.textContent = formattedBalance;
+                        invoicePreviewBalance.textContent = `UGX ${availableBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                     }
                     
                     // Show success message
@@ -1440,6 +1568,71 @@
                 // Restore button state
                 button.textContent = originalText;
                 button.disabled = false;
+            });
+        }
+        
+        // Generate unique package tracking numbers
+        function generatePackageTrackingNumber(itemId, itemName) {
+            // Create a timestamp-based tracking number
+            const timestamp = Date.now();
+            const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+            
+            // Format: PKG-YYYYMMDD-HHMMSS-RRR (Package-YearMonthDay-HourMinuteSecond-Random)
+            const date = new Date(timestamp);
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            const seconds = date.getSeconds().toString().padStart(2, '0');
+            
+            const trackingNumber = `PKG-${year}${month}${day}-${hours}${minutes}${seconds}-${randomSuffix}`;
+            
+            // Store the tracking number for this package (for later use if needed)
+            if (!window.packageTrackingNumbers) {
+                window.packageTrackingNumbers = new Map();
+            }
+            window.packageTrackingNumbers.set(itemId, trackingNumber);
+            
+            return trackingNumber;
+        }
+        
+        // Export package tracking numbers to CSV
+        function exportPackageTrackingNumbers() {
+            if (!window.packageTrackingNumbers || window.packageTrackingNumbers.size === 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'No Packages',
+                    text: 'No packages found to export tracking numbers.'
+                });
+                return;
+            }
+            
+            // Create CSV content
+            let csvContent = 'Package Name,Quantity,Tracking Number\n';
+            
+            cart.forEach(item => {
+                if (item.type === 'package') {
+                    const trackingNumber = window.packageTrackingNumbers.get(item.id) || 'N/A';
+                    csvContent += `"${item.name}",${item.quantity},"${trackingNumber}"\n`;
+                }
+            });
+            
+            // Create and download CSV file
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `package_tracking_numbers_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Exported!',
+                text: 'Package tracking numbers have been exported to CSV.'
             });
         }
     </script>

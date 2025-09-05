@@ -1,0 +1,200 @@
+<x-app-layout>
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            {{ __('Kashtre Detailed Statement') }}
+        </h2>
+    </x-slot>
+
+    <div class="py-12">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6 text-gray-900">
+                    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 mb-2">Kashtre Detailed Statement</h1>
+                    <p class="text-gray-600">Complete Transaction History</p>
+                </div>
+                <a href="{{ route('kashtre-balance-statement.index') }}" 
+                   class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                    Back to Summary
+                </a>
+            </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <!-- Total Balance -->
+            <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+                <div class="text-center">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Total Balance</h3>
+                    <p class="text-3xl font-bold text-blue-600">
+                        UGX {{ number_format($kashtreBalanceHistories->sum(function($history) { return $history->type === 'credit' ? $history->amount : -$history->amount; }), 2) }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Total Credits -->
+            <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+                <div class="text-center">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Total Credits</h3>
+                    <p class="text-3xl font-bold text-green-600">
+                        UGX {{ number_format($kashtreBalanceHistories->where('type', 'credit')->sum('amount'), 2) }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Total Debits -->
+            <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+                <div class="text-center">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Total Debits</h3>
+                    <p class="text-3xl font-bold text-red-600">
+                        UGX {{ number_format($kashtreBalanceHistories->where('type', 'debit')->sum('amount'), 2) }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Transaction Count -->
+            <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+                <div class="text-center">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Transactions</h3>
+                    <p class="text-3xl font-bold text-purple-600">
+                        {{ $kashtreBalanceHistories->total() }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Full Transaction Table -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-900">All Transactions</h2>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        @forelse($kashtreBalanceHistories as $history)
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    <div>
+                                        <div class="font-medium">{{ $history->created_at->format('M d, Y') }}</div>
+                                        <div class="text-gray-500">{{ $history->created_at->format('H:i:s') }}</div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-900">
+                                    <div class="max-w-xs">
+                                        {{ $history->description }}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @if($history->type === 'credit')
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            Credit
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                            Debit
+                                        </span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    @if($history->type === 'credit')
+                                        <span class="text-green-600">+{{ number_format($history->amount, 2) }} UGX</span>
+                                    @else
+                                        <span class="text-red-600">{{ number_format($history->amount, 2) }} UGX</span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {{ $history->reference_number ?? 'N/A' }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    @if($history->source_type)
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            {{ ucfirst(str_replace('_', ' ', $history->source_type)) }}
+                                        </span>
+                                    @else
+                                        <span class="text-gray-400">N/A</span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {{ $history->user_id ? 'User #' . $history->user_id : 'System' }}
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="px-6 py-8 text-center text-gray-500">
+                                    No transactions found.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            @if($kashtreBalanceHistories->hasPages())
+                <div class="px-6 py-4 border-t border-gray-200">
+                    {{ $kashtreBalanceHistories->links() }}
+                </div>
+            @endif
+        </div>
+
+        <!-- Export Options -->
+        <div class="mt-8 bg-white rounded-lg shadow-md border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Export Options</h3>
+            <div class="flex space-x-4">
+                <button onclick="exportToCSV()" 
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                    Export to CSV
+                </button>
+                <button onclick="exportToPDF()" 
+                        class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">
+                    Export to PDF
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="mt-8 flex justify-between">
+            <a href="{{ route('dashboard') }}" 
+               class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
+                Back to Dashboard
+            </a>
+            
+            <a href="{{ route('kashtre-balance-statement.index') }}" 
+               class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
+                Back to Summary
+            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function exportToCSV() {
+        // Implementation for CSV export
+        alert('CSV export functionality will be implemented here');
+    }
+
+    function exportToPDF() {
+        // Implementation for PDF export
+        alert('PDF export functionality will be implemented here');
+    }
+    </script>
+</x-app-layout>

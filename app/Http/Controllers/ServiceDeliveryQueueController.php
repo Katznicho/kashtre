@@ -185,6 +185,99 @@ class ServiceDeliveryQueueController extends Controller
     }
 
     /**
+     * Reset all queues for a service point (for testing purposes)
+     */
+    public function resetServicePointQueues($servicePointId)
+    {
+        try {
+            $user = Auth::user();
+            $servicePoint = \App\Models\ServicePoint::findOrFail($servicePointId);
+            
+            // Check if user has access to this service point
+            if (!$this->userHasAccessToServicePoint($user, $servicePoint)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have access to this service point.'
+                ], 403);
+            }
+
+            // Get count of items that will be reset
+            $pendingCount = ServiceDeliveryQueue::where('service_point_id', $servicePointId)
+                ->whereIn('status', ['pending', 'in_progress', 'partially_done'])
+                ->count();
+
+            // Reset all pending, in-progress, and partially done items
+            ServiceDeliveryQueue::where('service_point_id', $servicePointId)
+                ->whereIn('status', ['pending', 'in_progress', 'partially_done'])
+                ->update([
+                    'status' => 'cancelled',
+                    'updated_at' => now()
+                ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Successfully reset {$pendingCount} queued items for {$servicePoint->name}",
+                'data' => [
+                    'service_point_id' => $servicePointId,
+                    'service_point_name' => $servicePoint->name,
+                    'items_reset' => $pendingCount
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('ServiceDeliveryQueueController@resetServicePointQueues error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while resetting the queues.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Reset all queues across all service points (for testing purposes)
+     */
+    public function resetAllServicePointQueues()
+    {
+        try {
+            $user = Auth::user();
+            
+            // Only allow business admins or super admins to reset all queues
+            if ($user->business_id !== 1 && !in_array('Reset All Service Queues', $user->permissions ?? [])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission to reset all service point queues.'
+                ], 403);
+            }
+
+            // Get count of items that will be reset
+            $pendingCount = ServiceDeliveryQueue::whereIn('status', ['pending', 'in_progress', 'partially_done'])
+                ->count();
+
+            // Reset all pending, in-progress, and partially done items
+            ServiceDeliveryQueue::whereIn('status', ['pending', 'in_progress', 'partially_done'])
+                ->update([
+                    'status' => 'cancelled',
+                    'updated_at' => now()
+                ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Successfully reset {$pendingCount} queued items across all service points",
+                'data' => [
+                    'items_reset' => $pendingCount
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('ServiceDeliveryQueueController@resetAllServicePointQueues error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while resetting all queues.'
+            ], 500);
+        }
+    }
+
+    /**
      * Check if user has access to a service point
      */
     private function userHasAccessToServicePoint($user, $servicePoint)

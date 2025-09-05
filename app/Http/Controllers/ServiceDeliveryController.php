@@ -242,7 +242,7 @@ class ServiceDeliveryController extends Controller
     }
 
     /**
-     * Get delivery history for an invoice
+     * Get delivery statement for an invoice
      */
     public function getDeliveryHistory(Request $request)
     {
@@ -276,7 +276,7 @@ class ServiceDeliveryController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to get delivery history: ' . $e->getMessage()
+                'message' => 'Failed to get delivery statement: ' . $e->getMessage()
             ], 500);
         }
     }

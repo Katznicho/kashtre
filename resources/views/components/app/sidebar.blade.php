@@ -207,9 +207,11 @@
                         </button>
                         <ul x-show="openGroup === 'finance'" x-collapse class="mt-1 space-y-1 pl-10">
                             <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Finance Dashboard</a></li>
-                            <li><a href="{{ route('balance-history.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Client Balance History</a></li>
-                        <li><a href="{{ route('business-balance-history.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Business Balance History</a></li>
-                        <li><a href="{{ route('contractor-balance-history.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Contractor Balance History</a></li>
+                            <li><a href="{{ route('balance-statement.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Client Balance Statement</a></li>
+                            @if(Auth::user()->business_id == 1)
+                            <li><a href="{{ route('kashtre-balance-statement.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Kashtre Balance Statement</a></li>
+                            @endif
+                        <li><a href="{{ route('business-balance-statement.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Business Balance Statement</a></li>
                             <li><a href="{{ route('money-tracking.dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Money Tracking</a></li>
                         </ul>
                     </li>
@@ -252,6 +254,28 @@
                         </button>
                         <ul x-show="openGroup === 'reports'" x-collapse class="mt-1 space-y-1 pl-10">
                             <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>View Reports</a></li>
+                        </ul>
+                    </li>
+                    @endif
+
+                    <!-- Contractor Group (only for contractors) -->
+                    @if(Auth::user()->contractorProfile)
+                    <li>
+                        <button @click="openGroup === 'contractor' ? openGroup = '' : openGroup = 'contractor'" :class="openGroup === 'contractor' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                                <span class="ml-3">Contractor</span>
+                            </span>
+                            <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'contractor' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <ul x-show="openGroup === 'contractor'" x-collapse class="mt-1 space-y-1 pl-10">
+                            <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Dashboard</a></li>
+                            <li><a href="{{ route('contractor-balance-statement.show', Auth::user()->contractorProfile->id) }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>My Balance Statement</a></li>
+                            <li><a href="{{ route('service-queues.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Service Queues</a></li>
                         </ul>
                     </li>
                     @endif
@@ -309,7 +333,7 @@
                             @endif
 
                             @if(in_array('View Patient Categories', $permissions))
-                            <li><a href="{{ route('patient-categories.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Patient Categories</a></li>
+                            <li><a href="{{ route('patient-categories.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Client Categories</a></li>
                             @endif
 
                             @if(in_array('View Suppliers', $permissions))

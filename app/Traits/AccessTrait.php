@@ -113,7 +113,7 @@ trait AccessTrait
     ];
 
     public static $finance = [
-        "Finance" => ['View Finance', 'Manage Finance', 'View Business Balance History', 'View Client Balance History', 'View Money Tracking'],
+                    "Finance" => ['View Finance', 'Manage Finance', 'View Business Balance Statement', 'View Client Balance Statement', 'View Money Tracking'],
     ];
 
     public static $packageTracking = [

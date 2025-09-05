@@ -2,9 +2,9 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ $business->name }} - Balance History
+                {{ $business->name }} - Balance Statement
             </h2>
-            <a href="{{ route('business-balance-history.index') }}" 
+                          <a href="{{ route('business-balance-statement.index') }}"  
                class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
                 Back to All Businesses
             </a>
@@ -18,7 +18,7 @@
                     <div class="mb-6">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-lg font-medium text-gray-900">
-                                Balance History for {{ $business->name }}
+                                Balance Statement for {{ $business->name }}
                             </h3>
                             <div class="text-right">
                                 <p class="text-sm text-gray-600">Current Balance</p>
@@ -42,9 +42,6 @@
                                         </th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Previous Balance
-                                        </th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            New Balance
                                         </th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Description
@@ -73,9 +70,6 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {{ number_format($history->previous_balance, 0) }} UGX
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
-                                                {{ number_format($history->new_balance, 0) }} UGX
-                                            </td>
                                             <td class="px-6 py-4 text-sm text-gray-900">
                                                 {{ $history->description }}
                                             </td>
@@ -97,9 +91,9 @@
                                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
-                                <h3 class="mt-2 text-sm font-medium text-gray-900">No balance history</h3>
+                                <h3 class="mt-2 text-sm font-medium text-gray-900">No balance statement</h3>
                                 <p class="mt-1 text-sm text-gray-500">
-                                    No balance history records found for {{ $business->name }}.
+                                    No balance statement records found for {{ $business->name }}.
                                 </p>
                             </div>
                         </div>

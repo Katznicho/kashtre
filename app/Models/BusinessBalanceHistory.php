@@ -32,7 +32,7 @@ class BusinessBalanceHistory extends Model
     ];
 
     /**
-     * Get the business that owns the balance history
+     * Get the business that owns the balance statement
      */
     public function business()
     {

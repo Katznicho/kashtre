@@ -18,7 +18,38 @@
         .tab-content.hidden {
             display: none;
         }
+        .client-card {
+            transition: all 0.2s ease-in-out;
+        }
+        .client-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+        }
+        .status-pending {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        .status-partially-done {
+            background-color: #fed7aa;
+            color: #ea580c;
+        }
+        .status-completed {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
     </style>
+    
+    @php
+        // Ensure $clientsWithItems is always an array
+        $clientsWithItems = $clientsWithItems ?? [];
+    @endphp
     
     <div class="py-12 bg-gradient-to-b from-[#011478]/10 to-transparent">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
@@ -33,12 +64,16 @@
                     </a>
                     <div>
                         <h2 class="text-3xl font-bold text-[#011478]">{{ $servicePoint->name }}</h2>
-                        <p class="text-gray-600 mt-2">{{ $servicePoint->branch->name ?? 'N/A' }} - Service Point Management</p>
+                        <p class="text-gray-600 mt-2">{{ $servicePoint->branch->name ?? 'N/A' }} - Client Management</p>
                     </div>
                 </div>
-                <div class="flex space-x-3">
-                    <div class="text-right">
-                        <div class="text-sm text-gray-600">Total Patients Today</div>
+                <div class="flex space-x-6">
+                    <div class="text-center">
+                        <div class="text-sm text-gray-600">Total Clients</div>
+                        <div class="text-2xl font-bold text-[#011478]">{{ count($clientsWithItems) }}</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-sm text-gray-600">Total Items</div>
                         <div class="text-2xl font-bold text-[#011478]">
                             {{ $servicePoint->pendingDeliveryQueues->count() + $servicePoint->partiallyDoneDeliveryQueues->count() + $servicePoint->serviceDeliveryQueues->count() }}
                         </div>
@@ -57,50 +92,34 @@
                         </div>
                         <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                             <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                             </svg>
                         </div>
                     </div>
                 </div>
 
-                <!-- Queue Statistics -->
+                <!-- Client Management Section -->
                 <div class="p-6">
-                    <div class="grid grid-cols-3 gap-4 mb-6">
-                        <div class="text-center">
-                            <div class="text-2xl font-bold text-yellow-600">{{ $servicePoint->pendingDeliveryQueues->count() }}</div>
-                            <div class="text-sm text-gray-600">Pending</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="text-2xl font-bold text-orange-600">{{ $servicePoint->partiallyDoneDeliveryQueues->count() }}</div>
-                            <div class="text-sm text-gray-600">Partially Done</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="text-2xl font-bold text-green-600">{{ $servicePoint->serviceDeliveryQueues->count() }}</div>
-                            <div class="text-sm text-gray-600">Completed Today</div>
-                        </div>
-                    </div>
-
-                    <!-- Service Point Queues - Tab Based -->
                     <div class="mb-6">
-                        <h4 class="text-sm font-semibold text-gray-700 mb-3">Patient Service Queue</h4>
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4">Client Service Queue</h4>
                         
                         <!-- Tab Navigation -->
-                        <div class="border-b border-gray-200 mb-4">
+                        <div class="border-b border-gray-200 mb-6">
                             <nav class="-mb-px flex space-x-8" aria-label="Tabs">
                                 <button onclick="switchTab('pending')" 
                                         id="tab-pending"
                                         class="tab-button border-blue-500 text-blue-600 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm active">
                                     <span class="flex items-center">
                                         <span class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></span>
-                                        Pending ({{ $servicePoint->pendingDeliveryQueues->count() }})
+                                        Pending Clients ({{ count(array_filter($clientsWithItems, function($client) { return isset($client['pending']) && count($client['pending']) > 0; })) }})
                                     </span>
                                 </button>
-                                <button onclick="switchTab('in-progress')" 
-                                        id="tab-in-progress"
+                                <button onclick="switchTab('partially-done')" 
+                                        id="tab-partially-done"
                                         class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
                                     <span class="flex items-center">
                                         <span class="w-3 h-3 bg-orange-500 rounded-full mr-2"></span>
-                                        Partially Done ({{ $servicePoint->partiallyDoneDeliveryQueues->count() }})
+                                        In Progress Clients ({{ count(array_filter($clientsWithItems, function($client) { return isset($client['partially_done']) && count($client['partially_done']) > 0; })) }})
                                     </span>
                                 </button>
                                 <button onclick="switchTab('completed')" 
@@ -108,7 +127,7 @@
                                         class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
                                     <span class="flex items-center">
                                         <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                                        Completed ({{ $servicePoint->serviceDeliveryQueues->count() }})
+                                        Completed Clients ({{ count(array_filter($clientsWithItems, function($client) { return isset($client['completed']) && count($client['completed']) > 0; })) }})
                                     </span>
                                 </button>
                             </nav>
@@ -116,141 +135,38 @@
 
                         <!-- Tab Content -->
                         <div id="tab-content">
-                            <!-- Pending Tab Content -->
+                            <!-- Pending Clients Tab -->
                             <div id="content-pending" class="tab-content">
-                                @if($servicePoint->pendingDeliveryQueues->count() > 0)
+                                @php
+                                    $pendingClients = array_filter($clientsWithItems, function($client) { 
+                                        return isset($client['pending']) && count($client['pending']) > 0; 
+                                    });
+                                @endphp
+                                
+                                @if(count($pendingClients) > 0)
                                     <div class="overflow-x-auto">
                                         <table class="min-w-full bg-white border border-gray-200 rounded-lg text-sm">
                                             <thead class="bg-gray-50">
                                                 <tr>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Patient</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Service</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Price</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Qty</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Invoice</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Time</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody class="divide-y divide-gray-100">
-                                                @foreach($servicePoint->pendingDeliveryQueues as $item)
-                                                    <tr class="hover:bg-gray-50">
-                                                        <td class="px-4 py-3 text-gray-900">
-                                                            {{ $item->client->name ?? 'N/A' }}
-                                                        </td>
-                                                        <td class="px-4 py-3 text-gray-900 font-medium">
-                                                            {{ $item->item->other_names ?? $item->item_name }}
-                                                        </td>
-                                                        <td class="px-4 py-3 text-gray-600 font-semibold">
-                                                            {{ number_format($item->price, 0) }} UGX
-                                                        </td>
-                                                        <td class="px-4 py-3 text-gray-600 text-center">{{ $item->quantity }}</td>
-                                                        <td class="px-4 py-3 text-gray-600">{{ $item->invoice->invoice_number ?? 'N/A' }}</td>
-                                                        <td class="px-4 py-3 text-gray-600">{{ $item->queued_at ? $item->queued_at->format('H:i') : 'N/A' }}</td>
-                                                        <td class="px-4 py-3">
-                                                            <button onclick="moveToPartiallyDone({{ $item->id }})" 
-                                                                    class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded transition-colors">
-                                                                Start
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                @else
-                                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-                                        <div class="text-gray-500">No pending patients</div>
-                                    </div>
-                                @endif
-                            </div>
-
-                            <!-- In Progress Tab Content -->
-                            <div id="content-in-progress" class="tab-content hidden">
-                                @if($servicePoint->partiallyDoneDeliveryQueues->count() > 0)
-                                    <div class="overflow-x-auto">
-                                        <table class="min-w-full bg-white border border-gray-200 rounded-lg text-sm">
-                                            <thead class="bg-gray-50">
-                                                <tr>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Patient</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Service</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Price</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Qty</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Started</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Attending</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody class="divide-y divide-gray-100">
-                                                @foreach($servicePoint->partiallyDoneDeliveryQueues as $item)
-                                                    <tr class="hover:bg-gray-50">
-                                                        <td class="px-4 py-3 text-gray-900">
-                                                            {{ $item->client->name ?? 'N/A' }}
-                                                        </td>
-                                                        <td class="px-4 py-3 text-gray-900 font-medium">
-                                                            {{ $item->item->other_names ?? $item->item_name }}
-                                                        </td>
-                                                        <td class="px-4 py-3 text-gray-600 font-semibold">
-                                                            {{ number_format($item->price, 0) }} UGX
-                                                        </td>
-                                                        <td class="px-4 py-3 text-gray-600 text-center">{{ $item->quantity }}</td>
-                                                        <td class="px-4 py-3 text-gray-600">{{ $item->started_at ? $item->started_at->format('H:i') : 'N/A' }}</td>
-                                                        <td class="px-4 py-3 text-gray-600">
-                                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                {{ $item->startedByUser->name ?? 'N/A' }}
-                                                            </span>
-                                                        </td>
-                                                        <td class="px-4 py-3">
-                                                            <button onclick="moveToCompleted({{ $item->id }})" 
-                                                                    class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded transition-colors">
-                                                                Complete
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                @else
-                                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-                                        <div class="text-gray-500">No patients currently being served</div>
-                                    </div>
-                                @endif
-                            </div>
-
-                            <!-- Completed Tab Content -->
-                            <div id="content-completed" class="tab-content hidden">
-                                @if($servicePoint->serviceDeliveryQueues->count() > 0)
-                                    <div class="overflow-x-auto">
-                                        <table class="min-w-full bg-white border border-gray-200 rounded-lg text-sm">
-                                            <thead class="bg-gray-50">
-                                                <tr>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Patient</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Service</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Price</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Qty</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Completed</th>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Client Name</th>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="divide-y divide-gray-100">
-                                                @foreach($servicePoint->serviceDeliveryQueues as $item)
+                                                @foreach($pendingClients as $clientId => $clientData)
                                                     <tr class="hover:bg-gray-50">
-                                                        <td class="px-4 py-3 text-gray-900">
-                                                            {{ $item->client->name ?? 'N/A' }}
-                                                        </td>
                                                         <td class="px-4 py-3 text-gray-900 font-medium">
-                                                            {{ $item->item->other_names ?? $item->item_name }}
+                                                            {{ $clientData['client']->name ?? 'Unknown Client' }}
                                                         </td>
-                                                        <td class="px-4 py-3 text-gray-600 font-semibold">
-                                                            {{ number_format($item->price, 0) }} UGX
-                                                        </td>
-                                                        <td class="px-4 py-3 text-gray-600 text-center">{{ $item->quantity }}</td>
-                                                        <td class="px-4 py-3 text-gray-600">{{ $item->completed_at ? $item->completed_at->format('H:i') : 'N/A' }}</td>
                                                         <td class="px-4 py-3">
-                                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                                ✓ Done
-                                                            </span>
+                                                            <span class="status-badge status-pending">Pending</span>
+                                                        </td>
+                                                        <td class="px-4 py-3">
+                                                            <a href="{{ route('service-points.client-details', [$servicePoint, $clientId]) }}" 
+                                                               class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded transition-colors text-sm inline-block">
+                                                                View Details
+                                                            </a>
                                                         </td>
                                                     </tr>
                                                 @endforeach
@@ -259,7 +175,97 @@
                                     </div>
                                 @else
                                     <div class="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-                                        <div class="text-gray-500">No completed services today</div>
+                                        <div class="text-gray-500">No pending clients</div>
+                                    </div>
+                                @endif
+                            </div>
+
+                            <!-- In Progress Clients Tab -->
+                            <div id="content-partially-done" class="tab-content hidden">
+                                @php
+                                    $inProgressClients = array_filter($clientsWithItems, function($client) { 
+                                        return isset($client['partially_done']) && count($client['partially_done']) > 0; 
+                                    });
+                                @endphp
+                                
+                                @if(count($inProgressClients) > 0)
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full bg-white border border-gray-200 rounded-lg text-sm">
+                                            <thead class="bg-gray-50">
+                                                <tr>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Client Name</th>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-100">
+                                                @foreach($inProgressClients as $clientId => $clientData)
+                                                    <tr class="hover:bg-gray-50">
+                                                        <td class="px-4 py-3 text-gray-900 font-medium">
+                                                            {{ $clientData['client']->name ?? 'Unknown Client' }}
+                                                        </td>
+                                                        <td class="px-4 py-3">
+                                                            <span class="status-badge status-partially-done">In Progress</span>
+                                                        </td>
+                                                        <td class="px-4 py-3">
+                                                            <a href="{{ route('service-points.client-details', [$servicePoint, $clientId]) }}" 
+                                                               class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded transition-colors text-sm inline-block">
+                                                                View Details
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @else
+                                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+                                        <div class="text-gray-500">No clients in progress</div>
+                                    </div>
+                                @endif
+                            </div>
+
+                            <!-- Completed Clients Tab -->
+                            <div id="content-completed" class="tab-content hidden">
+                                @php
+                                    $completedClients = array_filter($clientsWithItems, function($client) { 
+                                        return count($client['completed']) > 0; 
+                                    });
+                                @endphp
+                                
+                                @if(count($completedClients) > 0)
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full bg-white border border-gray-200 rounded-lg text-sm">
+                                            <thead class="bg-gray-50">
+                                                <tr>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Client Name</th>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-100">
+                                                @foreach($completedClients as $clientId => $clientData)
+                                                    <tr class="hover:bg-gray-50">
+                                                        <td class="px-4 py-3 text-gray-900 font-medium">
+                                                            {{ $clientData['client']->name ?? 'Unknown Client' }}
+                                                        </td>
+                                                        <td class="px-4 py-3">
+                                                            <span class="status-badge status-completed">Completed</span>
+                                                        </td>
+                                                        <td class="px-4 py-3">
+                                                            <a href="{{ route('service-points.client-details', [$servicePoint, $clientId]) }}" 
+                                                               class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded transition-colors text-sm inline-block">
+                                                                View Details
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @else
+                                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+                                        <div class="text-gray-500">No completed clients</div>
                                     </div>
                                 @endif
                             </div>
@@ -270,107 +276,9 @@
         </div>
     </div>
 
+
+
     <script>
-        function moveToPartiallyDone(itemId) {
-            // Show confirmation dialog with Sweet Alert
-            Swal.fire({
-                title: 'Move to In Progress?',
-                text: 'This will process money transfers and move the item to in progress status.',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#f97316',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, move it!',
-                cancelButtonText: 'Cancel',
-                showLoaderOnConfirm: true,
-                preConfirm: () => {
-                    return fetch(`/service-delivery-queues/${itemId}/move-to-partially-done`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                            'Content-Type': 'application/json',
-                        },
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (!data.success) {
-                            throw new Error(data.message || 'An error occurred');
-                        }
-                        return data;
-                    });
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'Success!',
-                        text: result.value.message,
-                        icon: 'success',
-                        confirmButtonColor: '#10b981'
-                    }).then(() => {
-                        // Reload the page to show updated status
-                        window.location.reload();
-                    });
-                }
-            }).catch((error) => {
-                Swal.fire({
-                    title: 'Error!',
-                    text: error.message,
-                    icon: 'error',
-                    confirmButtonColor: '#ef4444'
-                });
-            });
-        }
-
-        function moveToCompleted(itemId) {
-            // Show confirmation dialog with Sweet Alert
-            Swal.fire({
-                title: 'Mark as Completed?',
-                text: 'This will mark the item as completed and move it to the completed list.',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#10b981',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, complete it!',
-                cancelButtonText: 'Cancel',
-                showLoaderOnConfirm: true,
-                preConfirm: () => {
-                    return fetch(`/service-delivery-queues/${itemId}/move-to-completed`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                            'Content-Type': 'application/json',
-                        },
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (!data.success) {
-                            throw new Error(data.message || 'An error occurred');
-                        }
-                        return data;
-                    });
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'Completed!',
-                        text: result.value.message,
-                        icon: 'success',
-                        confirmButtonColor: '#10b981'
-                    }).then(() => {
-                        // Reload the page to show updated status
-                        window.location.reload();
-                    });
-                }
-            }).catch((error) => {
-                Swal.fire({
-                    title: 'Error!',
-                    text: error.message,
-                    icon: 'error',
-                    confirmButtonColor: '#ef4444'
-                });
-            });
-        }
-
         function switchTab(tabName) {
             // Hide all tab contents
             const tabContents = document.querySelectorAll('#tab-content .tab-content');
@@ -399,9 +307,112 @@
             }
         }
 
+
+
+        function moveToPartiallyDone(itemId) {
+            // Show confirmation dialog with Sweet Alert
+            Swal.fire({
+                title: 'Start Service?',
+                text: 'This will process money transfers and move the item to in progress status.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#f97316',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, start it!',
+                cancelButtonText: 'Cancel',
+                showLoaderOnConfirm: true,
+                preConfirm: () => {
+                    return fetch(`/service-delivery-queues/${itemId}/move-to-partially-done`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                            'Content-Type': 'application/json',
+                        },
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.success) {
+                            throw new Error(data.message || 'An error occurred');
+                        }
+                        return data;
+                    });
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Service Started!',
+                        text: result.value.message,
+                        icon: 'success',
+                        confirmButtonColor: '#10b981'
+                    }).then(() => {
+                        // Reload the page to show updated status
+                        window.location.reload();
+                    });
+                }
+            }).catch((error) => {
+                Swal.fire({
+                    title: 'Error!',
+                    text: error.message,
+                    icon: 'error',
+                    confirmButtonColor: '#ef4444'
+                });
+            });
+        }
+
+        function moveToCompleted(itemId) {
+            // Show confirmation dialog with Sweet Alert
+            Swal.fire({
+                title: 'Complete Service?',
+                text: 'This will mark the item as completed and move it to the completed list.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, complete it!',
+                cancelButtonText: 'Cancel',
+                showLoaderOnConfirm: true,
+                preConfirm: () => {
+                    return fetch(`/service-delivery-queues/${itemId}/move-to-completed`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                            'Content-Type': 'application/json',
+                        },
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.success) {
+                            throw new Error(data.message || 'An error occurred');
+                        }
+                        return data;
+                    });
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Service Completed!',
+                        text: result.value.message,
+                        icon: 'success',
+                        confirmButtonColor: '#10b981'
+                    }).then(() => {
+                        // Reload the page to show updated status
+                        window.location.reload();
+                    });
+                }
+            }).catch((error) => {
+                Swal.fire({
+                    title: 'Error!',
+                    text: error.message,
+                    icon: 'error',
+                    confirmButtonColor: '#ef4444'
+                });
+            });
+        }
+
         // Auto-refresh every 30 seconds
         setInterval(() => {
             location.reload();
         }, 30000);
     </script>
 </x-app-layout>
+

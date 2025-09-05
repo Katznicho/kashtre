@@ -89,20 +89,20 @@ class ServicePoint extends Model
      */
     public function getQueueStatsAttribute()
     {
-        // Get ServiceQueue statistics
-        $serviceQueuePending = $this->pendingQueues()->count();
-        $serviceQueueInProgress = $this->inProgressQueues()->count();
-        $serviceQueueCompletedToday = $this->completedQueuesToday()->count();
-        $serviceQueueTotalToday = $this->serviceQueues()->today()->count();
+        // Get ServiceQueue statistics - count unique clients
+        $serviceQueuePending = $this->pendingQueues()->distinct('client_id')->count('client_id');
+        $serviceQueueInProgress = $this->inProgressQueues()->distinct('client_id')->count('client_id');
+        $serviceQueueCompletedToday = $this->completedQueuesToday()->distinct('client_id')->count('client_id');
+        $serviceQueueTotalToday = $this->serviceQueues()->today()->distinct('client_id')->count('client_id');
         
-        // Get ServiceDeliveryQueue statistics
-        $deliveryQueuePending = $this->pendingDeliveryQueues()->count();
-        $deliveryQueuePartiallyDone = $this->partiallyDoneDeliveryQueues()->count();
-        $deliveryQueueInProgress = $this->serviceDeliveryQueues()->where('status', 'in_progress')->count();
-        $deliveryQueueCompletedToday = $this->serviceDeliveryQueues()->where('status', 'completed')->whereDate('completed_at', today())->count();
-        $deliveryQueueTotalToday = $this->serviceDeliveryQueues()->whereDate('queued_at', today())->count();
+        // Get ServiceDeliveryQueue statistics - count unique clients
+        $deliveryQueuePending = $this->pendingDeliveryQueues()->distinct('client_id')->count('client_id');
+        $deliveryQueuePartiallyDone = $this->partiallyDoneDeliveryQueues()->distinct('client_id')->count('client_id');
+        $deliveryQueueInProgress = $this->serviceDeliveryQueues()->where('status', 'in_progress')->distinct('client_id')->count('client_id');
+        $deliveryQueueCompletedToday = $this->serviceDeliveryQueues()->where('status', 'completed')->whereDate('completed_at', today())->distinct('client_id')->count('client_id');
+        $deliveryQueueTotalToday = $this->serviceDeliveryQueues()->whereDate('queued_at', today())->distinct('client_id')->count('client_id');
         
-        // Combine both types of queues
+        // Combine both types of queues - now counting unique clients
         return [
             'pending' => $serviceQueuePending + $deliveryQueuePending,
             'partially_done' => $deliveryQueuePartiallyDone,

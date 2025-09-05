@@ -67,6 +67,7 @@
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tracking #</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Package</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
@@ -79,21 +80,21 @@
                                     @foreach($packageTrackings as $package)
                                         <tr>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm font-medium text-gray-900">{{ $package->client->name }}</div>
+                                                <div class="text-sm font-medium text-blue-600 font-mono font-semibold">{{ $package->client->name }}</div>
                                                 <div class="text-sm text-gray-500">{{ $package->client->phone_number }}</div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900">{{ $package->invoice->invoice_number }}</div>
+                                                <div class="text-sm text-blue-600 font-mono font-semibold">{{ $package->invoice->invoice_number }}</div>
                                                 <div class="text-sm text-gray-500">{{ $package->invoice->created_at->format('M d, Y') }}</div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900">{{ $package->packageItem->other_names ?? $package->packageItem->name }}</div>
+                                                <div class="text-sm text-blue-600 font-mono font-semibold">{{ $package->tracking_number ?? "PKG-" . $package->id . "-" . $package->created_at->format("YmdHis") }}</div>
                                                 <div class="text-xs text-gray-500">
-                                                    {{ $package->packageItem->packageItems->count() }} items included
+                                                    Package ID
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900">{{ $package->includedItem->other_names ?? $package->includedItem->name }}</div>
+                                                <div class="text-sm text-blue-600 font-mono font-semibold">{{ $package->includedItem->other_names ?? $package->includedItem->name }}</div>
                                                 <div class="text-xs text-gray-500">
                                                     @if($package->packageItem->packageItems->count() > 1)
                                                         +{{ $package->packageItem->packageItems->count() - 1 }} more items
@@ -101,7 +102,7 @@
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900">{{ $package->remaining_quantity }}/{{ $package->total_quantity }}</div>
+                                                <div class="text-sm text-blue-600 font-mono font-semibold">{{ $package->remaining_quantity }}/{{ $package->total_quantity }}</div>
                                                 <div class="text-sm text-gray-500">{{ number_format($package->usage_percentage, 1) }}% used</div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
@@ -110,7 +111,7 @@
                                                 </span>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900">{{ $package->valid_until->format('M d, Y') }}</div>
+                                                <div class="text-sm text-blue-600 font-mono font-semibold">{{ $package->valid_until->format('M d, Y') }}</div>
                                                 <div class="text-sm text-gray-500">{{ $package->valid_until->diffForHumans() }}</div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -134,7 +135,7 @@
                             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
                             </svg>
-                            <h3 class="mt-2 text-sm font-medium text-gray-900">No package tracking records</h3>
+                            <h3 class="mt-2 text-sm font-medium text-blue-600 font-mono font-semibold">No package tracking records</h3>
                             <p class="mt-1 text-sm text-gray-500">Package tracking records are created automatically when packages are purchased through the POS system.</p>
                         </div>
                     @endif

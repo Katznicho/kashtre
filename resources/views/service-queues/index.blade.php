@@ -53,11 +53,11 @@
                                 <div class="text-center">
                                     <div class="text-sm text-gray-600 mb-2">
                                         @if($servicePoint->queue_stats['pending'] > 0)
-                                            <span class="text-yellow-600 font-medium">{{ $servicePoint->queue_stats['pending'] }} patients waiting</span>
+                                            <span class="text-yellow-600 font-medium">{{ $servicePoint->queue_stats['pending'] }} clients waiting</span>
                                         @elseif($servicePoint->queue_stats['partially_done'] > 0)
                                             <span class="text-orange-600 font-medium">{{ $servicePoint->queue_stats['partially_done'] }} in progress</span>
                                         @else
-                                            <span class="text-green-600 font-medium">No active patients</span>
+                                            <span class="text-green-600 font-medium">No active clients</span>
                                         @endif
                                     </div>
                                     <div class="text-xs text-blue-600 font-medium">

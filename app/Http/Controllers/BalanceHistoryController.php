@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Auth;
 class BalanceHistoryController extends Controller
 {
     /**
-     * Display balance history for all clients or a specific client
+     * Display balance statement for all clients or a specific client
      */
     public function index(Request $request)
     {
@@ -21,11 +21,11 @@ class BalanceHistoryController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        return view('balance-history.index', compact('balanceHistories'));
+        return view('balance-statement.index', compact('balanceHistories'));
     }
 
     /**
-     * Show balance history for a specific client
+     * Show balance statement for a specific client
      */
     public function show($clientId)
     {
@@ -36,11 +36,11 @@ class BalanceHistoryController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        return view('balance-history.show', compact('balanceHistories', 'client'));
+        return view('balance-statement.show', compact('balanceHistories', 'client'));
     }
 
     /**
-     * Get balance history as JSON for AJAX requests
+     * Get balance statement as JSON for AJAX requests
      */
     public function getBalanceHistory(Request $request, $clientId)
     {
@@ -77,83 +77,7 @@ class BalanceHistoryController extends Controller
         ]);
     }
 
-    /**
-     * Add credit to client balance
-     */
-    public function addCredit(Request $request, $clientId)
-    {
-        $request->validate([
-            'amount' => 'required|numeric|min:0.01',
-            'description' => 'required|string|max:255',
-            'reference_number' => 'nullable|string|max:100',
-            'notes' => 'nullable|string|max:500',
-        ]);
 
-        $client = Client::findOrFail($clientId);
-        
-        try {
-            $balanceHistory = BalanceHistory::recordCredit(
-                $client,
-                $request->amount,
-                $request->description,
-                $request->reference_number,
-                $request->notes
-            );
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Credit added successfully',
-                'data' => [
-                    'previous_balance' => number_format($balanceHistory->previous_balance, 2),
-                    'new_balance' => number_format($balanceHistory->new_balance, 2),
-                    'change_amount' => $balanceHistory->getFormattedChangeAmount(),
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to add credit: ' . $e->getMessage()
-            ], 500);
-        }
-    }
 
-    /**
-     * Add adjustment to client balance
-     */
-    public function addAdjustment(Request $request, $clientId)
-    {
-        $request->validate([
-            'amount' => 'required|numeric',
-            'description' => 'required|string|max:255',
-            'reference_number' => 'nullable|string|max:100',
-            'notes' => 'nullable|string|max:500',
-        ]);
-
-        $client = Client::findOrFail($clientId);
-        
-        try {
-            $balanceHistory = BalanceHistory::recordAdjustment(
-                $client,
-                $request->amount,
-                $request->description,
-                $request->reference_number,
-                $request->notes
-            );
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Balance adjustment applied successfully',
-                'data' => [
-                    'previous_balance' => number_format($balanceHistory->previous_balance, 2),
-                    'new_balance' => number_format($balanceHistory->new_balance, 2),
-                    'change_amount' => $balanceHistory->getFormattedChangeAmount(),
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to apply adjustment: ' . $e->getMessage()
-            ], 500);
-        }
-    }
 }

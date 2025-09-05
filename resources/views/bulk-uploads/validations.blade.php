@@ -104,7 +104,7 @@
                     { label: 'Title', value: 'title' },
                     { label: 'Qualifications', value: 'qualifications' },
                     { label: 'Sections', value: 'sections' },
-                    { label: 'Patient Category', value: 'patient_category' },
+                    { label: 'Client Category', value: 'patient_category' },
                     { label: 'Insurance Company', value: 'insurance_company' },
                     { label: 'Supplier', value: 'supplier' },
                     { label: 'Store', value: 'store' },

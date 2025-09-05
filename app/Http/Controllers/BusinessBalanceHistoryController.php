@@ -28,7 +28,7 @@ class BusinessBalanceHistoryController extends Controller
                 ->paginate(20);
         }
 
-        return view('business-balance-history.index', compact('businessBalanceHistories', 'businesses'));
+        return view('business-balance-statement.index', compact('businessBalanceHistories', 'businesses'));
     }
 
     public function show(Business $business)
@@ -37,14 +37,52 @@ class BusinessBalanceHistoryController extends Controller
         
         // Check if user has access to this business
         if ($user->business_id != 1 && $user->business_id != $business->id) {
-            abort(403, 'Unauthorized access to business balance history.');
+            abort(403, 'Unauthorized access to business balance statement.');
         }
 
         $businessBalanceHistories = BusinessBalanceHistory::where('business_id', $business->id)
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        return view('business-balance-history.show', compact('businessBalanceHistories', 'business'));
+        return view('business-balance-statement.show', compact('businessBalanceHistories', 'business'));
+    }
+
+    /**
+     * Show Kashtre (super business) balance statement
+     */
+    public function kashtreStatement()
+    {
+        $user = Auth::user();
+        
+        // Only super business users can access Kashtre statement
+        if ($user->business_id != 1) {
+            abort(403, 'Unauthorized access to Kashtre balance statement.');
+        }
+
+        $kashtreBalanceHistories = BusinessBalanceHistory::where('business_id', 1)
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+
+        return view('kashtre-balance-statement.index', compact('kashtreBalanceHistories'));
+    }
+
+    /**
+     * Show detailed Kashtre balance statement
+     */
+    public function kashtreStatementShow()
+    {
+        $user = Auth::user();
+        
+        // Only super business users can access Kashtre statement
+        if ($user->business_id != 1) {
+            abort(403, 'Unauthorized access to Kashtre balance statement.');
+        }
+
+        $kashtreBalanceHistories = BusinessBalanceHistory::where('business_id', 1)
+            ->orderBy('created_at', 'desc')
+            ->paginate(50);
+
+        return view('kashtre-balance-statement.show', compact('kashtreBalanceHistories'));
     }
 }
 

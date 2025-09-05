@@ -98,9 +98,18 @@ Route::get('/service-queues/service-point/{servicePoint}/queues', [ServiceQueueC
 // Service Delivery Queue routes
 Route::post('/service-delivery-queues/{serviceDeliveryQueue}/move-to-partially-done', [ServiceDeliveryQueueController::class, 'moveToPartiallyDone'])->name('service-delivery-queues.move-to-partially-done');
 Route::post('/service-delivery-queues/{serviceDeliveryQueue}/move-to-completed', [ServiceDeliveryQueueController::class, 'moveToCompleted'])->name('service-delivery-queues.move-to-completed');
+
+// Client Details routes
+Route::get('/service-points/{servicePoint}/client/{clientId}/details', [ServicePointController::class, 'clientDetails'])->name('service-points.client-details');
+Route::post('/service-points/{servicePoint}/client/{clientId}/update-statuses', [ServicePointController::class, 'updateClientItemStatuses'])->name('service-points.update-client-statuses');
+Route::post('/service-points/{servicePoint}/client/{clientId}/update-statuses-and-process', [ServicePointController::class, 'updateStatusesAndProcessMoneyMovements'])->name('service-points.update-statuses-and-process-money');
 Route::get('/service-delivery-queues/service-point/{servicePointId}/items', [ServiceDeliveryQueueController::class, 'getServicePointItems'])->name('service-delivery-queues.service-point-items');
 Route::get('/service-delivery-queues/service-point/{servicePointId}/pending', [ServiceDeliveryQueueController::class, 'showPendingItems'])->name('service-delivery-queues.pending');
 Route::get('/service-delivery-queues/service-point/{servicePointId}/completed', [ServiceDeliveryQueueController::class, 'showCompletedItems'])->name('service-delivery-queues.completed');
+
+// Queue reset routes (for testing)
+Route::post('/service-delivery-queues/service-point/{servicePointId}/reset', [ServiceDeliveryQueueController::class, 'resetServicePointQueues'])->name('service-delivery-queues.reset-service-point');
+Route::post('/service-delivery-queues/reset-all', [ServiceDeliveryQueueController::class, 'resetAllServicePointQueues'])->name('service-delivery-queues.reset-all');
     
     Route::resource("sections", SectionController::class);
     Route::resource("item-units", ItemUnitController::class);
@@ -153,20 +162,23 @@ Route::post('/invoices/service-charge', [InvoiceController::class, 'serviceCharg
 Route::post('/invoices/package-adjustment', [InvoiceController::class, 'calculatePackageAdjustment'])->name('invoices.package-adjustment');
 Route::post('/invoices/balance-adjustment', [InvoiceController::class, 'calculateBalanceAdjustment'])->name('invoices.balance-adjustment');
 
-// Balance History Routes
-Route::get('/balance-history', [BalanceHistoryController::class, 'index'])->name('balance-history.index');
-Route::get('/balance-history/{clientId}', [BalanceHistoryController::class, 'show'])->name('balance-history.show');
+// Balance Statement Routes
+Route::get('/balance-statement', [BalanceHistoryController::class, 'index'])->name('balance-statement.index');
+Route::get('/balance-statement/{clientId}', [BalanceHistoryController::class, 'show'])->name('balance-statement.show');
 
-// Business Balance History Routes
-Route::get('/business-balance-history', [BusinessBalanceHistoryController::class, 'index'])->name('business-balance-history.index');
-Route::get('/business-balance-history/{business}', [BusinessBalanceHistoryController::class, 'show'])->name('business-balance-history.show');
+// Business Balance Statement Routes
+Route::get('/business-balance-statement', [BusinessBalanceHistoryController::class, 'index'])->name('business-balance-statement.index');
+Route::get('/business-balance-statement/{business}', [BusinessBalanceHistoryController::class, 'show'])->name('business-balance-statement.show');
 
-// Contractor Balance History Routes
-Route::get('/contractor-balance-history', [ContractorBalanceHistoryController::class, 'index'])->name('contractor-balance-history.index');
-Route::get('/contractor-balance-history/{contractorProfile}', [ContractorBalanceHistoryController::class, 'show'])->name('contractor-balance-history.show');
-Route::get('/balance-history/{clientId}/json', [BalanceHistoryController::class, 'getBalanceHistory'])->name('balance-history.json');
-Route::post('/balance-history/{clientId}/credit', [BalanceHistoryController::class, 'addCredit'])->name('balance-history.add-credit');
-Route::post('/balance-history/{clientId}/adjustment', [BalanceHistoryController::class, 'addAdjustment'])->name('balance-history.add-adjustment');
+// Kashtre (Super Business) Balance Statement Routes
+Route::get('/kashtre-balance-statement', [BusinessBalanceHistoryController::class, 'kashtreStatement'])->name('kashtre-balance-statement.index');
+Route::get('/kashtre-balance-statement/show', [BusinessBalanceHistoryController::class, 'kashtreStatementShow'])->name('kashtre-balance-statement.show');
+
+// Contractor Balance Statement Routes
+Route::get('/contractor-balance-statement', [ContractorBalanceHistoryController::class, 'index'])->name('contractor-balance-statement.index');
+Route::get('/contractor-balance-statement/{contractorProfile}', [ContractorBalanceHistoryController::class, 'show'])->name('contractor-balance-statement.show');
+Route::get('/balance-statement/{clientId}/json', [BalanceHistoryController::class, 'getBalanceHistory'])->name('balance-statement.json');
+
 Route::get('/invoices/generate-number', [InvoiceController::class, 'generateInvoiceNumber'])->name('invoices.generate-number');
 Route::post('/invoices/generate-invoice-number', [InvoiceController::class, 'generateInvoiceNumber'])->name('invoices.generate-invoice-number');
 Route::post('/invoices/{invoice}/generate-quotation', [QuotationController::class, 'generateFromInvoice'])->name('invoices.generate-quotation');
@@ -191,13 +203,13 @@ Route::resource('package-tracking', PackageTrackingController::class)->except(['
 Route::post('/service-delivery/deliver-item', [ServiceDeliveryController::class, 'deliverItem'])->name('service-delivery.deliver-item');
 Route::post('/service-delivery/deliver-multiple', [ServiceDeliveryController::class, 'deliverMultipleItems'])->name('service-delivery.deliver-multiple');
 Route::get('/service-delivery/pending/{invoice}', [ServiceDeliveryController::class, 'getPendingDelivery'])->name('service-delivery.pending');
-Route::get('/service-delivery/history/{invoice}', [ServiceDeliveryController::class, 'getDeliveryHistory'])->name('service-delivery.history');
+Route::get('/service-delivery/statement/{invoice}', [ServiceDeliveryController::class, 'getDeliveryHistory'])->name('service-delivery.statement');
 
 // Money Tracking routes
 Route::get('/money-tracking/dashboard', [MoneyTrackingController::class, 'dashboard'])->name('money-tracking.dashboard');
 Route::get('/money-tracking/client-account/{client}', [MoneyTrackingController::class, 'getClientAccount'])->name('money-tracking.client-account');
 Route::get('/money-tracking/contractor-account/{contractor}', [MoneyTrackingController::class, 'getContractorAccount'])->name('money-tracking.contractor-account');
-Route::get('/money-tracking/transfer-history', [MoneyTrackingController::class, 'getTransferHistory'])->name('money-tracking.transfer-history');
+Route::get('/money-tracking/transfer-statement', [MoneyTrackingController::class, 'getTransferHistory'])->name('money-tracking.transfer-statement');
 Route::get('/money-tracking/account-summary', [MoneyTrackingController::class, 'getAccountSummary'])->name('money-tracking.account-summary');
 Route::post('/money-tracking/process-refund', [MoneyTrackingController::class, 'processRefund'])->name('money-tracking.process-refund');
     Route::get('/pos/item-selection/{client}', [TransactionController::class, 'itemSelection'])->name('pos.item-selection');

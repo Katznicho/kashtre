@@ -105,7 +105,7 @@ class BalanceHistory extends Model
         return 'UGX ' . number_format($this->new_balance, 2);
     }
 
-    // Static methods for creating balance history records
+    // Static methods for creating balance statement records
     public static function recordBalanceChange($data)
     {
         return self::create($data);
@@ -136,18 +136,46 @@ class BalanceHistory extends Model
 
     public static function recordCredit($client, $amount, $description, $referenceNumber = null, $notes = null)
     {
-        $previousBalance = $client->balance ?? 0;
+        // Calculate previous balance from existing balance history records
+        $previousBalance = self::where('client_id', $client->id)
+            ->orderBy('created_at', 'desc')
+            ->value('new_balance') ?? 0;
+        
         $newBalance = $previousBalance + $amount; // Credit to balance
 
         return self::create([
             'client_id' => $client->id,
             'business_id' => $client->business_id,
             'branch_id' => $client->branch_id,
-            'user_id' => auth()->id(),
+            'user_id' => auth()->id() ?? 1, // Default to user ID 1 if no auth
             'previous_balance' => $previousBalance,
             'change_amount' => $amount, // Positive for credit
             'new_balance' => $newBalance,
             'transaction_type' => 'credit',
+            'description' => $description,
+            'reference_number' => $referenceNumber,
+            'notes' => $notes,
+        ]);
+    }
+
+    public static function recordDebit($client, $amount, $description, $referenceNumber = null, $notes = null)
+    {
+        // Calculate previous balance from existing balance history records
+        $previousBalance = self::where('client_id', $client->id)
+            ->orderBy('created_at', 'desc')
+            ->value('new_balance') ?? 0;
+        
+        $newBalance = $previousBalance - $amount; // Debit from balance
+
+        return self::create([
+            'client_id' => $client->id,
+            'business_id' => $client->business_id,
+            'branch_id' => $client->branch_id,
+            'user_id' => auth()->id() ?? 1, // Default to user ID 1 if no auth
+            'previous_balance' => $previousBalance,
+            'change_amount' => -$amount, // Negative for debit
+            'new_balance' => $newBalance,
+            'transaction_type' => 'debit',
             'description' => $description,
             'reference_number' => $referenceNumber,
             'notes' => $notes,

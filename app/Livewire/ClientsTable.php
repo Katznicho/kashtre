@@ -167,10 +167,10 @@ class ClientsTable extends Component implements HasForms, HasTable
                     ->url(fn (Client $record): string => route('clients.show', $record)),
                 
                 Action::make('balance_history')
-                    ->label('Balance History')
+                    ->label('Balance Statement')
                     ->icon('heroicon-o-currency-dollar')
                     ->color('info')
-                    ->url(fn (Client $record): string => route('balance-history.show', $record)),
+                    ->url(fn (Client $record): string => route('balance-statement.show', $record)),
                 
                 // EditAction::make()
                 //     ->label('Edit')

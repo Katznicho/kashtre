@@ -10,6 +10,7 @@ use App\Models\Invoice;
 use App\Models\Item;
 use App\Models\Business;
 use App\Models\ContractorProfile;
+use App\Models\BalanceHistory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Exception;
@@ -128,7 +129,16 @@ class MoneyTrackingService
             ]);
 
             // Credit client account
-            $clientAccount->debit($amount);
+            $clientAccount->credit($amount);
+
+            // Record CREDIT transaction for payment received
+            BalanceHistory::recordCredit(
+                $client,
+                $amount,
+                "Payment received via {$paymentMethod}",
+                $reference,
+                "Payment received for invoice"
+            );
 
             DB::commit();
             
@@ -153,9 +163,25 @@ class MoneyTrackingService
 
     /**
      * Step 2: Order confirmed - Money moves to suspense accounts
+     * DISABLED: This method was creating unwanted MoneyTransfer records
+     * causing balance calculation issues. Only initial payment is needed.
      */
     public function processOrderConfirmed(Invoice $invoice, $items)
     {
+        // DISABLED: This method was creating unwanted MoneyTransfer records
+        // that caused the balance calculation issues (UGX 39,950.00 problem)
+        // 
+        // The user only wants the initial payment transaction (CREDIT),
+        // not the complex transfer logic to suspense accounts.
+        //
+        // If you need to re-enable this functionality later, you'll need to
+        // fix the balance calculation logic to properly handle these transfers.
+        
+        Log::info("processOrderConfirmed DISABLED for invoice {$invoice->invoice_number} - transfers not needed");
+        return;
+        
+        // OLD CODE COMMENTED OUT BELOW:
+        /*
         try {
             DB::beginTransaction();
 
@@ -240,6 +266,7 @@ class MoneyTrackingService
             ]);
             throw $e;
         }
+        */
     }
 
     /**
@@ -329,9 +356,25 @@ class MoneyTrackingService
 
     /**
      * Process service charge
+     * DISABLED: This method was creating unwanted MoneyTransfer records
+     * causing balance calculation issues. Only initial payment is needed.
      */
     public function processServiceCharge(Invoice $invoice, $serviceChargeAmount)
     {
+        // DISABLED: This method was creating unwanted MoneyTransfer records
+        // that caused the balance calculation issues (UGX 21,975.00 problem)
+        // 
+        // The user only wants the initial payment transaction (CREDIT),
+        // not the complex transfer logic to suspense accounts.
+        //
+        // If you need to re-enable this functionality later, you'll need to
+        // fix the balance calculation logic to properly handle these transfers.
+        
+        Log::info("processServiceCharge DISABLED for invoice {$invoice->invoice_number} - transfers not needed");
+        return;
+        
+        // OLD CODE COMMENTED OUT BELOW:
+        /*
         try {
             DB::beginTransaction();
 
@@ -365,6 +408,7 @@ class MoneyTrackingService
             ]);
             throw $e;
         }
+        */
     }
 
     /**
@@ -503,8 +547,8 @@ class MoneyTrackingService
             $item = $serviceDeliveryQueue->item;
             $business = Business::find($invoice->business_id);
             
-            // Get the item amount (considering package adjustments)
-            $itemAmount = $this->calculateItemAmount($invoice, $item);
+            // Get the item amount from the service delivery queue record
+            $itemAmount = $serviceDeliveryQueue->price * $serviceDeliveryQueue->quantity;
             
             // Get service charge for this invoice
             $serviceCharge = $invoice->service_charge ?? 0;
@@ -526,7 +570,7 @@ class MoneyTrackingService
                 "Service delivery payment for {$item->name}"
             );
             
-            // Record business balance history
+            // Record business balance statement
             BusinessBalanceHistory::recordChange(
                 $business->id,
                 $businessAccount->id,
@@ -558,7 +602,7 @@ class MoneyTrackingService
                     "Service charge for invoice #{$invoice->invoice_number}"
                 );
                 
-                // Record Kashtre balance history
+                // Record Kashtre balance statement
                 BusinessBalanceHistory::recordChange(
                     1, // Kashtre business_id
                     $kashtreAccount->id,
@@ -597,7 +641,7 @@ class MoneyTrackingService
                         "Contractor share for {$item->name}"
                     );
                     
-                    // Record contractor balance history
+                    // Record contractor balance statement
                     ContractorBalanceHistory::recordChange(
                         $contractor->id,
                         $contractorAccount->id,
@@ -615,7 +659,7 @@ class MoneyTrackingService
                         $user ? $user->id : null
                     );
                     
-                    // Record business balance history for contractor share
+                    // Record business balance statement for contractor share
                     BusinessBalanceHistory::recordChange(
                         $business->id,
                         $businessAccount->id,
@@ -636,13 +680,28 @@ class MoneyTrackingService
                     // Update contractor account balance
                     $contractor->increment('account_balance', $contractorShare);
                     
+                    // Sync with money account if it exists
+                    if ($contractor->moneyAccount) {
+                        $contractor->moneyAccount->credit($contractorShare);
+                    }
+                    
                     // Update business account balance
                     $business->increment('account_balance', $businessShare);
+                    
+                    // Sync with money account if it exists
+                    if ($business->businessMoneyAccount) {
+                        $business->businessMoneyAccount->credit($businessShare);
+                    }
                 }
             }
             
             // Update business account balance (business share amount)
             $business->increment('account_balance', $businessShare);
+            
+            // Sync with money account if it exists
+            if ($business->businessMoneyAccount) {
+                $business->businessMoneyAccount->credit($businessShare);
+            }
             
             DB::commit();
             
@@ -739,7 +798,7 @@ class MoneyTrackingService
     /**
      * Get or create business account
      */
-    private function getOrCreateBusinessAccount(Business $business)
+    public function getOrCreateBusinessAccount(Business $business)
     {
         return MoneyAccount::firstOrCreate([
             'business_id' => $business->id,
@@ -756,7 +815,7 @@ class MoneyTrackingService
     /**
      * Get or create Kashtre account
      */
-    private function getOrCreateKashtreAccount()
+    public function getOrCreateKashtreAccount()
     {
         return MoneyAccount::firstOrCreate([
             'business_id' => 1, // Kashtre business_id

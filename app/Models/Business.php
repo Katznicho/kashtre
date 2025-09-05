@@ -83,4 +83,19 @@ class Business extends Model
     {
         return $this->hasMany(Title::class);
     }
+
+    public function moneyAccounts()
+    {
+        return $this->hasMany(MoneyAccount::class);
+    }
+
+    public function businessMoneyAccount()
+    {
+        return $this->hasOne(MoneyAccount::class)->where('type', 'business_account');
+    }
+
+    public function kashtreMoneyAccount()
+    {
+        return $this->hasOne(MoneyAccount::class)->where('type', 'kashtre_account');
+    }
 }

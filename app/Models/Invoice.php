@@ -34,6 +34,9 @@ class Invoice extends Model
         'status',
         'confirmed_at',
         'printed_at',
+        'is_service_charge_processed',
+        'service_charge_processed_at',
+        'service_charge_processed_by_user_id',
     ];
 
     protected $casts = [
@@ -48,6 +51,8 @@ class Invoice extends Model
         'balance_due' => 'decimal:2',
         'confirmed_at' => 'datetime',
         'printed_at' => 'datetime',
+        'is_service_charge_processed' => 'boolean',
+        'service_charge_processed_at' => 'datetime',
     ];
 
     // Relationships
@@ -98,6 +103,11 @@ class Invoice extends Model
     }
 
     // Methods
+    
+    public function isServiceChargeProcessed()
+    {
+        return $this->is_service_charge_processed === true;
+    }
     public static function generateInvoiceNumber($businessId)
     {
         $prefix = 'INV';

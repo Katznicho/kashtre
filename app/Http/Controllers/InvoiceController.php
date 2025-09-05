@@ -189,7 +189,7 @@ class InvoiceController extends Controller
                 'confirmed_at' => $validated['status'] === 'confirmed' ? now() : null,
             ]);
             
-            // Store current invoice for balance history
+            // Store current invoice for balance statement
             $this->currentInvoice = $invoice;
             
             // MONEY TRACKING: Step 1 - Process payment received
@@ -457,17 +457,22 @@ class InvoiceController extends Controller
             ]);
             
             $client = Client::find($validated['client_id']);
-            $clientBalance = $client->balance ?? 0;
+            $availableBalance = $client->available_balance ?? 0;
+            $totalBalance = $client->total_balance ?? 0;
+            $suspenseBalance = $client->suspense_balance ?? 0;
             $totalAmount = $validated['total_amount'];
             
-            // Calculate how much balance can be used
-            $balanceAdjustment = min($clientBalance, $totalAmount);
+            // Calculate how much balance can be used (only from available balance)
+            $balanceAdjustment = min($availableBalance, $totalAmount);
             
             return response()->json([
                 'success' => true,
                 'balance_adjustment' => $balanceAdjustment,
-                'client_balance' => $clientBalance,
-                'remaining_balance' => $clientBalance - $balanceAdjustment,
+                'available_balance' => $availableBalance,
+                'total_balance' => $totalBalance,
+                'suspense_balance' => $suspenseBalance,
+                'client_balance' => $availableBalance, // For backward compatibility
+                'remaining_balance' => $availableBalance - $balanceAdjustment,
                 'message' => $balanceAdjustment > 0 ? 'Balance adjustment applied' : 'No balance available for adjustment'
             ]);
             
@@ -821,7 +826,7 @@ class InvoiceController extends Controller
             
             $client->update(['balance' => $newBalance]);
             
-            // Record balance history
+            // Record balance statement
             \App\Models\BalanceHistory::recordPayment(
                 $client,
                 $this->currentInvoice ?? null,

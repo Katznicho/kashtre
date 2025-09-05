@@ -23,8 +23,21 @@
     <div class="bg-white rounded-lg shadow-sm border border-gray-200">
         <!-- Header -->
         <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900">Service Points Management</h3>
-            <p class="text-sm text-gray-600 mt-1">Manage your service points and their queues</p>
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Service Points Management</h3>
+                    <p class="text-sm text-gray-600 mt-1">Manage your service points and their queues</p>
+                </div>
+                <div class="flex space-x-3">
+                    <button onclick="resetAllServicePointQueues()" 
+                            class="inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Reset All Queues
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- Tab Navigation -->
@@ -112,6 +125,12 @@
                                                 class="text-blue-600 hover:text-blue-900 mr-3">
                                             Edit
                                         </button>
+                                        @if($pendingCount > 0)
+                                            <button onclick="resetServicePointQueues({{ $servicePoint->id }}, '{{ $servicePoint->name }}')" 
+                                                    class="text-red-600 hover:text-red-900 mr-3">
+                                                Reset Queue
+                                            </button>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach
@@ -167,7 +186,7 @@
                                     <table class="min-w-full text-sm">
                                         <thead class="bg-gray-50">
                                             <tr>
-                                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Patient</th>
+                                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
                                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
                                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Invoice</th>
                                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
@@ -218,7 +237,7 @@
                                     <table class="min-w-full text-sm">
                                         <thead class="bg-gray-50">
                                             <tr>
-                                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Patient</th>
+                                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
                                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
                                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Completed At</th>
                                             </tr>
@@ -286,6 +305,110 @@
         function editServicePoint(servicePointId) {
             // Implement edit functionality
             console.log('Edit service point:', servicePointId);
+        }
+
+        function resetServicePointQueues(servicePointId, servicePointName) {
+            if (!confirm(`Are you sure you want to reset all queued items for "${servicePointName}"? This action cannot be undone.`)) {
+                return;
+            }
+
+            // Show loading state
+            const button = event.target;
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Resetting...';
+
+            fetch(`/service-delivery-queues/service-point/${servicePointId}/reset`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message using SweetAlert
+                    Swal.fire({
+                        title: 'Success!',
+                        text: data.message,
+                        icon: 'success',
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        // Reload the page to show updated data
+                        window.location.reload();
+                    });
+                } else {
+                    throw new Error(data.message || 'Failed to reset queues');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Show error message using SweetAlert
+                Swal.fire({
+                    title: 'Error!',
+                    text: error.message || 'Failed to reset queues. Please try again.',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            })
+            .finally(() => {
+                // Restore button state
+                button.disabled = false;
+                button.textContent = originalText;
+            });
+        }
+
+        function resetAllServicePointQueues() {
+            if (!confirm('Are you sure you want to reset ALL service point queues? This action cannot be undone and will affect all service points.')) {
+                return;
+            }
+
+            // Show loading state
+            const button = event.target;
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Resetting All...';
+
+            fetch('/service-delivery-queues/reset-all', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message using SweetAlert
+                    Swal.fire({
+                        title: 'Success!',
+                        text: data.message,
+                        icon: 'success',
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        // Reload the page to show updated data
+                        window.location.reload();
+                    });
+                } else {
+                    throw new Error(data.message || 'Failed to reset all queues');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Show error message using SweetAlert
+                Swal.fire({
+                    title: 'Error!',
+                    text: error.message || 'Failed to reset all queues. Please try again.',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            })
+            .finally(() => {
+                // Restore button state
+                button.disabled = false;
+                button.textContent = originalText;
+            });
         }
     </script>
 </div>

@@ -30,7 +30,7 @@ class ContractorBalanceHistoryController extends Controller
                 ->paginate(20);
         }
 
-        return view('contractor-balance-history.index', compact('contractorBalanceHistories', 'contractors'));
+        return view('contractor-balance-statement.index', compact('contractorBalanceHistories', 'contractors'));
     }
 
     public function show(ContractorProfile $contractorProfile)
@@ -47,7 +47,7 @@ class ContractorBalanceHistoryController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        return view('contractor-balance-history.show', compact('contractorProfile', 'contractorBalanceHistories'));
+        return view('contractor-balance-statement.show', compact('contractorProfile', 'contractorBalanceHistories'));
     }
 }
 

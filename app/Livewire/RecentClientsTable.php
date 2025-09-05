@@ -94,7 +94,7 @@ class RecentClientsTable extends Component implements HasForms, HasTable
                     ->icon('heroicon-o-currency-dollar')
                     ->color('info')
                     ->size('sm')
-                    ->url(fn (Client $record): string => route('balance-history.show', $record)),
+                    ->url(fn (Client $record): string => route('balance-statement.show', $record)),
             ])
             ->paginated(false)
             ->striped();

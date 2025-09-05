@@ -32,7 +32,7 @@ class ContractorBalanceHistory extends Model
     ];
 
     /**
-     * Get the contractor profile that owns the balance history
+     * Get the contractor profile that owns the balance statement
      */
     public function contractorProfile()
     {

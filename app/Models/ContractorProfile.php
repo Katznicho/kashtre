@@ -72,4 +72,19 @@ class ContractorProfile extends Model
     {
         return $this->belongsTo(Branch::class);
     }
+
+    public function moneyAccount()
+    {
+        return $this->hasOne(MoneyAccount::class, 'contractor_profile_id');
+    }
+
+    /**
+     * Sync the account_balance with the money account balance
+     */
+    public function syncAccountBalance()
+    {
+        if ($this->moneyAccount) {
+            $this->update(['account_balance' => $this->moneyAccount->balance]);
+        }
+    }
 }
