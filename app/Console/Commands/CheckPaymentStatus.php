@@ -321,25 +321,34 @@ class CheckPaymentStatus extends Command
 
             $quantity = $item['quantity'] ?? 1;
 
+            // Get service point through BranchServicePoint relationship
+            $branchServicePoint = $itemModel->branchServicePoints()
+                ->where('business_id', $invoice->business_id)
+                ->where('branch_id', $invoice->branch_id)
+                ->first();
+
             Log::info("Found item model", [
                 'item_id' => $itemModel->id,
                 'item_name' => $itemModel->name,
                 'item_type' => $itemModel->type,
-                'service_point_id' => $itemModel->service_point_id
+                'business_id' => $invoice->business_id,
+                'branch_id' => $invoice->branch_id,
+                'branch_service_point_found' => $branchServicePoint ? 'yes' : 'no',
+                'service_point_id' => $branchServicePoint ? $branchServicePoint->service_point_id : null
             ]);
 
             // Handle regular items with service points
-            if ($itemModel->service_point_id) {
+            if ($branchServicePoint && $branchServicePoint->service_point_id) {
                 Log::info("Creating service delivery queue for regular item", [
                     'item_id' => $itemId,
-                    'service_point_id' => $itemModel->service_point_id,
+                    'service_point_id' => $branchServicePoint->service_point_id,
                     'quantity' => $quantity
                 ]);
 
                 $queueRecord = \App\Models\ServiceDeliveryQueue::create([
                     'business_id' => $invoice->business_id,
                     'branch_id' => $invoice->branch_id,
-                    'service_point_id' => $itemModel->service_point_id,
+                    'service_point_id' => $branchServicePoint->service_point_id,
                     'invoice_id' => $invoice->id,
                     'client_id' => $invoice->client_id,
                     'item_id' => $itemId,
@@ -357,12 +366,15 @@ class CheckPaymentStatus extends Command
                 Log::info("Service delivery queue created for regular item", [
                     'queue_id' => $queueRecord->id,
                     'item_id' => $itemId,
-                    'service_point_id' => $itemModel->service_point_id
+                    'service_point_id' => $branchServicePoint->service_point_id
                 ]);
             } else {
-                Log::info("Regular item has no service point, skipping queuing", [
+                Log::info("Regular item has no service point for this business/branch, skipping queuing", [
                     'item_id' => $itemId,
-                    'item_name' => $itemModel->name
+                    'item_name' => $itemModel->name,
+                    'business_id' => $invoice->business_id,
+                    'branch_id' => $invoice->branch_id,
+                    'branch_service_point_found' => $branchServicePoint ? 'yes' : 'no'
                 ]);
             }
 
@@ -385,26 +397,35 @@ class CheckPaymentStatus extends Command
                     $maxQuantity = $packageItem->max_quantity ?? 1;
                     $totalQuantity = $maxQuantity * $quantity;
 
+                    // Get service point for included item through BranchServicePoint relationship
+                    $includedItemBranchServicePoint = $includedItem->branchServicePoints()
+                        ->where('business_id', $invoice->business_id)
+                        ->where('branch_id', $invoice->branch_id)
+                        ->first();
+
                     Log::info("Processing included item " . ($packageItemIndex + 1), [
                         'included_item_id' => $includedItem->id,
                         'included_item_name' => $includedItem->name,
                         'max_quantity' => $maxQuantity,
                         'total_quantity' => $totalQuantity,
-                        'service_point_id' => $includedItem->service_point_id
+                        'business_id' => $invoice->business_id,
+                        'branch_id' => $invoice->branch_id,
+                        'branch_service_point_found' => $includedItemBranchServicePoint ? 'yes' : 'no',
+                        'service_point_id' => $includedItemBranchServicePoint ? $includedItemBranchServicePoint->service_point_id : null
                     ]);
 
-                    // Only queue if the included item has a service point
-                    if ($includedItem->service_point_id) {
+                    // Only queue if the included item has a service point for this business/branch
+                    if ($includedItemBranchServicePoint && $includedItemBranchServicePoint->service_point_id) {
                         Log::info("Creating service delivery queue for included item", [
                             'included_item_id' => $includedItem->id,
-                            'service_point_id' => $includedItem->service_point_id,
+                            'service_point_id' => $includedItemBranchServicePoint->service_point_id,
                             'total_quantity' => $totalQuantity
                         ]);
 
                         $queueRecord = \App\Models\ServiceDeliveryQueue::create([
                             'business_id' => $invoice->business_id,
                             'branch_id' => $invoice->branch_id,
-                            'service_point_id' => $includedItem->service_point_id,
+                            'service_point_id' => $includedItemBranchServicePoint->service_point_id,
                             'invoice_id' => $invoice->id,
                             'client_id' => $invoice->client_id,
                             'item_id' => $includedItem->id,
@@ -422,12 +443,15 @@ class CheckPaymentStatus extends Command
                         Log::info("Service delivery queue created for included item", [
                             'queue_id' => $queueRecord->id,
                             'included_item_id' => $includedItem->id,
-                            'service_point_id' => $includedItem->service_point_id
+                            'service_point_id' => $includedItemBranchServicePoint->service_point_id
                         ]);
                     } else {
-                        Log::info("Included item has no service point, skipping queuing", [
+                        Log::info("Included item has no service point for this business/branch, skipping queuing", [
                             'included_item_id' => $includedItem->id,
-                            'included_item_name' => $includedItem->name
+                            'included_item_name' => $includedItem->name,
+                            'business_id' => $invoice->business_id,
+                            'branch_id' => $invoice->branch_id,
+                            'branch_service_point_found' => $includedItemBranchServicePoint ? 'yes' : 'no'
                         ]);
                     }
                 }

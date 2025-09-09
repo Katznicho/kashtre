@@ -97,8 +97,9 @@ class Client extends Model
     public function getTotalBalanceAttribute()
     {
         // Calculate total balance from balance history records
+        // Credits are positive, debits are negative (change_amount is already signed)
         $totalBalance = $this->balanceHistories()
-            ->selectRaw('SUM(CASE WHEN transaction_type = "credit" THEN change_amount ELSE -change_amount END) as total')
+            ->selectRaw('SUM(change_amount) as total')
             ->value('total') ?? 0;
         
         return $totalBalance;
