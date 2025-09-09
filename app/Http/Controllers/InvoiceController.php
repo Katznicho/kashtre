@@ -357,7 +357,9 @@ class InvoiceController extends Controller
         
         $itemDescriptions = [];
         foreach ($items as $item) {
-            $name = $item['name'] ?? 'Unknown Item';
+            // Get the actual Item model to use display_name attribute
+            $itemModel = \App\Models\Item::find($item['id'] ?? $item['item_id'] ?? null);
+            $name = $itemModel ? $itemModel->display_name : ($item['name'] ?? 'Unknown Item');
             $quantity = $item['quantity'] ?? 1;
             $type = $item['type'] ?? '';
             

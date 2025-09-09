@@ -234,8 +234,13 @@
             <tbody>
                 @if($quotation->items && is_array($quotation->items))
                     @foreach($quotation->items as $item)
+                    @php
+                        // Get the actual Item model to use display_name attribute
+                        $itemModel = \App\Models\Item::find($item['id'] ?? $item['item_id'] ?? null);
+                        $displayName = $itemModel ? $itemModel->display_name : ($item['name'] ?? 'N/A');
+                    @endphp
                     <tr>
-                        <td>{{ $item['name'] ?? 'N/A' }}</td>
+                        <td>{{ $displayName }}</td>
                         <td>{{ $item['type'] ?? 'N/A' }}</td>
                         <td>UGX {{ number_format($item['price'] ?? 0, 2) }}</td>
                         <td>{{ $item['quantity'] ?? 0 }}</td>

@@ -302,8 +302,13 @@
                 <tbody>
                     @if($invoice->items && is_array($invoice->items))
                         @foreach($invoice->items as $item)
+                        @php
+                            // Get the actual Item model to use display_name attribute
+                            $itemModel = \App\Models\Item::find($item['id'] ?? $item['item_id'] ?? null);
+                            $displayName = $itemModel ? $itemModel->display_name : ($item['name'] ?? 'N/A');
+                        @endphp
                         <tr>
-                            <td class="item-name">{{ $item['name'] ?? 'N/A' }}</td>
+                            <td class="item-name">{{ $displayName }}</td>
                             <td class="text-right">UGX {{ number_format($item['price'] ?? 0, 2) }}</td>
                             <td class="text-right">{{ $item['quantity'] ?? 0 }}</td>
                             <td class="text-right">UGX {{ number_format(($item['price'] ?? 0) * ($item['quantity'] ?? 0), 2) }}</td>

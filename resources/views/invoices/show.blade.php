@@ -123,9 +123,14 @@
                             <tbody class="bg-white divide-y divide-gray-200">
                                 @if($invoice->items && is_array($invoice->items))
                                     @foreach($invoice->items as $item)
+                                    @php
+                                        // Get the actual Item model to use display_name attribute
+                                        $itemModel = \App\Models\Item::find($item['id'] ?? $item['item_id'] ?? null);
+                                        $displayName = $itemModel ? $itemModel->display_name : ($item['name'] ?? 'N/A');
+                                    @endphp
                                     <tr>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ $item['name'] ?? 'N/A' }}
+                                            {{ $displayName }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             UGX {{ number_format($item['price'] ?? 0, 2) }}
