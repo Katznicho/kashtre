@@ -71,7 +71,7 @@ class TestingController extends Controller
             $message = '';
 
             // Validate input
-            $allowedTypes = ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements', 'client-balance-statements'];
+            $allowedTypes = ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements', 'client-balance-statements', 'reset-payment-pending'];
             if (!in_array($type, $allowedTypes)) {
                 return response()->json([
                     'success' => false,
@@ -379,6 +379,76 @@ class TestingController extends Controller
                         return response()->json([
                             'success' => false,
                             'message' => 'An error occurred while clearing client balance statements: ' . $e->getMessage()
+                        ], 500);
+                    }
+                    break;
+
+                case 'reset-payment-pending':
+                    try {
+                        Log::info('=== RESETTING PAYMENT TO PENDING ===', [
+                            'user_id' => $user->id,
+                            'user_name' => $user->name,
+                            'business_id' => $user->business_id,
+                            'ip' => $request->ip(),
+                            'user_agent' => $request->userAgent()
+                        ]);
+
+                        // Find the most recent completed transaction
+                        $recentTransaction = Transaction::where('status', 'completed')
+                            ->whereNotNull('invoice_id')
+                            ->orderBy('created_at', 'desc')
+                            ->first();
+
+                        if (!$recentTransaction) {
+                            Log::warning('No completed transactions found to reset');
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'No completed transactions found to reset'
+                            ], 404);
+                        }
+
+                        Log::info('Found transaction to reset', [
+                            'transaction_id' => $recentTransaction->id,
+                            'reference' => $recentTransaction->reference,
+                            'amount' => $recentTransaction->amount,
+                            'client_id' => $recentTransaction->client_id,
+                            'invoice_id' => $recentTransaction->invoice_id
+                        ]);
+
+                        // Reset transaction status to pending
+                        $recentTransaction->update(['status' => 'pending']);
+
+                        // Also reset the associated invoice payment status if it exists
+                        if ($recentTransaction->invoice_id) {
+                            $invoice = \App\Models\Invoice::find($recentTransaction->invoice_id);
+                            if ($invoice) {
+                                $invoice->update(['payment_status' => 'pending']);
+                                Log::info('Reset invoice payment status to pending', [
+                                    'invoice_id' => $invoice->id,
+                                    'invoice_number' => $invoice->invoice_number
+                                ]);
+                            }
+                        }
+
+                        Log::info('Successfully reset payment to pending', [
+                            'transaction_id' => $recentTransaction->id,
+                            'reference' => $recentTransaction->reference,
+                            'user_id' => $user->id
+                        ]);
+
+                        $count = 1;
+                        $message = "Successfully reset payment to pending: {$recentTransaction->reference} (Amount: UGX " . number_format($recentTransaction->amount, 2) . ")";
+
+                    } catch (\Exception $e) {
+                        Log::error('Error resetting payment to pending', [
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString(),
+                            'user_id' => $user->id
+                        ]);
+
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'An error occurred while resetting payment to pending: ' . $e->getMessage()
                         ], 500);
                     }
                     break;

@@ -170,6 +170,15 @@
                             </svg>
                             <span>Clear Client Balance Statements</span>
                         </button>
+
+                        <!-- Reset Payment to Pending -->
+                        <button onclick="clearData('reset-payment-pending')" 
+                                class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            <span>Reset Payment to Pending</span>
+                        </button>
                     </div>
                 </div>
             @endif
@@ -385,7 +394,8 @@
                 'kashtre-balance': 'Are you sure you want to clear the Kashtre balance? This action cannot be undone.',
                 'business-balances': 'Are you sure you want to clear ALL business balances? This action cannot be undone.',
                 'statements': 'Are you sure you want to clear ALL statements for all users? This action cannot be undone.',
-                'client-balance-statements': 'Are you sure you want to clear ALL client balance statements? This action cannot be undone.'
+                'client-balance-statements': 'Are you sure you want to clear ALL client balance statements? This action cannot be undone.',
+                'reset-payment-pending': 'Are you sure you want to reset the most recent completed payment back to pending? This will allow you to test the payment completion flow.'
             };
 
             Swal.fire({
