@@ -181,6 +181,14 @@ class ServicePointController extends Controller
      */
     public function updateStatusesAndProcessMoneyMovements(Request $request, ServicePoint $servicePoint, $clientId)
     {
+        \Illuminate\Support\Facades\Log::info("=== SAVE AND EXIT REQUEST STARTED ===", [
+            'service_point_id' => $servicePoint->id,
+            'client_id' => $clientId,
+            'user_id' => auth()->id(),
+            'user_name' => auth()->user()->name,
+            'request_data' => $request->all()
+        ]);
+
         // Start database transaction for rollback capability
         \Illuminate\Support\Facades\DB::beginTransaction();
         
@@ -194,18 +202,32 @@ class ServicePointController extends Controller
             $updatedCount = 0;
             $moneyMovementCount = 0;
 
+            \Illuminate\Support\Facades\Log::info("Item statuses received", [
+                'item_statuses' => $itemStatuses,
+                'total_items' => count($itemStatuses)
+            ]);
+
             // Initialize MoneyTrackingService
             $moneyTrackingService = new \App\Services\MoneyTrackingService();
 
             // Get client for statement updates
             $client = \App\Models\Client::find($clientId);
             if (!$client) {
+                \Illuminate\Support\Facades\Log::error("Client not found", [
+                    'client_id' => $clientId
+                ]);
                 \Illuminate\Support\Facades\DB::rollBack();
                 return response()->json([
                     'success' => false,
                     'message' => 'Client not found'
                 ], 404);
             }
+
+            \Illuminate\Support\Facades\Log::info("Client found", [
+                'client_id' => $client->id,
+                'client_name' => $client->name,
+                'client_suspense_balance_before' => $client->suspense_balance ?? 0
+            ]);
 
             // CRITICAL FIX: Ensure client has a credit record in BalanceHistory before processing debits
             $this->ensureClientCreditRecordExists($client, $moneyTrackingService);
@@ -216,6 +238,11 @@ class ServicePointController extends Controller
 
             // Process each finalized item
             foreach ($itemStatuses as $itemId => $status) {
+                \Illuminate\Support\Facades\Log::info("Processing item status update", [
+                    'item_id' => $itemId,
+                    'new_status' => $status
+                ]);
+
                 $item = \App\Models\ServiceDeliveryQueue::where('id', $itemId)
                     ->where('service_point_id', $servicePoint->id)
                     ->where('client_id', $clientId)
@@ -223,8 +250,20 @@ class ServicePointController extends Controller
                     ->first();
 
                 if ($item && in_array($status, ['partially_done', 'completed'])) {
+                    \Illuminate\Support\Facades\Log::info("Item found for processing", [
+                        'item_id' => $item->id,
+                        'item_name' => $item->item->name ?? 'Unknown',
+                        'current_status' => $item->status,
+                        'new_status' => $status,
+                        'is_money_moved' => $item->is_money_moved,
+                        'invoice_id' => $item->invoice_id
+                    ]);
+
                     // Check if money was already moved for this item
                     if ($item->is_money_moved) {
+                        \Illuminate\Support\Facades\Log::info("Money already moved for this item, skipping", [
+                            'item_id' => $item->id
+                        ]);
                         $item->status = $status;
                         $item->save();
                         $updatedCount++;
@@ -234,6 +273,11 @@ class ServicePointController extends Controller
                     // Update the status
                     $item->status = $status;
                     $item->save();
+
+                    \Illuminate\Support\Facades\Log::info("Item status updated", [
+                        'item_id' => $item->id,
+                        'new_status' => $status
+                    ]);
 
                     // DISABLED: Service charge is now processed in InvoiceController with suspense system
                     // Process service charge ONCE per invoice
@@ -245,6 +289,12 @@ class ServicePointController extends Controller
 
                     // Process money movements for finalized items
                     try {
+                        \Illuminate\Support\Facades\Log::info("Starting money movement for item", [
+                            'item_id' => $item->id,
+                            'item_name' => $item->item->name ?? 'Unknown',
+                            'item_amount' => $item->price * $item->quantity
+                        ]);
+
                         $this->processItemMoneyMovement($item, $client, $moneyTrackingService);
                         
                         // Mark item as money moved to prevent double processing
@@ -253,8 +303,19 @@ class ServicePointController extends Controller
                         $item->money_moved_by_user_id = auth()->id();
                         $item->save();
                         
+                        \Illuminate\Support\Facades\Log::info("Money movement completed for item", [
+                            'item_id' => $item->id,
+                            'money_moved_at' => $item->money_moved_at,
+                            'money_moved_by' => $item->money_moved_by_user_id
+                        ]);
+                        
                         $moneyMovementCount++;
                     } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::error("Money movement failed for item", [
+                            'item_id' => $item->id,
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString()
+                        ]);
                         throw $e;
                     }
 
@@ -263,6 +324,13 @@ class ServicePointController extends Controller
             }
 
             $message = "Successfully updated {$updatedCount} items and processed {$moneyMovementCount} money movements";
+
+            \Illuminate\Support\Facades\Log::info("=== SAVE AND EXIT PROCESSING COMPLETED ===", [
+                'updated_count' => $updatedCount,
+                'money_movement_count' => $moneyMovementCount,
+                'client_id' => $clientId,
+                'client_suspense_balance_after' => $client->fresh()->suspense_balance ?? 0
+            ]);
 
             // Commit all transactions if everything succeeded
             \Illuminate\Support\Facades\DB::commit();
@@ -277,6 +345,14 @@ class ServicePointController extends Controller
         } catch (\Exception $e) {
             // Rollback all transactions if any error occurred
             \Illuminate\Support\Facades\DB::rollBack();
+            
+            \Illuminate\Support\Facades\Log::error("=== SAVE AND EXIT PROCESSING FAILED ===", [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'client_id' => $clientId,
+                'service_point_id' => $servicePoint->id,
+                'user_id' => auth()->id()
+            ]);
             
             return response()->json([
                 'success' => false,
@@ -294,6 +370,18 @@ class ServicePointController extends Controller
         $business = \App\Models\Business::find($invoice->business_id);
         $itemAmount = $item->price * $item->quantity;
         
+        \Illuminate\Support\Facades\Log::info("=== PROCESSING ITEM MONEY MOVEMENT ===", [
+            'item_id' => $item->item_id,
+            'item_name' => $item->item->name ?? 'Unknown',
+            'item_amount' => $itemAmount,
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'business_id' => $business->id,
+            'business_name' => $business->name,
+            'client_id' => $client->id,
+            'client_name' => $client->name
+        ]);
+        
         try {
             // NEW LOGIC: Use the processSaveAndExit method instead of creating client statements
             // This will move money from suspense account to final accounts without creating client statements
@@ -304,6 +392,11 @@ class ServicePointController extends Controller
                 'quantity' => $item->quantity,
                 'total_amount' => $itemAmount
             ];
+            
+            \Illuminate\Support\Facades\Log::info("Calling processSaveAndExit with item data", [
+                'item_data' => $itemData,
+                'invoice_id' => $invoice->id
+            ]);
             
             // Call the new processSaveAndExit method
             $transferRecords = $moneyTrackingService->processSaveAndExit($invoice, [$itemData]);
@@ -318,6 +411,11 @@ class ServicePointController extends Controller
             // No additional processing needed here
             
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Item money movement failed", [
+                'item_id' => $item->item_id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             throw $e;
         }
     }
