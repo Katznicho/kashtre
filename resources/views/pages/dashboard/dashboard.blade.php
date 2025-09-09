@@ -168,7 +168,7 @@
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                             </svg>
-                            <span>Clear Client Balance Statements</span>
+                            <span>Clear Client Account Statements</span>
                         </button>
 
                         <!-- Reset Payment to Pending -->
@@ -178,6 +178,15 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                             </svg>
                             <span>Reset Payment to Pending</span>
+                        </button>
+
+                        <!-- Check Service Delivery Queues -->
+                        <button onclick="clearData('check-queues')" 
+                                class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                            </svg>
+                            <span>Check Service Delivery Queues</span>
                         </button>
                     </div>
                 </div>
@@ -394,8 +403,9 @@
                 'kashtre-balance': 'Are you sure you want to clear the Kashtre balance? This action cannot be undone.',
                 'business-balances': 'Are you sure you want to clear ALL business balances? This action cannot be undone.',
                 'statements': 'Are you sure you want to clear ALL statements for all users? This action cannot be undone.',
-                'client-balance-statements': 'Are you sure you want to clear ALL client balance statements? This action cannot be undone.',
-                'reset-payment-pending': 'Are you sure you want to reset the most recent completed payment back to pending? This will allow you to test the payment completion flow.'
+                'client-balance-statements': 'Are you sure you want to clear ALL client account statements? This action cannot be undone.',
+                'reset-payment-pending': 'Are you sure you want to reset the most recent completed payment back to pending? This will allow you to test the payment completion flow.',
+                'check-queues': 'This will show you information about service delivery queues without clearing any data.'
             };
 
             Swal.fire({

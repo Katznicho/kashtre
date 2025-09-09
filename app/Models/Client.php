@@ -92,23 +92,25 @@ class Client extends Model
     }
 
     /**
-     * Get the client's total balance (including money in suspense accounts)
+     * Get the client's total balance (calculated from balance history)
      */
     public function getTotalBalanceAttribute()
     {
-        // Total balance should just be the suspense balance since available is always 0
-        // This represents the total amount credited to the client
-        return $this->getSuspenseBalanceAttribute();
+        // Calculate total balance from balance history records
+        $totalBalance = $this->balanceHistories()
+            ->selectRaw('SUM(CASE WHEN transaction_type = "credit" THEN change_amount ELSE -change_amount END) as total')
+            ->value('total') ?? 0;
+        
+        return $totalBalance;
     }
 
     /**
-     * Get the client's available balance (excluding money in suspense accounts)
+     * Get the client's available balance (same as total balance for now)
      */
     public function getAvailableBalanceAttribute()
     {
-        // Available balance should be 0 since money is immediately locked in suspense
-        // This represents money that the client can actually use
-        return 0;
+        // Available balance is the same as total balance
+        return $this->getTotalBalanceAttribute();
     }
 
     /**

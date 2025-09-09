@@ -71,7 +71,7 @@ class TestingController extends Controller
             $message = '';
 
             // Validate input
-            $allowedTypes = ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements', 'client-balance-statements', 'reset-payment-pending'];
+            $allowedTypes = ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements', 'client-balance-statements', 'reset-payment-pending', 'check-queues'];
             if (!in_array($type, $allowedTypes)) {
                 return response()->json([
                     'success' => false,
@@ -367,7 +367,7 @@ class TestingController extends Controller
                         ]);
 
                         $count = $existingCount;
-                        $message = "Successfully cleared {$existingCount} client balance statement records";
+                        $message = "Successfully cleared {$existingCount} client account statement records";
 
                     } catch (\Exception $e) {
                         Log::error('Error clearing client balance history records', [
@@ -449,6 +449,59 @@ class TestingController extends Controller
                         return response()->json([
                             'success' => false,
                             'message' => 'An error occurred while resetting payment to pending: ' . $e->getMessage()
+                        ], 500);
+                    }
+                    break;
+
+                case 'check-queues':
+                    try {
+                        Log::info('=== CHECKING SERVICE DELIVERY QUEUES ===', [
+                            'user_id' => $user->id,
+                            'user_name' => $user->name,
+                            'business_id' => $user->business_id,
+                            'ip' => $request->ip(),
+                            'user_agent' => $request->userAgent()
+                        ]);
+
+                        // Get all service delivery queues
+                        $allQueues = ServiceDeliveryQueue::with(['client', 'item', 'servicePoint', 'invoice'])->get();
+                        $pendingQueues = ServiceDeliveryQueue::where('status', 'pending')->with(['client', 'item', 'servicePoint', 'invoice'])->get();
+                        $completedQueues = ServiceDeliveryQueue::where('status', 'completed')->with(['client', 'item', 'servicePoint', 'invoice'])->get();
+
+                        Log::info('Service delivery queues found', [
+                            'total_queues' => $allQueues->count(),
+                            'pending_queues' => $pendingQueues->count(),
+                            'completed_queues' => $completedQueues->count(),
+                            'queues_details' => $allQueues->map(function($queue) {
+                                return [
+                                    'id' => $queue->id,
+                                    'status' => $queue->status,
+                                    'item_name' => $queue->item_name,
+                                    'quantity' => $queue->quantity,
+                                    'client_id' => $queue->client_id,
+                                    'client_name' => $queue->client ? $queue->client->name : 'Unknown',
+                                    'service_point_id' => $queue->service_point_id,
+                                    'service_point_name' => $queue->servicePoint ? $queue->servicePoint->name : 'Unknown',
+                                    'invoice_id' => $queue->invoice_id,
+                                    'invoice_number' => $queue->invoice ? $queue->invoice->invoice_number : 'Unknown',
+                                    'queued_at' => $queue->queued_at ? $queue->queued_at->toDateTimeString() : null
+                                ];
+                            })->toArray()
+                        ]);
+
+                        $count = $allQueues->count();
+                        $message = "Found {$count} service delivery queues: {$pendingQueues->count()} pending, {$completedQueues->count()} completed. Check server logs for details.";
+
+                    } catch (\Exception $e) {
+                        Log::error('Error checking service delivery queues', [
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString(),
+                            'user_id' => $user->id
+                        ]);
+
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'An error occurred while checking service delivery queues: ' . $e->getMessage()
                         ], 500);
                     }
                     break;
