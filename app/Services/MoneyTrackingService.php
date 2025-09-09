@@ -1218,118 +1218,28 @@ class MoneyTrackingService
                 Log::info("Processing item " . ($index + 1), [
                     'item_id' => $itemId,
                     'item_name' => $item->name,
+                    'item_type' => $item->type,
                     'quantity' => $quantity,
                     'total_amount' => $totalAmount,
                     'contractor_account_id' => $item->contractor_account_id
                 ]);
 
-                // Determine destination account based on item type
-                if ($item->contractor_account_id) {
-                    // Contractor item - move to contractor account
-                    $contractor = ContractorProfile::find($item->contractor_account_id);
-                    $destinationAccount = $this->getOrCreateContractorAccount($contractor);
-                    $transferDescription = "Contractor payment for: {$item->name}";
-                    
-                    Log::info("Item assigned to contractor", [
-                        'item_id' => $itemId,
-                        'contractor_id' => $contractor->id,
-                        'contractor_name' => $contractor->name,
-                        'destination_account_id' => $destinationAccount->id,
-                        'destination_account_balance_before' => $destinationAccount->balance
+                // Handle bulk items differently
+                if ($item->type === 'bulk') {
+                    Log::info("Processing bulk item", [
+                        'bulk_item_id' => $itemId,
+                        'bulk_item_name' => $item->name,
+                        'bulk_total_amount' => $totalAmount
                     ]);
+                    
+                    // For bulk items, we process the entire bulk amount
+                    // The included items will be handled separately for service point distribution
+                    $this->processBulkItem($item, $totalAmount, $clientSuspenseAccount, $business, $invoice, $transferRecords);
                 } else {
-                    // Business item - move to business account
-                    $destinationAccount = $this->getOrCreateBusinessAccount($business);
-                    $transferDescription = "Business payment for: {$item->name}";
-                    
-                    Log::info("Item assigned to business", [
-                        'item_id' => $itemId,
-                        'business_id' => $business->id,
-                        'business_name' => $business->name,
-                        'destination_account_id' => $destinationAccount->id,
-                        'destination_account_balance_before' => $destinationAccount->balance
-                    ]);
+                    // Handle regular items (good, service) as before
+                    $this->processRegularItem($item, $totalAmount, $clientSuspenseAccount, $business, $invoice, $transferRecords);
                 }
 
-                // Transfer money from client suspense to destination account
-                Log::info("Initiating money transfer", [
-                    'from_account_id' => $clientSuspenseAccount->id,
-                    'to_account_id' => $destinationAccount->id,
-                    'amount' => $totalAmount,
-                    'description' => $transferDescription
-                ]);
-
-                $transfer = $this->transferMoney(
-                    $clientSuspenseAccount,
-                    $destinationAccount,
-                    $totalAmount,
-                    'save_and_exit',
-                    $invoice,
-                    $item,
-                    $transferDescription
-                );
-
-                Log::info("Money transfer completed", [
-                    'transfer_id' => $transfer->id,
-                    'from_account_balance_after' => $clientSuspenseAccount->fresh()->balance,
-                    'to_account_balance_after' => $destinationAccount->fresh()->balance
-                ]);
-
-                // Create balance statement for receiving account
-                if ($item->contractor_account_id) {
-                    // Contractor account - create contractor balance statement
-                    $contractor = ContractorProfile::find($item->contractor_account_id);
-                    
-                    Log::info("Creating contractor balance statement", [
-                        'contractor_id' => $contractor->id,
-                        'amount' => $totalAmount,
-                        'type' => 'credit'
-                    ]);
-                    
-                    ContractorBalanceHistory::recordChange(
-                        $contractor->id,
-                        $destinationAccount->id,
-                        $totalAmount,
-                        'credit',
-                        "Payment received for: {$item->name}",
-                        'invoice',
-                        $invoice->id,
-                        [
-                            'invoice_number' => $invoice->invoice_number,
-                            'item_name' => $item->name,
-                            'description' => "Service delivery completed - Item: {$item->name}"
-                        ]
-                    );
-                } else {
-                    // Business account - create business balance statement
-                    Log::info("Creating business balance statement", [
-                        'business_id' => $business->id,
-                        'amount' => $totalAmount,
-                        'type' => 'credit'
-                    ]);
-                    
-                    BusinessBalanceHistory::recordChange(
-                        $business->id,
-                        $destinationAccount->id,
-                        $totalAmount,
-                        'credit',
-                        "Payment received for: {$item->name}",
-                        'invoice',
-                        $invoice->id,
-                        [
-                            'invoice_number' => $invoice->invoice_number,
-                            'item_name' => $item->name,
-                            'description' => "Service delivery completed - Item: {$item->name}"
-                        ]
-                    );
-                }
-
-                $transferRecords[] = [
-                    'item_name' => $item->name,
-                    'amount' => $totalAmount,
-                    'destination' => $destinationAccount->name,
-                    'transfer_id' => $transfer->id
-                ];
             }
 
             // Handle service charge if applicable (only once per invoice and when item is completed or partially done)
@@ -1459,5 +1369,260 @@ class MoneyTrackingService
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * Process a bulk item - move entire bulk amount when any included item is processed
+     */
+    private function processBulkItem($bulkItem, $totalAmount, $clientSuspenseAccount, $business, $invoice, &$transferRecords)
+    {
+        Log::info("=== PROCESSING BULK ITEM ===", [
+            'bulk_item_id' => $bulkItem->id,
+            'bulk_item_name' => $bulkItem->name,
+            'bulk_total_amount' => $totalAmount
+        ]);
+
+        // Get all included items in this bulk
+        $includedItems = \App\Models\BulkItem::where('bulk_item_id', $bulkItem->id)
+            ->with('includedItem')
+            ->get();
+
+        Log::info("Bulk item contains included items", [
+            'bulk_item_id' => $bulkItem->id,
+            'included_items_count' => $includedItems->count(),
+            'included_items' => $includedItems->pluck('includedItem.name')->toArray()
+        ]);
+
+        // Determine destination account based on bulk item type
+        if ($bulkItem->contractor_account_id) {
+            // Contractor bulk item - move to contractor account
+            $contractor = ContractorProfile::find($bulkItem->contractor_account_id);
+            $destinationAccount = $this->getOrCreateContractorAccount($contractor);
+            $transferDescription = "Contractor payment for bulk: {$bulkItem->name}";
+            
+            Log::info("Bulk item assigned to contractor", [
+                'bulk_item_id' => $bulkItem->id,
+                'contractor_id' => $contractor->id,
+                'contractor_name' => $contractor->name,
+                'destination_account_id' => $destinationAccount->id,
+                'destination_account_balance_before' => $destinationAccount->balance
+            ]);
+        } else {
+            // Business bulk item - move to business account
+            $destinationAccount = $this->getOrCreateBusinessAccount($business);
+            $transferDescription = "Business payment for bulk: {$bulkItem->name}";
+            
+            Log::info("Bulk item assigned to business", [
+                'bulk_item_id' => $bulkItem->id,
+                'business_id' => $business->id,
+                'business_name' => $business->name,
+                'destination_account_id' => $destinationAccount->id,
+                'destination_account_balance_before' => $destinationAccount->balance
+            ]);
+        }
+
+        // Transfer entire bulk amount from client suspense to destination account
+        Log::info("Initiating bulk money transfer", [
+            'from_account_id' => $clientSuspenseAccount->id,
+            'to_account_id' => $destinationAccount->id,
+            'amount' => $totalAmount,
+            'description' => $transferDescription
+        ]);
+
+        $transfer = $this->transferMoney(
+            $clientSuspenseAccount,
+            $destinationAccount,
+            $totalAmount,
+            'save_and_exit',
+            $invoice,
+            $bulkItem,
+            $transferDescription
+        );
+
+        Log::info("Bulk money transfer completed", [
+            'transfer_id' => $transfer->id,
+            'from_account_balance_after' => $clientSuspenseAccount->fresh()->balance,
+            'to_account_balance_after' => $destinationAccount->fresh()->balance
+        ]);
+
+        // Create balance statement for the destination account
+        if ($bulkItem->contractor_account_id) {
+            Log::info("Creating contractor balance statement for bulk", [
+                'contractor_id' => $contractor->id,
+                'amount' => $totalAmount,
+                'type' => 'credit'
+            ]);
+            
+            ContractorBalanceHistory::recordChange(
+                $contractor->id,
+                $destinationAccount->id,
+                $totalAmount,
+                'credit',
+                "Payment received for bulk: {$bulkItem->name}",
+                'invoice',
+                $invoice->id,
+                [
+                    'invoice_number' => $invoice->invoice_number,
+                    'bulk_item_name' => $bulkItem->name,
+                    'description' => "Service delivery completed - Bulk: {$bulkItem->name}"
+                ]
+            );
+        } else {
+            Log::info("Creating business balance statement for bulk", [
+                'business_id' => $business->id,
+                'amount' => $totalAmount,
+                'type' => 'credit'
+            ]);
+            
+            BusinessBalanceHistory::recordChange(
+                $business->id,
+                $destinationAccount->id,
+                $totalAmount,
+                'credit',
+                "Payment received for bulk: {$bulkItem->name}",
+                'invoice',
+                $invoice->id,
+                [
+                    'invoice_number' => $invoice->invoice_number,
+                    'bulk_item_name' => $bulkItem->name,
+                    'description' => "Service delivery completed - Bulk: {$bulkItem->name}"
+                ]
+            );
+        }
+
+        $transferRecords[] = [
+            'item_name' => "Bulk: {$bulkItem->name}",
+            'amount' => $totalAmount,
+            'destination' => $destinationAccount->name,
+            'transfer_id' => $transfer->id
+        ];
+
+        Log::info("=== BULK ITEM PROCESSING COMPLETED ===", [
+            'bulk_item_id' => $bulkItem->id,
+            'bulk_total_amount' => $totalAmount,
+            'included_items_count' => $includedItems->count()
+        ]);
+    }
+
+    /**
+     * Process a regular item (good, service) - standard money movement
+     */
+    private function processRegularItem($item, $totalAmount, $clientSuspenseAccount, $business, $invoice, &$transferRecords)
+    {
+        Log::info("=== PROCESSING REGULAR ITEM ===", [
+            'item_id' => $item->id,
+            'item_name' => $item->name,
+            'item_type' => $item->type,
+            'total_amount' => $totalAmount
+        ]);
+
+        // Determine destination account based on item type
+        if ($item->contractor_account_id) {
+            // Contractor item - move to contractor account
+            $contractor = ContractorProfile::find($item->contractor_account_id);
+            $destinationAccount = $this->getOrCreateContractorAccount($contractor);
+            $transferDescription = "Contractor payment for: {$item->name}";
+            
+            Log::info("Item assigned to contractor", [
+                'item_id' => $item->id,
+                'contractor_id' => $contractor->id,
+                'contractor_name' => $contractor->name,
+                'destination_account_id' => $destinationAccount->id,
+                'destination_account_balance_before' => $destinationAccount->balance
+            ]);
+        } else {
+            // Business item - move to business account
+            $destinationAccount = $this->getOrCreateBusinessAccount($business);
+            $transferDescription = "Business payment for: {$item->name}";
+            
+            Log::info("Item assigned to business", [
+                'item_id' => $item->id,
+                'business_id' => $business->id,
+                'business_name' => $business->name,
+                'destination_account_id' => $destinationAccount->id,
+                'destination_account_balance_before' => $destinationAccount->balance
+            ]);
+        }
+
+        // Transfer money from client suspense to destination account
+        Log::info("Initiating money transfer", [
+            'from_account_id' => $clientSuspenseAccount->id,
+            'to_account_id' => $destinationAccount->id,
+            'amount' => $totalAmount,
+            'description' => $transferDescription
+        ]);
+
+        $transfer = $this->transferMoney(
+            $clientSuspenseAccount,
+            $destinationAccount,
+            $totalAmount,
+            'save_and_exit',
+            $invoice,
+            $item,
+            $transferDescription
+        );
+
+        Log::info("Money transfer completed", [
+            'transfer_id' => $transfer->id,
+            'from_account_balance_after' => $clientSuspenseAccount->fresh()->balance,
+            'to_account_balance_after' => $destinationAccount->fresh()->balance
+        ]);
+
+        // Create balance statement for the destination account
+        if ($item->contractor_account_id) {
+            Log::info("Creating contractor balance statement", [
+                'contractor_id' => $contractor->id,
+                'amount' => $totalAmount,
+                'type' => 'credit'
+            ]);
+            
+            ContractorBalanceHistory::recordChange(
+                $contractor->id,
+                $destinationAccount->id,
+                $totalAmount,
+                'credit',
+                "Payment received for: {$item->name}",
+                'invoice',
+                $invoice->id,
+                [
+                    'invoice_number' => $invoice->invoice_number,
+                    'item_name' => $item->name,
+                    'description' => "Service delivery completed - Item: {$item->name}"
+                ]
+            );
+        } else {
+            Log::info("Creating business balance statement", [
+                'business_id' => $business->id,
+                'amount' => $totalAmount,
+                'type' => 'credit'
+            ]);
+            
+            BusinessBalanceHistory::recordChange(
+                $business->id,
+                $destinationAccount->id,
+                $totalAmount,
+                'credit',
+                "Payment received for: {$item->name}",
+                'invoice',
+                $invoice->id,
+                [
+                    'invoice_number' => $invoice->invoice_number,
+                    'item_name' => $item->name,
+                    'description' => "Service delivery completed - Item: {$item->name}"
+                ]
+            );
+        }
+
+        $transferRecords[] = [
+            'item_name' => $item->name,
+            'amount' => $totalAmount,
+            'destination' => $destinationAccount->name,
+            'transfer_id' => $transfer->id
+        ];
+
+        Log::info("=== REGULAR ITEM PROCESSING COMPLETED ===", [
+            'item_id' => $item->id,
+            'total_amount' => $totalAmount
+        ]);
     }
 }
