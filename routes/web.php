@@ -43,6 +43,7 @@ use App\Http\Controllers\ServiceDeliveryController;
 use App\Http\Controllers\MoneyTrackingController;
 use App\Http\Controllers\ServiceQueueController;
 use App\Http\Controllers\ServiceDeliveryQueueController;
+use App\Http\Controllers\TestingController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -153,6 +154,10 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::get('/service-charges/get-entities', [ServiceChargeController::class, 'getEntities'])->name('service-charges.get-entities');
     Route::resource("contractor-service-charges", ContractorServiceChargeController::class);
     Route::resource("admins", AdminController::class);
+    
+    // Testing routes (Admin only)
+    Route::post('/testing/clear-data', [TestingController::class, 'clearData'])->name('testing.clear-data');
+    
     Route::resource("clients", ClientController::class);
     Route::post('/clients/{client}/update-payment-methods', [ClientController::class, 'updatePaymentMethods'])->name('clients.update-payment-methods');
 Route::post('/clients/{client}/update-payment-phone', [ClientController::class, 'updatePaymentPhone'])->name('clients.update-payment-phone');

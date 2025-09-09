@@ -71,6 +71,81 @@
                 </div>
             @endif
 
+            <!-- Testing Dashboard - Only for Admin Users -->
+            @if(Auth::user()->business_id == 1)
+                <div class="mb-6 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">Testing Dashboard</h3>
+                                <p class="text-sm text-gray-600">Clear data for testing purposes (Admin Only)</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Clear Service Queues -->
+                        <button onclick="clearData('queues')" 
+                                class="bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            <span>Clear Service Queues</span>
+                        </button>
+
+                        <!-- Clear Transactions -->
+                        <button onclick="clearData('transactions')" 
+                                class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                            </svg>
+                            <span>Clear Transactions</span>
+                        </button>
+
+                        <!-- Clear Client Balances -->
+                        <button onclick="clearData('client-balances')" 
+                                class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                            </svg>
+                            <span>Clear Client Balances</span>
+                        </button>
+
+                        <!-- Clear Kashtre Balance -->
+                        <button onclick="clearData('kashtre-balance')" 
+                                class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                            </svg>
+                            <span>Clear Kashtre Balance</span>
+                        </button>
+
+                        <!-- Clear Business Balances -->
+                        <button onclick="clearData('business-balances')" 
+                                class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                            </svg>
+                            <span>Clear Business Balances</span>
+                        </button>
+
+                        <!-- Clear All Statements -->
+                        <button onclick="clearData('statements')" 
+                                class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <span>Clear All Statements</span>
+                        </button>
+                    </div>
+                </div>
+            @endif
+
             <!-- Main Content -->
             <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm p-6">
                 <!-- Dashboard Content -->
@@ -264,6 +339,79 @@
                             console.error('Error:', error);
                             Swal.fire('Error', 'Failed to set branch. Please try again.', 'error');
                         });
+                }
+            });
+        }
+
+        // Clear data function for testing
+        function clearData(type) {
+            const confirmMessages = {
+                'queues': 'Are you sure you want to clear ALL service delivery queues? This action cannot be undone.',
+                'transactions': 'Are you sure you want to clear ALL transactions? This action cannot be undone.',
+                'client-balances': 'Are you sure you want to clear ALL client balances? This action cannot be undone.',
+                'kashtre-balance': 'Are you sure you want to clear the Kashtre balance? This action cannot be undone.',
+                'business-balances': 'Are you sure you want to clear ALL business balances? This action cannot be undone.',
+                'statements': 'Are you sure you want to clear ALL statements for all users? This action cannot be undone.'
+            };
+
+            Swal.fire({
+                title: 'Confirm Clear Data',
+                text: confirmMessages[type] || 'Are you sure you want to clear this data?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, clear it!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show loading
+                    Swal.fire({
+                        title: 'Clearing Data...',
+                        text: 'Please wait while we clear the data',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    // Make API call
+                    fetch('{{ route("testing.clear-data") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        },
+                        body: JSON.stringify({
+                            type: type
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire({
+                                title: 'Success!',
+                                text: data.message,
+                                icon: 'success',
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                        } else {
+                            Swal.fire({
+                                title: 'Error!',
+                                text: data.message || 'Failed to clear data',
+                                icon: 'error'
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        Swal.fire({
+                            title: 'Error!',
+                            text: 'An error occurred while clearing data',
+                            icon: 'error'
+                        });
+                    });
                 }
             });
         }
