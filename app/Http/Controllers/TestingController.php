@@ -242,6 +242,8 @@ class TestingController extends Controller
                     break;
 
                 case 'temp-accounts':
+                case 'temp_accounts':
+                case 'test123':
                     Log::info('DEBUG: Entered temp-accounts case successfully!');
                     // Simple test first
                     $message = "TEMP ACCOUNTS CASE REACHED - Server has latest code!";

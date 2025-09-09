@@ -118,12 +118,12 @@
                         </button>
 
                         <!-- Clear Temporary Accounts -->
-                        <button onclick="clearData('temp-accounts')" 
+                        <button onclick="clearData('test123')" 
                                 class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
-                            <span>Clear Temporary Accounts</span>
+                            <span>Clear Temporary Accounts (TEST)</span>
                         </button>
 
                         <!-- Clear Kashtre Balance -->
@@ -361,6 +361,7 @@
                 'transactions': 'Are you sure you want to clear ALL transactions? This action cannot be undone.',
                 'client-balances': 'Are you sure you want to clear ALL client balances? This action cannot be undone.',
                 'temp-accounts': 'Are you sure you want to clear ALL temporary accounts (suspense balances)? This action cannot be undone.',
+                'test123': 'Are you sure you want to clear ALL temporary accounts (suspense balances)? This action cannot be undone.',
                 'kashtre-balance': 'Are you sure you want to clear the Kashtre balance? This action cannot be undone.',
                 'business-balances': 'Are you sure you want to clear ALL business balances? This action cannot be undone.',
                 'statements': 'Are you sure you want to clear ALL statements for all users? This action cannot be undone.'
