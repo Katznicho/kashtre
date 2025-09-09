@@ -474,6 +474,10 @@ class TestingController extends Controller
 
                         $balanceHistories = $client->balanceHistories()->orderBy('created_at', 'desc')->get();
                         
+                        // Debug suspense accounts
+                        $suspenseAccounts = $client->suspenseAccounts()->get();
+                        $allMoneyAccounts = \App\Models\MoneyAccount::where('client_id', $client->id)->get();
+                        
                         Log::info('Client balance debugging', [
                             'client_id' => $client->id,
                             'client_name' => $client->name,
@@ -481,6 +485,28 @@ class TestingController extends Controller
                             'available_balance' => $client->getAvailableBalanceAttribute(),
                             'suspense_balance' => $client->getSuspenseBalanceAttribute(),
                             'balance_histories_count' => $balanceHistories->count(),
+                            'suspense_accounts_count' => $suspenseAccounts->count(),
+                            'all_money_accounts_count' => $allMoneyAccounts->count(),
+                            'suspense_accounts' => $suspenseAccounts->map(function($account) {
+                                return [
+                                    'id' => $account->id,
+                                    'name' => $account->name,
+                                    'type' => $account->type,
+                                    'balance' => $account->balance,
+                                    'business_id' => $account->business_id,
+                                    'client_id' => $account->client_id
+                                ];
+                            })->toArray(),
+                            'all_money_accounts' => $allMoneyAccounts->map(function($account) {
+                                return [
+                                    'id' => $account->id,
+                                    'name' => $account->name,
+                                    'type' => $account->type,
+                                    'balance' => $account->balance,
+                                    'business_id' => $account->business_id,
+                                    'client_id' => $account->client_id
+                                ];
+                            })->toArray(),
                             'balance_histories' => $balanceHistories->map(function($history) {
                                 return [
                                     'id' => $history->id,
@@ -494,7 +520,7 @@ class TestingController extends Controller
                         ]);
 
                         $count = $balanceHistories->count();
-                        $message = "Debugged balance for client {$client->name}: Total={$client->getTotalBalanceAttribute()}, Available={$client->getAvailableBalanceAttribute()}, Histories={$count}. Check server logs for details.";
+                        $message = "Debugged balance for client {$client->name}: Total={$client->getTotalBalanceAttribute()}, Available={$client->getAvailableBalanceAttribute()}, Suspense={$client->getSuspenseBalanceAttribute()}, Histories={$count}. Check server logs for details.";
 
                     } catch (\Exception $e) {
                         Log::error('Error debugging client balance', [
