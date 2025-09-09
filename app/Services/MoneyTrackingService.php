@@ -1252,26 +1252,14 @@ class MoneyTrackingService
                 $shouldProcessServiceCharge = false;
                 
                 if ($existingServiceChargeTransfer) {
-                    // Check if the service charge money is still in the client suspense account
-                    $clientSuspenseBalance = $clientSuspenseAccount->fresh()->balance;
-                    if ($clientSuspenseBalance >= $invoice->service_charge) {
-                        Log::info("Service charge transfer record exists but money still in suspense account - processing transfer", [
-                            'invoice_id' => $invoice->id,
-                            'existing_transfer_id' => $existingServiceChargeTransfer->id,
-                            'service_charge_amount' => $invoice->service_charge,
-                            'client_suspense_balance' => $clientSuspenseBalance,
-                            'reason' => 'Money still in suspense account despite existing transfer record'
-                        ]);
-                        $shouldProcessServiceCharge = true;
-                    } else {
-                        Log::info("Service charge already processed and money moved for this invoice", [
-                            'invoice_id' => $invoice->id,
-                            'existing_transfer_id' => $existingServiceChargeTransfer->id,
-                            'service_charge_amount' => $invoice->service_charge,
-                            'client_suspense_balance' => $clientSuspenseBalance
-                        ]);
-                        $shouldProcessServiceCharge = false;
-                    }
+                    // Service charge has already been processed for this invoice - don't process again
+                    Log::info("Service charge already processed for this invoice - skipping", [
+                        'invoice_id' => $invoice->id,
+                        'existing_transfer_id' => $existingServiceChargeTransfer->id,
+                        'service_charge_amount' => $invoice->service_charge,
+                        'reason' => 'Service charge transfer record already exists for this invoice'
+                    ]);
+                    $shouldProcessServiceCharge = false;
                 } else {
                     Log::info("Processing service charge for item", [
                         'service_charge_amount' => $invoice->service_charge,
