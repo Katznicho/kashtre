@@ -132,6 +132,109 @@ class InvoiceController extends Controller
     }
 
     /**
+     * Update package tracking records when package adjustments are used
+     */
+    private function updatePackageTrackingForAdjustments($invoice, $items)
+    {
+        try {
+            $clientId = $invoice->client_id;
+            $businessId = $invoice->business_id;
+            $branchId = $invoice->branch_id;
+            
+            // Get client's valid package tracking records
+            $validPackages = \App\Models\PackageTracking::where('client_id', $clientId)
+                ->where('business_id', $businessId)
+                ->where('status', 'active')
+                ->where('remaining_quantity', '>', 0)
+                ->where('valid_until', '>=', now()->toDateString())
+                ->with(['packageItem.packageItems.includedItem'])
+                ->get();
+
+            foreach ($items as $item) {
+                $itemId = $item['id'] ?? $item['item_id'];
+                $quantity = $item['quantity'] ?? 1;
+                $remainingQuantity = $quantity;
+                
+                // Get the item price (branch-specific or default)
+                $itemModel = \App\Models\Item::find($itemId);
+                $price = $itemModel ? $itemModel->default_price : 0;
+                
+                // Check for branch-specific price
+                $branchPrice = \App\Models\BranchItemPrice::where('branch_id', $branchId)
+                    ->where('item_id', $itemId)
+                    ->first();
+                
+                if ($branchPrice) {
+                    $price = $branchPrice->price;
+                }
+
+                // Check if this item is included in any valid packages
+                foreach ($validPackages as $packageTracking) {
+                    if ($remainingQuantity <= 0) break;
+
+                    // Check if the current item is included in this package
+                    $packageItems = $packageTracking->packageItem->packageItems;
+                    
+                    foreach ($packageItems as $packageItem) {
+                        if ($packageItem->included_item_id == $itemId) {
+                            // Check max quantity constraint from package_items table
+                            $maxQuantity = $packageItem->max_quantity ?? null;
+                            $fixedQuantity = $packageItem->fixed_quantity ?? null;
+                            
+                            // Determine how much quantity can be used from this package
+                            $availableFromPackage = $packageTracking->remaining_quantity;
+                            
+                            if ($maxQuantity !== null) {
+                                // If max_quantity is set, limit by that
+                                $availableFromPackage = min($availableFromPackage, $maxQuantity);
+                            } elseif ($fixedQuantity !== null) {
+                                // If fixed_quantity is set, use that
+                                $availableFromPackage = min($availableFromPackage, $fixedQuantity);
+                            }
+                            
+                            // Calculate how much we can actually use
+                            $quantityToUse = min($remainingQuantity, $availableFromPackage);
+                            
+                            if ($quantityToUse > 0) {
+                                // Update package tracking record
+                                $packageTracking->used_quantity += $quantityToUse;
+                                $packageTracking->remaining_quantity -= $quantityToUse;
+                                
+                                // Mark as expired if no remaining quantity
+                                if ($packageTracking->remaining_quantity <= 0) {
+                                    $packageTracking->status = 'expired';
+                                }
+                                
+                                $packageTracking->save();
+                                
+                                Log::info("Updated package tracking for adjustment", [
+                                    'package_tracking_id' => $packageTracking->id,
+                                    'package_name' => $packageTracking->packageItem->name,
+                                    'item_name' => $item['name'] ?? 'Unknown',
+                                    'quantity_used' => $quantityToUse,
+                                    'remaining_quantity' => $packageTracking->remaining_quantity,
+                                    'new_status' => $packageTracking->status
+                                ]);
+                                
+                                $remainingQuantity -= $quantityToUse;
+                                
+                                // If we've used all available quantity from this package, break
+                                if ($remainingQuantity <= 0) break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+        } catch (\Exception $e) {
+            Log::error("Error updating package tracking for adjustments", [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * Store a new invoice
      */
     public function store(Request $request)
@@ -347,6 +450,11 @@ class InvoiceController extends Controller
             
             // PACKAGE TRACKING: Create package tracking records for package items
             $this->createPackageTrackingRecords($invoice, $validated['items']);
+            
+            // PACKAGE ADJUSTMENT: Update package tracking records when adjustments are used
+            if ($validated['package_adjustment'] > 0) {
+                $this->updatePackageTrackingForAdjustments($invoice, $validated['items']);
+            }
             
             // PACKAGE ADJUSTMENT: Update package usage for items covered by packages
             $this->updatePackageUsage($invoice, $validated['items']);
