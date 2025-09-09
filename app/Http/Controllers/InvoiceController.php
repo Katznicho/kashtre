@@ -24,10 +24,12 @@ class InvoiceController extends Controller
                 'client_id' => 'required|exists:clients,id',
                 'business_id' => 'required|exists:businesses,id',
                 'items' => 'required|array',
+                'branch_id' => 'required|exists:branches,id',
             ]);
 
             $clientId = $validated['client_id'];
             $businessId = $validated['business_id'];
+            $branchId = $validated['branch_id'];
             $items = $validated['items'];
 
             $totalAdjustment = 0;
@@ -47,9 +49,18 @@ class InvoiceController extends Controller
                 $quantity = $item['quantity'] ?? 1;
                 $remainingQuantity = $quantity;
                 
-                // Get the item price from the database
+                // Get the item price from the database (branch-specific or default)
                 $itemModel = \App\Models\Item::find($itemId);
                 $price = $itemModel ? $itemModel->default_price : 0;
+                
+                // Check for branch-specific price
+                $branchPrice = \App\Models\BranchItemPrice::where('branch_id', $branchId)
+                    ->where('item_id', $itemId)
+                    ->first();
+                
+                if ($branchPrice) {
+                    $price = $branchPrice->price;
+                }
 
                 // Check if this item is included in any valid packages
                 foreach ($validPackages as $packageTracking) {

@@ -1434,6 +1434,7 @@
                     body: JSON.stringify({
                         client_id: {{ $client->id }},
                         business_id: {{ auth()->user()->business_id }},
+                        branch_id: {{ $client->branch_id }},
                         items: cart
                     })
                 });
