@@ -195,6 +195,18 @@ class CheckPaymentStatus extends Command
                                         'invoice_id' => $invoice->id,
                                         'queued_items_count' => $queuedItems
                                     ]);
+                                    
+                                    // Create package tracking records for package items
+                                    Log::info("Creating package tracking records", [
+                                        'invoice_id' => $invoice->id,
+                                        'items_count' => count($invoice->items ?? [])
+                                    ]);
+                                    
+                                    $this->createPackageTrackingRecords($invoice, $invoice->items);
+                                    
+                                    Log::info("Package tracking records created", [
+                                        'invoice_id' => $invoice->id
+                                    ]);
                                 } else {
                                     Log::warning("Invoice not found for transaction", [
                                         'transaction_id' => $transaction->id,
@@ -501,5 +513,101 @@ class CheckPaymentStatus extends Command
         ]);
 
         return $queuedCount;
+    }
+
+    /**
+     * Create package tracking records for package items
+     */
+    private function createPackageTrackingRecords($invoice, $items)
+    {
+        $packageTrackingCount = 0;
+        
+        Log::info("=== STARTING PACKAGE TRACKING CREATION ===", [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'total_items' => count($items ?? [])
+        ]);
+
+        foreach ($items as $item) {
+            $itemId = $item['id'] ?? $item['item_id'] ?? null;
+            if (!$itemId) continue;
+
+            // Get the item from database to check if it's a package
+            $itemModel = \App\Models\Item::find($itemId);
+            if (!$itemModel || $itemModel->type !== 'package') continue;
+
+            Log::info("Processing package item for tracking", [
+                'package_item_id' => $itemId,
+                'package_name' => $itemModel->name,
+                'quantity' => $item['quantity'] ?? 1
+            ]);
+
+            // Get included items for this package from package_items table
+            $packageItems = $itemModel->packageItems()->with('includedItem')->get();
+            if ($packageItems->isEmpty()) {
+                Log::warning("Package item has no included items", [
+                    'package_item_id' => $itemId,
+                    'package_name' => $itemModel->name
+                ]);
+                continue;
+            }
+
+            $quantity = $item['quantity'] ?? 1;
+            $packagePrice = $item['price'] ?? 0;
+
+            foreach ($packageItems as $packageItem) {
+                $includedItem = $packageItem->includedItem;
+                $includedItemId = $includedItem->id;
+                $maxQuantity = $packageItem->max_quantity ?? 1;
+                $includedItemPrice = $includedItem->default_price ?? 0;
+
+                // Calculate total quantity for this included item
+                $totalQuantity = $maxQuantity * $quantity;
+
+                Log::info("Creating package tracking record", [
+                    'package_item_id' => $itemId,
+                    'included_item_id' => $includedItemId,
+                    'included_item_name' => $includedItem->name,
+                    'max_quantity' => $maxQuantity,
+                    'package_quantity' => $quantity,
+                    'total_quantity' => $totalQuantity
+                ]);
+
+                // Create package tracking record
+                $packageTracking = \App\Models\PackageTracking::create([
+                    'business_id' => $invoice->business_id,
+                    'client_id' => $invoice->client_id,
+                    'invoice_id' => $invoice->id,
+                    'package_item_id' => $itemId,
+                    'included_item_id' => $includedItemId,
+                    'total_quantity' => $totalQuantity,
+                    'used_quantity' => 0,
+                    'remaining_quantity' => $totalQuantity,
+                    'valid_from' => now()->toDateString(),
+                    'valid_until' => now()->addDays(365)->toDateString(), // Default 1 year validity
+                    'status' => 'active',
+                    'package_price' => $packagePrice,
+                    'item_price' => $includedItemPrice,
+                    'notes' => "Package: {$itemModel->name}, Invoice: {$invoice->invoice_number}"
+                ]);
+
+                $packageTrackingCount++;
+                
+                Log::info("Package tracking record created", [
+                    'package_tracking_id' => $packageTracking->id,
+                    'package_item_id' => $itemId,
+                    'included_item_id' => $includedItemId,
+                    'total_quantity' => $totalQuantity
+                ]);
+            }
+        }
+
+        Log::info("=== PACKAGE TRACKING CREATION COMPLETED ===", [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'total_package_tracking_records_created' => $packageTrackingCount
+        ]);
+
+        return $packageTrackingCount;
     }
 }
