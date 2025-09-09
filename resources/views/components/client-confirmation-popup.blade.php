@@ -140,7 +140,7 @@
                             <p class="text-sm text-gray-500 mb-1">Available Balance</p>
                             <p class="text-xl font-bold text-blue-600">UGX {{ number_format($client->available_balance ?? 0, 2) }}</p>
                             @if(($client->suspense_balance ?? 0) > 0)
-                                <p class="text-xs text-orange-600">({{ number_format($client->suspense_balance ?? 0, 2) }} temporary)</p>
+                                <p class="text-xs text-orange-600">({{ number_format($client->suspense_balance ?? 0, 2) }} in suspense)</p>
                             @endif
                         </div>
                         <div class="bg-gray-50 p-4 rounded-lg text-center">

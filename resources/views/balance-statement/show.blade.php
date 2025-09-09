@@ -23,7 +23,7 @@
                                 <p class="text-sm text-gray-500">Total Balance</p>
                                 <p class="text-lg font-semibold text-gray-700">UGX {{ number_format($client->total_balance ?? 0, 2) }}</p>
                                 @if(($client->suspense_balance ?? 0) > 0)
-                                    <p class="text-xs text-orange-600">({{ number_format($client->suspense_balance ?? 0, 2) }} in temporary accounts)</p>
+                                    <p class="text-xs text-orange-600">({{ number_format($client->suspense_balance ?? 0, 2) }} in suspense accounts)</p>
                                 @endif
                             </div>
                         </div>

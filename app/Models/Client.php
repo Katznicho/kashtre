@@ -113,7 +113,7 @@ class Client extends Model
     }
 
     /**
-     * Get the client's suspense balance (money in temporary accounts)
+     * Get the client's suspense balance (money in suspense accounts)
      * This should return the actual balance from the suspense account
      */
     public function getSuspenseBalanceAttribute()
