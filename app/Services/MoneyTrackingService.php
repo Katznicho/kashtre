@@ -149,15 +149,13 @@ class MoneyTrackingService
             // Credit client suspense account
             $clientSuspenseAccount->credit($amount);
 
-            // Record CREDIT transaction for payment received
-            BalanceHistory::recordCredit(
-                $client,
-                $amount,
-                "Payment received via {$paymentMethod}",
-                $reference,
-                "Payment received for invoice",
-                $paymentMethod
-            );
+            // DO NOT create balance statement immediately - will be created after payment completion
+            Log::info("Payment received - balance statement will be created after payment completion", [
+                'client_id' => $client->id,
+                'amount' => $amount,
+                'reference' => $reference,
+                'payment_method' => $paymentMethod
+            ]);
 
             DB::commit();
             
@@ -366,8 +364,49 @@ class MoneyTrackingService
                 'business_id' => $business->id,
                 'items_count' => count($items),
                 'total_amount' => $invoice->total_amount,
-                'service_charge' => $invoice->service_charge
+                'service_charge' => $invoice->service_charge,
+                'amount_paid' => $invoice->amount_paid,
+                'account_balance_adjustment' => $invoice->account_balance_adjustment
             ]);
+
+            // First, create CREDIT record for payment received
+            if ($invoice->amount_paid > 0) {
+                $paymentMethods = $invoice->payment_methods ?? [];
+                $primaryMethod = !empty($paymentMethods) ? $paymentMethods[0] : 'cash';
+                
+                $creditRecord = BalanceHistory::recordCredit(
+                    $client,
+                    $invoice->amount_paid,
+                    "Payment received via {$primaryMethod}",
+                    $invoice->invoice_number,
+                    "Payment received for invoice",
+                    $primaryMethod
+                );
+
+                Log::info("Payment received credit created", [
+                    'invoice_id' => $invoice->id,
+                    'amount' => $invoice->amount_paid,
+                    'payment_method' => $primaryMethod,
+                    'balance_history_id' => $creditRecord->id ?? null
+                ]);
+            }
+
+            // Create CREDIT record for balance adjustment if used
+            if ($invoice->account_balance_adjustment > 0) {
+                $balanceCreditRecord = BalanceHistory::recordCredit(
+                    $client,
+                    $invoice->account_balance_adjustment,
+                    "Balance Adjustment Used",
+                    $invoice->invoice_number,
+                    "POS Balance Adjustment"
+                );
+
+                Log::info("Balance adjustment credit created", [
+                    'invoice_id' => $invoice->id,
+                    'amount' => $invoice->account_balance_adjustment,
+                    'balance_history_id' => $balanceCreditRecord->id ?? null
+                ]);
+            }
 
             foreach ($items as $index => $itemData) {
                 $itemId = $itemData['item_id'] ?? $itemData['id'] ?? null;

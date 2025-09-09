@@ -1056,14 +1056,12 @@ class InvoiceController extends Controller
             
             $client->update(['balance' => $newBalance]);
             
-            // Record balance statement
-            \App\Models\BalanceHistory::recordPayment(
-                $client,
-                $this->currentInvoice ?? null,
-                $balanceAdjustment,
-                'balance_adjustment',
-                'POS Balance Adjustment'
-            );
+            // DO NOT create balance statement immediately - will be created after payment completion
+            Log::info("Balance adjustment used - balance statement will be created after payment completion", [
+                'client_id' => $client->id,
+                'balance_adjustment' => $balanceAdjustment,
+                'invoice_id' => $this->currentInvoice->id ?? null
+            ]);
             
             Log::info("Client balance updated: Client ID {$client->id}, Adjustment: {$balanceAdjustment}, Old Balance: {$currentBalance}, New Balance: {$newBalance}");
             

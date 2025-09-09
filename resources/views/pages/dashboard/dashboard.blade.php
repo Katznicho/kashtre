@@ -161,6 +161,15 @@
                             </svg>
                             <span>Clear All Statements</span>
                         </button>
+
+                        <!-- Clear Client Balance Statements -->
+                        <button onclick="clearData('client-balance-statements')" 
+                                class="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                            <span>Clear Client Balance Statements</span>
+                        </button>
                     </div>
                 </div>
             @endif
@@ -375,7 +384,8 @@
                 'package-tracking': 'Are you sure you want to clear ALL package tracking data (delivery queues, package suspense accounts, package transactions)? This action cannot be undone.',
                 'kashtre-balance': 'Are you sure you want to clear the Kashtre balance? This action cannot be undone.',
                 'business-balances': 'Are you sure you want to clear ALL business balances? This action cannot be undone.',
-                'statements': 'Are you sure you want to clear ALL statements for all users? This action cannot be undone.'
+                'statements': 'Are you sure you want to clear ALL statements for all users? This action cannot be undone.',
+                'client-balance-statements': 'Are you sure you want to clear ALL client balance statements? This action cannot be undone.'
             };
 
             Swal.fire({

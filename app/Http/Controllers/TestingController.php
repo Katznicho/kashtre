@@ -71,7 +71,7 @@ class TestingController extends Controller
             $message = '';
 
             // Validate input
-            $allowedTypes = ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements'];
+            $allowedTypes = ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements', 'client-balance-statements'];
             if (!in_array($type, $allowedTypes)) {
                 return response()->json([
                     'success' => false,
@@ -323,6 +323,63 @@ class TestingController extends Controller
                         ]);
                         
                         throw $e;
+                    }
+                    break;
+
+                case 'client-balance-statements':
+                    try {
+                        Log::info('=== CLEARING CLIENT BALANCE STATEMENTS ===', [
+                            'user_id' => $user->id,
+                            'user_name' => $user->name,
+                            'business_id' => $user->business_id,
+                            'ip' => $request->ip(),
+                            'user_agent' => $request->userAgent()
+                        ]);
+
+                        // Check if BalanceHistory model exists
+                        if (!class_exists('App\Models\BalanceHistory')) {
+                            Log::error('BalanceHistory model does not exist');
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'BalanceHistory model not found'
+                            ], 500);
+                        }
+
+                        // Check if balance_histories table exists
+                        if (!Schema::hasTable('balance_histories')) {
+                            Log::error('balance_histories table does not exist');
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'balance_histories table not found'
+                            ], 500);
+                        }
+
+                        // Count existing client balance history records
+                        $existingCount = BalanceHistory::whereNotNull('client_id')->count();
+                        Log::info('Existing client balance history records', ['count' => $existingCount]);
+
+                        // Clear only client balance history records (where client_id is not null)
+                        BalanceHistory::whereNotNull('client_id')->delete();
+                        
+                        Log::info('Client balance history records cleared successfully', [
+                            'cleared_count' => $existingCount,
+                            'user_id' => $user->id
+                        ]);
+
+                        $count = $existingCount;
+                        $message = "Successfully cleared {$existingCount} client balance statement records";
+
+                    } catch (\Exception $e) {
+                        Log::error('Error clearing client balance history records', [
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString(),
+                            'user_id' => $user->id
+                        ]);
+
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'An error occurred while clearing client balance statements: ' . $e->getMessage()
+                        ], 500);
                     }
                     break;
 
