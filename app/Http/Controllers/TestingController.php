@@ -90,7 +90,7 @@ class TestingController extends Controller
 
             // Debug: Log all possible cases
             Log::info('DEBUG: Available cases', [
-                'cases' => ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements', 'temp-accounts'],
+                'cases' => ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements', 'temp-accounts', 'package-tracking'],
                 'received_type' => $type,
                 'exact_match' => $type === 'temp-accounts'
             ]);
@@ -265,6 +265,69 @@ class TestingController extends Controller
                     Log::info('SUCCESS: temp-accounts case reached!');
                     $message = "TEMP ACCOUNTS CASE WORKING!";
                     $count = 1;
+                    break;
+
+                case 'package-tracking':
+                    try {
+                        Log::info('=== CLEARING PACKAGE TRACKING DATA ===');
+                        
+                        // Clear package tracking related data
+                        $packageTrackingCount = 0;
+                        $message = "Cleared package tracking data: ";
+                        
+                        // Clear service delivery queues (package deliveries)
+                        $queueCount = ServiceDeliveryQueue::count();
+                        if ($queueCount > 0) {
+                            ServiceDeliveryQueue::truncate();
+                            $packageTrackingCount += $queueCount;
+                            $message .= "{$queueCount} service delivery queues, ";
+                            Log::info('Cleared service delivery queues', ['count' => $queueCount]);
+                        }
+                        
+                        // Clear package suspense accounts
+                        $packageSuspenseAccounts = MoneyAccount::where('type', 'package_suspense_account')->get();
+                        $packageSuspenseCount = $packageSuspenseAccounts->count();
+                        $packageSuspenseBalance = $packageSuspenseAccounts->sum('balance');
+                        
+                        if ($packageSuspenseCount > 0) {
+                            MoneyAccount::where('type', 'package_suspense_account')
+                                ->update(['balance' => 0]);
+                            $packageTrackingCount += $packageSuspenseCount;
+                            $message .= "{$packageSuspenseCount} package suspense accounts (Total: {$packageSuspenseBalance}), ";
+                            Log::info('Cleared package suspense accounts', ['count' => $packageSuspenseCount, 'total_balance' => $packageSuspenseBalance]);
+                        }
+                        
+                        // Clear package-related transactions
+                        $packageTransactions = Transaction::where('transaction_for', 'package')
+                            ->orWhere('description', 'like', '%package%')
+                            ->orWhere('description', 'like', '%delivery%')
+                            ->get();
+                        $packageTransactionCount = $packageTransactions->count();
+                        
+                        if ($packageTransactionCount > 0) {
+                            Transaction::where('transaction_for', 'package')
+                                ->orWhere('description', 'like', '%package%')
+                                ->orWhere('description', 'like', '%delivery%')
+                                ->delete();
+                            $packageTrackingCount += $packageTransactionCount;
+                            $message .= "{$packageTransactionCount} package transactions, ";
+                            Log::info('Cleared package transactions', ['count' => $packageTransactionCount]);
+                        }
+                        
+                        // Remove trailing comma and space
+                        $message = rtrim($message, ', ');
+                        
+                        if ($packageTrackingCount === 0) {
+                            $message = "No package tracking data found to clear";
+                        }
+                        
+                        $count = $packageTrackingCount;
+                        Log::info('Successfully cleared package tracking data', ['total_count' => $packageTrackingCount]);
+                        
+                    } catch (\Exception $e) {
+                        Log::error('Error clearing package tracking data', ['error' => $e->getMessage()]);
+                        throw $e;
+                    }
                     break;
                     
                 case 'temp_accounts':

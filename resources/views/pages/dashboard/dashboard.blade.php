@@ -126,6 +126,15 @@
                             <span>Test Simple Case</span>
                         </button>
 
+                        <!-- Clear Package Tracking -->
+                        <button onclick="clearData('package-tracking')" 
+                                class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                            </svg>
+                            <span>Clear Package Tracking</span>
+                        </button>
+
                         <!-- Clear Kashtre Balance -->
                         <button onclick="clearData('kashtre-balance')" 
                                 class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
@@ -363,6 +372,7 @@
                 'temp-accounts': 'Are you sure you want to clear ALL temporary accounts (suspense balances)? This action cannot be undone.',
                 'test123': 'Are you sure you want to clear ALL temporary accounts (suspense balances)? This action cannot be undone.',
                 'simple-test': 'Are you sure you want to test the simple case?',
+                'package-tracking': 'Are you sure you want to clear ALL package tracking data (delivery queues, package suspense accounts, package transactions)? This action cannot be undone.',
                 'kashtre-balance': 'Are you sure you want to clear the Kashtre balance? This action cannot be undone.',
                 'business-balances': 'Are you sure you want to clear ALL business balances? This action cannot be undone.',
                 'statements': 'Are you sure you want to clear ALL statements for all users? This action cannot be undone.'
