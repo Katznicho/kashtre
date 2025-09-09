@@ -1339,18 +1339,39 @@ class MoneyTrackingService
                     ->where('description', 'like', '%Service charge for invoice%')
                     ->first();
                 
+                $shouldProcessServiceCharge = false;
+                
                 if ($existingServiceChargeTransfer) {
-                    Log::info("Service charge already processed for this invoice", [
-                        'invoice_id' => $invoice->id,
-                        'existing_transfer_id' => $existingServiceChargeTransfer->id,
-                        'service_charge_amount' => $invoice->service_charge
-                    ]);
+                    // Check if the service charge money is still in the client suspense account
+                    $clientSuspenseBalance = $clientSuspenseAccount->fresh()->balance;
+                    if ($clientSuspenseBalance >= $invoice->service_charge) {
+                        Log::info("Service charge transfer record exists but money still in suspense account - processing transfer", [
+                            'invoice_id' => $invoice->id,
+                            'existing_transfer_id' => $existingServiceChargeTransfer->id,
+                            'service_charge_amount' => $invoice->service_charge,
+                            'client_suspense_balance' => $clientSuspenseBalance,
+                            'reason' => 'Money still in suspense account despite existing transfer record'
+                        ]);
+                        $shouldProcessServiceCharge = true;
+                    } else {
+                        Log::info("Service charge already processed and money moved for this invoice", [
+                            'invoice_id' => $invoice->id,
+                            'existing_transfer_id' => $existingServiceChargeTransfer->id,
+                            'service_charge_amount' => $invoice->service_charge,
+                            'client_suspense_balance' => $clientSuspenseBalance
+                        ]);
+                        $shouldProcessServiceCharge = false;
+                    }
                 } else {
                     Log::info("Processing service charge for item", [
                         'service_charge_amount' => $invoice->service_charge,
                         'invoice_id' => $invoice->id,
                         'item_status' => $itemStatus
                     ]);
+                    $shouldProcessServiceCharge = true;
+                }
+                
+                if ($shouldProcessServiceCharge) {
 
                 $kashtreSuspenseAccount = $this->getOrCreateKashtreSuspenseAccount($business);
                 
