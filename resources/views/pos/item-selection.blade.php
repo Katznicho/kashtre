@@ -860,7 +860,7 @@
                 // Generate tracking number for packages
                 let trackingNumber = 'N/A';
                 if (item.type === 'package') {
-                    trackingNumber = generatePackageTrackingNumber(item.id, item.name);
+                    trackingNumber = generatePackageTrackingNumber(item.id, item.displayName || item.name);
                 }
                 
                 tableHTML += `
@@ -920,11 +920,11 @@
                 
                 let trackingHTML = '';
                 packagesInCart.forEach(package => {
-                    const trackingNumber = window.packageTrackingNumbers.get(package.id) || generatePackageTrackingNumber(package.id, package.name);
+                    const trackingNumber = window.packageTrackingNumbers.get(package.id) || generatePackageTrackingNumber(package.id, package.displayName || package.name);
                     trackingHTML += `
                         <div class="flex justify-between items-center text-sm">
                             <div>
-                                <span class="font-medium text-gray-800">${package.name}</span>
+                                <span class="font-medium text-gray-800">${package.displayName || package.name}</span>
                                 <span class="text-gray-600"> (Qty: ${package.quantity})</span>
                             </div>
                             <div class="text-right">
