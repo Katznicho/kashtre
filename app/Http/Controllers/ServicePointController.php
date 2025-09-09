@@ -258,6 +258,10 @@ class ServicePointController extends Controller
                     ->first();
 
                 if ($item && in_array($status, ['partially_done', 'completed'])) {
+                    // Set the invoice if not already set
+                    if (!$invoice) {
+                        $invoice = $item->invoice;
+                    }
                     \Illuminate\Support\Facades\Log::info("Item found for processing", [
                         'item_id' => $item->id,
                         'item_name' => $item->item->name ?? 'Unknown',
