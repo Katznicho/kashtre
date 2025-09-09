@@ -254,6 +254,23 @@ class InvoiceController extends Controller
                         'invoice_number' => $invoiceNumber,
                         'primary_method' => $primaryMethod
                     ]);
+                    
+                    // Update any existing mobile money transaction with the invoice_id
+                    $existingMobileMoneyTransaction = \App\Models\Transaction::where('reference', $invoiceNumber)
+                        ->where('client_id', $validated['client_id'])
+                        ->where('amount', $validated['amount_paid'])
+                        ->where('method', 'mobile_money')
+                        ->whereNull('invoice_id')
+                        ->first();
+                    
+                    if ($existingMobileMoneyTransaction) {
+                        $existingMobileMoneyTransaction->update(['invoice_id' => $invoice->id]);
+                        Log::info("Updated mobile money transaction with invoice_id", [
+                            'transaction_id' => $existingMobileMoneyTransaction->id,
+                            'invoice_id' => $invoice->id,
+                            'invoice_number' => $invoiceNumber
+                        ]);
+                    }
                 }
                 
                 // Only create transaction record for cash payments
