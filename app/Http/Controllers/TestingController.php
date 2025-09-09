@@ -96,6 +96,12 @@ class TestingController extends Controller
             ]);
 
             switch ($type) {
+                case 'simple-test':
+                    Log::info('SUCCESS: simple-test case reached!');
+                    $message = "SIMPLE TEST CASE WORKING!";
+                    $count = 1;
+                    break;
+                    
                 case 'queues':
                     try {
                         $count = ServiceDeliveryQueue::count();
@@ -242,6 +248,11 @@ class TestingController extends Controller
                     break;
 
                 case 'temp-accounts':
+                    Log::info('SUCCESS: temp-accounts case reached!');
+                    $message = "TEMP ACCOUNTS CASE WORKING!";
+                    $count = 1;
+                    break;
+                    
                 case 'temp_accounts':
                 case 'test123':
                     try {
