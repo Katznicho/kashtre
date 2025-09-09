@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use App\Models\ServiceDeliveryQueue;
 use App\Models\Transaction;
 use App\Models\Client;
@@ -160,16 +161,65 @@ class TestingController extends Controller
 
                 case 'statements':
                     try {
+                        Log::info('=== STATEMENTS CLEARING DEBUG START ===');
+                        
+                        // Check if BalanceHistory model exists
+                        Log::info('Checking BalanceHistory model...');
+                        $modelExists = class_exists('App\Models\BalanceHistory');
+                        Log::info('BalanceHistory model exists: ' . ($modelExists ? 'YES' : 'NO'));
+                        
+                        if (!$modelExists) {
+                            throw new \Exception('BalanceHistory model not found');
+                        }
+                        
+                        // Check table exists
+                        Log::info('Checking balance_histories table...');
+                        $tableExists = Schema::hasTable('balance_histories');
+                        Log::info('balance_histories table exists: ' . ($tableExists ? 'YES' : 'NO'));
+                        
+                        if (!$tableExists) {
+                            throw new \Exception('balance_histories table not found');
+                        }
+                        
+                        // Get count
+                        Log::info('Getting BalanceHistory count...');
                         $count = BalanceHistory::count();
-                        Log::info('About to truncate BalanceHistory', ['count' => $count]);
+                        Log::info('BalanceHistory count: ' . $count);
+                        
+                        // Try to get a sample record first
+                        Log::info('Getting sample BalanceHistory record...');
+                        $sampleRecord = BalanceHistory::first();
+                        Log::info('Sample record: ' . ($sampleRecord ? 'Found' : 'None'));
+                        
+                        // Log database connection info
+                        Log::info('Database connection: ' . DB::connection()->getDatabaseName());
+                        
+                        // Try truncate
+                        Log::info('About to truncate BalanceHistory...');
                         BalanceHistory::truncate();
+                        Log::info('Successfully truncated BalanceHistory');
+                        
                         $message = "Cleared {$count} balance history records for all users";
-                        Log::info('Successfully truncated BalanceHistory', ['count' => $count]);
+                        Log::info('=== STATEMENTS CLEARING DEBUG END - SUCCESS ===');
+                        
                     } catch (\Exception $e) {
-                        Log::error('Error truncating BalanceHistory', [
+                        Log::error('=== STATEMENTS CLEARING DEBUG END - ERROR ===', [
                             'error' => $e->getMessage(),
-                            'trace' => $e->getTraceAsString()
+                            'file' => $e->getFile(),
+                            'line' => $e->getLine(),
+                            'trace' => $e->getTraceAsString(),
+                            'previous' => $e->getPrevious() ? $e->getPrevious()->getMessage() : null
                         ]);
+                        
+                        // Also add a dd for immediate debugging
+                        Log::error('DD DEBUG INFO', [
+                            'error_class' => get_class($e),
+                            'error_code' => $e->getCode(),
+                            'database_connection' => DB::connection()->getDatabaseName(),
+                            'table_exists' => Schema::hasTable('balance_histories'),
+                            'model_exists' => class_exists('App\Models\BalanceHistory')
+                        ]);
+                        
                         throw $e;
                     }
                     break;
