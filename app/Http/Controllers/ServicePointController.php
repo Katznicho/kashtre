@@ -166,13 +166,18 @@ class ServicePointController extends Controller
         // Get client notes (if you have a notes system)
         $clientNotes = []; // You can implement this based on your notes system
 
+        // Get the correct total amount from the invoice (not from service delivery queue items)
+        $invoice = $clientItems->first()?->invoice;
+        $correctTotalAmount = $invoice ? $invoice->total_amount : 0;
+
         return view('service-points.client-details', compact(
             'servicePoint', 
             'client', 
             'pendingItems', 
             'partiallyDoneItems', 
             'clientStatement',
-            'clientNotes'
+            'clientNotes',
+            'correctTotalAmount'
         ));
     }
 

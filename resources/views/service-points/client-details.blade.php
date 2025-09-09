@@ -197,7 +197,7 @@
                         <div class="text-right">
                             <div class="text-sm text-gray-600">Total Amount</div>
                             <div class="text-lg font-bold text-blue-600">
-                                {{ number_format($pendingItems->sum(function($item) { return $item->price * $item->quantity; }) + $partiallyDoneItems->sum(function($item) { return $item->price * $item->quantity; }), 0) }} UGX
+                                {{ number_format($correctTotalAmount ?? 0, 0) }} UGX
                             </div>
                         </div>
                     </div>
