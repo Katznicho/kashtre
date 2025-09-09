@@ -214,71 +214,88 @@ class InvoiceController extends Controller
             $this->currentInvoice = $invoice;
             
             // MONEY TRACKING: Step 1 - Process payment received
+            // For mobile money payments, this will be handled by the cron job when payment is completed
+            // For cash payments, process immediately
             if ($validated['amount_paid'] > 0) {
                 $paymentMethods = $validated['payment_methods'] ?? [];
                 $primaryMethod = !empty($paymentMethods) ? $paymentMethods[0] : 'cash';
                 
-                Log::info("About to call processPaymentReceived", [
-                    'client_id' => $client->id,
-                    'amount_paid' => $validated['amount_paid'],
-                    'invoice_number' => $invoiceNumber,
-                    'primary_method' => $primaryMethod
-                ]);
-                
-                // Process payment through money tracking system
-                $moneyTrackingService->processPaymentReceived(
-                    $client,
-                    $validated['amount_paid'],
-                    $invoiceNumber,
-                    $primaryMethod,
-                    [
-                        'invoice_id' => $invoice->id,
-                        'payment_methods' => $paymentMethods,
-                        'payment_phone' => $validated['payment_phone']
-                    ]
-                );
-                
-                Log::info("processPaymentReceived completed successfully", [
-                    'client_id' => $client->id,
-                    'amount_paid' => $validated['amount_paid']
-                ]);
-                
-                // Check if a transaction already exists for this invoice (to prevent duplicates)
-                $existingTransaction = \App\Models\Transaction::where('reference', $invoiceNumber)
-                    ->where('client_id', $validated['client_id'])
-                    ->where('amount', $validated['amount_paid'])
-                    ->first();
-                
-                // Only create transaction record if one doesn't already exist
-                if (!$existingTransaction) {
-                    // Build description with purchased items, client, and business information
-                    $itemsDescription = $this->buildItemsDescription($validated['items'], $client, $business, $invoiceNumber);
+                // Only process payment immediately for cash payments
+                // Mobile money payments will be processed by the cron job when payment is completed
+                if ($primaryMethod === 'cash') {
+                    Log::info("Processing cash payment immediately", [
+                        'client_id' => $client->id,
+                        'amount_paid' => $validated['amount_paid'],
+                        'invoice_number' => $invoiceNumber,
+                        'primary_method' => $primaryMethod
+                    ]);
                     
-                    \App\Models\Transaction::create([
-                        'business_id' => $validated['business_id'],
-                        'branch_id' => $validated['branch_id'],
-                        'amount' => $validated['amount_paid'],
-                        'reference' => $invoiceNumber,
-                        'description' => $itemsDescription,
-                        'status' => 'completed',
-                        'type' => 'debit',
-                        'origin' => 'web',
-                        'phone_number' => $validated['payment_phone'] ?? $validated['client_phone'],
-                        'provider' => in_array($primaryMethod, ['mtn', 'airtel']) ? $primaryMethod : 'mtn',
-                        'service' => 'invoice_payment',
-                        'date' => now(),
-                        'currency' => 'UGX',
-                        'names' => $validated['client_name'],
-                        'email' => null,
-                        'ip_address' => request()->ip(),
-                        'user_agent' => request()->userAgent(),
-                        'method' => $primaryMethod,
-                        'transaction_for' => 'main',
+                    // Process payment through money tracking system
+                    $moneyTrackingService->processPaymentReceived(
+                        $client,
+                        $validated['amount_paid'],
+                        $invoiceNumber,
+                        $primaryMethod,
+                        [
+                            'invoice_id' => $invoice->id,
+                            'payment_methods' => $paymentMethods,
+                            'payment_phone' => $validated['payment_phone']
+                        ]
+                    );
+                    
+                    Log::info("Cash payment processed successfully", [
+                        'client_id' => $client->id,
+                        'amount_paid' => $validated['amount_paid']
                     ]);
                 } else {
-                    // Update existing transaction with invoice_id if it doesn't have one
-                    if (!$existingTransaction->invoice_id) {
-                        $existingTransaction->update(['invoice_id' => $invoice->id]);
+                    Log::info("Mobile money payment detected - will be processed by cron job when payment is completed", [
+                        'client_id' => $client->id,
+                        'amount_paid' => $validated['amount_paid'],
+                        'invoice_number' => $invoiceNumber,
+                        'primary_method' => $primaryMethod
+                    ]);
+                }
+                
+                // Only create transaction record for cash payments
+                // Mobile money transactions are created in processMobileMoneyPayment method
+                if ($primaryMethod === 'cash') {
+                    // Check if a transaction already exists for this invoice (to prevent duplicates)
+                    $existingTransaction = \App\Models\Transaction::where('reference', $invoiceNumber)
+                        ->where('client_id', $validated['client_id'])
+                        ->where('amount', $validated['amount_paid'])
+                        ->first();
+                    
+                    // Only create transaction record if one doesn't already exist
+                    if (!$existingTransaction) {
+                        // Build description with purchased items, client, and business information
+                        $itemsDescription = $this->buildItemsDescription($validated['items'], $client, $business, $invoiceNumber);
+                        
+                        \App\Models\Transaction::create([
+                            'business_id' => $validated['business_id'],
+                            'branch_id' => $validated['branch_id'],
+                            'amount' => $validated['amount_paid'],
+                            'reference' => $invoiceNumber,
+                            'description' => $itemsDescription,
+                            'status' => 'completed',
+                            'type' => 'debit',
+                            'origin' => 'web',
+                            'phone_number' => $validated['payment_phone'] ?? $validated['client_phone'],
+                            'provider' => 'cash',
+                            'service' => 'invoice_payment',
+                            'date' => now(),
+                            'currency' => 'UGX',
+                            'names' => $validated['client_name'],
+                            'email' => null,
+                            'ip_address' => request()->ip(),
+                            'user_agent' => request()->userAgent(),
+                            'method' => $primaryMethod,
+                            'transaction_for' => 'main',
+                        ]);
+                    } else {
+                        // Update existing transaction with invoice_id if it doesn't have one
+                        if (!$existingTransaction->invoice_id) {
+                            $existingTransaction->update(['invoice_id' => $invoice->id]);
+                        }
                     }
                 }
             }
