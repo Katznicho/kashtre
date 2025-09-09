@@ -21,7 +21,9 @@ class CheckPaymentStatus extends Command
     {
         Log::info('=== CRON JOB STARTED: CheckPaymentStatus ===', [
             'timestamp' => now(),
-            'command' => 'payments:check-status'
+            'command' => 'payments:check-status',
+            'server' => gethostname(),
+            'php_version' => PHP_VERSION
         ]);
 
         // Get all pending transactions that have YoAPI references
@@ -32,19 +34,49 @@ class CheckPaymentStatus extends Command
             ->with(['business', 'client'])
             ->get();
 
+        Log::info('Found pending mobile money transactions', [
+            'count' => $pendingTransactions->count(),
+            'transactions' => $pendingTransactions->map(function($t) {
+                return [
+                    'id' => $t->id,
+                    'reference' => $t->reference,
+                    'external_reference' => $t->external_reference,
+                    'amount' => $t->amount,
+                    'client_id' => $t->client_id,
+                    'invoice_id' => $t->invoice_id,
+                    'created_at' => $t->created_at->toDateTimeString()
+                ];
+            })->toArray()
+        ]);
+
         if ($pendingTransactions->isEmpty()) {
-            Log::info('No pending mobile money transactions found for status check');
+            Log::info('No pending mobile money transactions found for status check - CRON JOB EXITING');
             return;
         }
 
         $yoPayments = new YoAPI(config('payments.yo_username'), config('payments.yo_password'));
 
-        foreach ($pendingTransactions as $transaction) {
+        foreach ($pendingTransactions as $index => $transaction) {
             try {
+                Log::info("=== PROCESSING TRANSACTION " . ($index + 1) . " OF " . $pendingTransactions->count() . " ===", [
+                    'transaction_id' => $transaction->id,
+                    'reference' => $transaction->reference,
+                    'external_reference' => $transaction->external_reference,
+                    'amount' => $transaction->amount,
+                    'client_id' => $transaction->client_id,
+                    'invoice_id' => $transaction->invoice_id,
+                    'created_at' => $transaction->created_at->toDateTimeString()
+                ]);
+
                 if (!$transaction->external_reference) {
-                    Log::warning("No external reference found for transaction ID: {$transaction->id}");
+                    Log::warning("No external reference found for transaction ID: {$transaction->id} - SKIPPING");
                     continue;
                 }
+
+                Log::info("Checking payment status with YoAPI", [
+                    'transaction_id' => $transaction->id,
+                    'external_reference' => $transaction->external_reference
+                ]);
 
                 // Check payment status with YoAPI using external_reference
                 $statusCheck = $yoPayments->ac_transaction_check_status($transaction->external_reference);
@@ -57,10 +89,23 @@ class CheckPaymentStatus extends Command
                 ]);
 
                 if (isset($statusCheck['TransactionStatus'])) {
+                    Log::info("Transaction status received from YoAPI", [
+                        'transaction_id' => $transaction->id,
+                        'status' => $statusCheck['TransactionStatus'],
+                        'full_response' => $statusCheck
+                    ]);
+
                     DB::beginTransaction();
                     
                     try {
                         if ($statusCheck['TransactionStatus'] === 'SUCCEEDED') {
+                            Log::info("🎉 AUTOMATIC PAYMENT COMPLETION DETECTED - Transaction will be completed automatically", [
+                                'transaction_id' => $transaction->id,
+                                'reference' => $transaction->reference,
+                                'amount' => $transaction->amount,
+                                'client_id' => $transaction->client_id,
+                                'invoice_id' => $transaction->invoice_id
+                            ]);
                             Log::info("=== PAYMENT SUCCEEDED - Processing transaction {$transaction->id} ===", [
                                 'transaction_id' => $transaction->id,
                                 'reference' => $transaction->reference,
@@ -164,6 +209,12 @@ class CheckPaymentStatus extends Command
                                 'amount' => $transaction->amount
                             ]);
 
+                        } elseif ($statusCheck['TransactionStatus'] === 'PENDING') {
+                            Log::info("Transaction still pending - no action taken", [
+                                'transaction_id' => $transaction->id,
+                                'reference' => $transaction->reference,
+                                'status' => 'PENDING'
+                            ]);
                         } elseif ($statusCheck['TransactionStatus'] === 'FAILED') {
                             // Update transaction status to failed
                             $transaction->update([
@@ -217,7 +268,12 @@ class CheckPaymentStatus extends Command
         Log::info('=== CRON JOB COMPLETED: CheckPaymentStatus ===', [
             'total_checked' => $pendingTransactions->count(),
             'timestamp' => now(),
-            'command' => 'payments:check-status'
+            'command' => 'payments:check-status',
+            'summary' => [
+                'transactions_processed' => $pendingTransactions->count(),
+                'server' => gethostname(),
+                'execution_time' => now()->toDateTimeString()
+            ]
         ]);
     }
 
