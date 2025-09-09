@@ -628,6 +628,29 @@ class InvoiceController extends Controller
             $client = Client::find($validated['client_id']);
             $business = \App\Models\Business::find($validated['business_id']);
             
+            // Find the invoice if invoice_number is provided
+            $invoice = null;
+            if (!empty($validated['invoice_number'])) {
+                $invoice = \App\Models\Invoice::where('invoice_number', $validated['invoice_number'])
+                    ->where('client_id', $validated['client_id'])
+                    ->where('business_id', $validated['business_id'])
+                    ->first();
+                
+                if ($invoice) {
+                    Log::info("Found invoice for mobile money payment", [
+                        'invoice_id' => $invoice->id,
+                        'invoice_number' => $invoice->invoice_number,
+                        'client_id' => $client->id
+                    ]);
+                } else {
+                    Log::warning("Invoice not found for mobile money payment", [
+                        'invoice_number' => $validated['invoice_number'],
+                        'client_id' => $validated['client_id'],
+                        'business_id' => $validated['business_id']
+                    ]);
+                }
+            }
+            
             // Build comprehensive payment description
             $description = $this->buildItemsDescription(
                 $validated['items'], 
@@ -694,7 +717,7 @@ class InvoiceController extends Controller
                     'business_id' => $validated['business_id'],
                     'branch_id' => $client->branch_id ?? null,
                     'client_id' => $validated['client_id'],
-                    'invoice_id' => null, // Will be set when invoice is created
+                    'invoice_id' => $invoice ? $invoice->id : null, // Link to invoice if found
                     'amount' => $validated['amount'],
                     'reference' => $validated['invoice_number'], // Use invoice number as reference
                     'external_reference' => $result['TransactionReference'], // Store YoAPI TransactionReference
@@ -717,6 +740,7 @@ class InvoiceController extends Controller
                 
                 Log::info("Transaction record created for mobile money payment", [
                     'transaction_id' => $transaction->id,
+                    'invoice_id' => $invoice ? $invoice->id : null,
                     'external_reference' => $result['TransactionReference'],
                     'status' => 'pending'
                 ]);
