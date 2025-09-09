@@ -72,11 +72,20 @@ class TestingController extends Controller
 
             Log::info('=== TESTING: Clear Data Started ===', [
                 'type' => $type,
+                'type_length' => strlen($type),
+                'type_encoded' => json_encode($type),
                 'user_id' => auth()->id(),
                 'user_email' => $user->email,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
                 'timestamp' => now()
+            ]);
+
+            // Debug: Log all possible cases
+            Log::info('DEBUG: Available cases', [
+                'cases' => ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements', 'temp-accounts'],
+                'received_type' => $type,
+                'exact_match' => $type === 'temp-accounts'
             ]);
 
             switch ($type) {
@@ -226,6 +235,7 @@ class TestingController extends Controller
                     break;
 
                 case 'temp-accounts':
+                    Log::info('DEBUG: Entered temp-accounts case successfully!');
                     try {
                         Log::info('=== TEMP ACCOUNTS CLEARING DEBUG START ===');
                         
