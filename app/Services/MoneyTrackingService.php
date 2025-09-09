@@ -1332,12 +1332,25 @@ class MoneyTrackingService
                 ];
             }
 
-            // Handle service charge if applicable
+            // Handle service charge if applicable (only once per invoice)
             if ($invoice->service_charge > 0) {
-                Log::info("Processing service charge", [
-                    'service_charge_amount' => $invoice->service_charge,
-                    'invoice_id' => $invoice->id
-                ]);
+                // Check if service charge has already been processed for this invoice
+                $existingServiceChargeTransfer = \App\Models\MoneyTransfer::where('invoice_id', $invoice->id)
+                    ->where('transfer_type', 'save_and_exit')
+                    ->where('description', 'like', '%Service charge for invoice%')
+                    ->first();
+                
+                if ($existingServiceChargeTransfer) {
+                    Log::info("Service charge already processed for this invoice", [
+                        'invoice_id' => $invoice->id,
+                        'existing_transfer_id' => $existingServiceChargeTransfer->id,
+                        'service_charge_amount' => $invoice->service_charge
+                    ]);
+                } else {
+                    Log::info("Processing service charge", [
+                        'service_charge_amount' => $invoice->service_charge,
+                        'invoice_id' => $invoice->id
+                    ]);
 
                 $kashtreSuspenseAccount = $this->getOrCreateKashtreSuspenseAccount($business);
                 
@@ -1388,6 +1401,7 @@ class MoneyTrackingService
                     'destination' => $kashtreSuspenseAccount->name,
                     'transfer_id' => $transfer->id
                 ];
+                }
             } else {
                 Log::info("No service charge to process", [
                     'invoice_id' => $invoice->id,
