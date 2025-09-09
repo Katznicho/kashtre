@@ -945,14 +945,16 @@
             }
             
             // Calculate totals with dynamic service charge
-            const serviceCharge = await calculateServiceCharge(subtotal);
-            const subtotalWithServiceCharge = parseFloat(subtotal) + parseFloat(serviceCharge);
-            const adjustedSubtotal = parseFloat(subtotalWithServiceCharge) - parseFloat(packageAdjustment);
+            // First apply package adjustment to get the remaining amount
+            const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
+            // Then calculate service charge on the remaining amount (after package adjustment)
+            const serviceCharge = await calculateServiceCharge(adjustedSubtotal);
+            const totalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
             
             // Calculate balance adjustment
-            const balanceAdjustmentData = await calculateBalanceAdjustment(adjustedSubtotal);
+            const balanceAdjustmentData = await calculateBalanceAdjustment(totalWithServiceCharge);
             const balanceAdjustment = balanceAdjustmentData.balance_adjustment;
-            const finalTotal = parseFloat(adjustedSubtotal) - parseFloat(balanceAdjustment);
+            const finalTotal = parseFloat(totalWithServiceCharge) - parseFloat(balanceAdjustment);
             
             // Update invoice summary
             document.getElementById('invoice-subtotal').textContent = `UGX ${parseFloat(subtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
@@ -969,7 +971,7 @@
                 serviceChargeNote.style.display = 'block';
             }
             document.getElementById('balance-adjustment-display').textContent = `UGX ${parseFloat(balanceAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('invoice-amount-due').textContent = `UGX ${parseFloat(adjustedSubtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('invoice-amount-due').textContent = `UGX ${parseFloat(totalWithServiceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('invoice-final-total').textContent = `UGX ${parseFloat(finalTotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
             // Show modal
