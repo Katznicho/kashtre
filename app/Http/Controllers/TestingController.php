@@ -12,6 +12,8 @@ use App\Models\Client;
 use App\Models\Business;
 use App\Models\BalanceHistory;
 use App\Models\MoneyAccount;
+use App\Models\PackageTracking;
+use App\Models\PackageUsage;
 
 class TestingController extends Controller
 {
@@ -141,6 +143,24 @@ class TestingController extends Controller
                             $packageTrackingCount += $packageTransactionCount;
                             $packageMessage .= "{$packageTransactionCount} package transactions, ";
                             Log::info('Cleared package transactions', ['count' => $packageTransactionCount]);
+                        }
+                        
+                        // Clear package tracking records
+                        $packageTrackingRecords = PackageTracking::count();
+                        if ($packageTrackingRecords > 0) {
+                            PackageTracking::truncate();
+                            $packageTrackingCount += $packageTrackingRecords;
+                            $packageMessage .= "{$packageTrackingRecords} package tracking records, ";
+                            Log::info('Cleared package tracking records', ['count' => $packageTrackingRecords]);
+                        }
+                        
+                        // Clear package usage records
+                        $packageUsageRecords = PackageUsage::count();
+                        if ($packageUsageRecords > 0) {
+                            PackageUsage::truncate();
+                            $packageTrackingCount += $packageUsageRecords;
+                            $packageMessage .= "{$packageUsageRecords} package usage records, ";
+                            Log::info('Cleared package usage records', ['count' => $packageUsageRecords]);
                         }
                         
                         // Remove trailing comma and space
