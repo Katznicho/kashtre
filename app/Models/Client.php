@@ -105,12 +105,14 @@ class Client extends Model
     }
 
     /**
-     * Get the client's available balance (same as total balance for now)
+     * Get the client's available balance (money available for transactions)
+     * This should be 0 since money is in suspense accounts
      */
     public function getAvailableBalanceAttribute()
     {
-        // Available balance is the same as total balance
-        return $this->getTotalBalanceAttribute();
+        // Available balance should be 0 since money is locked in suspense accounts
+        // This represents money that the client can actually use for new transactions
+        return 0;
     }
 
     /**

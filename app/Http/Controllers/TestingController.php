@@ -71,7 +71,7 @@ class TestingController extends Controller
             $message = '';
 
             // Validate input
-            $allowedTypes = ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements', 'client-balance-statements', 'reset-payment-pending', 'check-queues'];
+            $allowedTypes = ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements', 'client-balance-statements', 'reset-payment-pending', 'check-queues', 'debug-balance'];
             if (!in_array($type, $allowedTypes)) {
                 return response()->json([
                     'success' => false,
@@ -449,6 +449,63 @@ class TestingController extends Controller
                         return response()->json([
                             'success' => false,
                             'message' => 'An error occurred while resetting payment to pending: ' . $e->getMessage()
+                        ], 500);
+                    }
+                    break;
+
+                case 'debug-balance':
+                    try {
+                        Log::info('=== DEBUGGING CLIENT BALANCE ===', [
+                            'user_id' => $user->id,
+                            'user_name' => $user->name,
+                            'business_id' => $user->business_id,
+                            'ip' => $request->ip(),
+                            'user_agent' => $request->userAgent()
+                        ]);
+
+                        // Get the most recent client with balance history
+                        $client = \App\Models\Client::whereHas('balanceHistories')->with('balanceHistories')->latest()->first();
+                        
+                        if (!$client) {
+                            $message = "No clients with balance history found";
+                            $count = 0;
+                            break;
+                        }
+
+                        $balanceHistories = $client->balanceHistories()->orderBy('created_at', 'desc')->get();
+                        
+                        Log::info('Client balance debugging', [
+                            'client_id' => $client->id,
+                            'client_name' => $client->name,
+                            'total_balance_calculated' => $client->getTotalBalanceAttribute(),
+                            'available_balance' => $client->getAvailableBalanceAttribute(),
+                            'suspense_balance' => $client->getSuspenseBalanceAttribute(),
+                            'balance_histories_count' => $balanceHistories->count(),
+                            'balance_histories' => $balanceHistories->map(function($history) {
+                                return [
+                                    'id' => $history->id,
+                                    'transaction_type' => $history->transaction_type,
+                                    'change_amount' => $history->change_amount,
+                                    'new_balance' => $history->new_balance,
+                                    'description' => $history->description,
+                                    'created_at' => $history->created_at->toDateTimeString()
+                                ];
+                            })->toArray()
+                        ]);
+
+                        $count = $balanceHistories->count();
+                        $message = "Debugged balance for client {$client->name}: Total={$client->getTotalBalanceAttribute()}, Available={$client->getAvailableBalanceAttribute()}, Histories={$count}. Check server logs for details.";
+
+                    } catch (\Exception $e) {
+                        Log::error('Error debugging client balance', [
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString(),
+                            'user_id' => $user->id
+                        ]);
+
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'An error occurred while debugging client balance: ' . $e->getMessage()
                         ], 500);
                     }
                     break;

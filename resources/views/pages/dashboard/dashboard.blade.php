@@ -188,6 +188,15 @@
                             </svg>
                             <span>Check Service Delivery Queues</span>
                         </button>
+
+                        <!-- Debug Client Balance -->
+                        <button onclick="clearData('debug-balance')" 
+                                class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span>Debug Client Balance</span>
+                        </button>
                     </div>
                 </div>
             @endif
@@ -405,7 +414,8 @@
                 'statements': 'Are you sure you want to clear ALL statements for all users? This action cannot be undone.',
                 'client-balance-statements': 'Are you sure you want to clear ALL client account statements? This action cannot be undone.',
                 'reset-payment-pending': 'Are you sure you want to reset the most recent completed payment back to pending? This will allow you to test the payment completion flow.',
-                'check-queues': 'This will show you information about service delivery queues without clearing any data.'
+                'check-queues': 'This will show you information about service delivery queues without clearing any data.',
+                'debug-balance': 'This will debug client balance calculation and show detailed balance history information.'
             };
 
             Swal.fire({
