@@ -104,13 +104,58 @@ class TestingController extends Controller
                     
                 case 'queues':
                     try {
-                        $count = ServiceDeliveryQueue::count();
-                        Log::info('About to truncate ServiceDeliveryQueue', ['count' => $count]);
+                        $queueCount = ServiceDeliveryQueue::count();
+                        Log::info('About to truncate ServiceDeliveryQueue', ['count' => $queueCount]);
                         ServiceDeliveryQueue::truncate();
-                        $message = "Cleared {$count} service delivery queue records";
-                        Log::info('Successfully truncated ServiceDeliveryQueue', ['count' => $count]);
+                        
+                        // Also clear package tracking data
+                        Log::info('About to clear package tracking data');
+                        $packageTrackingCount = 0;
+                        $packageMessage = "";
+                        
+                        // Clear package suspense accounts
+                        $packageSuspenseAccounts = MoneyAccount::where('type', 'package_suspense_account')->get();
+                        $packageSuspenseCount = $packageSuspenseAccounts->count();
+                        $packageSuspenseBalance = $packageSuspenseAccounts->sum('balance');
+                        
+                        if ($packageSuspenseCount > 0) {
+                            MoneyAccount::where('type', 'package_suspense_account')
+                                ->update(['balance' => 0]);
+                            $packageTrackingCount += $packageSuspenseCount;
+                            $packageMessage .= "{$packageSuspenseCount} package suspense accounts (Total: {$packageSuspenseBalance}), ";
+                            Log::info('Cleared package suspense accounts', ['count' => $packageSuspenseCount, 'total_balance' => $packageSuspenseBalance]);
+                        }
+                        
+                        // Clear package-related transactions
+                        $packageTransactions = Transaction::where('transaction_for', 'package')
+                            ->orWhere('description', 'like', '%package%')
+                            ->orWhere('description', 'like', '%delivery%')
+                            ->get();
+                        $packageTransactionCount = $packageTransactions->count();
+                        
+                        if ($packageTransactionCount > 0) {
+                            Transaction::where('transaction_for', 'package')
+                                ->orWhere('description', 'like', '%package%')
+                                ->orWhere('description', 'like', '%delivery%')
+                                ->delete();
+                            $packageTrackingCount += $packageTransactionCount;
+                            $packageMessage .= "{$packageTransactionCount} package transactions, ";
+                            Log::info('Cleared package transactions', ['count' => $packageTransactionCount]);
+                        }
+                        
+                        // Remove trailing comma and space
+                        $packageMessage = rtrim($packageMessage, ', ');
+                        
+                        $count = $queueCount + $packageTrackingCount;
+                        if ($packageMessage) {
+                            $message = "Cleared {$queueCount} service delivery queues and {$packageMessage}";
+                        } else {
+                            $message = "Cleared {$queueCount} service delivery queue records";
+                        }
+                        
+                        Log::info('Successfully truncated ServiceDeliveryQueue and cleared package tracking', ['queue_count' => $queueCount, 'package_count' => $packageTrackingCount]);
                     } catch (\Exception $e) {
-                        Log::error('Error truncating ServiceDeliveryQueue', ['error' => $e->getMessage()]);
+                        Log::error('Error truncating ServiceDeliveryQueue and clearing package tracking', ['error' => $e->getMessage()]);
                         throw $e;
                     }
                     break;

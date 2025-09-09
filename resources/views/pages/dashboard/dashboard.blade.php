@@ -96,7 +96,7 @@
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                             </svg>
-                            <span>Clear Service Queues</span>
+                            <span>Clear Queues & Package Tracking</span>
                         </button>
 
                         <!-- Clear Transactions -->
@@ -366,7 +366,7 @@
         function clearData(type) {
             console.log('DEBUG: clearData called with type:', type, 'length:', type.length);
             const confirmMessages = {
-                'queues': 'Are you sure you want to clear ALL service delivery queues? This action cannot be undone.',
+                'queues': 'Are you sure you want to clear ALL service delivery queues and package tracking data? This action cannot be undone.',
                 'transactions': 'Are you sure you want to clear ALL transactions? This action cannot be undone.',
                 'client-balances': 'Are you sure you want to clear ALL client balances? This action cannot be undone.',
                 'temp-accounts': 'Are you sure you want to clear ALL temporary accounts (suspense balances)? This action cannot be undone.',
