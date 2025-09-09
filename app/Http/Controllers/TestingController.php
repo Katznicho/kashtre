@@ -244,11 +244,27 @@ class TestingController extends Controller
                 case 'temp-accounts':
                 case 'temp_accounts':
                 case 'test123':
-                    Log::info('DEBUG: Entered temp-accounts case successfully!');
-                    // Simple test first
-                    $message = "TEMP ACCOUNTS CASE REACHED - Server has latest code!";
-                    $count = 0;
-                    Log::info('TEMP ACCOUNTS: Case reached successfully');
+                    try {
+                        Log::info('=== CLEARING SUSPENSE ACCOUNTS ===');
+                        
+                        // Clear suspense account balances
+                        $suspenseAccounts = MoneyAccount::whereIn('type', ['general_suspense_account', 'package_suspense_account'])->get();
+                        $count = $suspenseAccounts->count();
+                        $totalBalance = $suspenseAccounts->sum('balance');
+                        
+                        Log::info('Found suspense accounts', ['count' => $count, 'total_balance' => $totalBalance]);
+                        
+                        // Reset balances to 0
+                        MoneyAccount::whereIn('type', ['general_suspense_account', 'package_suspense_account'])
+                            ->update(['balance' => 0]);
+                        
+                        $message = "Cleared {$count} suspense accounts (Total: {$totalBalance})";
+                        Log::info('Successfully cleared suspense accounts');
+                        
+                    } catch (\Exception $e) {
+                        Log::error('Error clearing suspense accounts', ['error' => $e->getMessage()]);
+                        throw $e;
+                    }
                     break;
 
                 default:
