@@ -36,7 +36,7 @@
                                     @foreach($completedItems as $item)
                                         <tr class="hover:bg-gray-50">
                                             <td class="px-4 py-3 text-sm text-gray-900">{{ $item->client->name ?? 'N/A' }}</td>
-                                            <td class="px-4 py-3 text-sm text-gray-900 font-medium">{{ $item->item->other_names ?? $item->item_name }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-900 font-medium">{{ $item->item->display_name ?? $item->item_name }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-600">{{ $item->quantity }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-600">{{ $item->invoice->invoice_number ?? 'N/A' }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-600">{{ $item->completed_at ? $item->completed_at->format('H:i') : 'N/A' }}</td>

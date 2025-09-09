@@ -94,7 +94,7 @@
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-blue-600 font-mono font-semibold">{{ $package->includedItem->other_names ?? $package->includedItem->name }}</div>
+                                                <div class="text-sm text-blue-600 font-mono font-semibold">{{ $package->includedItem->display_name }}</div>
                                                 <div class="text-xs text-gray-500">
                                                     @if($package->packageItem->packageItems->count() > 1)
                                                         +{{ $package->packageItem->packageItems->count() - 1 }} more items
