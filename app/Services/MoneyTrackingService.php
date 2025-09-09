@@ -1334,9 +1334,8 @@ class MoneyTrackingService
 
             // Handle service charge if applicable (only once per invoice)
             if ($invoice->service_charge > 0) {
-                // Check if service charge has already been processed for this invoice
+                // Check if service charge has already been processed for this invoice (any transfer type)
                 $existingServiceChargeTransfer = \App\Models\MoneyTransfer::where('invoice_id', $invoice->id)
-                    ->where('transfer_type', 'save_and_exit')
                     ->where('description', 'like', '%Service charge for invoice%')
                     ->first();
                 
