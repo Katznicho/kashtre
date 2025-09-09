@@ -218,6 +218,13 @@ class InvoiceController extends Controller
                 $paymentMethods = $validated['payment_methods'] ?? [];
                 $primaryMethod = !empty($paymentMethods) ? $paymentMethods[0] : 'cash';
                 
+                Log::info("About to call processPaymentReceived", [
+                    'client_id' => $client->id,
+                    'amount_paid' => $validated['amount_paid'],
+                    'invoice_number' => $invoiceNumber,
+                    'primary_method' => $primaryMethod
+                ]);
+                
                 // Process payment through money tracking system
                 $moneyTrackingService->processPaymentReceived(
                     $client,
@@ -230,6 +237,11 @@ class InvoiceController extends Controller
                         'payment_phone' => $validated['payment_phone']
                     ]
                 );
+                
+                Log::info("processPaymentReceived completed successfully", [
+                    'client_id' => $client->id,
+                    'amount_paid' => $validated['amount_paid']
+                ]);
                 
                 // Check if a transaction already exists for this invoice (to prevent duplicates)
                 $existingTransaction = \App\Models\Transaction::where('reference', $invoiceNumber)
