@@ -355,10 +355,12 @@
 
         // Clear data function for testing
         function clearData(type) {
+            console.log('DEBUG: clearData called with type:', type, 'length:', type.length);
             const confirmMessages = {
                 'queues': 'Are you sure you want to clear ALL service delivery queues? This action cannot be undone.',
                 'transactions': 'Are you sure you want to clear ALL transactions? This action cannot be undone.',
                 'client-balances': 'Are you sure you want to clear ALL client balances? This action cannot be undone.',
+                'temp-accounts': 'Are you sure you want to clear ALL temporary accounts (suspense balances)? This action cannot be undone.',
                 'kashtre-balance': 'Are you sure you want to clear the Kashtre balance? This action cannot be undone.',
                 'business-balances': 'Are you sure you want to clear ALL business balances? This action cannot be undone.',
                 'statements': 'Are you sure you want to clear ALL statements for all users? This action cannot be undone.'
@@ -386,15 +388,15 @@
                     });
 
                     // Make API call
+                    const requestBody = { type: type };
+                    console.log('DEBUG: Sending request body:', requestBody);
                     fetch('{{ route("testing.clear-data") }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'X-CSRF-TOKEN': '{{ csrf_token() }}',
                         },
-                        body: JSON.stringify({
-                            type: type
-                        })
+                        body: JSON.stringify(requestBody)
                     })
                     .then(response => response.json())
                     .then(data => {
