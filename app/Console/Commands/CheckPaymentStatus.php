@@ -147,13 +147,35 @@ class CheckPaymentStatus extends Command
                                         'invoice_number' => $invoice->invoice_number
                                     ]);
                                     
-                                    // Create balance statements after payment completion
+                                    // First, process payment received to move money to suspense account
+                                    Log::info("Processing payment received to move money to suspense account", [
+                                        'invoice_id' => $invoice->id,
+                                        'amount_paid' => $invoice->amount_paid,
+                                        'client_id' => $invoice->client_id
+                                    ]);
+                                    
+                                    $moneyTrackingService = new MoneyTrackingService();
+                                    $client = $invoice->client;
+                                    
+                                    // Move money to suspense account
+                                    $moneyTrackingService->processPaymentReceived(
+                                        $client,
+                                        $invoice->amount_paid,
+                                        $invoice->invoice_number,
+                                        'mobile_money',
+                                        [
+                                            'invoice_id' => $invoice->id,
+                                            'transaction_id' => $transaction->id,
+                                            'payment_methods' => $invoice->payment_methods ?? ['mobile_money']
+                                        ]
+                                    );
+                                    
+                                    // Then create balance statements after payment completion
                                     Log::info("Creating balance statements after payment completion", [
                                         'invoice_id' => $invoice->id,
                                         'items_count' => count($invoice->items ?? [])
                                     ]);
                                     
-                                    $moneyTrackingService = new MoneyTrackingService();
                                     $balanceStatements = $moneyTrackingService->processPaymentCompleted($invoice, $invoice->items);
                                     
                                     Log::info("Balance statements created after payment completion", [
