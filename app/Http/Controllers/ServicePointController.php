@@ -450,11 +450,23 @@ class ServicePointController extends Controller
      */
     private function getBulkItemIdForIncludedItem($includedItemId, $invoiceId)
     {
+        // Get the invoice to check its items
+        $invoice = \App\Models\Invoice::find($invoiceId);
+        if (!$invoice) {
+            return null;
+        }
+
         // Check if this item is included in any bulk item for this invoice
         $bulkItem = \App\Models\BulkItem::where('included_item_id', $includedItemId)
-            ->whereHas('bulkItem', function($query) use ($invoiceId) {
-                $query->whereHas('invoices', function($invoiceQuery) use ($invoiceId) {
-                    $invoiceQuery->where('invoices.id', $invoiceId);
+            ->whereHas('bulkItem', function($query) use ($invoice) {
+                // Check if the bulk item is in the invoice's items array
+                $query->where(function($subQuery) use ($invoice) {
+                    foreach ($invoice->items as $itemData) {
+                        $itemId = $itemData['id'] ?? $itemData['item_id'] ?? null;
+                        if ($itemId) {
+                            $subQuery->orWhere('id', $itemId);
+                        }
+                    }
                 });
             })
             ->with('bulkItem')
