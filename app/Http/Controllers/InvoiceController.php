@@ -31,6 +31,14 @@ class InvoiceController extends Controller
             $businessId = $validated['business_id'];
             $branchId = $validated['branch_id'];
             $items = $validated['items'];
+            
+            Log::info("=== PACKAGE ADJUSTMENT CALCULATION STARTED ===", [
+                'client_id' => $clientId,
+                'business_id' => $businessId,
+                'branch_id' => $branchId,
+                'items_count' => count($items),
+                'items' => $items
+            ]);
 
             $totalAdjustment = 0;
             $adjustmentDetails = [];
@@ -49,6 +57,13 @@ class InvoiceController extends Controller
                 $quantity = $item['quantity'] ?? 1;
                 $remainingQuantity = $quantity;
                 
+                Log::info("Processing item for package adjustment calculation", [
+                    'item_id' => $itemId,
+                    'item_name' => $item['name'] ?? 'Unknown',
+                    'quantity' => $quantity,
+                    'remaining_quantity' => $remainingQuantity
+                ]);
+                
                 // Get the item price from the database (branch-specific or default)
                 $itemModel = \App\Models\Item::find($itemId);
                 $price = $itemModel ? $itemModel->default_price : 0;
@@ -60,6 +75,17 @@ class InvoiceController extends Controller
                 
                 if ($branchPrice) {
                     $price = $branchPrice->price;
+                    Log::info("Using branch-specific price for package adjustment", [
+                        'item_id' => $itemId,
+                        'branch_id' => $branchId,
+                        'branch_price' => $price,
+                        'default_price' => $itemModel->default_price
+                    ]);
+                } else {
+                    Log::info("Using default price for package adjustment", [
+                        'item_id' => $itemId,
+                        'default_price' => $price
+                    ]);
                 }
 
                 // Check if this item is included in any valid packages
@@ -116,6 +142,15 @@ class InvoiceController extends Controller
                 }
             }
 
+            Log::info("=== PACKAGE ADJUSTMENT CALCULATION COMPLETED ===", [
+                'client_id' => $clientId,
+                'business_id' => $businessId,
+                'branch_id' => $branchId,
+                'total_adjustment' => $totalAdjustment,
+                'adjustment_details_count' => count($adjustmentDetails),
+                'adjustment_details' => $adjustmentDetails
+            ]);
+
             return response()->json([
                 'success' => true,
                 'total_adjustment' => $totalAdjustment,
@@ -141,6 +176,16 @@ class InvoiceController extends Controller
             $businessId = $invoice->business_id;
             $branchId = $invoice->branch_id;
             
+            Log::info("=== PACKAGE TRACKING UPDATE STARTED ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $clientId,
+                'business_id' => $businessId,
+                'branch_id' => $branchId,
+                'package_adjustment' => $invoice->package_adjustment,
+                'items_count' => count($items)
+            ]);
+            
             // Get client's valid package tracking records
             $validPackages = \App\Models\PackageTracking::where('client_id', $clientId)
                 ->where('business_id', $businessId)
@@ -149,11 +194,33 @@ class InvoiceController extends Controller
                 ->where('valid_until', '>=', now()->toDateString())
                 ->with(['packageItem.packageItems.includedItem'])
                 ->get();
+                
+            Log::info("Found valid packages for client", [
+                'client_id' => $clientId,
+                'valid_packages_count' => $validPackages->count(),
+                'package_details' => $validPackages->map(function($pkg) {
+                    return [
+                        'id' => $pkg->id,
+                        'package_name' => $pkg->packageItem->name,
+                        'remaining_quantity' => $pkg->remaining_quantity,
+                        'used_quantity' => $pkg->used_quantity,
+                        'status' => $pkg->status,
+                        'valid_until' => $pkg->valid_until
+                    ];
+                })
+            ]);
 
             foreach ($items as $item) {
                 $itemId = $item['id'] ?? $item['item_id'];
                 $quantity = $item['quantity'] ?? 1;
                 $remainingQuantity = $quantity;
+                
+                Log::info("Processing item for package tracking update", [
+                    'item_id' => $itemId,
+                    'item_name' => $item['name'] ?? 'Unknown',
+                    'quantity' => $quantity,
+                    'remaining_quantity' => $remainingQuantity
+                ]);
                 
                 // Get the item price (branch-specific or default)
                 $itemModel = \App\Models\Item::find($itemId);
@@ -166,17 +233,43 @@ class InvoiceController extends Controller
                 
                 if ($branchPrice) {
                     $price = $branchPrice->price;
+                    Log::info("Using branch-specific price for item", [
+                        'item_id' => $itemId,
+                        'branch_id' => $branchId,
+                        'branch_price' => $price,
+                        'default_price' => $itemModel->default_price
+                    ]);
+                } else {
+                    Log::info("Using default price for item", [
+                        'item_id' => $itemId,
+                        'default_price' => $price
+                    ]);
                 }
 
                 // Check if this item is included in any valid packages
                 foreach ($validPackages as $packageTracking) {
                     if ($remainingQuantity <= 0) break;
 
+                    Log::info("Checking package for item match", [
+                        'package_tracking_id' => $packageTracking->id,
+                        'package_name' => $packageTracking->packageItem->name,
+                        'item_id' => $itemId,
+                        'package_remaining_quantity' => $packageTracking->remaining_quantity
+                    ]);
+
                     // Check if the current item is included in this package
                     $packageItems = $packageTracking->packageItem->packageItems;
                     
                     foreach ($packageItems as $packageItem) {
                         if ($packageItem->included_item_id == $itemId) {
+                            Log::info("Item found in package", [
+                                'package_tracking_id' => $packageTracking->id,
+                                'package_item_id' => $packageItem->id,
+                                'included_item_id' => $packageItem->included_item_id,
+                                'max_quantity' => $packageItem->max_quantity,
+                                'fixed_quantity' => $packageItem->fixed_quantity
+                            ]);
+                            
                             // Check max quantity constraint from package_items table
                             $maxQuantity = $packageItem->max_quantity ?? null;
                             $fixedQuantity = $packageItem->fixed_quantity ?? null;
@@ -187,15 +280,34 @@ class InvoiceController extends Controller
                             if ($maxQuantity !== null) {
                                 // If max_quantity is set, limit by that
                                 $availableFromPackage = min($availableFromPackage, $maxQuantity);
+                                Log::info("Limited by max_quantity constraint", [
+                                    'max_quantity' => $maxQuantity,
+                                    'available_from_package' => $availableFromPackage
+                                ]);
                             } elseif ($fixedQuantity !== null) {
                                 // If fixed_quantity is set, use that
                                 $availableFromPackage = min($availableFromPackage, $fixedQuantity);
+                                Log::info("Limited by fixed_quantity constraint", [
+                                    'fixed_quantity' => $fixedQuantity,
+                                    'available_from_package' => $availableFromPackage
+                                ]);
                             }
                             
                             // Calculate how much we can actually use
                             $quantityToUse = min($remainingQuantity, $availableFromPackage);
                             
+                            Log::info("Calculated quantity to use from package", [
+                                'remaining_quantity_needed' => $remainingQuantity,
+                                'available_from_package' => $availableFromPackage,
+                                'quantity_to_use' => $quantityToUse
+                            ]);
+                            
                             if ($quantityToUse > 0) {
+                                // Store old values for logging
+                                $oldUsedQuantity = $packageTracking->used_quantity;
+                                $oldRemainingQuantity = $packageTracking->remaining_quantity;
+                                $oldStatus = $packageTracking->status;
+                                
                                 // Update package tracking record
                                 $packageTracking->used_quantity += $quantityToUse;
                                 $packageTracking->remaining_quantity -= $quantityToUse;
@@ -207,12 +319,16 @@ class InvoiceController extends Controller
                                 
                                 $packageTracking->save();
                                 
-                                Log::info("Updated package tracking for adjustment", [
+                                Log::info("Successfully updated package tracking for adjustment", [
                                     'package_tracking_id' => $packageTracking->id,
                                     'package_name' => $packageTracking->packageItem->name,
                                     'item_name' => $item['name'] ?? 'Unknown',
                                     'quantity_used' => $quantityToUse,
-                                    'remaining_quantity' => $packageTracking->remaining_quantity,
+                                    'old_used_quantity' => $oldUsedQuantity,
+                                    'new_used_quantity' => $packageTracking->used_quantity,
+                                    'old_remaining_quantity' => $oldRemainingQuantity,
+                                    'new_remaining_quantity' => $packageTracking->remaining_quantity,
+                                    'old_status' => $oldStatus,
                                     'new_status' => $packageTracking->status
                                 ]);
                                 
@@ -220,16 +336,35 @@ class InvoiceController extends Controller
                                 
                                 // If we've used all available quantity from this package, break
                                 if ($remainingQuantity <= 0) break;
+                            } else {
+                                Log::info("No quantity to use from package", [
+                                    'package_tracking_id' => $packageTracking->id,
+                                    'reason' => 'quantity_to_use is 0'
+                                ]);
                             }
                         }
                     }
                 }
+                
+                Log::info("Finished processing item for package tracking", [
+                    'item_id' => $itemId,
+                    'original_quantity' => $quantity,
+                    'remaining_quantity_after_package_usage' => $remainingQuantity
+                ]);
             }
+            
+            Log::info("=== PACKAGE TRACKING UPDATE COMPLETED ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'total_items_processed' => count($items)
+            ]);
             
         } catch (\Exception $e) {
             Log::error("Error updating package tracking for adjustments", [
                 'invoice_id' => $invoice->id,
-                'error' => $e->getMessage()
+                'invoice_number' => $invoice->invoice_number ?? 'Unknown',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
         }
     }

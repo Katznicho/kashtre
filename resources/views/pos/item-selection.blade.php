@@ -946,13 +946,13 @@
             
             // Calculate totals with dynamic service charge
             const serviceCharge = await calculateServiceCharge(subtotal);
-            const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
-            const subtotalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
+            const subtotalWithServiceCharge = parseFloat(subtotal) + parseFloat(serviceCharge);
+            const adjustedSubtotal = parseFloat(subtotalWithServiceCharge) - parseFloat(packageAdjustment);
             
             // Calculate balance adjustment
-            const balanceAdjustmentData = await calculateBalanceAdjustment(subtotalWithServiceCharge);
+            const balanceAdjustmentData = await calculateBalanceAdjustment(adjustedSubtotal);
             const balanceAdjustment = balanceAdjustmentData.balance_adjustment;
-            const finalTotal = parseFloat(subtotalWithServiceCharge) - parseFloat(balanceAdjustment);
+            const finalTotal = parseFloat(adjustedSubtotal) - parseFloat(balanceAdjustment);
             
             // Update invoice summary
             document.getElementById('invoice-subtotal').textContent = `UGX ${parseFloat(subtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
@@ -969,7 +969,7 @@
                 serviceChargeNote.style.display = 'block';
             }
             document.getElementById('balance-adjustment-display').textContent = `UGX ${parseFloat(balanceAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('invoice-amount-due').textContent = `UGX ${parseFloat(subtotalWithServiceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('invoice-amount-due').textContent = `UGX ${parseFloat(adjustedSubtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('invoice-final-total').textContent = `UGX ${parseFloat(finalTotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
             // Show modal
