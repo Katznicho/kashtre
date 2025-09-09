@@ -14,6 +14,7 @@ use App\Models\BalanceHistory;
 use App\Models\MoneyAccount;
 use App\Models\PackageTracking;
 use App\Models\PackageUsage;
+use App\Models\BusinessBalanceHistory;
 
 class TestingController extends Controller
 {
@@ -71,7 +72,7 @@ class TestingController extends Controller
             $message = '';
 
             // Validate input
-            $allowedTypes = ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements', 'client-balance-statements', 'reset-payment-pending', 'check-queues', 'debug-balance', 'clear-business-3'];
+            $allowedTypes = ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements', 'client-balance-statements', 'reset-payment-pending', 'check-queues', 'debug-balance', 'clear-business-3', 'clear-business-statements'];
             if (!in_array($type, $allowedTypes)) {
                 return response()->json([
                     'success' => false,
@@ -762,6 +763,34 @@ class TestingController extends Controller
 
                     } catch (\Exception $e) {
                         Log::error('Error clearing business 3 data', [
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                        throw $e;
+                    }
+                    break;
+
+                case 'clear-business-statements':
+                    try {
+                        Log::info('=== CLEARING BUSINESS BALANCE STATEMENTS ===', [
+                            'user_id' => $user->id,
+                            'user_name' => $user->name
+                        ]);
+
+                        $businessStatementCount = BusinessBalanceHistory::count();
+                        if ($businessStatementCount > 0) {
+                            BusinessBalanceHistory::truncate();
+                            $count = $businessStatementCount;
+                            $message = "Cleared {$businessStatementCount} business balance statement records";
+                            Log::info('Cleared business balance statements', ['count' => $businessStatementCount]);
+                        } else {
+                            $message = "No business balance statement records found to clear";
+                            $count = 0;
+                            Log::info('No business balance statements to clear');
+                        }
+
+                    } catch (\Exception $e) {
+                        Log::error('Error clearing business balance statements', [
                             'error' => $e->getMessage(),
                             'trace' => $e->getTraceAsString()
                         ]);

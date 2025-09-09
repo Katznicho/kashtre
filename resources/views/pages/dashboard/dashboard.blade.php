@@ -206,6 +206,15 @@
                             </svg>
                             <span>Clear Business ID 3</span>
                         </button>
+
+                        <!-- Clear Business Statements -->
+                        <button onclick="clearData('clear-business-statements')" 
+                                class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <span>Clear Business Statements</span>
+                        </button>
                     </div>
                 </div>
             @endif
@@ -425,7 +434,8 @@
                 'reset-payment-pending': 'Are you sure you want to reset the most recent completed payment back to pending? This will allow you to test the payment completion flow.',
                 'check-queues': 'This will show you information about service delivery queues without clearing any data.',
                 'debug-balance': 'This will debug client balance calculation and show detailed balance history information.',
-                'clear-business-3': 'Are you sure you want to clear ALL data for Business ID 3 (queues, transactions, balances, money accounts, package tracking)? This action cannot be undone.'
+                'clear-business-3': 'Are you sure you want to clear ALL data for Business ID 3 (queues, transactions, balances, money accounts, package tracking)? This action cannot be undone.',
+                'clear-business-statements': 'Are you sure you want to clear ALL business balance statement records? This will remove all business account statement history. This action cannot be undone.'
             };
 
             Swal.fire({
