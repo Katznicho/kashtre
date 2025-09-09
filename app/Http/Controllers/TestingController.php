@@ -136,11 +136,25 @@ class TestingController extends Controller
                         foreach ($clients as $client) {
                             $client->update(['balance' => 0]);
                         }
-                        $count = $clients->count();
-                        $message = "Reset balance for {$count} clients to 0";
-                        Log::info('Successfully reset client balances', ['count' => $count]);
+                        $clientCount = $clients->count();
+                        
+                        // Also clear suspense accounts (temporary accounts)
+                        Log::info('About to clear suspense accounts');
+                        $suspenseAccounts = MoneyAccount::whereIn('type', ['general_suspense_account', 'package_suspense_account'])->get();
+                        $suspenseCount = $suspenseAccounts->count();
+                        $totalBalance = $suspenseAccounts->sum('balance');
+                        
+                        if ($suspenseCount > 0) {
+                            MoneyAccount::whereIn('type', ['general_suspense_account', 'package_suspense_account'])
+                                ->update(['balance' => 0]);
+                            Log::info('Cleared suspense accounts', ['count' => $suspenseCount, 'total_balance' => $totalBalance]);
+                        }
+                        
+                        $count = $clientCount + $suspenseCount;
+                        $message = "Reset balance for {$clientCount} clients and cleared {$suspenseCount} suspense accounts (Total: {$totalBalance})";
+                        Log::info('Successfully reset client balances and cleared suspense accounts', ['client_count' => $clientCount, 'suspense_count' => $suspenseCount]);
                     } catch (\Exception $e) {
-                        Log::error('Error resetting client balances', ['error' => $e->getMessage()]);
+                        Log::error('Error resetting client balances and suspense accounts', ['error' => $e->getMessage()]);
                         throw $e;
                     }
                     break;
