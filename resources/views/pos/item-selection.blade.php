@@ -227,10 +227,10 @@
                                 
                                 <div id="items-container" class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
                                     @forelse($items as $item)
-                                    <div class="item-row px-4 py-3 hover:bg-gray-50" data-item-name="{{ strtolower($item->name) }}" data-item-other-names="{{ strtolower($item->other_names ?? '') }}" data-item-type="{{ $item->type ?? 'N/A' }}">
+                                    <div class="item-row px-4 py-3 hover:bg-gray-50" data-item-name="{{ strtolower($item->name) }}" data-item-display-name="{{ $item->display_name }}" data-item-other-names="{{ strtolower($item->other_names ?? '') }}" data-item-type="{{ $item->type ?? 'N/A' }}">
                                         <div class="grid grid-cols-2 gap-4 items-center">
                                             <div>
-                                                <span class="text-sm text-gray-900">{{ $item->name }}</span>
+                                                <span class="text-sm text-gray-900">{{ $item->display_name }}</span>
                                                 @if($item->description)
                                                 <p class="text-xs text-gray-500 mt-1">{{ $item->description }}</p>
                                                 @endif
@@ -252,6 +252,7 @@
                                                        data-item-id="{{ $item->id }}" 
                                                        data-item-price="{{ $item->final_price ?? 0 }}"
                                                        data-item-name="{{ $item->name }}"
+                                                       data-item-display-name="{{ $item->display_name }}"
                                                        data-item-other-names="{{ $item->other_names ?? '' }}"
                                                        data-item-type="{{ $item->type ?? 'N/A' }}">
                                             </div>
@@ -541,6 +542,7 @@
                 input.addEventListener('change', function() {
                     const itemId = this.dataset.itemId;
                     const itemName = this.dataset.itemName;
+                    const itemDisplayName = this.dataset.itemDisplayName;
                     const rawPrice = this.dataset.itemPrice;
                     const itemPrice = parseFloat(rawPrice) || 0;
                     const quantity = parseInt(this.value) || 0;
@@ -550,7 +552,7 @@
                     console.log('Item:', itemName, 'Raw Price:', rawPrice, 'Parsed Price:', itemPrice, 'Quantity:', quantity, 'Type:', itemType);
                     
                     if (quantity > 0) {
-                        addToCart(itemId, itemName, itemPrice, quantity, itemType);
+                        addToCart(itemId, itemName, itemPrice, quantity, itemType, itemDisplayName);
                         // Don't reset the input value - keep the state
                     } else if (quantity === 0) {
                         // Remove item from cart if quantity is 0
@@ -636,7 +638,7 @@
             printWindow.print();
         }
         
-        function addToCart(itemId, itemName, itemPrice, quantity, itemType) {
+        function addToCart(itemId, itemName, itemPrice, quantity, itemType, displayName) {
             // Ensure proper number types
             const price = parseFloat(itemPrice) || 0;
             const qty = parseInt(quantity) || 0;
@@ -649,6 +651,7 @@
                 cart.push({
                     id: itemId,
                     name: itemName,
+                    displayName: displayName,
                     price: price,
                     quantity: qty,
                     type: itemType || 'N/A'
@@ -692,7 +695,7 @@
                     <div class="px-4 py-3">
                         <div class="grid grid-cols-4 gap-4 items-center">
                             <div>
-                                <span class="text-sm text-gray-900 font-medium">${item.name}</span>
+                                <span class="text-sm text-gray-900 font-medium">${item.displayName || item.name}</span>
                             </div>
                             <div>
                                 <span class="text-sm text-gray-600">${item.type || 'N/A'}</span>
@@ -862,7 +865,7 @@
                 
                 tableHTML += `
                     <tr class="bg-white">
-                        <td class="border border-gray-300 px-4 py-2">${item.name}</td>
+                        <td class="border border-gray-300 px-4 py-2">${item.displayName || item.name}</td>
                         <td class="border border-gray-300 px-4 py-2 text-center">${item.type || 'N/A'}</td>
                         <td class="border border-gray-300 px-4 py-2 text-center">${item.quantity}</td>
                         <td class="border border-gray-300 px-4 py-2 text-right">UGX ${(item.price || 0).toLocaleString()}</td>
@@ -1647,7 +1650,7 @@
             cart.forEach(item => {
                 if (item.type === 'package') {
                     const trackingNumber = window.packageTrackingNumbers.get(item.id) || 'N/A';
-                    csvContent += `"${item.name}",${item.quantity},"${trackingNumber}"\n`;
+                    csvContent += `"${item.displayName || item.name}",${item.quantity},"${trackingNumber}"\n`;
                 }
             });
             
