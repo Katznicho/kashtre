@@ -211,31 +211,44 @@ class InvoiceController extends Controller
                     ]
                 );
                 
-                // Create transaction record for the payment
-                // Build description with purchased items, client, and business information
-                $itemsDescription = $this->buildItemsDescription($validated['items'], $client, $business, $invoiceNumber);
+                // Check if a transaction already exists for this invoice (to prevent duplicates)
+                $existingTransaction = \App\Models\Transaction::where('reference', $invoiceNumber)
+                    ->where('client_id', $validated['client_id'])
+                    ->where('amount', $validated['amount_paid'])
+                    ->first();
                 
-                \App\Models\Transaction::create([
-                    'business_id' => $validated['business_id'],
-                    'branch_id' => $validated['branch_id'],
-                    'amount' => $validated['amount_paid'],
-                    'reference' => $invoiceNumber,
-                    'description' => $itemsDescription,
-                    'status' => 'completed',
-                    'type' => 'debit',
-                    'origin' => 'web',
-                    'phone_number' => $validated['payment_phone'] ?? $validated['client_phone'],
-                    'provider' => in_array($primaryMethod, ['mtn', 'airtel']) ? $primaryMethod : 'mtn',
-                    'service' => 'invoice_payment',
-                    'date' => now(),
-                    'currency' => 'UGX',
-                    'names' => $validated['client_name'],
-                    'email' => null,
-                    'ip_address' => request()->ip(),
-                    'user_agent' => request()->userAgent(),
-                    'method' => $primaryMethod,
-                    'transaction_for' => 'main',
-                ]);
+                // Only create transaction record if one doesn't already exist
+                if (!$existingTransaction) {
+                    // Build description with purchased items, client, and business information
+                    $itemsDescription = $this->buildItemsDescription($validated['items'], $client, $business, $invoiceNumber);
+                    
+                    \App\Models\Transaction::create([
+                        'business_id' => $validated['business_id'],
+                        'branch_id' => $validated['branch_id'],
+                        'amount' => $validated['amount_paid'],
+                        'reference' => $invoiceNumber,
+                        'description' => $itemsDescription,
+                        'status' => 'completed',
+                        'type' => 'debit',
+                        'origin' => 'web',
+                        'phone_number' => $validated['payment_phone'] ?? $validated['client_phone'],
+                        'provider' => in_array($primaryMethod, ['mtn', 'airtel']) ? $primaryMethod : 'mtn',
+                        'service' => 'invoice_payment',
+                        'date' => now(),
+                        'currency' => 'UGX',
+                        'names' => $validated['client_name'],
+                        'email' => null,
+                        'ip_address' => request()->ip(),
+                        'user_agent' => request()->userAgent(),
+                        'method' => $primaryMethod,
+                        'transaction_for' => 'main',
+                    ]);
+                } else {
+                    // Update existing transaction with invoice_id if it doesn't have one
+                    if (!$existingTransaction->invoice_id) {
+                        $existingTransaction->update(['invoice_id' => $invoice->id]);
+                    }
+                }
             }
             
             // MONEY TRACKING: Step 2 - Process order confirmation (includes service charge)
@@ -255,8 +268,8 @@ class InvoiceController extends Controller
                 $this->updateClientBalance($client, $validated['account_balance_adjustment']);
             }
             
-            // SERVICE POINT QUEUING: Queue items at their respective service points
-            $this->queueItemsAtServicePoints($invoice, $validated['items']);
+            // SERVICE POINT QUEUING: Items will be queued only after payment is completed
+            // This is now handled by the CheckPaymentStatus cron job
             
             // Generate next invoice number (default to proforma type)
             $nextInvoiceNumber = Invoice::generateInvoiceNumber($business->id, 'proforma');

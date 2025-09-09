@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Transaction;
 use App\Models\Invoice;
 use App\Models\Client;
+use App\Models\Item;
 use App\Payments\YoAPI;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -65,6 +66,9 @@ class CheckPaymentStatus extends Command
                                 $invoice = Invoice::find($transaction->invoice_id);
                                 if ($invoice) {
                                     $invoice->update(['status' => 'paid']);
+                                    
+                                    // Queue items at service points only after payment is completed
+                                    $this->queueItemsAtServicePoints($invoice, $invoice->items);
                                 }
                             }
 
@@ -141,6 +145,80 @@ class CheckPaymentStatus extends Command
         Log::info('Payment status check completed', [
             'total_checked' => $pendingTransactions->count(),
             'timestamp' => now()
+        ]);
+    }
+
+    /**
+     * Queue items at their respective service points
+     */
+    private function queueItemsAtServicePoints($invoice, $items)
+    {
+        foreach ($items as $item) {
+            $itemId = $item['id'] ?? $item['item_id'] ?? null;
+            if (!$itemId) continue;
+
+            // Get the item from database
+            $itemModel = Item::find($itemId);
+            if (!$itemModel) continue;
+
+            $quantity = $item['quantity'] ?? 1;
+
+            // Handle regular items with service points
+            if ($itemModel->service_point_id) {
+                // Create service delivery queue record for the main item
+                \App\Models\ServiceDeliveryQueue::create([
+                    'business_id' => $invoice->business_id,
+                    'branch_id' => $invoice->branch_id,
+                    'service_point_id' => $itemModel->service_point_id,
+                    'invoice_id' => $invoice->id,
+                    'client_id' => $invoice->client_id,
+                    'item_id' => $itemId,
+                    'item_name' => $item['name'] ?? $itemModel->name,
+                    'quantity' => $quantity,
+                    'price' => $item['price'] ?? $itemModel->default_price ?? 0,
+                    'status' => 'pending',
+                    'priority' => 'normal',
+                    'notes' => "Invoice: {$invoice->invoice_number}, Client: {$invoice->client_name}",
+                    'queued_at' => now(),
+                    'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
+                ]);
+            }
+
+            // Handle package items - queue each included item at its respective service point
+            if ($itemModel->type === 'package') {
+                $packageItems = $itemModel->packageItems()->with('includedItem')->get();
+                
+                foreach ($packageItems as $packageItem) {
+                    $includedItem = $packageItem->includedItem;
+                    $maxQuantity = $packageItem->max_quantity ?? 1;
+                    $totalQuantity = $maxQuantity * $quantity;
+
+                    // Only queue if the included item has a service point
+                    if ($includedItem->service_point_id) {
+                        \App\Models\ServiceDeliveryQueue::create([
+                            'business_id' => $invoice->business_id,
+                            'branch_id' => $invoice->branch_id,
+                            'service_point_id' => $includedItem->service_point_id,
+                            'invoice_id' => $invoice->id,
+                            'client_id' => $invoice->client_id,
+                            'item_id' => $includedItem->id,
+                            'item_name' => $includedItem->name,
+                            'quantity' => $totalQuantity,
+                            'price' => $includedItem->default_price ?? 0,
+                            'status' => 'pending',
+                            'priority' => 'normal',
+                            'notes' => "Package: {$itemModel->name}, Invoice: {$invoice->invoice_number}, Client: {$invoice->client_name}",
+                            'queued_at' => now(),
+                            'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
+                        ]);
+                    }
+                }
+            }
+        }
+
+        Log::info("Items queued at service points for invoice {$invoice->invoice_number}", [
+            'invoice_id' => $invoice->id,
+            'items_count' => count($items)
         ]);
     }
 }
