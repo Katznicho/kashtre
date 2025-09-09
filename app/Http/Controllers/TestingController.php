@@ -11,6 +11,7 @@ use App\Models\Transaction;
 use App\Models\Client;
 use App\Models\Business;
 use App\Models\BalanceHistory;
+use App\Models\MoneyAccount;
 
 class TestingController extends Controller
 {
@@ -218,6 +219,60 @@ class TestingController extends Controller
                             'database_connection' => DB::connection()->getDatabaseName(),
                             'table_exists' => Schema::hasTable('balance_histories'),
                             'model_exists' => class_exists('App\Models\BalanceHistory')
+                        ]);
+                        
+                        throw $e;
+                    }
+                    break;
+
+                case 'temp-accounts':
+                    try {
+                        Log::info('=== TEMP ACCOUNTS CLEARING DEBUG START ===');
+                        
+                        // Check if MoneyAccount model exists
+                        Log::info('Checking MoneyAccount model...');
+                        $modelExists = class_exists('App\Models\MoneyAccount');
+                        Log::info('MoneyAccount model exists: ' . ($modelExists ? 'YES' : 'NO'));
+                        
+                        if (!$modelExists) {
+                            throw new \Exception('MoneyAccount model not found');
+                        }
+                        
+                        // Check table exists
+                        Log::info('Checking money_accounts table...');
+                        $tableExists = Schema::hasTable('money_accounts');
+                        Log::info('money_accounts table exists: ' . ($tableExists ? 'YES' : 'NO'));
+                        
+                        if (!$tableExists) {
+                            throw new \Exception('money_accounts table not found');
+                        }
+                        
+                        // Get count of suspense accounts before clearing
+                        Log::info('Getting MoneyAccount count for suspense accounts...');
+                        $suspenseAccounts = MoneyAccount::whereIn('type', ['general_suspense_account', 'package_suspense_account'])->get();
+                        $count = $suspenseAccounts->count();
+                        Log::info('Suspense accounts count: ' . $count);
+                        
+                        // Log total balance in suspense accounts
+                        $totalBalance = $suspenseAccounts->sum('balance');
+                        Log::info('Total balance in suspense accounts: ' . $totalBalance);
+                        
+                        // Reset all suspense account balances to 0
+                        Log::info('About to reset suspense account balances...');
+                        MoneyAccount::whereIn('type', ['general_suspense_account', 'package_suspense_account'])
+                            ->update(['balance' => 0]);
+                        
+                        Log::info('Successfully reset suspense account balances');
+                        $message = "Cleared temporary accounts for {$count} suspense accounts (Total: {$totalBalance})";
+                        Log::info('=== TEMP ACCOUNTS CLEARING DEBUG END - SUCCESS ===');
+                        
+                    } catch (\Exception $e) {
+                        Log::error('=== TEMP ACCOUNTS CLEARING DEBUG END - ERROR ===', [
+                            'error' => $e->getMessage(),
+                            'file' => $e->getFile(),
+                            'line' => $e->getLine(),
+                            'trace' => $e->getTraceAsString(),
+                            'previous' => $e->getPrevious() ? $e->getPrevious()->getMessage() : null
                         ]);
                         
                         throw $e;
