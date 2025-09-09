@@ -235,6 +235,9 @@ class ServicePointController extends Controller
             // Process service charge ONCE per invoice (not per item)
             $invoice = null;
             $serviceChargeProcessed = false;
+            
+            // Track which bulk items have been processed to prevent duplicate processing
+            $processedBulkItems = [];
 
             // Process each finalized item
             foreach ($itemStatuses as $itemId => $status) {
@@ -295,7 +298,29 @@ class ServicePointController extends Controller
                             'item_amount' => $item->price * $item->quantity
                         ]);
 
-                        $this->processItemMoneyMovement($item, $client, $moneyTrackingService);
+                        // Check if this item belongs to a bulk item
+                        $bulkItemId = $this->getBulkItemIdForIncludedItem($item->item_id, $item->invoice_id);
+                        
+                        if ($bulkItemId && !in_array($bulkItemId, $processedBulkItems)) {
+                            // This is an included item from a bulk - process the entire bulk amount
+                            \Illuminate\Support\Facades\Log::info("Processing bulk item money movement", [
+                                'bulk_item_id' => $bulkItemId,
+                                'included_item_id' => $item->item_id,
+                                'included_item_name' => $item->item->name ?? 'Unknown'
+                            ]);
+                            
+                            $this->processBulkItemMoneyMovement($bulkItemId, $invoice, $client, $moneyTrackingService, $item->status);
+                            $processedBulkItems[] = $bulkItemId;
+                        } else if ($bulkItemId && in_array($bulkItemId, $processedBulkItems)) {
+                            // This bulk item has already been processed - skip money movement
+                            \Illuminate\Support\Facades\Log::info("Bulk item already processed, skipping money movement", [
+                                'bulk_item_id' => $bulkItemId,
+                                'included_item_id' => $item->item_id
+                            ]);
+                        } else {
+                            // This is a regular item - process normally
+                            $this->processItemMoneyMovement($item, $client, $moneyTrackingService);
+                        }
                         
                         // Mark item as money moved to prevent double processing
                         $item->is_money_moved = true;
@@ -413,6 +438,98 @@ class ServicePointController extends Controller
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error("Item money movement failed", [
                 'item_id' => $item->item_id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Get the bulk item ID for an included item
+     */
+    private function getBulkItemIdForIncludedItem($includedItemId, $invoiceId)
+    {
+        // Check if this item is included in any bulk item for this invoice
+        $bulkItem = \App\Models\BulkItem::where('included_item_id', $includedItemId)
+            ->whereHas('bulkItem', function($query) use ($invoiceId) {
+                $query->whereHas('invoices', function($invoiceQuery) use ($invoiceId) {
+                    $invoiceQuery->where('invoices.id', $invoiceId);
+                });
+            })
+            ->with('bulkItem')
+            ->first();
+            
+        return $bulkItem ? $bulkItem->bulk_item_id : null;
+    }
+
+    /**
+     * Process money movement for a bulk item
+     */
+    private function processBulkItemMoneyMovement($bulkItemId, $invoice, $client, $moneyTrackingService, $itemStatus)
+    {
+        $bulkItem = \App\Models\Item::find($bulkItemId);
+        if (!$bulkItem || $bulkItem->type !== 'bulk') {
+            \Illuminate\Support\Facades\Log::error("Bulk item not found or not a bulk type", [
+                'bulk_item_id' => $bulkItemId
+            ]);
+            return;
+        }
+
+        // Get the bulk item data from the invoice
+        $bulkItemData = null;
+        foreach ($invoice->items as $itemData) {
+            if (($itemData['id'] ?? $itemData['item_id']) == $bulkItemId) {
+                $bulkItemData = $itemData;
+                break;
+            }
+        }
+
+        if (!$bulkItemData) {
+            \Illuminate\Support\Facades\Log::error("Bulk item data not found in invoice", [
+                'bulk_item_id' => $bulkItemId,
+                'invoice_id' => $invoice->id
+            ]);
+            return;
+        }
+
+        $bulkAmount = $bulkItemData['total_amount'] ?? ($bulkItem->default_price * ($bulkItemData['quantity'] ?? 1));
+
+        \Illuminate\Support\Facades\Log::info("=== PROCESSING BULK ITEM MONEY MOVEMENT ===", [
+            'bulk_item_id' => $bulkItemId,
+            'bulk_item_name' => $bulkItem->name,
+            'bulk_amount' => $bulkAmount,
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'client_id' => $client->id,
+            'client_name' => $client->name
+        ]);
+
+        try {
+            // Prepare bulk item data for processSaveAndExit
+            $itemData = [
+                'item_id' => $bulkItemId,
+                'quantity' => $bulkItemData['quantity'] ?? 1,
+                'total_amount' => $bulkAmount
+            ];
+            
+            \Illuminate\Support\Facades\Log::info("Calling processSaveAndExit for bulk item", [
+                'item_data' => $itemData,
+                'invoice_id' => $invoice->id
+            ]);
+            
+            // Call the processSaveAndExit method for the bulk item
+            $transferRecords = $moneyTrackingService->processSaveAndExit($invoice, [$itemData], $itemStatus);
+            
+            \Illuminate\Support\Facades\Log::info("Bulk item money movement processed via processSaveAndExit", [
+                'bulk_item_id' => $bulkItemId,
+                'bulk_amount' => $bulkAmount,
+                'transfer_records' => $transferRecords
+            ]);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Bulk item money movement failed", [
+                'bulk_item_id' => $bulkItemId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
