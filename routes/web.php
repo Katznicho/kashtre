@@ -155,8 +155,10 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::resource("contractor-service-charges", ContractorServiceChargeController::class);
     Route::resource("admins", AdminController::class);
     
-    // Testing routes (Admin only)
-    Route::post('/testing/clear-data', [TestingController::class, 'clearData'])->name('testing.clear-data');
+    // Testing routes (Admin only) - Rate limited to prevent abuse
+    Route::post('/testing/clear-data', [TestingController::class, 'clearData'])
+        ->name('testing.clear-data')
+        ->middleware('throttle:5,1'); // Max 5 requests per minute
     
     Route::resource("clients", ClientController::class);
     Route::post('/clients/{client}/update-payment-methods', [ClientController::class, 'updatePaymentMethods'])->name('clients.update-payment-methods');

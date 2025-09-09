@@ -15,11 +15,30 @@ class TestingController extends Controller
 {
     public function __construct()
     {
-        // Only allow admin users (business_id = 1)
+        // Only allow admin users (business_id = 1) with active status
         $this->middleware(function ($request, $next) {
-            if (auth()->user()->business_id != 1) {
+            $user = auth()->user();
+            
+            // Check if user is authenticated
+            if (!$user) {
+                abort(401, 'Authentication required.');
+            }
+            
+            // Check if user is admin (business_id = 1)
+            if ($user->business_id != 1) {
                 abort(403, 'Unauthorized access. Admin privileges required.');
             }
+            
+            // Check if user is active
+            if ($user->status !== 'active') {
+                abort(403, 'Account is not active. Please contact administrator.');
+            }
+            
+            // Additional security: Check if user has admin permissions
+            if (!$user->permissions || !is_array($user->permissions)) {
+                abort(403, 'Insufficient permissions. Admin access required.');
+            }
+            
             return $next($request);
         });
     }
@@ -27,13 +46,34 @@ class TestingController extends Controller
     public function clearData(Request $request)
     {
         try {
+            // Additional security check at method level
+            $user = auth()->user();
+            if (!$user || $user->business_id != 1 || $user->status !== 'active') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access. Admin privileges required.'
+                ], 403);
+            }
+
             $type = $request->input('type');
             $count = 0;
             $message = '';
 
+            // Validate input
+            $allowedTypes = ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements'];
+            if (!in_array($type, $allowedTypes)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid data type specified'
+                ], 400);
+            }
+
             Log::info('=== TESTING: Clear Data Started ===', [
                 'type' => $type,
                 'user_id' => auth()->id(),
+                'user_email' => $user->email,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
                 'timestamp' => now()
             ]);
 

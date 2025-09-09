@@ -72,7 +72,7 @@
             @endif
 
             <!-- Testing Dashboard - Only for Admin Users -->
-            @if(Auth::user()->business_id == 1)
+            @if(Auth::user()->business_id == 1 && Auth::user()->status === 'active')
                 <div class="mb-6 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-6">
                     <div class="flex items-center justify-between mb-4">
                         <div class="flex items-center space-x-4">
@@ -82,8 +82,9 @@
                                 </svg>
                             </div>
                             <div>
-                                <h3 class="text-lg font-semibold text-gray-900">Testing Dashboard</h3>
+                                <h3 class="text-lg font-semibold text-gray-900">⚠️ Testing Dashboard</h3>
                                 <p class="text-sm text-gray-600">Clear data for testing purposes (Admin Only)</p>
+                                <p class="text-xs text-red-600 font-medium mt-1">⚠️ WARNING: These actions are irreversible and will permanently delete data!</p>
                             </div>
                         </div>
                     </div>
