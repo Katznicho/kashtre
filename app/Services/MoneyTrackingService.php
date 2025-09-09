@@ -761,8 +761,8 @@ class MoneyTrackingService
         ]);
 
         // Update account balances
-        $fromAccount->credit($amount);
-        $toAccount->debit($amount);
+        $fromAccount->debit($amount);  // Money goes out of source account
+        $toAccount->credit($amount);   // Money comes into destination account
 
         return $transfer;
     }
@@ -1188,6 +1188,30 @@ class MoneyTrackingService
                     $transferDescription
                 );
 
+                // Create balance statement for receiving account
+                if ($item->contractor_account_id) {
+                    // Contractor account - create contractor balance statement
+                    $contractor = ContractorProfile::find($item->contractor_account_id);
+                    ContractorBalanceHistory::recordChange(
+                        $contractor,
+                        $totalAmount,
+                        'credit',
+                        "Payment received for: {$item->name}",
+                        $invoice->invoice_number,
+                        "Service delivery completed - Item: {$item->name}"
+                    );
+                } else {
+                    // Business account - create business balance statement
+                    BusinessBalanceHistory::recordChange(
+                        $business,
+                        $totalAmount,
+                        'credit',
+                        "Payment received for: {$item->name}",
+                        $invoice->invoice_number,
+                        "Service delivery completed - Item: {$item->name}"
+                    );
+                }
+
                 $transferRecords[] = [
                     'item_name' => $item->name,
                     'amount' => $totalAmount,
@@ -1208,6 +1232,16 @@ class MoneyTrackingService
                     $invoice,
                     null,
                     "Service charge for invoice {$invoice->invoice_number}"
+                );
+
+                // Create balance statement for Kashtre account
+                BusinessBalanceHistory::recordChange(
+                    $business,
+                    $invoice->service_charge,
+                    'credit',
+                    "Service charge received",
+                    $invoice->invoice_number,
+                    "Service delivery completed - Service charge for invoice"
                 );
 
                 $transferRecords[] = [
