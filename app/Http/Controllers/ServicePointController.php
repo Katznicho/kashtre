@@ -295,93 +295,27 @@ class ServicePointController extends Controller
         $itemAmount = $item->price * $item->quantity;
         
         try {
-            // 1. DEBIT CLIENT STATEMENT and MONEY ACCOUNT for the item amount
-            \App\Models\BalanceHistory::recordDebit(
-                $client,
-                $itemAmount,
-                "Service delivery for {$item->item->name}",
-                $invoice->invoice_number,
-                "Item completed and delivered"
-            );
+            // NEW LOGIC: Use the processSaveAndExit method instead of creating client statements
+            // This will move money from suspense account to final accounts without creating client statements
             
-            // Also debit the client's money account to actually reduce the suspense balance
-            $clientAccount = $moneyTrackingService->getOrCreateClientAccount($client);
-            $clientAccount->debit($itemAmount);
+            // Prepare item data for processSaveAndExit
+            $itemData = [
+                'item_id' => $item->item_id,
+                'quantity' => $item->quantity,
+                'total_amount' => $itemAmount
+            ];
+            
+            // Call the new processSaveAndExit method
+            $transferRecords = $moneyTrackingService->processSaveAndExit($invoice, [$itemData]);
+            
+            \Illuminate\Support\Facades\Log::info("Item money movement processed via processSaveAndExit", [
+                'item_id' => $item->item_id,
+                'item_amount' => $itemAmount,
+                'transfer_records' => $transferRecords
+            ]);
 
-            // 3. Handle item amount split based on hospital/contractor share
-            if ($item->item->contractor_account_id && $item->item->hospital_share < 100) {
-                // Split between hospital and contractor
-                $contractorShare = ($itemAmount * (100 - $item->item->hospital_share)) / 100;
-                $hospitalShare = $itemAmount - $contractorShare;
-                
-                // CREDIT CONTRACTOR for their share
-                $contractor = \App\Models\ContractorProfile::find($item->item->contractor_account_id);
-                if ($contractor) {
-                    $contractorAccount = $moneyTrackingService->getOrCreateContractorAccount($contractor);
-                    $contractorAccount->credit($contractorShare);
-                    
-                                // Record contractor balance statement
-            \App\Models\ContractorBalanceHistory::recordChange(
-                $contractor->id,
-                $contractorAccount->id,
-                $contractorShare,
-                'credit',
-                "Contractor share for {$item->item->name} - Invoice #{$invoice->invoice_number}",
-                'invoice',
-                $invoice->id,
-                [
-                    'invoice_id' => $invoice->id,
-                    'item_id' => $item->item->id,
-                    'client_id' => $client->id,
-                    'business_id' => $business->id
-                ],
-                auth()->id()
-            );
-                }
-                
-                // CREDIT HOSPITAL for their share
-                $businessAccount = $moneyTrackingService->getOrCreateBusinessAccount($business);
-                $businessAccount->credit($hospitalShare);
-                
-                // Record business balance statement
-                \App\Models\BusinessBalanceHistory::recordChange(
-                    $business->id,
-                    $businessAccount->id,
-                    $hospitalShare,
-                    'credit',
-                    "Hospital share for {$item->item->name} - Invoice #{$invoice->invoice_number}",
-                    'invoice',
-                    $invoice->id,
-                    [
-                        'invoice_id' => $invoice->id,
-                        'item_id' => $item->item->id,
-                        'client_id' => $client->id,
-                        'contractor_id' => $contractor->id ?? null
-                    ],
-                    auth()->id()
-                );
-            } else {
-                // Full amount goes to hospital (no contractor)
-                $businessAccount = $moneyTrackingService->getOrCreateBusinessAccount($business);
-                $businessAccount->credit($itemAmount);
-                
-                // Record business balance statement
-                \App\Models\BusinessBalanceHistory::recordChange(
-                    $business->id,
-                    $businessAccount->id,
-                    $itemAmount,
-                    'credit',
-                    "Full payment for {$item->item->name} - Invoice #{$invoice->invoice_number}",
-                    'service_delivery_queue',
-                    $item->id,
-                    [
-                        'invoice_id' => $invoice->id,
-                        'item_id' => $item->item->id,
-                        'client_id' => $client->id
-                    ],
-                    auth()->id()
-                );
-            }
+            // All money movement and balance statement creation is now handled by processSaveAndExit
+            // No additional processing needed here
             
         } catch (\Exception $e) {
             throw $e;
@@ -389,52 +323,16 @@ class ServicePointController extends Controller
     }
 
     /**
-     * Process service charge for an invoice (only once per invoice)
+     * Process service charge for an invoice (DEPRECATED - now handled by processSaveAndExit)
      */
     private function processServiceCharge($invoice, $moneyTrackingService, $client)
     {
-        $serviceCharge = $invoice->service_charge ?? 0;
-        if ($serviceCharge > 0 && !$invoice->is_service_charge_processed) {
-            // 1. DEBIT CLIENT ACCOUNT for service charge
-            $clientAccount = $moneyTrackingService->getOrCreateClientAccount($client);
-            $clientAccount->debit($serviceCharge);
-            
-            // 2. CREDIT KASHTRE ACCOUNT for service charge
-            $kashtreAccount = $moneyTrackingService->getOrCreateKashtreAccount();
-            $kashtreAccount->credit($serviceCharge);
-            
-            // 3. Record client balance statement (DEBIT)
-            \App\Models\BalanceHistory::recordDebit(
-                $client,
-                $serviceCharge,
-                "Service charge for invoice #{$invoice->invoice_number}",
-                $invoice->invoice_number,
-                "Service charge processed"
-            );
-            
-            // 4. Record Kashtre balance statement (CREDIT)
-            \App\Models\BusinessBalanceHistory::recordChange(
-                1, // Kashtre business_id
-                $kashtreAccount->id,
-                $serviceCharge,
-                'credit',
-                "Service charge for invoice #{$invoice->invoice_number}",
-                'service_delivery_queue',
-                null, // No specific item for service charge
-                [
-                    'invoice_id' => $invoice->id,
-                    'client_id' => $client->id,
-                    'business_id' => $invoice->business_id
-                ],
-                auth()->id()
-            );
-            
-            // 5. Mark invoice as service charge processed
-            $invoice->is_service_charge_processed = true;
-            $invoice->service_charge_processed_at = now();
-            $invoice->service_charge_processed_by_user_id = auth()->id();
-            $invoice->save();
-        }
+        // Service charge processing is now handled by MoneyTrackingService::processSaveAndExit
+        // This method is kept for backward compatibility but does nothing
+        \Illuminate\Support\Facades\Log::info("processServiceCharge called but deprecated - service charges now handled by processSaveAndExit", [
+            'invoice_id' => $invoice->id,
+            'service_charge' => $invoice->service_charge ?? 0
+        ]);
     }
 
     /**
