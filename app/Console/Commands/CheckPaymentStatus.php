@@ -18,6 +18,11 @@ class CheckPaymentStatus extends Command
 
     public function handle()
     {
+        Log::info('=== CRON JOB STARTED: CheckPaymentStatus ===', [
+            'timestamp' => now(),
+            'command' => 'payments:check-status'
+        ]);
+
         // Get all pending transactions that have YoAPI references
         $pendingTransactions = Transaction::where('status', 'pending')
             ->whereNotNull('reference')
@@ -142,9 +147,10 @@ class CheckPaymentStatus extends Command
             }
         }
 
-        Log::info('Payment status check completed', [
+        Log::info('=== CRON JOB COMPLETED: CheckPaymentStatus ===', [
             'total_checked' => $pendingTransactions->count(),
-            'timestamp' => now()
+            'timestamp' => now(),
+            'command' => 'payments:check-status'
         ]);
     }
 

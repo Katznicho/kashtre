@@ -31,6 +31,16 @@ class ResetServiceQueues extends Command
      */
     public function handle()
     {
+        Log::info('=== CRON JOB STARTED: ResetServiceQueues ===', [
+            'timestamp' => now(),
+            'command' => 'service-queues:reset',
+            'options' => [
+                'service-point' => $this->option('service-point'),
+                'all' => $this->option('all'),
+                'force' => $this->option('force')
+            ]
+        ]);
+
         $servicePointId = $this->option('service-point');
         $resetAll = $this->option('all');
         $force = $this->option('force');
@@ -50,6 +60,16 @@ class ResetServiceQueues extends Command
         } elseif ($resetAll) {
             $this->resetAllServicePoints($force);
         }
+
+        Log::info('=== CRON JOB COMPLETED: ResetServiceQueues ===', [
+            'timestamp' => now(),
+            'command' => 'service-queues:reset',
+            'options' => [
+                'service-point' => $this->option('service-point'),
+                'all' => $this->option('all'),
+                'force' => $this->option('force')
+            ]
+        ]);
 
         return 0;
     }
