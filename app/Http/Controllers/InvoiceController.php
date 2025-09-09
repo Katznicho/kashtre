@@ -126,6 +126,15 @@ class InvoiceController extends Controller
     public function store(Request $request)
     {
         try {
+            Log::info("=== INVOICE CREATION STARTED ===", [
+                'user_id' => Auth::id(),
+                'business_id' => $request->input('business_id'),
+                'client_id' => $request->input('client_id'),
+                'total_amount' => $request->input('total_amount'),
+                'payment_status' => $request->input('payment_status'),
+                'status' => $request->input('status')
+            ]);
+
             DB::beginTransaction();
             
             $user = Auth::user();
@@ -188,6 +197,17 @@ class InvoiceController extends Controller
                 'status' => $validated['status'],
                 'notes' => $validated['notes'] ?? '',
                 'confirmed_at' => $validated['status'] === 'confirmed' ? now() : null,
+            ]);
+
+            Log::info("Invoice created successfully", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $invoice->client_id,
+                'business_id' => $invoice->business_id,
+                'total_amount' => $invoice->total_amount,
+                'payment_status' => $invoice->payment_status,
+                'status' => $invoice->status,
+                'items_count' => count($invoice->items ?? [])
             ]);
             
             // Store current invoice for balance statement
@@ -253,8 +273,19 @@ class InvoiceController extends Controller
             
             // MONEY TRACKING: Step 2 - Process order confirmation (includes service charge)
             if ($validated['status'] === 'confirmed') {
+                Log::info("Processing order confirmation", [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'items_count' => count($validated['items'])
+                ]);
+
                 $items = $validated['items'];
-                $moneyTrackingService->processOrderConfirmed($invoice, $items);
+                $orderConfirmationResult = $moneyTrackingService->processOrderConfirmed($invoice, $items);
+                
+                Log::info("Order confirmation processed", [
+                    'invoice_id' => $invoice->id,
+                    'result' => $orderConfirmationResult
+                ]);
             }
             
             // PACKAGE TRACKING: Create package tracking records for package items
@@ -275,6 +306,16 @@ class InvoiceController extends Controller
             $nextInvoiceNumber = Invoice::generateInvoiceNumber($business->id, 'proforma');
             
             DB::commit();
+            
+            Log::info("=== INVOICE CREATION COMPLETED SUCCESSFULLY ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $invoice->client_id,
+                'business_id' => $invoice->business_id,
+                'total_amount' => $invoice->total_amount,
+                'payment_status' => $invoice->payment_status,
+                'status' => $invoice->status
+            ]);
             
             return response()->json([
                 'success' => true,
@@ -606,8 +647,16 @@ class InvoiceController extends Controller
             // Log the actual API response
             Log::info('YoAPI actual response', ['result' => $result]);
             
-            // Check if payment was successful (matching your working implementation)
+            // Check if payment request was initiated successfully
             if (isset($result['Status']) && $result['Status'] === 'OK' && isset($result['TransactionReference'])) {
+                
+                Log::info("Mobile money payment request initiated successfully", [
+                    'transaction_reference' => $result['TransactionReference'],
+                    'phone' => $phone,
+                    'amount' => $validated['amount'],
+                    'client_id' => $validated['client_id'],
+                    'invoice_number' => $validated['invoice_number']
+                ]);
                 
                 // Create transaction record for tracking
                 $transaction = \App\Models\Transaction::create([
@@ -635,11 +684,17 @@ class InvoiceController extends Controller
                     'transaction_for' => 'main',
                 ]);
                 
+                Log::info("Transaction record created for mobile money payment", [
+                    'transaction_id' => $transaction->id,
+                    'external_reference' => $result['TransactionReference'],
+                    'status' => 'pending'
+                ]);
+                
                 return response()->json([
                     'success' => true,
                     'transaction_id' => $result['TransactionReference'],
                     'status' => 'pending',
-                    'message' => 'Mobile Money payment request initiated successfully. Awaiting confirmation.',
+                    'message' => 'A payment prompt has been sent to your phone. Please complete the payment to proceed.',
                     'description' => $description,
                     'yoapi_response' => $result,
                     'internal_transaction_id' => $transaction->id

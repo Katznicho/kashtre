@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\Client;
 use App\Models\Item;
 use App\Payments\YoAPI;
+use App\Services\MoneyTrackingService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -60,38 +61,104 @@ class CheckPaymentStatus extends Command
                     
                     try {
                         if ($statusCheck['TransactionStatus'] === 'SUCCEEDED') {
+                            Log::info("=== PAYMENT SUCCEEDED - Processing transaction {$transaction->id} ===", [
+                                'transaction_id' => $transaction->id,
+                                'reference' => $transaction->reference,
+                                'external_reference' => $transaction->external_reference,
+                                'amount' => $transaction->amount,
+                                'client_id' => $transaction->client_id,
+                                'invoice_id' => $transaction->invoice_id
+                            ]);
+
                             // Update transaction status
                             $transaction->update([
                                 'status' => 'completed',
                                 'updated_at' => now()
                             ]);
 
+                            Log::info("Transaction status updated to completed", [
+                                'transaction_id' => $transaction->id
+                            ]);
+
                             // Update related invoice if exists
                             if ($transaction->invoice_id) {
                                 $invoice = Invoice::find($transaction->invoice_id);
                                 if ($invoice) {
-                                    $invoice->update(['status' => 'paid']);
+                                    Log::info("Found invoice for payment completion", [
+                                        'invoice_id' => $invoice->id,
+                                        'invoice_number' => $invoice->invoice_number,
+                                        'current_status' => $invoice->status,
+                                        'payment_status' => $invoice->payment_status
+                                    ]);
+
+                                    // Update invoice status to paid
+                                    $invoice->update([
+                                        'status' => 'paid',
+                                        'payment_status' => 'paid'
+                                    ]);
+
+                                    Log::info("Invoice status updated to paid", [
+                                        'invoice_id' => $invoice->id,
+                                        'invoice_number' => $invoice->invoice_number
+                                    ]);
+                                    
+                                    // Create balance statements after payment completion
+                                    Log::info("Creating balance statements after payment completion", [
+                                        'invoice_id' => $invoice->id,
+                                        'items_count' => count($invoice->items ?? [])
+                                    ]);
+                                    
+                                    $moneyTrackingService = new MoneyTrackingService();
+                                    $balanceStatements = $moneyTrackingService->processPaymentCompleted($invoice, $invoice->items);
+                                    
+                                    Log::info("Balance statements created after payment completion", [
+                                        'invoice_id' => $invoice->id,
+                                        'balance_statements_count' => count($balanceStatements)
+                                    ]);
                                     
                                     // Queue items at service points only after payment is completed
-                                    $this->queueItemsAtServicePoints($invoice, $invoice->items);
+                                    Log::info("Starting to queue items at service points", [
+                                        'invoice_id' => $invoice->id,
+                                        'items_count' => count($invoice->items ?? [])
+                                    ]);
+                                    
+                                    $queuedItems = $this->queueItemsAtServicePoints($invoice, $invoice->items);
+                                    
+                                    Log::info("Items queued at service points completed", [
+                                        'invoice_id' => $invoice->id,
+                                        'queued_items_count' => $queuedItems
+                                    ]);
+                                } else {
+                                    Log::warning("Invoice not found for transaction", [
+                                        'transaction_id' => $transaction->id,
+                                        'invoice_id' => $transaction->invoice_id
+                                    ]);
                                 }
+                            } else {
+                                Log::warning("No invoice_id found for transaction", [
+                                    'transaction_id' => $transaction->id
+                                ]);
                             }
 
                             // Update client balance if needed
                             if ($transaction->client_id) {
                                 $client = Client::find($transaction->client_id);
                                 if ($client) {
-                                    // The money tracking service should have already handled the balance
-                                    // but we can log this for audit purposes
-                                    Log::info("Payment succeeded for client {$client->name}", [
+                                    Log::info("Payment succeeded for client", [
                                         'client_id' => $client->id,
+                                        'client_name' => $client->name,
                                         'transaction_id' => $transaction->id,
                                         'amount' => $transaction->amount
+                                    ]);
+                                } else {
+                                    Log::warning("Client not found for transaction", [
+                                        'transaction_id' => $transaction->id,
+                                        'client_id' => $transaction->client_id
                                     ]);
                                 }
                             }
 
-                            Log::info("Transaction ID {$transaction->id} updated to SUCCEEDED", [
+                            Log::info("=== PAYMENT SUCCEEDED - Transaction processing completed ===", [
                                 'transaction_id' => $transaction->id,
                                 'reference' => $transaction->reference,
                                 'amount' => $transaction->amount
@@ -159,20 +226,61 @@ class CheckPaymentStatus extends Command
      */
     private function queueItemsAtServicePoints($invoice, $items)
     {
-        foreach ($items as $item) {
+        $queuedCount = 0;
+        
+        Log::info("=== STARTING ITEM QUEUING PROCESS ===", [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'total_items' => count($items ?? [])
+        ]);
+
+        if (empty($items)) {
+            Log::warning("No items found in invoice for queuing", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number
+            ]);
+            return 0;
+        }
+
+        foreach ($items as $index => $item) {
             $itemId = $item['id'] ?? $item['item_id'] ?? null;
-            if (!$itemId) continue;
+            
+            Log::info("Processing item " . ($index + 1), [
+                'item_id' => $itemId,
+                'item_name' => $item['name'] ?? 'Unknown',
+                'quantity' => $item['quantity'] ?? 1
+            ]);
+
+            if (!$itemId) {
+                Log::warning("Item ID not found, skipping", ['item_data' => $item]);
+                continue;
+            }
 
             // Get the item from database
             $itemModel = Item::find($itemId);
-            if (!$itemModel) continue;
+            if (!$itemModel) {
+                Log::warning("Item model not found in database", ['item_id' => $itemId]);
+                continue;
+            }
 
             $quantity = $item['quantity'] ?? 1;
 
+            Log::info("Found item model", [
+                'item_id' => $itemModel->id,
+                'item_name' => $itemModel->name,
+                'item_type' => $itemModel->type,
+                'service_point_id' => $itemModel->service_point_id
+            ]);
+
             // Handle regular items with service points
             if ($itemModel->service_point_id) {
-                // Create service delivery queue record for the main item
-                \App\Models\ServiceDeliveryQueue::create([
+                Log::info("Creating service delivery queue for regular item", [
+                    'item_id' => $itemId,
+                    'service_point_id' => $itemModel->service_point_id,
+                    'quantity' => $quantity
+                ]);
+
+                $queueRecord = \App\Models\ServiceDeliveryQueue::create([
                     'business_id' => $invoice->business_id,
                     'branch_id' => $invoice->branch_id,
                     'service_point_id' => $itemModel->service_point_id,
@@ -188,20 +296,56 @@ class CheckPaymentStatus extends Command
                     'queued_at' => now(),
                     'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
                 ]);
+
+                $queuedCount++;
+                Log::info("Service delivery queue created for regular item", [
+                    'queue_id' => $queueRecord->id,
+                    'item_id' => $itemId,
+                    'service_point_id' => $itemModel->service_point_id
+                ]);
+            } else {
+                Log::info("Regular item has no service point, skipping queuing", [
+                    'item_id' => $itemId,
+                    'item_name' => $itemModel->name
+                ]);
             }
 
             // Handle package items - queue each included item at its respective service point
             if ($itemModel->type === 'package') {
+                Log::info("Processing package item", [
+                    'package_item_id' => $itemId,
+                    'package_name' => $itemModel->name
+                ]);
+
                 $packageItems = $itemModel->packageItems()->with('includedItem')->get();
                 
-                foreach ($packageItems as $packageItem) {
+                Log::info("Found package items", [
+                    'package_item_id' => $itemId,
+                    'included_items_count' => $packageItems->count()
+                ]);
+                
+                foreach ($packageItems as $packageItemIndex => $packageItem) {
                     $includedItem = $packageItem->includedItem;
                     $maxQuantity = $packageItem->max_quantity ?? 1;
                     $totalQuantity = $maxQuantity * $quantity;
 
+                    Log::info("Processing included item " . ($packageItemIndex + 1), [
+                        'included_item_id' => $includedItem->id,
+                        'included_item_name' => $includedItem->name,
+                        'max_quantity' => $maxQuantity,
+                        'total_quantity' => $totalQuantity,
+                        'service_point_id' => $includedItem->service_point_id
+                    ]);
+
                     // Only queue if the included item has a service point
                     if ($includedItem->service_point_id) {
-                        \App\Models\ServiceDeliveryQueue::create([
+                        Log::info("Creating service delivery queue for included item", [
+                            'included_item_id' => $includedItem->id,
+                            'service_point_id' => $includedItem->service_point_id,
+                            'total_quantity' => $totalQuantity
+                        ]);
+
+                        $queueRecord = \App\Models\ServiceDeliveryQueue::create([
                             'business_id' => $invoice->business_id,
                             'branch_id' => $invoice->branch_id,
                             'service_point_id' => $includedItem->service_point_id,
@@ -217,14 +361,30 @@ class CheckPaymentStatus extends Command
                             'queued_at' => now(),
                             'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
                         ]);
+
+                        $queuedCount++;
+                        Log::info("Service delivery queue created for included item", [
+                            'queue_id' => $queueRecord->id,
+                            'included_item_id' => $includedItem->id,
+                            'service_point_id' => $includedItem->service_point_id
+                        ]);
+                    } else {
+                        Log::info("Included item has no service point, skipping queuing", [
+                            'included_item_id' => $includedItem->id,
+                            'included_item_name' => $includedItem->name
+                        ]);
                     }
                 }
             }
         }
 
-        Log::info("Items queued at service points for invoice {$invoice->invoice_number}", [
+        Log::info("=== ITEM QUEUING PROCESS COMPLETED ===", [
             'invoice_id' => $invoice->id,
-            'items_count' => count($items)
+            'invoice_number' => $invoice->invoice_number,
+            'total_items_processed' => count($items),
+            'total_items_queued' => $queuedCount
         ]);
+
+        return $queuedCount;
     }
 }

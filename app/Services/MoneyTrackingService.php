@@ -182,23 +182,30 @@ class MoneyTrackingService
     }
 
     /**
-     * Step 2: Order confirmed - Show immediate debits to client
-     * Money stays in client suspense account, but debits are shown immediately
-     * Actual money movement happens later when "save and exit" is clicked
+     * Step 2: Order confirmed - DO NOT create balance statements yet
+     * Balance statements should only be created after payment is completed
+     * This method now only logs the order confirmation
      */
     public function processOrderConfirmed(Invoice $invoice, $items)
     {
         try {
-            DB::beginTransaction();
-
             $client = $invoice->client;
             $business = $invoice->business;
-            $debitRecords = [];
 
-            // Get client suspense account (money stays here)
-            $clientSuspenseAccount = $this->getOrCreateClientSuspenseAccount($client);
+            Log::info("=== ORDER CONFIRMED - NO BALANCE STATEMENTS CREATED YET ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $client->id,
+                'client_name' => $client->name,
+                'business_id' => $business->id,
+                'items_count' => count($items),
+                'total_amount' => $invoice->total_amount,
+                'service_charge' => $invoice->service_charge,
+                'note' => 'Balance statements will be created only after payment completion'
+            ]);
 
-            foreach ($items as $itemData) {
+            // Log each item for tracking
+            foreach ($items as $index => $itemData) {
                 $itemId = $itemData['item_id'] ?? $itemData['id'] ?? null;
                 if (!$itemId) continue;
                 
@@ -208,58 +215,41 @@ class MoneyTrackingService
                 $quantity = $itemData['quantity'] ?? 1;
                 $totalAmount = $itemData['total_amount'] ?? ($item->default_price * $quantity);
 
-                // Create debit record for client to see where their money is allocated
-                // Money stays in suspense account, but client sees the debit
-                $debitRecord = BalanceHistory::recordDebit(
-                    $client,
-                    $totalAmount,
-                    "Allocated for: {$item->name} (x{$quantity})",
-                    $invoice->invoice_number,
-                    "Order confirmed - Item allocated: {$item->name}"
-                );
-
-                $debitRecords[] = [
+                Log::info("Order confirmed item " . ($index + 1), [
+                    'invoice_id' => $invoice->id,
+                    'item_id' => $itemId,
                     'item_name' => $item->name,
+                    'item_type' => $item->type,
                     'quantity' => $quantity,
-                    'amount' => $totalAmount,
-                    'type' => 'item_allocation',
-                    'status' => 'suspense_account'
-                ];
+                    'total_amount' => $totalAmount,
+                    'note' => 'Balance statement will be created after payment completion'
+                ]);
             }
 
-            // Create debit record for service charge if applicable
+            // Log service charge if applicable
             if ($invoice->service_charge > 0) {
-                BalanceHistory::recordDebit(
-                    $client,
-                    $invoice->service_charge,
-                    "Service Charge Allocated",
-                    $invoice->invoice_number,
-                    "Service charge allocated for invoice {$invoice->invoice_number}"
-                );
-
-                $debitRecords[] = [
-                    'item_name' => 'Service Charge',
-                    'quantity' => 1,
-                    'amount' => $invoice->service_charge,
-                    'type' => 'service_charge_allocation',
-                    'status' => 'suspense_account'
-                ];
+                Log::info("Order confirmed service charge", [
+                    'invoice_id' => $invoice->id,
+                    'service_charge' => $invoice->service_charge,
+                    'note' => 'Service charge balance statement will be created after payment completion'
+                ]);
             }
 
-            DB::commit();
-
-            Log::info("Order confirmed with immediate debits shown (money in suspense)", [
+            Log::info("=== ORDER CONFIRMED - WAITING FOR PAYMENT COMPLETION ===", [
                 'invoice_id' => $invoice->id,
-                'client_id' => $client->id,
-                'debit_records_count' => count($debitRecords),
-                'suspense_account_id' => $clientSuspenseAccount->id
+                'invoice_number' => $invoice->invoice_number,
+                'note' => 'No balance statements created yet - will be created after payment completion'
             ]);
 
-            return $debitRecords;
+            return [
+                'status' => 'order_confirmed',
+                'message' => 'Order confirmed - balance statements will be created after payment completion',
+                'items_count' => count($items),
+                'total_amount' => $invoice->total_amount
+            ];
 
         } catch (Exception $e) {
-            DB::rollBack();
-            Log::error("Failed to process order confirmation with debits", [
+            Log::error("Failed to process order confirmation", [
                 'invoice_id' => $invoice->id,
                 'error' => $e->getMessage()
             ]);
@@ -353,6 +343,116 @@ class MoneyTrackingService
             throw $e;
         }
         */
+    }
+
+    /**
+     * Step 2.5: Payment completed - Create balance statements for client
+     * This is called after payment is confirmed to create the actual balance statements
+     */
+    public function processPaymentCompleted(Invoice $invoice, $items)
+    {
+        try {
+            DB::beginTransaction();
+
+            $client = $invoice->client;
+            $business = $invoice->business;
+            $debitRecords = [];
+
+            Log::info("=== PAYMENT COMPLETED - CREATING BALANCE STATEMENTS ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $client->id,
+                'client_name' => $client->name,
+                'business_id' => $business->id,
+                'items_count' => count($items),
+                'total_amount' => $invoice->total_amount,
+                'service_charge' => $invoice->service_charge
+            ]);
+
+            foreach ($items as $index => $itemData) {
+                $itemId = $itemData['item_id'] ?? $itemData['id'] ?? null;
+                if (!$itemId) continue;
+                
+                $item = Item::find($itemId);
+                if (!$item) continue;
+                
+                $quantity = $itemData['quantity'] ?? 1;
+                $totalAmount = $itemData['total_amount'] ?? ($item->default_price * $quantity);
+
+                // Create debit record for client balance statement
+                $debitRecord = BalanceHistory::recordDebit(
+                    $client,
+                    $totalAmount,
+                    "Payment for: {$item->name} (x{$quantity})",
+                    $invoice->invoice_number,
+                    "Payment completed - Item purchased: {$item->name}"
+                );
+
+                $debitRecords[] = [
+                    'item_name' => $item->name,
+                    'quantity' => $quantity,
+                    'amount' => $totalAmount,
+                    'type' => 'item_payment',
+                    'status' => 'completed',
+                    'balance_history_id' => $debitRecord->id ?? null
+                ];
+
+                Log::info("Balance statement created for item " . ($index + 1), [
+                    'invoice_id' => $invoice->id,
+                    'item_id' => $itemId,
+                    'item_name' => $item->name,
+                    'quantity' => $quantity,
+                    'amount' => $totalAmount,
+                    'balance_history_id' => $debitRecord->id ?? null
+                ]);
+            }
+
+            // Create debit record for service charge if applicable
+            if ($invoice->service_charge > 0) {
+                $serviceChargeRecord = BalanceHistory::recordDebit(
+                    $client,
+                    $invoice->service_charge,
+                    "Service Charge Payment",
+                    $invoice->invoice_number,
+                    "Service charge payment for invoice {$invoice->invoice_number}"
+                );
+
+                $debitRecords[] = [
+                    'item_name' => 'Service Charge',
+                    'quantity' => 1,
+                    'amount' => $invoice->service_charge,
+                    'type' => 'service_charge_payment',
+                    'status' => 'completed',
+                    'balance_history_id' => $serviceChargeRecord->id ?? null
+                ];
+
+                Log::info("Balance statement created for service charge", [
+                    'invoice_id' => $invoice->id,
+                    'service_charge' => $invoice->service_charge,
+                    'balance_history_id' => $serviceChargeRecord->id ?? null
+                ]);
+            }
+
+            DB::commit();
+
+            Log::info("=== PAYMENT COMPLETED - BALANCE STATEMENTS CREATED ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $client->id,
+                'debit_records_count' => count($debitRecords),
+                'total_amount' => $invoice->total_amount
+            ]);
+
+            return $debitRecords;
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error("Failed to process payment completion balance statements", [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
     }
 
     /**
