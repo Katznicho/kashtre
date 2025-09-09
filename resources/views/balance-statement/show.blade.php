@@ -37,9 +37,6 @@
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-medium text-gray-900">Balance Statement</h3>
                         <div class="flex space-x-2">
-                            <button onclick="addCredit()" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm">
-                                Add Credit
-                            </button>
                             <button onclick="addAdjustment()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm">
                                 Add Adjustment
                             </button>
@@ -128,44 +125,6 @@
         </div>
     </div>
 
-    <!-- Add Credit Modal -->
-    <div id="creditModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Add Credit</h3>
-                <form id="creditForm">
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700">Amount</label>
-                        <input type="number" step="0.01" min="0.01" id="creditAmount" required
-                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700">Description</label>
-                        <input type="text" id="creditDescription" required
-                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700">Reference Number (Optional)</label>
-                        <input type="text" id="creditReference"
-                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700">Notes (Optional)</label>
-                        <textarea id="creditNotes" rows="3"
-                                  class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></textarea>
-                    </div>
-                    <div class="flex justify-end space-x-2">
-                        <button type="button" onclick="closeCreditModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400">
-                            Cancel
-                        </button>
-                        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
-                            Add Credit
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
 
     <!-- Add Adjustment Modal -->
     <div id="adjustmentModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
@@ -207,14 +166,6 @@
     </div>
 
     <script>
-        function addCredit() {
-            document.getElementById('creditModal').classList.remove('hidden');
-        }
-
-        function closeCreditModal() {
-            document.getElementById('creditModal').classList.add('hidden');
-            document.getElementById('creditForm').reset();
-        }
 
         function addAdjustment() {
             document.getElementById('adjustmentModal').classList.remove('hidden');
@@ -225,52 +176,6 @@
             document.getElementById('adjustmentForm').reset();
         }
 
-        document.getElementById('creditForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const formData = {
-                amount: document.getElementById('creditAmount').value,
-                description: document.getElementById('creditDescription').value,
-                reference_number: document.getElementById('creditReference').value,
-                notes: document.getElementById('creditNotes').value,
-                _token: '{{ csrf_token() }}'
-            };
-
-            try {
-                const response = await fetch('{{ route("balance-statement.add-credit", $client->id) }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify(formData)
-                });
-
-                const data = await response.json();
-                
-                if (data.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success',
-                        text: data.message
-                    }).then(() => {
-                        location.reload();
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: data.message
-                    });
-                }
-            } catch (error) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Failed to add credit'
-                });
-            }
-        });
 
         document.getElementById('adjustmentForm').addEventListener('submit', async function(e) {
             e.preventDefault();
