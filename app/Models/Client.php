@@ -92,17 +92,13 @@ class Client extends Model
     }
 
     /**
-     * Get the client's total balance (calculated from balance history)
+     * Get the client's total balance (money in suspense accounts)
      */
     public function getTotalBalanceAttribute()
     {
-        // Calculate total balance from balance history records
-        // Credits are positive, debits are negative (change_amount is already signed)
-        $totalBalance = $this->balanceHistories()
-            ->selectRaw('SUM(change_amount) as total')
-            ->value('total') ?? 0;
-        
-        return $totalBalance;
+        // Total balance should be the money in suspense accounts
+        // This represents the actual money the client has paid
+        return $this->getSuspenseBalanceAttribute();
     }
 
     /**
