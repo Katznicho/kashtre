@@ -89,7 +89,13 @@ class MoneyTrackingService
      */
     public function getOrCreateClientSuspenseAccount(Client $client)
     {
-        return MoneyAccount::firstOrCreate([
+        Log::info("Creating or getting client suspense account", [
+            'client_id' => $client->id,
+            'client_name' => $client->name,
+            'business_id' => $client->business_id
+        ]);
+
+        $suspenseAccount = MoneyAccount::firstOrCreate([
             'business_id' => $client->business_id,
             'client_id' => $client->id,
             'type' => 'general_suspense_account'
@@ -100,6 +106,15 @@ class MoneyTrackingService
             'currency' => 'UGX',
             'is_active' => true
         ]);
+
+        Log::info("Client suspense account result", [
+            'client_id' => $client->id,
+            'suspense_account_id' => $suspenseAccount->id,
+            'suspense_account_balance' => $suspenseAccount->balance,
+            'was_created' => $suspenseAccount->wasRecentlyCreated
+        ]);
+
+        return $suspenseAccount;
     }
 
     /**
@@ -126,6 +141,15 @@ class MoneyTrackingService
     public function processPaymentReceived(Client $client, $amount, $reference, $paymentMethod, $metadata = [])
     {
         try {
+            Log::info("=== PROCESSING PAYMENT RECEIVED ===", [
+                'client_id' => $client->id,
+                'client_name' => $client->name,
+                'amount' => $amount,
+                'reference' => $reference,
+                'payment_method' => $paymentMethod,
+                'metadata' => $metadata
+            ]);
+
             DB::beginTransaction();
 
             $clientSuspenseAccount = $this->getOrCreateClientSuspenseAccount($client);
@@ -148,6 +172,13 @@ class MoneyTrackingService
 
             // Credit client suspense account
             $clientSuspenseAccount->credit($amount);
+
+            Log::info("Client suspense account credited", [
+                'client_id' => $client->id,
+                'suspense_account_id' => $clientSuspenseAccount->id,
+                'amount_credited' => $amount,
+                'new_balance' => $clientSuspenseAccount->fresh()->balance
+            ]);
 
             // DO NOT create balance statement immediately - will be created after payment completion
             Log::info("Payment received - balance statement will be created after payment completion", [
