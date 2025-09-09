@@ -744,6 +744,18 @@ class MoneyTrackingService
      */
     private function transferMoney($fromAccount, $toAccount, $amount, $transferType, $invoice = null, $item = null, $description = '')
     {
+        Log::info("=== MONEY TRANSFER STARTED ===", [
+            'from_account_id' => $fromAccount->id,
+            'from_account_name' => $fromAccount->name,
+            'from_account_balance_before' => $fromAccount->balance,
+            'to_account_id' => $toAccount->id,
+            'to_account_name' => $toAccount->name,
+            'to_account_balance_before' => $toAccount->balance,
+            'amount' => $amount,
+            'transfer_type' => $transferType,
+            'description' => $description
+        ]);
+
         // Create transfer record
         $transfer = MoneyTransfer::create([
             'business_id' => $fromAccount->business_id,
@@ -760,9 +772,20 @@ class MoneyTrackingService
             'processed_at' => now()
         ]);
 
+        Log::info("Money transfer record created", [
+            'transfer_id' => $transfer->id
+        ]);
+
         // Update account balances
         $fromAccount->debit($amount);  // Money goes out of source account
         $toAccount->credit($amount);   // Money comes into destination account
+
+        Log::info("=== MONEY TRANSFER COMPLETED ===", [
+            'transfer_id' => $transfer->id,
+            'from_account_balance_after' => $fromAccount->fresh()->balance,
+            'to_account_balance_after' => $toAccount->fresh()->balance,
+            'amount_transferred' => $amount
+        ]);
 
         return $transfer;
     }
@@ -1148,6 +1171,15 @@ class MoneyTrackingService
     public function processSaveAndExit(Invoice $invoice, $items)
     {
         try {
+            Log::info("=== SAVE AND EXIT PROCESSING STARTED ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $invoice->client_id,
+                'business_id' => $invoice->business_id,
+                'items_count' => count($items),
+                'service_charge' => $invoice->service_charge ?? 0
+            ]);
+
             DB::beginTransaction();
 
             $client = $invoice->client;
@@ -1155,15 +1187,41 @@ class MoneyTrackingService
             $clientSuspenseAccount = $this->getOrCreateClientSuspenseAccount($client);
             $transferRecords = [];
 
-            foreach ($items as $itemData) {
+            Log::info("Client suspense account details", [
+                'client_id' => $client->id,
+                'suspense_account_id' => $clientSuspenseAccount->id,
+                'suspense_account_balance_before' => $clientSuspenseAccount->balance
+            ]);
+
+            foreach ($items as $index => $itemData) {
                 $itemId = $itemData['item_id'] ?? $itemData['id'] ?? null;
-                if (!$itemId) continue;
+                if (!$itemId) {
+                    Log::warning("Item ID not found in item data", [
+                        'item_index' => $index,
+                        'item_data' => $itemData
+                    ]);
+                    continue;
+                }
                 
                 $item = Item::find($itemId);
-                if (!$item) continue;
+                if (!$item) {
+                    Log::warning("Item not found", [
+                        'item_id' => $itemId,
+                        'item_index' => $index
+                    ]);
+                    continue;
+                }
                 
                 $quantity = $itemData['quantity'] ?? 1;
                 $totalAmount = $itemData['total_amount'] ?? ($item->default_price * $quantity);
+
+                Log::info("Processing item " . ($index + 1), [
+                    'item_id' => $itemId,
+                    'item_name' => $item->name,
+                    'quantity' => $quantity,
+                    'total_amount' => $totalAmount,
+                    'contractor_account_id' => $item->contractor_account_id
+                ]);
 
                 // Determine destination account based on item type
                 if ($item->contractor_account_id) {
@@ -1171,13 +1229,36 @@ class MoneyTrackingService
                     $contractor = ContractorProfile::find($item->contractor_account_id);
                     $destinationAccount = $this->getOrCreateContractorAccount($contractor);
                     $transferDescription = "Contractor payment for: {$item->name}";
+                    
+                    Log::info("Item assigned to contractor", [
+                        'item_id' => $itemId,
+                        'contractor_id' => $contractor->id,
+                        'contractor_name' => $contractor->name,
+                        'destination_account_id' => $destinationAccount->id,
+                        'destination_account_balance_before' => $destinationAccount->balance
+                    ]);
                 } else {
                     // Business item - move to business account
                     $destinationAccount = $this->getOrCreateBusinessAccount($business);
                     $transferDescription = "Business payment for: {$item->name}";
+                    
+                    Log::info("Item assigned to business", [
+                        'item_id' => $itemId,
+                        'business_id' => $business->id,
+                        'business_name' => $business->name,
+                        'destination_account_id' => $destinationAccount->id,
+                        'destination_account_balance_before' => $destinationAccount->balance
+                    ]);
                 }
 
                 // Transfer money from client suspense to destination account
+                Log::info("Initiating money transfer", [
+                    'from_account_id' => $clientSuspenseAccount->id,
+                    'to_account_id' => $destinationAccount->id,
+                    'amount' => $totalAmount,
+                    'description' => $transferDescription
+                ]);
+
                 $transfer = $this->transferMoney(
                     $clientSuspenseAccount,
                     $destinationAccount,
@@ -1188,10 +1269,23 @@ class MoneyTrackingService
                     $transferDescription
                 );
 
+                Log::info("Money transfer completed", [
+                    'transfer_id' => $transfer->id,
+                    'from_account_balance_after' => $clientSuspenseAccount->fresh()->balance,
+                    'to_account_balance_after' => $destinationAccount->fresh()->balance
+                ]);
+
                 // Create balance statement for receiving account
                 if ($item->contractor_account_id) {
                     // Contractor account - create contractor balance statement
                     $contractor = ContractorProfile::find($item->contractor_account_id);
+                    
+                    Log::info("Creating contractor balance statement", [
+                        'contractor_id' => $contractor->id,
+                        'amount' => $totalAmount,
+                        'type' => 'credit'
+                    ]);
+                    
                     ContractorBalanceHistory::recordChange(
                         $contractor,
                         $totalAmount,
@@ -1202,6 +1296,12 @@ class MoneyTrackingService
                     );
                 } else {
                     // Business account - create business balance statement
+                    Log::info("Creating business balance statement", [
+                        'business_id' => $business->id,
+                        'amount' => $totalAmount,
+                        'type' => 'credit'
+                    ]);
+                    
                     BusinessBalanceHistory::recordChange(
                         $business,
                         $totalAmount,
@@ -1222,7 +1322,17 @@ class MoneyTrackingService
 
             // Handle service charge if applicable
             if ($invoice->service_charge > 0) {
+                Log::info("Processing service charge", [
+                    'service_charge_amount' => $invoice->service_charge,
+                    'invoice_id' => $invoice->id
+                ]);
+
                 $kashtreSuspenseAccount = $this->getOrCreateKashtreSuspenseAccount($business);
+                
+                Log::info("Kashtre suspense account details", [
+                    'kashtre_account_id' => $kashtreSuspenseAccount->id,
+                    'kashtre_account_balance_before' => $kashtreSuspenseAccount->balance
+                ]);
                 
                 $transfer = $this->transferMoney(
                     $clientSuspenseAccount,
@@ -1234,7 +1344,18 @@ class MoneyTrackingService
                     "Service charge for invoice {$invoice->invoice_number}"
                 );
 
+                Log::info("Service charge transfer completed", [
+                    'transfer_id' => $transfer->id,
+                    'kashtre_account_balance_after' => $kashtreSuspenseAccount->fresh()->balance
+                ]);
+
                 // Create balance statement for Kashtre account
+                Log::info("Creating Kashtre balance statement", [
+                    'business_id' => $business->id,
+                    'amount' => $invoice->service_charge,
+                    'type' => 'credit'
+                ]);
+
                 BusinessBalanceHistory::recordChange(
                     $business,
                     $invoice->service_charge,
@@ -1250,14 +1371,21 @@ class MoneyTrackingService
                     'destination' => $kashtreSuspenseAccount->name,
                     'transfer_id' => $transfer->id
                 ];
+            } else {
+                Log::info("No service charge to process", [
+                    'invoice_id' => $invoice->id,
+                    'service_charge' => $invoice->service_charge ?? 0
+                ]);
             }
 
             DB::commit();
 
-            Log::info("Save and exit processed - money moved from suspense accounts", [
+            Log::info("=== SAVE AND EXIT PROCESSING COMPLETED SUCCESSFULLY ===", [
                 'invoice_id' => $invoice->id,
                 'client_id' => $client->id,
-                'transfer_records_count' => count($transferRecords)
+                'transfer_records_count' => count($transferRecords),
+                'client_suspense_balance_final' => $clientSuspenseAccount->fresh()->balance,
+                'total_amount_processed' => array_sum(array_column($transferRecords, 'amount'))
             ]);
 
             return $transferRecords;
