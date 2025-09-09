@@ -398,8 +398,8 @@ class ServicePointController extends Controller
                 'invoice_id' => $invoice->id
             ]);
             
-            // Call the new processSaveAndExit method
-            $transferRecords = $moneyTrackingService->processSaveAndExit($invoice, [$itemData]);
+            // Call the new processSaveAndExit method with item status
+            $transferRecords = $moneyTrackingService->processSaveAndExit($invoice, [$itemData], $item->status);
             
             \Illuminate\Support\Facades\Log::info("Item money movement processed via processSaveAndExit", [
                 'item_id' => $item->item_id,

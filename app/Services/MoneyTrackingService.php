@@ -1168,7 +1168,7 @@ class MoneyTrackingService
      * Process "Save and Exit" - Move money from client suspense account to final accounts
      * This is called when the user clicks "save and exit" to finalize the order
      */
-    public function processSaveAndExit(Invoice $invoice, $items)
+    public function processSaveAndExit(Invoice $invoice, $items, $itemStatus = null)
     {
         try {
             Log::info("=== SAVE AND EXIT PROCESSING STARTED ===", [
@@ -1332,8 +1332,8 @@ class MoneyTrackingService
                 ];
             }
 
-            // Handle service charge if applicable (only once per invoice)
-            if ($invoice->service_charge > 0) {
+            // Handle service charge if applicable (only once per invoice and only for completed items)
+            if ($invoice->service_charge > 0 && $itemStatus === 'completed') {
                 // Check if service charge has already been processed for this invoice (any transfer type)
                 $existingServiceChargeTransfer = \App\Models\MoneyTransfer::where('invoice_id', $invoice->id)
                     ->where('description', 'like', '%Service charge for invoice%')
@@ -1346,9 +1346,10 @@ class MoneyTrackingService
                         'service_charge_amount' => $invoice->service_charge
                     ]);
                 } else {
-                    Log::info("Processing service charge", [
+                    Log::info("Processing service charge for completed item", [
                         'service_charge_amount' => $invoice->service_charge,
-                        'invoice_id' => $invoice->id
+                        'invoice_id' => $invoice->id,
+                        'item_status' => $itemStatus
                     ]);
 
                 $kashtreSuspenseAccount = $this->getOrCreateKashtreSuspenseAccount($business);
@@ -1402,10 +1403,19 @@ class MoneyTrackingService
                 ];
                 }
             } else {
-                Log::info("No service charge to process", [
-                    'invoice_id' => $invoice->id,
-                    'service_charge' => $invoice->service_charge ?? 0
-                ]);
+                if ($invoice->service_charge > 0 && $itemStatus !== 'completed') {
+                    Log::info("Service charge not processed - item not completed", [
+                        'invoice_id' => $invoice->id,
+                        'service_charge' => $invoice->service_charge,
+                        'item_status' => $itemStatus,
+                        'reason' => 'Service charge only processed for completed items'
+                    ]);
+                } else {
+                    Log::info("No service charge to process", [
+                        'invoice_id' => $invoice->id,
+                        'service_charge' => $invoice->service_charge ?? 0
+                    ]);
+                }
             }
 
             DB::commit();
