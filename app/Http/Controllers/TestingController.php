@@ -79,53 +79,99 @@ class TestingController extends Controller
 
             switch ($type) {
                 case 'queues':
-                    $count = ServiceDeliveryQueue::count();
-                    ServiceDeliveryQueue::truncate();
-                    $message = "Cleared {$count} service delivery queue records";
+                    try {
+                        $count = ServiceDeliveryQueue::count();
+                        Log::info('About to truncate ServiceDeliveryQueue', ['count' => $count]);
+                        ServiceDeliveryQueue::truncate();
+                        $message = "Cleared {$count} service delivery queue records";
+                        Log::info('Successfully truncated ServiceDeliveryQueue', ['count' => $count]);
+                    } catch (\Exception $e) {
+                        Log::error('Error truncating ServiceDeliveryQueue', ['error' => $e->getMessage()]);
+                        throw $e;
+                    }
                     break;
 
                 case 'transactions':
-                    $count = Transaction::count();
-                    Transaction::truncate();
-                    $message = "Cleared {$count} transaction records";
+                    try {
+                        $count = Transaction::count();
+                        Log::info('About to truncate Transaction', ['count' => $count]);
+                        Transaction::truncate();
+                        $message = "Cleared {$count} transaction records";
+                        Log::info('Successfully truncated Transaction', ['count' => $count]);
+                    } catch (\Exception $e) {
+                        Log::error('Error truncating Transaction', ['error' => $e->getMessage()]);
+                        throw $e;
+                    }
                     break;
 
                 case 'client-balances':
-                    // Reset all client balances to 0
-                    $clients = Client::all();
-                    foreach ($clients as $client) {
-                        $client->update(['balance' => 0]);
+                    try {
+                        // Reset all client balances to 0
+                        $clients = Client::all();
+                        Log::info('About to reset client balances', ['count' => $clients->count()]);
+                        foreach ($clients as $client) {
+                            $client->update(['balance' => 0]);
+                        }
+                        $count = $clients->count();
+                        $message = "Reset balance for {$count} clients to 0";
+                        Log::info('Successfully reset client balances', ['count' => $count]);
+                    } catch (\Exception $e) {
+                        Log::error('Error resetting client balances', ['error' => $e->getMessage()]);
+                        throw $e;
                     }
-                    $count = $clients->count();
-                    $message = "Reset balance for {$count} clients to 0";
                     break;
 
                 case 'kashtre-balance':
-                    // Reset Kashtre business balance (business_id = 1)
-                    $kashtreBusiness = Business::find(1);
-                    if ($kashtreBusiness) {
-                        $kashtreBusiness->update(['balance' => 0]);
-                        $count = 1;
-                        $message = "Reset Kashtre business balance to 0";
-                    } else {
-                        $message = "Kashtre business not found";
+                    try {
+                        // Reset Kashtre business balance (business_id = 1)
+                        $kashtreBusiness = Business::find(1);
+                        if ($kashtreBusiness) {
+                            Log::info('About to reset Kashtre business balance');
+                            $kashtreBusiness->update(['balance' => 0]);
+                            $count = 1;
+                            $message = "Reset Kashtre business balance to 0";
+                            Log::info('Successfully reset Kashtre business balance');
+                        } else {
+                            $message = "Kashtre business not found";
+                            Log::warning('Kashtre business not found');
+                        }
+                    } catch (\Exception $e) {
+                        Log::error('Error resetting Kashtre business balance', ['error' => $e->getMessage()]);
+                        throw $e;
                     }
                     break;
 
                 case 'business-balances':
-                    // Reset all business balances to 0
-                    $businesses = Business::all();
-                    foreach ($businesses as $business) {
-                        $business->update(['balance' => 0]);
+                    try {
+                        // Reset all business balances to 0
+                        $businesses = Business::all();
+                        Log::info('About to reset business balances', ['count' => $businesses->count()]);
+                        foreach ($businesses as $business) {
+                            $business->update(['balance' => 0]);
+                        }
+                        $count = $businesses->count();
+                        $message = "Reset balance for {$count} businesses to 0";
+                        Log::info('Successfully reset business balances', ['count' => $count]);
+                    } catch (\Exception $e) {
+                        Log::error('Error resetting business balances', ['error' => $e->getMessage()]);
+                        throw $e;
                     }
-                    $count = $businesses->count();
-                    $message = "Reset balance for {$count} businesses to 0";
                     break;
 
                 case 'statements':
-                    $count = BalanceHistory::count();
-                    BalanceHistory::truncate();
-                    $message = "Cleared {$count} balance history records for all users";
+                    try {
+                        $count = BalanceHistory::count();
+                        Log::info('About to truncate BalanceHistory', ['count' => $count]);
+                        BalanceHistory::truncate();
+                        $message = "Cleared {$count} balance history records for all users";
+                        Log::info('Successfully truncated BalanceHistory', ['count' => $count]);
+                    } catch (\Exception $e) {
+                        Log::error('Error truncating BalanceHistory', [
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                        throw $e;
+                    }
                     break;
 
                 default:
