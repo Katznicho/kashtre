@@ -71,7 +71,7 @@ class TestingController extends Controller
             $message = '';
 
             // Validate input
-            $allowedTypes = ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements', 'client-balance-statements', 'reset-payment-pending', 'check-queues', 'debug-balance'];
+            $allowedTypes = ['queues', 'transactions', 'client-balances', 'kashtre-balance', 'business-balances', 'statements', 'client-balance-statements', 'reset-payment-pending', 'check-queues', 'debug-balance', 'clear-business-3'];
             if (!in_array($type, $allowedTypes)) {
                 return response()->json([
                     'success' => false,
@@ -679,6 +679,92 @@ class TestingController extends Controller
                         
                     } catch (\Exception $e) {
                         Log::error('Error clearing suspense accounts', ['error' => $e->getMessage()]);
+                        throw $e;
+                    }
+                    break;
+
+                case 'clear-business-3':
+                    try {
+                        Log::info('=== CLEARING BUSINESS ID 3 DATA ===', [
+                            'business_id' => 3,
+                            'user_id' => $user->id,
+                            'user_name' => $user->name
+                        ]);
+
+                        $totalCleared = 0;
+                        $details = [];
+
+                        // Clear service delivery queues for business_id 3
+                        $queueCount = ServiceDeliveryQueue::where('business_id', 3)->count();
+                        if ($queueCount > 0) {
+                            ServiceDeliveryQueue::where('business_id', 3)->delete();
+                            $totalCleared += $queueCount;
+                            $details[] = "{$queueCount} service delivery queues";
+                            Log::info('Cleared service delivery queues for business 3', ['count' => $queueCount]);
+                        }
+
+                        // Clear transactions for business_id 3
+                        $transactionCount = Transaction::where('business_id', 3)->count();
+                        if ($transactionCount > 0) {
+                            Transaction::where('business_id', 3)->delete();
+                            $totalCleared += $transactionCount;
+                            $details[] = "{$transactionCount} transactions";
+                            Log::info('Cleared transactions for business 3', ['count' => $transactionCount]);
+                        }
+
+                        // Clear balance histories for business_id 3
+                        $balanceHistoryCount = BalanceHistory::whereHas('client', function($query) {
+                            $query->where('business_id', 3);
+                        })->count();
+                        if ($balanceHistoryCount > 0) {
+                            BalanceHistory::whereHas('client', function($query) {
+                                $query->where('business_id', 3);
+                            })->delete();
+                            $totalCleared += $balanceHistoryCount;
+                            $details[] = "{$balanceHistoryCount} balance histories";
+                            Log::info('Cleared balance histories for business 3', ['count' => $balanceHistoryCount]);
+                        }
+
+                        // Clear money accounts for business_id 3
+                        $moneyAccountCount = MoneyAccount::where('business_id', 3)->count();
+                        if ($moneyAccountCount > 0) {
+                            MoneyAccount::where('business_id', 3)->delete();
+                            $totalCleared += $moneyAccountCount;
+                            $details[] = "{$moneyAccountCount} money accounts";
+                            Log::info('Cleared money accounts for business 3', ['count' => $moneyAccountCount]);
+                        }
+
+                        // Clear package tracking for business_id 3
+                        $packageTrackingCount = PackageTracking::where('business_id', 3)->count();
+                        if ($packageTrackingCount > 0) {
+                            PackageTracking::where('business_id', 3)->delete();
+                            $totalCleared += $packageTrackingCount;
+                            $details[] = "{$packageTrackingCount} package tracking records";
+                            Log::info('Cleared package tracking for business 3', ['count' => $packageTrackingCount]);
+                        }
+
+                        // Clear package usage for business_id 3
+                        $packageUsageCount = PackageUsage::where('business_id', 3)->count();
+                        if ($packageUsageCount > 0) {
+                            PackageUsage::where('business_id', 3)->delete();
+                            $totalCleared += $packageUsageCount;
+                            $details[] = "{$packageUsageCount} package usage records";
+                            Log::info('Cleared package usage for business 3', ['count' => $packageUsageCount]);
+                        }
+
+                        $message = "Cleared {$totalCleared} records for Business ID 3: " . implode(', ', $details);
+                        $count = $totalCleared;
+
+                        Log::info('Business 3 data clearing completed', [
+                            'total_cleared' => $totalCleared,
+                            'details' => $details
+                        ]);
+
+                    } catch (\Exception $e) {
+                        Log::error('Error clearing business 3 data', [
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString()
+                        ]);
                         throw $e;
                     }
                     break;

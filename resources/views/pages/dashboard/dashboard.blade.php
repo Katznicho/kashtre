@@ -197,6 +197,15 @@
                             </svg>
                             <span>Debug Client Balance</span>
                         </button>
+
+                        <!-- Clear Business ID 3 Data -->
+                        <button onclick="clearData('clear-business-3')" 
+                                class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            <span>Clear Business ID 3</span>
+                        </button>
                     </div>
                 </div>
             @endif
@@ -415,7 +424,8 @@
                 'client-balance-statements': 'Are you sure you want to clear ALL client account statements? This action cannot be undone.',
                 'reset-payment-pending': 'Are you sure you want to reset the most recent completed payment back to pending? This will allow you to test the payment completion flow.',
                 'check-queues': 'This will show you information about service delivery queues without clearing any data.',
-                'debug-balance': 'This will debug client balance calculation and show detailed balance history information.'
+                'debug-balance': 'This will debug client balance calculation and show detailed balance history information.',
+                'clear-business-3': 'Are you sure you want to clear ALL data for Business ID 3 (queues, transactions, balances, money accounts, package tracking)? This action cannot be undone.'
             };
 
             Swal.fire({
