@@ -588,9 +588,6 @@
                     <button onclick="closeInvoicePreview()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">
                         Close
                     </button>
-                    <button id="export-tracking-btn" onclick="exportPackageTrackingNumbers()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors hidden">
-                        Export Tracking Numbers
-                    </button>
                     <button onclick="confirmAndSaveInvoice()" class="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
                         Confirm & Save
                     </button>
@@ -661,13 +658,13 @@
             
             // Handle prices checkbox
             if (showPricesCheckbox) {
-                showPricesCheckbox.addEventListener('change', function() {
+            showPricesCheckbox.addEventListener('change', function() {
                     console.log('Show prices checkbox changed:', this.checked);
-                    priceElements.forEach(element => {
-                        element.style.display = this.checked ? 'block' : 'none';
-                    });
+                priceElements.forEach(element => {
+                    element.style.display = this.checked ? 'block' : 'none';
                 });
-                
+            });
+            
                 // Initialize price display state
                 priceElements.forEach(element => {
                     element.style.display = showPricesCheckbox.checked ? 'block' : 'none';
@@ -1040,11 +1037,8 @@
                 trackingList.innerHTML = trackingHTML;
                 trackingSummaryContainer.classList.remove('hidden');
                 
-                // Show export button for packages
-                document.getElementById('export-tracking-btn').classList.remove('hidden');
             } else {
                 document.getElementById('package-tracking-summary').classList.add('hidden');
-                document.getElementById('export-tracking-btn').classList.add('hidden');
             }
             
             // Calculate balance adjustment first (needed for service charge calculation)
@@ -1739,43 +1733,6 @@
         }
         
         // Export package tracking numbers to CSV
-        function exportPackageTrackingNumbers() {
-            if (!window.packageTrackingNumbers || window.packageTrackingNumbers.size === 0) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'No Packages',
-                    text: 'No packages found to export tracking numbers.'
-                });
-                return;
-            }
-            
-            // Create CSV content
-            let csvContent = 'Package Name,Quantity,Tracking Number\n';
-            
-            cart.forEach(item => {
-                if (item.type === 'package') {
-                    const trackingNumber = window.packageTrackingNumbers.get(item.id) || 'N/A';
-                    csvContent += `"${item.displayName || item.name}",${item.quantity},"${trackingNumber}"\n`;
-                }
-            });
-            
-            // Create and download CSV file
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `package_tracking_numbers_${new Date().toISOString().split('T')[0]}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            Swal.fire({
-                icon: 'success',
-                title: 'Exported!',
-                text: 'Package tracking numbers have been exported to CSV.'
-            });
-        }
     </script>
     
     <!-- Payment Methods Modal -->

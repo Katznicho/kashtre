@@ -1424,20 +1424,6 @@ class MoneyTrackingService
                     'transfer_id' => $transfer->id
                 ];
                 }
-            } else {
-                if ($invoice->service_charge > 0 && !in_array($itemStatus, ['completed', 'partially_done'])) {
-                    Log::info("Service charge not processed - item not completed or partially done", [
-                        'invoice_id' => $invoice->id,
-                        'service_charge' => $invoice->service_charge,
-                        'item_status' => $itemStatus,
-                        'reason' => 'Service charge only processed for completed or partially done items'
-                    ]);
-                } else {
-                    Log::info("No service charge to process", [
-                        'invoice_id' => $invoice->id,
-                        'service_charge' => $invoice->service_charge ?? 0
-                    ]);
-                }
             }
 
             DB::commit();
