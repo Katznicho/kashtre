@@ -34,7 +34,7 @@
 
     <div class="py-6">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-
+            
             <!-- Section 1: Client Summary Details -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6" x-data="{ expanded: true }">
                 <div class="p-6">
@@ -46,7 +46,7 @@
                             </svg>
                             <svg x-show="!expanded" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                            </svg>
+                        </svg>
                         </button>
                     </div>
                     <div x-show="expanded" x-transition>
@@ -54,7 +54,7 @@
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Names</p>
                             <p class="text-lg font-semibold text-gray-900">{{ $client->name }}</p>
-                        </div>
+                </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Age</p>
                             <p class="text-lg font-semibold text-gray-900">{{ $client->age ?? 'N/A' }} years</p>
@@ -62,15 +62,15 @@
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Sex</p>
                             <p class="text-lg font-semibold text-gray-900">{{ ucfirst($client->sex) }}</p>
-                        </div>
+                    </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Client ID</p>
                             <p class="text-lg font-semibold text-gray-900">{{ $client->client_id }}</p>
-                        </div>
+                </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Visit ID</p>
                             <p class="text-lg font-semibold text-gray-900">{{ $client->visit_id }}</p>
-                        </div>
+            </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Payment Methods</p>
                             <div class="flex flex-wrap gap-1 mb-2 payment-methods-display">
@@ -108,12 +108,12 @@
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Contact Phone Number</p>
                             <p class="text-lg font-semibold text-gray-900">{{ $client->phone_number }}</p>
-                        </div>
+                            </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Email Address</p>
                             <p class="text-lg font-semibold text-gray-900">{{ $client->email ?? 'N/A' }}</p>
                         </div>
-                    </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -161,21 +161,21 @@
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Client Notes</h3>
                     <div class="border border-gray-200 rounded-lg">
                         <div class="p-4">
-                            @if(count($clientNotes) > 0)
-                                <div class="space-y-4">
-                                    @foreach($clientNotes as $note)
-                                        <div class="bg-gray-50 p-4 rounded-lg">
-                                            <div class="flex justify-between items-start mb-2">
-                                                <span class="text-sm font-medium text-gray-900">{{ $note->title ?? 'Note' }}</span>
-                                                <span class="text-xs text-gray-500">{{ $note->created_at->format('M d, Y H:i') }}</span>
-                                            </div>
-                                            <p class="text-gray-700">{{ $note->content }}</p>
-                                        </div>
-                                    @endforeach
+                    @if(count($clientNotes) > 0)
+                        <div class="space-y-4">
+                            @foreach($clientNotes as $note)
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <span class="text-sm font-medium text-gray-900">{{ $note->title ?? 'Note' }}</span>
+                                        <span class="text-xs text-gray-500">{{ $note->created_at->format('M d, Y H:i') }}</span>
+                                    </div>
+                                    <p class="text-gray-700">{{ $note->content }}</p>
                                 </div>
-                            @else
-                                <p class="text-gray-500 text-center py-4">No notes available for this client.</p>
-                            @endif
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-gray-500 text-center py-4">No notes available for this client.</p>
+                    @endif
                             <textarea placeholder="Add notes about this client..." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mt-4" rows="3"></textarea>
                             <div class="mt-3 flex justify-end">
                                 <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
@@ -240,10 +240,104 @@
                                 </div>
                                 
                                 <div id="items-container" class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                                    <div class="px-4 py-8 text-center text-gray-500">
-                                        <p>Item selection functionality available in full POS interface.</p>
-                                        <p class="text-sm mt-2">This section shows the same layout as the main POS system.</p>
+                                    @forelse($items as $item)
+                                    <div class="item-row px-4 py-3 hover:bg-gray-50" data-item-name="{{ strtolower($item->name) }}" data-item-display-name="{{ $item->display_name }}" data-item-other-names="{{ strtolower($item->other_names ?? '') }}" data-item-type="{{ $item->type ?? 'N/A' }}">
+                                        <div class="grid grid-cols-2 gap-4 items-center">
+                                            <div>
+                                                <span class="text-sm text-gray-900">{{ $item->display_name }}</span>
+                                                @php
+                                                    // Generate dynamic description based on item properties
+                                                    $description = '';
+                                                    if ($item->description && !empty(trim($item->description))) {
+                                                        $description = $item->description;
+                                                    } else {
+                                                        // Generate dynamic description based on item type and properties
+                                                        $descriptionParts = [];
+                                                        
+                                                        // Add type-specific description based on item name and type
+                                                        $itemName = strtolower($item->display_name ?? $item->name);
+                                                        
+                                                        // Generate intelligent descriptions based on item name patterns
+                                                        if (str_contains($itemName, 'amoxicillin')) {
+                                                            $descriptionParts[] = 'Antibiotic medication for bacterial infections';
+                                                        } elseif (str_contains($itemName, 'paracetamol') || str_contains($itemName, 'acetaminophen')) {
+                                                            $descriptionParts[] = 'Pain relief and fever reducer';
+                                                        } elseif (str_contains($itemName, 'ibuprofen')) {
+                                                            $descriptionParts[] = 'Anti-inflammatory pain relief';
+                                                        } elseif (str_contains($itemName, 'vitamin') || str_contains($itemName, 'supplement')) {
+                                                            $descriptionParts[] = 'Nutritional supplement';
+                                                        } elseif (str_contains($itemName, 'hair') || str_contains($itemName, 'shampoo') || str_contains($itemName, 'conditioner')) {
+                                                            $descriptionParts[] = 'Hair care product';
+                                                        } elseif (str_contains($itemName, 'treatment') || str_contains($itemName, 'therapy')) {
+                                                            $descriptionParts[] = 'Therapeutic treatment service';
+                                                        } else {
+                                                            // Fallback to type-based description
+                                                            switch ($item->type) {
+                                                                case 'bulk':
+                                                                    $descriptionParts[] = 'Bulk package containing multiple items';
+                                                                    break;
+                                                                case 'package':
+                                                                    $descriptionParts[] = 'Service package with included items';
+                                                                    break;
+                                                                case 'service':
+                                                                    $descriptionParts[] = 'Professional service';
+                                                                    break;
+                                                                case 'good':
+                                                                default:
+                                                                    $descriptionParts[] = 'Product item';
+                                                                    break;
+                                                            }
+                                                        }
+                                                        
+                                                        // Add variation descriptions
+                                                        if (str_contains($itemName, 'advanced') || str_contains($itemName, 'premium') || str_contains($itemName, 'deluxe') || str_contains($itemName, 'professional') || str_contains($itemName, 'enhanced')) {
+                                                            $descriptionParts[] = 'Premium quality variant';
+                                                        } elseif (str_contains($itemName, 'basic') || str_contains($itemName, 'standard') || str_contains($itemName, 'regular')) {
+                                                            $descriptionParts[] = 'Standard quality variant';
+                                                        } elseif (str_contains($itemName, 'economy') || str_contains($itemName, 'budget') || str_contains($itemName, 'value')) {
+                                                            $descriptionParts[] = 'Economy quality variant';
+                                                        }
+                                                        
+                                                        // Add additional properties
+                                                        if ($item->category && !empty(trim($item->category))) {
+                                                            $descriptionParts[] = "Category: {$item->category}";
+                                                        }
+                                                        
+                                                        if ($item->other_names && !empty(trim($item->other_names))) {
+                                                            $descriptionParts[] = "Also known as: {$item->other_names}";
+                                                        }
+                                                        
+                                                        if ($item->unit && !empty(trim($item->unit))) {
+                                                            $descriptionParts[] = "Unit: {$item->unit}";
+                                                        }
+                                                        
+                                                        $description = implode(' • ', $descriptionParts);
+                                                    }
+                                                @endphp
+                                                @if($description)
+                                                <p class="text-xs text-gray-500 mt-1 description-display">{{ $description }}</p>
+                                                @endif
+                                                <p class="text-xs text-gray-400 mt-1 price-display">UGX {{ number_format($item->default_price ?? 0, 0) }}</p>
+                                            </div>
+                                            <div>
+                                                <input type="number" 
+                                                       min="0" 
+                                                       step="1"
+                                                       value="0"
+                                                       data-item-id="{{ $item->id }}"
+                                                       data-item-name="{{ $item->display_name }}"
+                                                       data-item-type="{{ $item->type ?? 'good' }}"
+                                                       data-item-price="{{ $item->default_price ?? 0 }}"
+                                                       class="quantity-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                                       placeholder="0">
+                                            </div>
+                                        </div>
                                     </div>
+                                    @empty
+                                    <div class="px-4 py-8 text-center text-gray-500">
+                                        <p>No items available for this business.</p>
+                                    </div>
+                                    @endforelse
                                 </div>
                             </div>
                         </div>
@@ -409,17 +503,17 @@
                             </table>
                         </div>
                     </form>
-                    
-                    <!-- Save and Exit Button -->
-                    <div class="flex justify-end space-x-4 mt-6">
-                        <a href="{{ route('service-points.show', $servicePoint) }}" 
-                           class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
-                            Cancel
-                        </a>
-                        <button onclick="saveAndExit()" 
-                                class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors">
-                            Save and Exit
-                        </button>
+
+            <!-- Save and Exit Button -->
+            <div class="flex justify-end space-x-4 mt-6">
+                <a href="{{ route('service-points.show', $servicePoint) }}" 
+                   class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
+                    Cancel
+                </a>
+                <button onclick="saveAndExit()" 
+                        class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors">
+                    Save and Exit
+                </button>
                     </div>
                 </div>
             </div>
@@ -596,5 +690,196 @@
                 }
             });
         }
+
+        // POS Functionality
+        let selectedItems = [];
+        let showPrices = false;
+        let showDescriptions = false;
+
+        // Initialize POS functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            initializePOS();
+        });
+
+        function initializePOS() {
+            // Search functionality
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    filterItems(this.value);
+                });
+            }
+
+            // Show Prices checkbox
+            const showPricesCheckbox = document.getElementById('show-prices');
+            if (showPricesCheckbox) {
+                showPricesCheckbox.addEventListener('change', function() {
+                    showPrices = this.checked;
+                    togglePriceDisplay();
+                });
+            }
+
+            // Show Descriptions checkbox
+            const showDescriptionsCheckbox = document.getElementById('show-descriptions');
+            if (showDescriptionsCheckbox) {
+                showDescriptionsCheckbox.addEventListener('change', function() {
+                    showDescriptions = this.checked;
+                    toggleDescriptionDisplay();
+                });
+            }
+
+            // Quantity input changes
+            document.addEventListener('input', function(e) {
+                if (e.target.classList.contains('quantity-input')) {
+                    handleQuantityChange(e.target);
+                }
+            });
+        }
+
+        function filterItems(searchTerm) {
+            const items = document.querySelectorAll('.item-row');
+            const term = searchTerm.toLowerCase();
+            
+            items.forEach(item => {
+                const itemName = item.dataset.itemName || '';
+                const itemDisplayName = item.dataset.itemDisplayName || '';
+                const itemOtherNames = item.dataset.itemOtherNames || '';
+                
+                const matches = itemName.includes(term) || 
+                               itemDisplayName.toLowerCase().includes(term) || 
+                               itemOtherNames.includes(term);
+                
+                item.style.display = matches ? 'block' : 'none';
+            });
+        }
+
+        function togglePriceDisplay() {
+            const priceElements = document.querySelectorAll('.price-display');
+            priceElements.forEach(element => {
+                element.style.display = showPrices ? 'block' : 'none';
+            });
+        }
+
+        function toggleDescriptionDisplay() {
+            const descriptionElements = document.querySelectorAll('.description-display');
+            descriptionElements.forEach(element => {
+                element.style.display = showDescriptions ? 'block' : 'none';
+            });
+        }
+
+        function handleQuantityChange(input) {
+            const itemId = input.dataset.itemId;
+            const itemName = input.dataset.itemName;
+            const itemType = input.dataset.itemType;
+            const itemPrice = parseFloat(input.dataset.itemPrice);
+            const quantity = parseInt(input.value) || 0;
+
+            if (quantity > 0) {
+                addItemToOrder(itemId, itemName, itemType, itemPrice, quantity);
+            } else {
+                removeItemFromOrder(itemId);
+            }
+            
+            updateOrderSummary();
+        }
+
+        function addItemToOrder(itemId, itemName, itemType, itemPrice, quantity) {
+            const existingItemIndex = selectedItems.findIndex(item => item.id === itemId);
+            
+            if (existingItemIndex !== -1) {
+                selectedItems[existingItemIndex].quantity = quantity;
+                selectedItems[existingItemIndex].totalAmount = itemPrice * quantity;
+            } else {
+                selectedItems.push({
+                    id: itemId,
+                    name: itemName,
+                    type: itemType,
+                    price: itemPrice,
+                    quantity: quantity,
+                    totalAmount: itemPrice * quantity
+                });
+            }
+        }
+
+        function removeItemFromOrder(itemId) {
+            selectedItems = selectedItems.filter(item => item.id !== itemId);
+        }
+
+        function updateOrderSummary() {
+            const container = document.getElementById('selected-items-container');
+            const uniqueItemsSpan = document.getElementById('unique-items-count');
+            const totalQuantitySpan = document.getElementById('total-quantity');
+            const totalAmountSpan = document.getElementById('total-amount');
+
+            if (selectedItems.length === 0) {
+                container.innerHTML = '<div class="px-4 py-8 text-center text-gray-500">No items selected</div>';
+                uniqueItemsSpan.textContent = '0';
+                totalQuantitySpan.textContent = '0';
+                totalAmountSpan.textContent = 'UGX 0.00';
+                return;
+            }
+
+            let html = '';
+            let totalQuantity = 0;
+            let totalAmount = 0;
+
+            selectedItems.forEach(item => {
+                totalQuantity += item.quantity;
+                totalAmount += item.totalAmount;
+                
+                html += `
+                    <div class="px-4 py-3 grid grid-cols-5 gap-4 items-center">
+                        <div class="text-sm text-gray-900">${item.name}</div>
+                        <div class="text-sm text-gray-600">${item.type}</div>
+                        <div class="text-sm text-gray-900">${item.quantity}</div>
+                        <div class="text-sm text-gray-900">UGX ${item.price.toLocaleString()}</div>
+                        <div>
+                            <button onclick="removeItem(${item.id})" class="text-red-600 hover:text-red-800 text-sm">
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            uniqueItemsSpan.textContent = selectedItems.length;
+            totalQuantitySpan.textContent = totalQuantity;
+            totalAmountSpan.textContent = `UGX ${totalAmount.toLocaleString()}`;
+        }
+
+        function removeItem(itemId) {
+            // Reset the quantity input to 0
+            const input = document.querySelector(`input[data-item-id="${itemId}"]`);
+            if (input) {
+                input.value = '0';
+            }
+            
+            removeItemFromOrder(itemId);
+            updateOrderSummary();
+        }
+
+        // Preview Invoice functionality
+        document.addEventListener('click', function(e) {
+            if (e.target.textContent === 'Preview Invoice') {
+                if (selectedItems.length === 0) {
+                    Swal.fire({
+                        title: 'No Items Selected',
+                        text: 'Please select at least one item before previewing the invoice.',
+                        icon: 'warning',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                    return;
+                }
+
+                // Here you would typically redirect to a preview page or open a modal
+                Swal.fire({
+                    title: 'Preview Invoice',
+                    text: `Invoice preview for ${selectedItems.length} items totaling UGX ${selectedItems.reduce((sum, item) => sum + item.totalAmount, 0).toLocaleString()}`,
+                    icon: 'info',
+                    confirmButtonColor: '#3b82f6'
+                });
+            }
+        });
     </script>
 </x-app-layout>

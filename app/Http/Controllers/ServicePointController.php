@@ -170,6 +170,11 @@ class ServicePointController extends Controller
         $invoice = $clientItems->first()?->invoice;
         $correctTotalAmount = $invoice ? $invoice->total_amount : 0;
 
+        // Get items for the POS functionality
+        $items = \App\Models\Item::where('business_id', $client->business_id ?? 1)
+            ->orderBy('name')
+            ->get();
+
         return view('service-points.client-details', compact(
             'servicePoint', 
             'client', 
@@ -177,7 +182,8 @@ class ServicePointController extends Controller
             'partiallyDoneItems', 
             'clientStatement',
             'clientNotes',
-            'correctTotalAmount'
+            'correctTotalAmount',
+            'items'
         ));
     }
 
