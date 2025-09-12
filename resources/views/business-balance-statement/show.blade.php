@@ -47,9 +47,6 @@
                                             Amount
                                         </th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Payment Method
-                                        </th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Reference
                                         </th>
                                     </tr>
@@ -111,15 +108,6 @@
                                                 <span class="@if($history->type === 'credit') text-green-600 @else text-red-600 @endif font-semibold">
                                                     {{ $history->type === 'credit' ? '+' : '-' }}{{ number_format($history->amount, 0) }} UGX
                                                 </span>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                @if(isset($history->payment_method) && $history->payment_method)
-                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                                                        {{ ucfirst(str_replace('_', ' ', $history->payment_method)) }}
-                                                    </span>
-                                                @else
-                                                    <span class="text-gray-400">N/A</span>
-                                                @endif
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {{ $history->reference_number ?? '-' }}
