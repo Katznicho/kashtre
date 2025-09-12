@@ -1124,7 +1124,7 @@ class InvoiceController extends Controller
             // Initialize YoAPI for mobile money payment
             $yoPayments = new \App\Payments\YoAPI(config('payments.yo_username'), config('payments.yo_password'));
             $yoPayments->set_instant_notification_url('https://webhook.site/396126eb-cc9b-4c57-a7a9-58f43d2b7935');
-            $yoPayments->set_external_reference(uniqid());
+            $yoPayments->set_external_reference($transaction->reference);
             
             Log::info('Reinitiating mobile money payment', [
                 'original_phone' => $transaction->phone_number,
@@ -1153,10 +1153,22 @@ class InvoiceController extends Controller
                 ]);
                 
                 // Update the existing transaction with new external reference and reset status
+                // This updates the SAME transaction, does NOT create a new one
+                $oldExternalReference = $transaction->external_reference;
+                
                 $transaction->update([
                     'external_reference' => $result['TransactionReference'],
                     'status' => 'pending',
                     'updated_at' => now()
+                ]);
+                
+                Log::info("Existing transaction updated (NOT creating new transaction)", [
+                    'transaction_id' => $transaction->id,
+                    'reference' => $transaction->reference,
+                    'old_external_reference' => $oldExternalReference,
+                    'new_external_reference' => $result['TransactionReference'],
+                    'status_changed_from' => 'failed',
+                    'status_changed_to' => 'pending'
                 ]);
                 
                 // Update related invoice if exists
