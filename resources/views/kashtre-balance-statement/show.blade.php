@@ -100,6 +100,7 @@
                                     <div class="max-w-xs">
                                         @php
                                             $description = $history->description;
+                                            
                                             // Simplify descriptions for statements
                                             if (str_contains($description, 'Payment received via mobile_money')) {
                                                 $description = 'Mobile Money Payment';
@@ -108,6 +109,29 @@
                                             } elseif (str_contains($description, 'Payment received via')) {
                                                 $description = str_replace('Payment received via ', '', $description);
                                                 $description = ucwords(str_replace('_', ' ', $description)) . ' Payment';
+                                            } elseif (str_contains($description, 'Payment for:')) {
+                                                // Extract item names from "Payment for: Item1, Item2, Item3"
+                                                $description = str_replace('Payment for: ', '', $description);
+                                                
+                                                // Remove quantities and types (e.g., "(x2) - good")
+                                                $description = preg_replace('/\s*\(x\d+\)\s*-\s*\w+/', '', $description);
+                                                
+                                                // Remove client and business info (e.g., "for Tonny Musis (ID: DEH2123C) at Demo Hospital")
+                                                $description = preg_replace('/\s+for\s+[^,]+(?:\([^)]+\))?(?:\s+at\s+[^-]+)?/', '', $description);
+                                                
+                                                // Remove invoice reference (e.g., "- Invoice: P2025090013")
+                                                $description = preg_replace('/\s*-\s*Invoice:\s*[A-Z0-9]+/', '', $description);
+                                                
+                                                // Clean up any remaining extra spaces and commas
+                                                $description = preg_replace('/\s*,\s*$/', '', $description);
+                                                $description = preg_replace('/\s+/', ' ', trim($description));
+                                                
+                                                // If description is too long, truncate it
+                                                if (strlen($description) > 50) {
+                                                    $description = substr($description, 0, 47) . '...';
+                                                }
+                                            } elseif (str_contains($description, 'Service Charge')) {
+                                                $description = 'Service Charge';
                                             }
                                         @endphp
                                         {{ $description }}
