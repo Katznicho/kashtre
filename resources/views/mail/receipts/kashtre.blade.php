@@ -5,17 +5,12 @@ Dear KashTre Team,
 
 A transaction has been completed on the platform. Below are the transaction details for your records.
 
-## KashTre Commission Summary
+## Commission Summary
 
 **Invoice Number:** {{ $invoice->invoice_number }}  
 **Transaction Date:** {{ $invoice->created_at->format('F d, Y \a\t g:i A') }}  
-**KashTre Service Charge:** UGX {{ number_format($chargeAmount, 2) }}
-
----
-
-**Payment Status:** {{ ucfirst($invoice->payment_status) }}  
-**Invoice Status:** {{ ucfirst($invoice->status) }}  
-**Service Charge:** UGX {{ number_format($chargeAmount, 2) }}
+**Commission Earned:** UGX {{ number_format($chargeAmount, 2) }}  
+**Status:** {{ ucfirst($invoice->status) }}
 
 A detailed transaction record is attached to this email for your platform records.
 
