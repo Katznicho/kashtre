@@ -1281,7 +1281,6 @@ class MoneyTrackingService
                     // Handle regular items (good, service) as before
                     $this->processRegularItem($item, $totalAmount, $clientSuspenseAccount, $business, $invoice, $transferRecords);
                 }
-
             }
 
             // Handle service charge if applicable (only once per invoice and when item is completed or partially done)
@@ -1317,9 +1316,7 @@ class MoneyTrackingService
                 'invoice_id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
                 'package_adjustment' => $invoice->package_adjustment,
-                'item_status' => $itemStatus,
-                'item_id' => $item->id ?? 'unknown',
-                'item_name' => $item->name ?? 'unknown'
+                'item_status' => $itemStatus
             ]);
 
             if ($invoice->package_adjustment > 0 && in_array($itemStatus, ['completed', 'partially_done'])) {
