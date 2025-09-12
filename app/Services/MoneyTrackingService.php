@@ -1300,8 +1300,36 @@ class MoneyTrackingService
                     ]);
                     $shouldProcessServiceCharge = true;
                 }
+            }
+
+            // Handle package adjustment money movement (only once per package and when package items are used)
+            if ($invoice->package_adjustment > 0 && in_array($itemStatus, ['completed', 'partially_done'])) {
+                // Check if package adjustment has already been processed for this invoice
+                $existingPackageAdjustmentTransfer = \App\Models\MoneyTransfer::where('invoice_id', $invoice->id)
+                    ->where('description', 'like', '%Package adjustment for invoice%')
+                    ->first();
                 
-                if ($shouldProcessServiceCharge) {
+                if ($existingPackageAdjustmentTransfer) {
+                    Log::info("Package adjustment already processed for this invoice - skipping", [
+                        'invoice_id' => $invoice->id,
+                        'existing_transfer_id' => $existingPackageAdjustmentTransfer->id,
+                        'package_adjustment_amount' => $invoice->package_adjustment,
+                        'reason' => 'Package adjustment transfer record already exists for this invoice'
+                    ]);
+                } else {
+                    Log::info("Processing package adjustment money movement", [
+                        'package_adjustment_amount' => $invoice->package_adjustment,
+                        'invoice_id' => $invoice->id,
+                        'item_status' => $itemStatus,
+                        'reason' => 'Package items are being used - moving package adjustment money to business account'
+                    ]);
+                    
+                    // Move package adjustment money from client suspense to business account
+                    $this->processPackageAdjustmentMoneyMovement($invoice, $clientSuspenseAccount, $business, $transferRecords);
+                }
+            }
+
+            if ($shouldProcessServiceCharge) {
 
                 $kashtreSuspenseAccount = $this->getOrCreateKashtreSuspenseAccount($business);
                 
@@ -1644,5 +1672,63 @@ class MoneyTrackingService
             'item_id' => $item->id,
             'total_amount' => $totalAmount
         ]);
+    }
+
+    /**
+     * Process package adjustment money movement from client suspense to business account
+     * This is called only when package items are actually used (Save & Exit)
+     */
+    private function processPackageAdjustmentMoneyMovement($invoice, $clientSuspenseAccount, $business, &$transferRecords)
+    {
+        $packageAdjustmentAmount = $invoice->package_adjustment;
+        
+        Log::info("=== PROCESSING PACKAGE ADJUSTMENT MONEY MOVEMENT ===", [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'package_adjustment_amount' => $packageAdjustmentAmount,
+            'client_suspense_account_id' => $clientSuspenseAccount->id,
+            'business_id' => $business->id,
+            'business_name' => $business->name
+        ]);
+
+        // Get business account
+        $businessAccount = $this->getOrCreateBusinessAccount($business);
+        
+        // Create transfer record from client suspense to business account
+        $transfer = MoneyTransfer::create([
+            'business_id' => $business->id,
+            'from_account_id' => $clientSuspenseAccount->id,
+            'to_account_id' => $businessAccount->id,
+            'amount' => $packageAdjustmentAmount,
+            'type' => 'package_adjustment_transfer',
+            'description' => "Package adjustment for invoice {$invoice->invoice_number}",
+            'reference' => $invoice->invoice_number,
+            'invoice_id' => $invoice->id,
+            'metadata' => [
+                'invoice_number' => $invoice->invoice_number,
+                'description' => 'Package adjustment money moved to business account when package items were used'
+            ]
+        ]);
+
+        // Update account balances
+        $this->updateAccountBalance($clientSuspenseAccount->id, $packageAdjustmentAmount, 'debit');
+        $this->updateAccountBalance($businessAccount->id, $packageAdjustmentAmount, 'credit');
+
+        Log::info("Package adjustment money movement completed", [
+            'transfer_id' => $transfer->id,
+            'amount' => $packageAdjustmentAmount,
+            'from_account' => $clientSuspenseAccount->name,
+            'to_account' => $businessAccount->name,
+            'client_suspense_balance_after' => $clientSuspenseAccount->fresh()->balance,
+            'business_account_balance_after' => $businessAccount->fresh()->balance
+        ]);
+
+        $transferRecords[] = [
+            'item_name' => 'Package Adjustment',
+            'amount' => $packageAdjustmentAmount,
+            'destination' => $businessAccount->name,
+            'transfer_id' => $transfer->id,
+            'description' => "Package adjustment money moved to business account"
+        ];
     }
 }
