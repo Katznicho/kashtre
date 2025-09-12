@@ -859,7 +859,10 @@
             updateOrderSummary();
         }
 
-        // Preview Invoice functionality
+        // Initialize package tracking numbers storage
+        window.packageTrackingNumbers = new Map();
+
+        // Preview Invoice functionality - Full POS functionality
         document.addEventListener('click', function(e) {
             if (e.target.textContent === 'Preview Invoice') {
                 if (selectedItems.length === 0) {
@@ -872,14 +875,521 @@
                     return;
                 }
 
-                // Here you would typically redirect to a preview page or open a modal
-                Swal.fire({
-                    title: 'Preview Invoice',
-                    text: `Invoice preview for ${selectedItems.length} items totaling UGX ${selectedItems.reduce((sum, item) => sum + item.totalAmount, 0).toLocaleString()}`,
-                    icon: 'info',
-                    confirmButtonColor: '#3b82f6'
-                });
+                showInvoicePreview();
             }
         });
+
+        async function showInvoicePreview() {
+            if (selectedItems.length === 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Empty Cart',
+                    text: 'Please add items to cart before previewing invoice'
+                });
+                return;
+            }
+            
+            // Generate invoice number
+            try {
+                const response = await fetch('/invoices/generate-invoice-number', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        business_id: {{ auth()->user()->business->id }}
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.invoice_number) {
+                    document.getElementById('invoice-number-display').textContent = data.invoice_number;
+                } else {
+                    document.getElementById('invoice-number-display').textContent = 'Error generating invoice number';
+                }
+            } catch (error) {
+                console.error('Error generating invoice number:', error);
+                document.getElementById('invoice-number-display').textContent = 'Error generating invoice number';
+            }
+            
+            // Populate invoice items table
+            const invoiceTable = document.getElementById('invoice-items-table');
+            let tableHTML = '';
+            let subtotal = 0;
+            
+            selectedItems.forEach(item => {
+                const itemTotal = (item.price || 0) * (item.quantity || 0);
+                subtotal += itemTotal;
+                
+                tableHTML += `
+                    <tr class="bg-white">
+                        <td class="border border-gray-300 px-4 py-2">${item.displayName || item.name}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-center">${item.type || 'N/A'}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-center">${item.quantity}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-right">UGX ${(item.price || 0).toLocaleString()}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-right">UGX ${itemTotal.toLocaleString()}</td>
+                    </tr>
+                `;
+            });
+            
+            invoiceTable.innerHTML = tableHTML;
+            
+            // Calculate package adjustment
+            const packageAdjustmentData = await calculatePackageAdjustment();
+            const packageAdjustment = packageAdjustmentData.total_adjustment;
+            
+            // Calculate service charge
+            const serviceCharge = await calculateServiceCharge(subtotal);
+            const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
+            const subtotalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
+            
+            // Calculate balance adjustment
+            const balanceAdjustmentData = await calculateBalanceAdjustment(subtotalWithServiceCharge);
+            const balanceAdjustment = parseFloat(balanceAdjustmentData.balance_adjustment) || 0;
+            const totalAmount = parseFloat(subtotalWithServiceCharge) - parseFloat(balanceAdjustment);
+            
+            // Update financial summary
+            document.getElementById('invoice-subtotal').textContent = `UGX ${parseFloat(subtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('package-adjustment-display').textContent = `UGX ${parseFloat(packageAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('balance-adjustment-display').textContent = `UGX ${parseFloat(balanceAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('invoice-subtotal-2').textContent = `UGX ${parseFloat(adjustedSubtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('service-charge-display').textContent = `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('invoice-final-total').textContent = `UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            // Show the modal
+            document.getElementById('invoice-preview-modal').classList.remove('hidden');
+        }
+
+        function closeInvoicePreview() {
+            document.getElementById('invoice-preview-modal').classList.add('hidden');
+        }
+
+        async function calculatePackageAdjustment() {
+            try {
+                const response = await fetch('/invoices/calculate-package-adjustment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        items: selectedItems,
+                        business_id: {{ auth()->user()->business_id }}
+                    })
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error calculating package adjustment:', error);
+                return { total_adjustment: 0, details: [] };
+            }
+        }
+
+        async function calculateServiceCharge(amount) {
+            try {
+                const response = await fetch('/invoices/calculate-service-charge', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        amount: amount,
+                        business_id: {{ auth()->user()->business_id }}
+                    })
+                });
+                
+                const data = await response.json();
+                return data.service_charge || 0;
+            } catch (error) {
+                console.error('Error calculating service charge:', error);
+                return 0;
+            }
+        }
+
+        async function calculateBalanceAdjustment(amount) {
+            try {
+                const response = await fetch('/invoices/calculate-balance-adjustment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        amount: amount,
+                        business_id: {{ auth()->user()->business_id }},
+                        client_id: {{ $client->id }}
+                    })
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error calculating balance adjustment:', error);
+                return { balance_adjustment: 0 };
+            }
+        }
+
+        async function confirmAndSaveInvoice() {
+            if (selectedItems.length === 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Empty Cart',
+                    text: 'Please add items to cart before saving invoice'
+                });
+                return;
+            }
+            
+            // Confirm with SweetAlert2
+            const result = await Swal.fire({
+                title: 'Confirm Invoice',
+                text: 'Are you sure you want to save this invoice?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, save it!',
+                cancelButtonText: 'Cancel'
+            });
+            
+            if (!result.isConfirmed) {
+                return;
+            }
+            
+            // Show loading state
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = 'Saving...';
+            button.disabled = true;
+            
+            try {
+                // Calculate totals
+                let subtotal = 0;
+                selectedItems.forEach(item => {
+                    subtotal += parseFloat(item.price || 0) * parseInt(item.quantity || 0);
+                });
+                
+                const packageAdjustmentData = await calculatePackageAdjustment();
+                const packageAdjustment = parseFloat(packageAdjustmentData.total_adjustment) || 0;
+                const serviceCharge = await calculateServiceCharge(subtotal);
+                const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
+                const subtotalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
+                
+                // Calculate balance adjustment
+                const balanceAdjustmentData = await calculateBalanceAdjustment(subtotalWithServiceCharge);
+                const balanceAdjustment = parseFloat(balanceAdjustmentData.balance_adjustment) || 0;
+                const totalAmount = parseFloat(subtotalWithServiceCharge) - parseFloat(balanceAdjustment);
+                
+                // Get payment phone and methods
+                const paymentPhone = document.getElementById('payment-phone-edit')?.value || '';
+                const paymentMethods = Array.from(document.querySelectorAll('input[name="payment_methods[]"]:checked'))
+                    .map(cb => cb.value);
+                
+                // Check if mobile money is selected and process payment
+                let paymentResult = null;
+                let amountPaid = 0;
+                
+                if (paymentMethods.includes('mobile_money') && paymentPhone) {
+                    // Show payment processing dialog
+                    Swal.fire({
+                        title: 'Processing Mobile Money Payment',
+                        html: `
+                            <div class="text-center">
+                                <div class="mb-4">
+                                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                                </div>
+                                <p class="text-lg font-semibold">UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                <p class="text-sm text-gray-600">To: ${paymentPhone}</p>
+                                <p class="text-sm text-gray-500 mt-2">Please wait while we process your payment...</p>
+                            </div>
+                        `,
+                        showConfirmButton: false,
+                        allowOutsideClick: false,
+                        allowEscapeKey: false
+                    });
+                    
+                    // Process mobile money payment
+                    paymentResult = await processMobileMoneyPayment(totalAmount, paymentPhone);
+                    
+                    if (paymentResult.success) {
+                        amountPaid = totalAmount;
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Payment Successful!',
+                            html: `
+                                <div class="text-center">
+                                    <p class="text-lg font-semibold text-green-600">UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                    <p class="text-sm text-gray-600">Transaction ID: ${paymentResult.transaction_id}</p>
+                                    <p class="text-sm text-gray-500">Paid via Mobile Money</p>
+                                </div>
+                            `,
+                            confirmButtonText: 'Great!'
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Payment Failed',
+                            text: 'Mobile money payment could not be processed. Please try again.',
+                            confirmButtonText: 'OK'
+                        });
+                        return;
+                    }
+                }
+                
+                // Prepare items with totals
+                const itemsWithTotals = selectedItems.map(item => ({
+                    ...item,
+                    total_amount: parseFloat(item.price || 0) * parseInt(item.quantity || 0)
+                }));
+                
+                // Create invoice data
+                const invoiceData = {
+                    invoice_number: document.getElementById('invoice-number-display').textContent,
+                    business_id: {{ auth()->user()->business_id }},
+                    client_id: {{ $client->id }},
+                    branch_id: {{ auth()->user()->currentBranch->id ?? 'null' }},
+                    service_point_id: {{ $servicePoint->id }},
+                    created_by: {{ auth()->id() }},
+                    client_name: '{{ $client->name }}',
+                    client_phone: '{{ $client->phone_number }}',
+                    payment_phone: paymentPhone,
+                    visit_id: '{{ $client->visit_id }}',
+                    items: itemsWithTotals,
+                    subtotal: parseFloat(subtotal),
+                    package_adjustment: parseFloat(packageAdjustment),
+                    service_charge: parseFloat(serviceCharge),
+                    balance_adjustment: parseFloat(balanceAdjustment),
+                    total_amount: parseFloat(totalAmount),
+                    amount_paid: parseFloat(amountPaid),
+                    balance_due: parseFloat(totalAmount - amountPaid),
+                    payment_methods: paymentMethods,
+                    payment_status: amountPaid >= totalAmount ? 'paid' : 'pending',
+                    status: 'confirmed',
+                    notes: ''
+                };
+                
+                // Send invoice data to backend
+                const response = await fetch('/invoices', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(invoiceData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Invoice Saved Successfully!',
+                        html: `
+                            <div class="text-center">
+                                <p class="text-lg font-semibold text-green-600">Invoice #${result.invoice.invoice_number}</p>
+                                <p class="text-sm text-gray-600">Total: UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                ${amountPaid > 0 ? `<p class="text-sm text-green-600">Payment: UGX ${parseFloat(amountPaid).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>` : ''}
+                            </div>
+                        `,
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        // Clear the cart and close modal
+                        selectedItems = [];
+                        updateOrderSummary();
+                        closeInvoicePreview();
+                        
+                        // Reload the page to show updated data
+                        window.location.reload();
+                    });
+                } else {
+                    throw new Error(result.message || 'Failed to save invoice');
+                }
+                
+            } catch (error) {
+                console.error('Error saving invoice:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to save invoice: ' + error.message,
+                    confirmButtonText: 'OK'
+                });
+            } finally {
+                // Restore button state
+                button.textContent = originalText;
+                button.disabled = false;
+            }
+        }
+
+        async function processMobileMoneyPayment(amount, phoneNumber) {
+            try {
+                // Prepare payment data
+                const paymentData = {
+                    amount: amount,
+                    phone_number: phoneNumber,
+                    client_id: {{ $client->id }},
+                    business_id: {{ auth()->user()->business_id }},
+                    items: selectedItems,
+                    invoice_number: document.getElementById('invoice-number-display').textContent
+                };
+                
+                // Send payment request to backend
+                const response = await fetch('/invoices/mobile-money-payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(paymentData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    return {
+                        success: true,
+                        transaction_id: result.transaction_id,
+                        amount: amount,
+                        phone: phoneNumber,
+                        status: result.status || 'success',
+                        message: result.message || 'Payment processed successfully',
+                        description: result.description
+                    };
+                } else {
+                    return {
+                        success: false,
+                        message: result.message || 'Payment failed',
+                        error: result.error
+                    };
+                }
+            } catch (error) {
+                console.error('Mobile money payment error:', error);
+                return {
+                    success: false,
+                    message: 'Error processing mobile money payment',
+                    error: error.message
+                };
+            }
+        }
     </script>
+
+    <!-- Invoice Preview Modal -->
+    <div id="invoice-preview-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <!-- Header -->
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Invoice Preview</h2>
+                    <div class="text-right">
+                        <p class="text-sm text-gray-600">Invoice Number</p>
+                        <p id="invoice-number-display" class="text-lg font-semibold text-gray-900">Generating...</p>
+                    </div>
+                </div>
+                
+                <!-- Client and Transaction Details -->
+                <div class="grid grid-cols-2 gap-4 mb-6 text-sm text-gray-700">
+                    <div>
+                        <p><strong>Payment Phone:</strong> {{ $client->payment_phone_number ?? 'N/A' }}</p>
+                        <p><strong>Client:</strong> {{ $client->name }} {{ $client->client_id }}</p>
+                        <p><strong>Visit ID:</strong> {{ $client->visit_id }}</p>
+                        <p><strong>Branch Name:</strong> {{ auth()->user()->currentBranch->name ?? 'N/A' }}</p>
+                    </div>
+                    <div>
+                        <p><strong>Date:</strong> {{ now()->format('n/j/Y') }}</p>
+                        <p><strong>Hospital:</strong> {{ auth()->user()->business->name ?? 'N/A' }}</p>
+                        <p><strong>Attended To By:</strong> {{ auth()->user()->name }} {{ auth()->user()->business->name ?? '' }}</p>
+                    </div>
+                </div>
+                
+                <!-- Items Table -->
+                <div class="mb-6">
+                    <table class="w-full border-collapse border border-gray-300">
+                        <thead>
+                            <tr class="bg-blue-600 text-white">
+                                <th class="border border-gray-300 px-4 py-2 text-left">Item</th>
+                                <th class="border border-gray-300 px-4 py-2 text-center">Type</th>
+                                <th class="border border-gray-300 px-4 py-2 text-center">Quantity</th>
+                                <th class="border border-gray-300 px-4 py-2 text-right">Price</th>
+                                <th class="border border-gray-300 px-4 py-2 text-right">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoice-items-table">
+                            <!-- Items will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Package Adjustment Details -->
+                <div id="package-adjustment-details" class="mb-6 hidden">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Package Adjustments Applied</h3>
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div id="package-adjustment-list" class="space-y-2">
+                            <!-- Package adjustment details will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Financial Summary -->
+                <div class="text-right space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span>Subtotal 1:</span>
+                        <span id="invoice-subtotal">UGX 0.00</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Package Adjustment:</span>
+                        <span id="package-adjustment-display">UGX 0.00</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Account Balance(A/c) Adjustment:</span>
+                        <span id="balance-adjustment-display">UGX 0.00</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Subtotal 2:</span>
+                        <span id="invoice-subtotal-2">UGX 0.00</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Service Charge:</span>
+                        <span id="service-charge-display">UGX 0.00</span>
+                    </div>
+                    <div class="text-xs text-gray-500 text-right italic" id="service-charge-note">
+                        No charges for this amount range
+                    </div>
+                    <div class="flex justify-between text-lg font-bold border-t pt-2">
+                        <span>Total:</span>
+                        <span id="invoice-final-total">UGX 0.00</span>
+                    </div>
+                </div>
+                
+                <!-- Package Tracking Numbers Summary -->
+                <div id="package-tracking-summary" class="mb-6 hidden">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Package Tracking Numbers</h3>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div id="package-tracking-list" class="space-y-2">
+                            <!-- Package tracking numbers will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button onclick="closeInvoicePreview()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">
+                        Close
+                    </button>
+                    <button id="export-tracking-btn" onclick="exportPackageTrackingNumbers()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors hidden">
+                        Export Tracking Numbers
+                    </button>
+                    <button onclick="confirmAndSaveInvoice()" class="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
+                        Confirm & Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </x-app-layout>
