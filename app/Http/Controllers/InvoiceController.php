@@ -1159,15 +1159,21 @@ class InvoiceController extends Controller
                 $phone = $phone;
             }
             
+            // Generate a new unique external reference for the retry
+            // This prevents YoAPI duplicate transaction errors
+            $newExternalReference = 'RETRY_' . $transaction->reference . '_' . time() . '_' . uniqid();
+            
             // Initialize YoAPI for mobile money payment
             $yoPayments = new \App\Payments\YoAPI(config('payments.yo_username'), config('payments.yo_password'));
             $yoPayments->set_instant_notification_url('https://webhook.site/396126eb-cc9b-4c57-a7a9-58f43d2b7935');
-            $yoPayments->set_external_reference($transaction->reference);
+            $yoPayments->set_external_reference($newExternalReference);
             
             Log::info('YoAPI initialized for retry', [
                 'yo_username' => config('payments.yo_username'),
                 'yo_password_set' => !empty(config('payments.yo_password')),
-                'external_reference' => $transaction->reference,
+                'old_external_reference' => $transaction->external_reference,
+                'new_external_reference' => $newExternalReference,
+                'transaction_reference' => $transaction->reference,
                 'notification_url' => 'https://webhook.site/396126eb-cc9b-4c57-a7a9-58f43d2b7935'
             ]);
             
@@ -1178,7 +1184,9 @@ class InvoiceController extends Controller
                 'description' => $transaction->description,
                 'client_id' => $transaction->client_id,
                 'business_id' => $transaction->business_id,
-                'external_reference' => $transaction->reference
+                'old_external_reference' => $transaction->external_reference,
+                'new_external_reference' => $newExternalReference,
+                'transaction_reference' => $transaction->reference
             ]);
             
             // Process payment through YoAPI
@@ -1227,11 +1235,12 @@ class InvoiceController extends Controller
                     'updated_at' => now()
                 ]);
                 
-                Log::info("Existing transaction updated (NOT creating new transaction)", [
+                Log::info("✅ Existing transaction updated (NOT creating new transaction)", [
                     'transaction_id' => $transaction->id,
                     'reference' => $transaction->reference,
                     'old_external_reference' => $oldExternalReference,
-                    'new_external_reference' => $result['TransactionReference'],
+                    'our_new_external_reference' => $newExternalReference,
+                    'yoapi_transaction_reference' => $result['TransactionReference'],
                     'status_changed_from' => 'failed',
                     'status_changed_to' => 'pending'
                 ]);
