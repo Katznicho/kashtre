@@ -165,7 +165,7 @@
                         <div>
                             <dl class="space-y-3">
                                 <div class="flex justify-between">
-                                    <dt class="text-sm font-medium text-gray-500">Subtotal</dt>
+                                    <dt class="text-sm font-medium text-gray-500">Subtotal 1</dt>
                                     <dd class="text-sm text-gray-900">UGX {{ number_format($invoice->subtotal, 2) }}</dd>
                                 </div>
                                 @if($invoice->package_adjustment != 0)
@@ -180,6 +180,10 @@
                                     <dd class="text-sm text-gray-900">UGX {{ number_format($invoice->account_balance_adjustment, 2) }}</dd>
                                 </div>
                                 @endif
+                                <div class="flex justify-between">
+                                    <dt class="text-sm font-medium text-gray-500">Subtotal 2</dt>
+                                    <dd class="text-sm text-gray-900">UGX {{ number_format($invoice->subtotal - ($invoice->package_adjustment ?? 0) - ($invoice->account_balance_adjustment ?? 0), 2) }}</dd>
+                                </div>
                                 @if($invoice->service_charge > 0)
                                 <div class="flex justify-between">
                                     <dt class="text-sm font-medium text-gray-500">Service Charge</dt>
@@ -187,7 +191,7 @@
                                 </div>
                                 @endif
                                 <div class="flex justify-between border-t pt-3">
-                                    <dt class="text-lg font-bold text-gray-900">Total Amount</dt>
+                                    <dt class="text-lg font-bold text-gray-900">Total</dt>
                                     <dd class="text-lg font-bold text-gray-900">UGX {{ number_format($invoice->total_amount, 2) }}</dd>
                                 </div>
                                 <div class="flex justify-between">
@@ -285,10 +289,156 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Failed Transactions & Reinitiation Section -->
+            @php
+                $failedTransactions = \App\Models\Transaction::where('invoice_id', $invoice->id)
+                    ->where('status', 'failed')
+                    ->where('method', 'mobile_money')
+                    ->where('provider', 'yo')
+                    ->get();
+            @endphp
+            
+            @if($failedTransactions->count() > 0)
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Failed Transactions</h3>
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                        <div class="flex items-center">
+                            <svg class="h-5 w-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                            </svg>
+                            <p class="text-sm text-red-800">
+                                This invoice has {{ $failedTransactions->count() }} failed mobile money transaction(s). 
+                                You can reinitiate payment for these transactions.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    @foreach($failedTransactions as $transaction)
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-3">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="text-sm font-medium text-gray-900">
+                                    Transaction #{{ $transaction->id }}
+                                </p>
+                                <p class="text-xs text-gray-500">
+                                    Amount: UGX {{ number_format($transaction->amount, 2) }}
+                                </p>
+                                <p class="text-xs text-gray-500">
+                                    Reference: {{ $transaction->external_reference ?? $transaction->reference ?? 'N/A' }}
+                                </p>
+                                <p class="text-xs text-gray-500">
+                                    Failed: {{ $transaction->updated_at->format('M d, Y H:i:s') }}
+                                </p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button onclick="reinitiateTransaction({{ $transaction->id }})" 
+                                        class="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors">
+                                    Reinitiate Payment
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    @endforeach
+                    
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <button onclick="reinitiateAllFailedTransactions({{ $invoice->id }})" 
+                                class="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors">
+                            Reinitiate All Failed Transactions
+                        </button>
+                    </div>
+                </div>
+            </div>
+            @endif
         </div>
     </div>
 
     <script>
+        // Reinitiate a single failed transaction
+        async function reinitiateTransaction(transactionId) {
+            try {
+                const response = await fetch('/invoices/reinitiate-failed-transaction', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({
+                        transaction_id: transactionId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Payment Reinitiated!',
+                        text: data.message || 'Payment has been reinitiated successfully.'
+                    }).then(() => {
+                        // Reload the page to show updated status
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        text: data.message || 'Failed to reinitiate payment.'
+                    });
+                }
+            } catch (error) {
+                console.error('Error reinitiating transaction:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: 'An error occurred while reinitiating the payment.'
+                });
+            }
+        }
+
+        // Reinitiate all failed transactions for an invoice
+        async function reinitiateAllFailedTransactions(invoiceId) {
+            try {
+                const response = await fetch('/invoices/reinitiate-failed-invoice', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({
+                        invoice_id: invoiceId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'All Payments Reinitiated!',
+                        text: data.message || 'All failed payments have been reinitiated successfully.'
+                    }).then(() => {
+                        // Reload the page to show updated status
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        text: data.message || 'Failed to reinitiate payments.'
+                    });
+                }
+            } catch (error) {
+                console.error('Error reinitiating all transactions:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: 'An error occurred while reinitiating the payments.'
+                });
+            }
+        }
+
         async function generateQuotation(invoiceId) {
             try {
                 console.log('Generating quotation for invoice:', invoiceId);
