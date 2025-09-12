@@ -1048,8 +1048,9 @@
             }
             
             // Calculate totals with dynamic service charge
-            const serviceCharge = await calculateServiceCharge(subtotal);
-            const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
+            // Service charge should be calculated based on subtotal_2 (after package and balance adjustments)
+            const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment) + parseFloat(balanceAdjustment);
+            const serviceCharge = await calculateServiceCharge(adjustedSubtotal);
             const subtotalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
             
             // Calculate balance adjustment
