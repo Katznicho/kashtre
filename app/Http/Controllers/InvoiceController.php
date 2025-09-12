@@ -1842,6 +1842,89 @@ class InvoiceController extends Controller
     }
 
     /**
+     * Manually complete a transaction and send receipts (for testing)
+     */
+    public function manuallyCompleteTransaction(Invoice $invoice)
+    {
+        try {
+            $user = Auth::user();
+            
+            // Check if user has access to this invoice
+            if ($invoice->business_id !== $user->business_id) {
+                abort(403, 'Unauthorized access to invoice.');
+            }
+            
+            Log::info("=== MANUAL TRANSACTION COMPLETION STARTED ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'user_id' => $user->id,
+                'current_invoice_status' => $invoice->status,
+                'current_payment_status' => $invoice->payment_status
+            ]);
+
+            // Update invoice status to paid
+            $invoice->update([
+                'status' => 'paid',
+                'payment_status' => 'paid'
+            ]);
+
+            Log::info("Invoice status updated to paid manually", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number
+            ]);
+
+            // Update related transaction if exists
+            $transaction = \App\Models\Transaction::where('invoice_id', $invoice->id)->first();
+            if ($transaction) {
+                $transaction->update([
+                    'status' => 'completed'
+                ]);
+                
+                Log::info("Transaction status updated to completed manually", [
+                    'transaction_id' => $transaction->id,
+                    'invoice_id' => $invoice->id
+                ]);
+            }
+
+            // Process payment completion (this will trigger receipts)
+            $moneyTrackingService = new \App\Services\MoneyTrackingService();
+            
+            Log::info("=== PROCESSING PAYMENT COMPLETION MANUALLY ===", [
+                'invoice_id' => $invoice->id,
+                'items_count' => count($invoice->items ?? [])
+            ]);
+            
+            $balanceStatements = $moneyTrackingService->processPaymentCompleted($invoice, $invoice->items);
+            
+            Log::info("=== MANUAL PAYMENT COMPLETION FINISHED ===", [
+                'invoice_id' => $invoice->id,
+                'balance_statements_count' => count($balanceStatements)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaction completed manually and receipts sent',
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'balance_statements_count' => count($balanceStatements)
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error("Error completing transaction manually", [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error completing transaction: ' . $e->getMessage(),
+                'invoice_id' => $invoice->id
+            ], 500);
+        }
+    }
+
+    /**
      * Test mail configuration
      */
     public function testMail()

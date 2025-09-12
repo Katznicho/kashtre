@@ -80,6 +80,9 @@ class CheckPaymentStatus extends Command
                     continue;
                 }
 
+                // TIMEOUT LOGIC DISABLED - Transactions will not be auto-failed based on age
+                // This was causing issues when payments were completed but webhook notifications were delayed
+                /*
                 // Check if transaction has timed out (older than 3 minutes)
                 $transactionAge = now()->diffInMinutes($transaction->created_at);
                 if ($transactionAge >= 3) {
@@ -135,6 +138,13 @@ class CheckPaymentStatus extends Command
                         continue;
                     }
                 }
+                */
+
+                Log::info("Transaction timeout logic disabled - proceeding with YoAPI status check", [
+                    'transaction_id' => $transaction->id,
+                    'reference' => $transaction->reference,
+                    'age_minutes' => now()->diffInMinutes($transaction->created_at)
+                ]);
 
                 Log::info("Checking payment status with YoAPI", [
                     'transaction_id' => $transaction->id,

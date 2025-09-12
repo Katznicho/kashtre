@@ -174,6 +174,7 @@ Route::post('/invoices/reinitiate-failed-invoice', [InvoiceController::class, 'r
 
 // Receipt testing route (remove in production)
 Route::post('/invoices/{invoice}/send-receipts', [InvoiceController::class, 'sendReceipts'])->name('invoices.send-receipts');
+Route::post('/invoices/{invoice}/manually-complete', [InvoiceController::class, 'manuallyCompleteTransaction'])->name('invoices.manually-complete');
 Route::get('/test-mail-config', [InvoiceController::class, 'testMail'])->name('test-mail-config');
 
 // Balance Statement Routes
