@@ -434,7 +434,7 @@
                 <!-- Financial Summary -->
                 <div class="text-right space-y-2 text-sm">
                     <div class="flex justify-between">
-                        <span>Total:</span>
+                        <span>Subtotal 1:</span>
                         <span id="invoice-subtotal">UGX 0.00</span>
                     </div>
                     <div class="flex justify-between">
@@ -446,15 +446,15 @@
                         <span>UGX 0</span>
                     </div>
                     <div class="flex justify-between">
-                        <span>Amount Due:</span>
-                        <span id="invoice-amount-due">UGX 0.00</span>
+                        <span>Subtotal 2:</span>
+                        <span id="invoice-subtotal-2">UGX 0.00</span>
                     </div>
                     <div class="flex justify-between">
                         <span>Service Charge:</span>
                         <span id="service-charge-display">UGX 0.00</span>
                     </div>
                     <div class="flex justify-between text-lg font-bold border-t pt-2">
-                        <span>Final Total:</span>
+                        <span>Total:</span>
                         <span id="invoice-final-total">UGX 0.00</span>
                     </div>
                 </div>
@@ -749,7 +749,7 @@
                 // Update invoice summary
                 document.getElementById('invoice-subtotal').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                 document.getElementById('service-charge-display').textContent = `UGX ${serviceCharge.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                document.getElementById('invoice-amount-due').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                document.getElementById('invoice-subtotal-2').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                 document.getElementById('invoice-final-total').textContent = `UGX ${finalTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             });
             
