@@ -1284,13 +1284,12 @@ class MoneyTrackingService
             }
 
             // Handle service charge if applicable (only once per invoice and when item is completed or partially done)
+            $shouldProcessServiceCharge = false;
             if ($invoice->service_charge > 0 && in_array($itemStatus, ['completed', 'partially_done'])) {
                 // Check if service charge has already been processed for this invoice (any transfer type)
                 $existingServiceChargeTransfer = \App\Models\MoneyTransfer::where('invoice_id', $invoice->id)
                     ->where('description', 'like', '%Service charge for invoice%')
                     ->first();
-                
-                $shouldProcessServiceCharge = false;
                 
                 if ($existingServiceChargeTransfer) {
                     // Service charge has already been processed for this invoice - don't process again
@@ -1420,7 +1419,6 @@ class MoneyTrackingService
                     'destination' => $kashtreSuspenseAccount->name,
                     'transfer_id' => $transfer->id
                 ];
-                }
             }
 
             DB::commit();
