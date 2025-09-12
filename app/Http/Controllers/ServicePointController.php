@@ -328,7 +328,7 @@ class ServicePointController extends Controller
                             ]);
                         } else {
                             // This is a regular item - process normally
-                            $this->processItemMoneyMovement($item, $client, $moneyTrackingService);
+                        $this->processItemMoneyMovement($item, $client, $moneyTrackingService);
                         }
                         
                         // Mark item as money moved to prevent double processing

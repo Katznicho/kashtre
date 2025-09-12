@@ -513,6 +513,23 @@ class MoneyTrackingService
                 'total_amount' => $invoice->total_amount
             ]);
 
+            // Send electronic receipts to all parties
+            try {
+                $receiptService = new \App\Services\ReceiptService();
+                $receiptService->sendElectronicReceipts($invoice);
+                
+                Log::info("Electronic receipts sent successfully", [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number
+                ]);
+            } catch (\Exception $e) {
+                Log::error("Failed to send electronic receipts", [
+                    'invoice_id' => $invoice->id,
+                    'error' => $e->getMessage()
+                ]);
+                // Don't throw the exception - receipt failure shouldn't stop the payment completion
+            }
+
             return $debitRecords;
 
         } catch (Exception $e) {

@@ -35,28 +35,31 @@
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Date
+                                        </th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Type
-                                        </th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Amount
-                                        </th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Previous Balance
-                                        </th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            New Balance
                                         </th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Description
                                         </th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Date
+                                            Amount
+                                        </th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Payment Method
+                                        </th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Reference
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
                                     @foreach($businessBalanceHistories as $history)
                                         <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {{ $history->created_at->format('M d, Y H:i') }}
+                                            </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                                                     @if($history->type === 'credit') bg-green-100 text-green-800
@@ -65,22 +68,37 @@
                                                     {{ ucfirst($history->type) }}
                                                 </span>
                                             </td>
+                                            <td class="px-6 py-4 text-sm text-gray-900">
+                                                @php
+                                                    $description = $history->description;
+                                                    // Simplify descriptions for statements
+                                                    if (str_contains($description, 'Payment received via mobile_money')) {
+                                                        $description = 'Mobile Money Payment';
+                                                    } elseif (str_contains($description, 'Payment received for invoice')) {
+                                                        $description = 'Invoice Payment';
+                                                    } elseif (str_contains($description, 'Payment received via')) {
+                                                        $description = str_replace('Payment received via ', '', $description);
+                                                        $description = ucwords(str_replace('_', ' ', $description)) . ' Payment';
+                                                    }
+                                                @endphp
+                                                {{ $description }}
+                                            </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 <span class="@if($history->type === 'credit') text-green-600 @else text-red-600 @endif font-semibold">
                                                     {{ $history->type === 'credit' ? '+' : '-' }}{{ number_format($history->amount, 0) }} UGX
                                                 </span>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {{ number_format($history->previous_balance, 0) }} UGX
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
-                                                {{ number_format($history->new_balance, 0) }} UGX
-                                            </td>
-                                            <td class="px-6 py-4 text-sm text-gray-900">
-                                                {{ $history->description }}
-                                            </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {{ $history->created_at->format('M d, Y H:i') }}
+                                                @if(isset($history->payment_method) && $history->payment_method)
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                                        {{ ucfirst(str_replace('_', ' ', $history->payment_method)) }}
+                                                    </span>
+                                                @else
+                                                    <span class="text-gray-400">N/A</span>
+                                                @endif
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {{ $history->reference_number ?? '-' }}
                                             </td>
                                         </tr>
                                     @endforeach

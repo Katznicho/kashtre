@@ -1054,6 +1054,339 @@ class InvoiceController extends Controller
     }
     
     /**
+     * Reinitiate a failed mobile money transaction
+     */
+    public function reinitiateFailedTransaction(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'transaction_id' => 'required|exists:transactions,id',
+            ]);
+            
+            $transaction = \App\Models\Transaction::find($validated['transaction_id']);
+            
+            // Check if transaction is failed
+            if ($transaction->status !== 'failed') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Transaction is not in failed status and cannot be reinitiated.'
+                ], 400);
+            }
+            
+            // Check if transaction is mobile money
+            if ($transaction->method !== 'mobile_money' || $transaction->provider !== 'yo') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only YoAPI mobile money transactions can be reinitiated.'
+                ], 400);
+            }
+            
+            Log::info("Reinitiating failed transaction", [
+                'transaction_id' => $transaction->id,
+                'reference' => $transaction->reference,
+                'external_reference' => $transaction->external_reference,
+                'amount' => $transaction->amount,
+                'client_id' => $transaction->client_id
+            ]);
+            
+            // Get client and business
+            $client = $transaction->client;
+            $business = $transaction->business;
+            
+            if (!$client || !$business) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Client or business not found for this transaction.'
+                ], 400);
+            }
+            
+            // Format phone number for mobile money API
+            $phone = $transaction->phone_number;
+            
+            // Remove any non-numeric characters except + at the beginning
+            $phone = preg_replace('/[^0-9+]/', '', $phone);
+            
+            // Handle different phone number formats
+            if (str_starts_with($phone, '+256')) {
+                // Remove the + prefix for YoAPI
+                $phone = substr($phone, 1);
+            } elseif (str_starts_with($phone, '256')) {
+                // Already in correct format
+                $phone = $phone;
+            } elseif (str_starts_with($phone, '0')) {
+                // Convert from local format (0XXXXXXXXX) to international (256XXXXXXXXX)
+                $phone = '256' . substr($phone, 1);
+            } else {
+                // Assume it's already in international format without +
+                $phone = $phone;
+            }
+            
+            // Initialize YoAPI for mobile money payment
+            $yoPayments = new \App\Payments\YoAPI(config('payments.yo_username'), config('payments.yo_password'));
+            $yoPayments->set_instant_notification_url('https://webhook.site/396126eb-cc9b-4c57-a7a9-58f43d2b7935');
+            $yoPayments->set_external_reference(uniqid());
+            
+            Log::info('Reinitiating mobile money payment', [
+                'original_phone' => $transaction->phone_number,
+                'formatted_phone' => $phone,
+                'amount' => $transaction->amount,
+                'description' => $transaction->description,
+                'client_id' => $transaction->client_id,
+                'business_id' => $transaction->business_id
+            ]);
+            
+            // Process payment through YoAPI
+            $result = $yoPayments->ac_deposit_funds($phone, $transaction->amount, $transaction->description);
+            
+            // Log the actual API response
+            Log::info('YoAPI reinitiation response', ['result' => $result]);
+            
+            // Check if payment request was initiated successfully
+            if (isset($result['Status']) && $result['Status'] === 'OK' && isset($result['TransactionReference'])) {
+                
+                Log::info("Failed transaction reinitiated successfully", [
+                    'old_transaction_id' => $transaction->id,
+                    'new_transaction_reference' => $result['TransactionReference'],
+                    'phone' => $phone,
+                    'amount' => $transaction->amount,
+                    'client_id' => $transaction->client_id
+                ]);
+                
+                // Update the existing transaction with new external reference and reset status
+                $transaction->update([
+                    'external_reference' => $result['TransactionReference'],
+                    'status' => 'pending',
+                    'updated_at' => now()
+                ]);
+                
+                // Update related invoice if exists
+                if ($transaction->invoice_id) {
+                    $invoice = \App\Models\Invoice::find($transaction->invoice_id);
+                    if ($invoice) {
+                        $invoice->update([
+                            'status' => 'pending',
+                            'payment_status' => 'pending'
+                        ]);
+                        
+                        Log::info("Invoice status updated to pending for reinitiated transaction", [
+                            'invoice_id' => $invoice->id,
+                            'invoice_number' => $invoice->invoice_number,
+                            'transaction_id' => $transaction->id
+                        ]);
+                    }
+                }
+                
+                return response()->json([
+                    'success' => true,
+                    'transaction_id' => $result['TransactionReference'],
+                    'status' => 'pending',
+                    'message' => 'Transaction reinitiated successfully. A payment prompt has been sent to your phone. Please complete the payment to proceed.',
+                    'description' => $transaction->description,
+                    'yoapi_response' => $result,
+                    'internal_transaction_id' => $transaction->id
+                ]);
+            } else {
+                $errorMessage = isset($result['StatusMessage']) ? "Transaction reinitiation failed: {$result['StatusMessage']}" : 
+                               (isset($result['ErrorMessage']) ? "Transaction reinitiation failed: {$result['ErrorMessage']}" : 
+                               'Transaction reinitiation failed: Unknown error.');
+                
+                Log::error('Failed transaction reinitiation failed', [
+                    'result' => $result,
+                    'phone' => $phone,
+                    'amount' => $transaction->amount,
+                    'error_message' => $errorMessage,
+                    'transaction_id' => $transaction->id
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => $errorMessage,
+                    'yoapi_response' => $result
+                ], 400);
+            }
+            
+        } catch (\Exception $e) {
+            Log::error('Transaction reinitiation error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error reinitiating transaction: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Reinitiate a failed invoice (all failed transactions associated with it)
+     */
+    public function reinitiateFailedInvoice(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'invoice_id' => 'required|exists:invoices,id',
+            ]);
+            
+            $invoice = \App\Models\Invoice::find($validated['invoice_id']);
+            
+            // Check if invoice has failed transactions
+            $failedTransactions = $invoice->transactions()
+                ->where('status', 'failed')
+                ->where('method', 'mobile_money')
+                ->where('provider', 'yo')
+                ->get();
+            
+            if ($failedTransactions->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No failed mobile money transactions found for this invoice.'
+                ], 400);
+            }
+            
+            Log::info("Reinitiating failed invoice", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'failed_transactions_count' => $failedTransactions->count()
+            ]);
+            
+            $reinitiatedCount = 0;
+            $errors = [];
+            
+            foreach ($failedTransactions as $transaction) {
+                try {
+                    // Use the same logic as reinitiateFailedTransaction but without the validation
+                    $client = $transaction->client;
+                    $business = $transaction->business;
+                    
+                    if (!$client || !$business) {
+                        $errors[] = "Client or business not found for transaction {$transaction->id}";
+                        continue;
+                    }
+                    
+                    // Format phone number for mobile money API
+                    $phone = $transaction->phone_number;
+                    $phone = preg_replace('/[^0-9+]/', '', $phone);
+                    
+                    if (str_starts_with($phone, '+256')) {
+                        $phone = substr($phone, 1);
+                    } elseif (str_starts_with($phone, '0')) {
+                        $phone = '256' . substr($phone, 1);
+                    }
+                    
+                    // Initialize YoAPI for mobile money payment
+                    $yoPayments = new \App\Payments\YoAPI(config('payments.yo_username'), config('payments.yo_password'));
+                    $yoPayments->set_instant_notification_url('https://webhook.site/396126eb-cc9b-4c57-a7a9-58f43d2b7935');
+                    $yoPayments->set_external_reference(uniqid());
+                    
+                    // Process payment through YoAPI
+                    $result = $yoPayments->ac_deposit_funds($phone, $transaction->amount, $transaction->description);
+                    
+                    if (isset($result['Status']) && $result['Status'] === 'OK' && isset($result['TransactionReference'])) {
+                        // Update the transaction with new external reference and reset status
+                        $transaction->update([
+                            'external_reference' => $result['TransactionReference'],
+                            'status' => 'pending',
+                            'updated_at' => now()
+                        ]);
+                        
+                        $reinitiatedCount++;
+                        
+                        Log::info("Transaction reinitiated successfully in invoice reinitiation", [
+                            'transaction_id' => $transaction->id,
+                            'new_external_reference' => $result['TransactionReference']
+                        ]);
+                    } else {
+                        $errorMessage = isset($result['StatusMessage']) ? $result['StatusMessage'] : 
+                                       (isset($result['ErrorMessage']) ? $result['ErrorMessage'] : 'Unknown error');
+                        $errors[] = "Transaction {$transaction->id}: {$errorMessage}";
+                    }
+                    
+                } catch (\Exception $e) {
+                    $errors[] = "Transaction {$transaction->id}: {$e->getMessage()}";
+                    Log::error("Error reinitiating transaction {$transaction->id} in invoice reinitiation", [
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+            
+            // Update invoice status if at least one transaction was reinitiated
+            if ($reinitiatedCount > 0) {
+                $invoice->update([
+                    'status' => 'pending',
+                    'payment_status' => 'pending'
+                ]);
+                
+                Log::info("Invoice status updated to pending after reinitiation", [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'reinitiated_transactions' => $reinitiatedCount
+                ]);
+            }
+            
+            $response = [
+                'success' => $reinitiatedCount > 0,
+                'reinitiated_count' => $reinitiatedCount,
+                'total_failed_transactions' => $failedTransactions->count(),
+                'message' => $reinitiatedCount > 0 ? 
+                    "Successfully reinitiated {$reinitiatedCount} transaction(s) for invoice {$invoice->invoice_number}" :
+                    "Failed to reinitiate any transactions for invoice {$invoice->invoice_number}"
+            ];
+            
+            if (!empty($errors)) {
+                $response['errors'] = $errors;
+            }
+            
+            return response()->json($response, $reinitiatedCount > 0 ? 200 : 400);
+            
+        } catch (\Exception $e) {
+            Log::error('Invoice reinitiation error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error reinitiating invoice: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Send receipts for an invoice (testing purposes)
+     */
+    public function sendReceipts(Invoice $invoice)
+    {
+        try {
+            $user = Auth::user();
+            
+            // Check if user has access to this invoice
+            if ($invoice->business_id !== $user->business_id) {
+                abort(403, 'Unauthorized access to invoice.');
+            }
+            
+            Log::info("Manual receipt sending triggered", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'user_id' => $user->id
+            ]);
+            
+            $receiptService = new \App\Services\ReceiptService();
+            $result = $receiptService->sendElectronicReceipts($invoice);
+            
+            return response()->json([
+                'success' => $result,
+                'message' => $result ? 'Receipts sent successfully' : 'Failed to send receipts',
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error sending receipts manually', [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error sending receipts: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
      * Display a listing of invoices
      */
     public function index(Request $request)

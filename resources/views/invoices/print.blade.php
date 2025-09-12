@@ -325,7 +325,7 @@
             <!-- Totals Section -->
             <div class="totals-section">
                 <div class="totals-row">
-                    <span class="totals-label">Subtotal:</span>
+                    <span class="totals-label">Subtotal 1:</span>
                     <span class="totals-amount">UGX {{ number_format($invoice->subtotal, 2) }}</span>
                 </div>
                 
@@ -343,6 +343,11 @@
                 </div>
                 @endif
                 
+                <div class="totals-row">
+                    <span class="totals-label">Subtotal 2:</span>
+                    <span class="totals-amount">UGX {{ number_format($invoice->subtotal - ($invoice->package_adjustment ?? 0) - ($invoice->account_balance_adjustment ?? 0), 2) }}</span>
+                </div>
+                
                 @if($invoice->service_charge > 0)
                 <div class="totals-row">
                     <span class="totals-label">Service Charge:</span>
@@ -350,8 +355,8 @@
                 </div>
                 @endif
                 
-                <div class="totals-row">
-                    <span class="totals-label">Total Amount:</span>
+                <div class="totals-row" style="border-bottom: none; background: #f8f9fa; font-weight: bold; font-size: 16px;">
+                    <span class="totals-label">Total:</span>
                     <span class="totals-amount">UGX {{ number_format($invoice->total_amount, 2) }}</span>
                 </div>
                 

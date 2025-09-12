@@ -85,16 +85,19 @@
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
                                     @forelse($contractorBalanceHistories as $history)
                                         <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {{ $history->created_at->format('M d, Y H:i') }}
+                                            </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 @if($history->type === 'credit')
                                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -106,17 +109,29 @@
                                                     </span>
                                                 @endif
                                             </td>
+                                            <td class="px-6 py-4 text-sm text-gray-900">
+                                                <div class="max-w-xs">
+                                                    @php
+                                                        $description = $history->description;
+                                                        // Simplify descriptions for statements
+                                                        if (str_contains($description, 'Payment received via mobile_money')) {
+                                                            $description = 'Mobile Money Payment';
+                                                        } elseif (str_contains($description, 'Payment received for invoice')) {
+                                                            $description = 'Invoice Payment';
+                                                        } elseif (str_contains($description, 'Payment received via')) {
+                                                            $description = str_replace('Payment received via ', '', $description);
+                                                            $description = ucwords(str_replace('_', ' ', $description)) . ' Payment';
+                                                        }
+                                                    @endphp
+                                                    {{ $description }}
+                                                </div>
+                                            </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 @if($history->type === 'credit')
                                                     <span class="text-green-600">+{{ number_format($history->amount, 2) }} UGX</span>
                                                 @else
                                                     <span class="text-red-600">-{{ number_format($history->amount, 2) }} UGX</span>
                                                 @endif
-                                            </td>
-                                            <td class="px-6 py-4 text-sm text-gray-900">
-                                                <div class="max-w-xs">
-                                                    {{ $history->description }}
-                                                </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 @if($history->payment_method)
@@ -126,9 +141,6 @@
                                                 @else
                                                     <span class="text-gray-400">N/A</span>
                                                 @endif
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {{ $history->created_at->format('M d, Y H:i') }}
                                             </td>
                                         </tr>
                                     @empty

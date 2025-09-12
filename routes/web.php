@@ -169,6 +169,11 @@ Route::post('/invoices/service-charge', [InvoiceController::class, 'serviceCharg
 Route::post('/invoices/package-adjustment', [InvoiceController::class, 'calculatePackageAdjustment'])->name('invoices.package-adjustment');
 Route::post('/invoices/balance-adjustment', [InvoiceController::class, 'calculateBalanceAdjustment'])->name('invoices.balance-adjustment');
 Route::post('/invoices/mobile-money-payment', [InvoiceController::class, 'processMobileMoneyPayment'])->name('invoices.mobile-money-payment');
+Route::post('/invoices/reinitiate-failed-transaction', [InvoiceController::class, 'reinitiateFailedTransaction'])->name('invoices.reinitiate-failed-transaction');
+Route::post('/invoices/reinitiate-failed-invoice', [InvoiceController::class, 'reinitiateFailedInvoice'])->name('invoices.reinitiate-failed-invoice');
+
+// Receipt testing route (remove in production)
+Route::post('/invoices/{invoice}/send-receipts', [InvoiceController::class, 'sendReceipts'])->name('invoices.send-receipts');
 
 // Balance Statement Routes
 Route::get('/balance-statement', [BalanceHistoryController::class, 'index'])->name('balance-statement.index');

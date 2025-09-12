@@ -27,16 +27,25 @@ class CheckPaymentStatus extends Command
         ]);
 
         // Get all pending transactions that have YoAPI references
+        // Also include transactions that are older than 3 minutes for timeout handling
+        $threeMinutesAgo = now()->subMinutes(3);
+        
         $pendingTransactions = Transaction::where('status', 'pending')
             ->whereNotNull('reference')
             ->where('method', 'mobile_money')
             ->where('provider', 'yo')
+            ->where(function($query) use ($threeMinutesAgo) {
+                $query->where('created_at', '<=', $threeMinutesAgo)
+                      ->orWhere('updated_at', '<=', $threeMinutesAgo);
+            })
             ->with(['business', 'client'])
             ->get();
 
-        Log::info('Found pending mobile money transactions', [
+        Log::info('Found pending mobile money transactions (including 3+ minute old transactions for timeout handling)', [
             'count' => $pendingTransactions->count(),
+            'timeout_threshold_minutes' => 3,
             'transactions' => $pendingTransactions->map(function($t) {
+                $ageMinutes = now()->diffInMinutes($t->created_at);
                 return [
                     'id' => $t->id,
                     'reference' => $t->reference,
@@ -44,7 +53,9 @@ class CheckPaymentStatus extends Command
                     'amount' => $t->amount,
                     'client_id' => $t->client_id,
                     'invoice_id' => $t->invoice_id,
-                    'created_at' => $t->created_at->toDateTimeString()
+                    'created_at' => $t->created_at->toDateTimeString(),
+                    'age_minutes' => $ageMinutes,
+                    'will_timeout' => $ageMinutes >= 3
                 ];
             })->toArray()
         ]);
@@ -71,6 +82,62 @@ class CheckPaymentStatus extends Command
                 if (!$transaction->external_reference) {
                     Log::warning("No external reference found for transaction ID: {$transaction->id} - SKIPPING");
                     continue;
+                }
+
+                // Check if transaction has timed out (older than 3 minutes)
+                $transactionAge = now()->diffInMinutes($transaction->created_at);
+                if ($transactionAge >= 3) {
+                    Log::warning("Transaction {$transaction->id} has timed out after {$transactionAge} minutes - marking as failed", [
+                        'transaction_id' => $transaction->id,
+                        'reference' => $transaction->reference,
+                        'age_minutes' => $transactionAge,
+                        'created_at' => $transaction->created_at->toDateTimeString()
+                    ]);
+
+                    DB::beginTransaction();
+                    
+                    try {
+                        // Update transaction status to failed due to timeout
+                        $transaction->update([
+                            'status' => 'failed',
+                            'updated_at' => now()
+                        ]);
+
+                        // Update related invoice if exists
+                        if ($transaction->invoice_id) {
+                            $invoice = Invoice::find($transaction->invoice_id);
+                            if ($invoice) {
+                                $invoice->update([
+                                    'status' => 'failed',
+                                    'payment_status' => 'failed'
+                                ]);
+                                
+                                Log::info("Invoice status updated to failed due to transaction timeout", [
+                                    'invoice_id' => $invoice->id,
+                                    'invoice_number' => $invoice->invoice_number,
+                                    'transaction_id' => $transaction->id
+                                ]);
+                            }
+                        }
+
+                        DB::commit();
+                        
+                        Log::info("Transaction ID {$transaction->id} marked as FAILED due to timeout", [
+                            'transaction_id' => $transaction->id,
+                            'reference' => $transaction->reference,
+                            'timeout_minutes' => $transactionAge
+                        ]);
+                        
+                        continue; // Skip the YoAPI status check for timed out transactions
+                        
+                    } catch (\Exception $e) {
+                        DB::rollBack();
+                        Log::error("Failed to mark transaction {$transaction->id} as failed due to timeout", [
+                            'transaction_id' => $transaction->id,
+                            'error' => $e->getMessage()
+                        ]);
+                        continue;
+                    }
                 }
 
                 Log::info("Checking payment status with YoAPI", [

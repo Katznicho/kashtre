@@ -131,4 +131,15 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | KashTre Email Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Email address for KashTre platform notifications and receipts
+    |
+    */
+
+    'kashtre_email' => env('KASHTRE_EMAIL', 'admin@kashtre.com'),
+
 ];

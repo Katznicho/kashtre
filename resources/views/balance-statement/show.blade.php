@@ -22,9 +22,6 @@
                                 <p class="text-2xl font-bold text-blue-600">UGX {{ number_format($client->available_balance ?? 0, 2) }}</p>
                                 <p class="text-sm text-gray-500">Total Balance</p>
                                 <p class="text-lg font-semibold text-gray-700">UGX {{ number_format($client->total_balance ?? 0, 2) }}</p>
-                                @if(($client->suspense_balance ?? 0) > 0)
-                                    <p class="text-xs text-orange-600">({{ number_format($client->suspense_balance ?? 0, 2) }} in suspense accounts)</p>
-                                @endif
                             </div>
                         </div>
                     </div>
@@ -46,9 +43,7 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Previous Balance</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Change</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Balance</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
@@ -69,21 +64,27 @@
                                                 </span>
                                             </td>
                                             <td class="px-6 py-4 text-sm text-gray-900">
-                                                {{ $history->description }}
+                                                @php
+                                                    $description = $history->description;
+                                                    // Simplify descriptions for statements
+                                                    if (str_contains($description, 'Payment received via mobile_money')) {
+                                                        $description = 'Mobile Money Payment';
+                                                    } elseif (str_contains($description, 'Payment received for invoice')) {
+                                                        $description = 'Invoice Payment';
+                                                    } elseif (str_contains($description, 'Payment received via')) {
+                                                        $description = str_replace('Payment received via ', '', $description);
+                                                        $description = ucwords(str_replace('_', ' ', $description)) . ' Payment';
+                                                    }
+                                                @endphp
+                                                {{ $description }}
                                                 @if($history->notes)
                                                     <p class="text-xs text-gray-500 mt-1">{{ $history->notes }}</p>
                                                 @endif
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                UGX {{ number_format($history->previous_balance, 2) }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <span class="@if($history->change_amount > 0) text-green-600 @else text-red-600 @endif">
                                                     {{ $history->getFormattedChangeAmount() }}
                                                 </span>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                UGX {{ number_format($history->new_balance, 2) }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 @if($history->payment_method)
