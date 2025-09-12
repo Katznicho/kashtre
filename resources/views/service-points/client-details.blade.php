@@ -1,22 +1,23 @@
 <x-app-layout>
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <style>
-        .section-card {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 0.5rem;
-            margin-bottom: 1.5rem;
-        }
-        .section-header {
-            background: #f9fafb;
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid #e5e7eb;
-            border-radius: 0.5rem 0.5rem 0 0;
-        }
-        .section-content {
-            padding: 1.5rem;
-        }
+    <x-slot name="header">
+        <div class="flex justify-between items-center">
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                {{ __('Client Details - ') }}{{ $client->name }}
+            </h2>
+            <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-600">Service Point: {{ $servicePoint->name }}</span>
+                <span class="px-3 py-1 text-sm font-medium rounded-full bg-green-100 text-green-800">
+                    Active
+                </span>
+                <a href="{{ route('service-points.show', $servicePoint) }}" class="px-3 py-1 text-sm font-medium rounded-full bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors">
+                    Back to Service Point
+                </a>
+            </div>
+        </div>
+    </x-slot>
 
+    <style>
         .status-pending {
             background-color: #fef3c7;
             color: #92400e;
@@ -31,78 +32,67 @@
         }
     </style>
 
-    <div class="py-12 bg-gradient-to-b from-[#011478]/10 to-transparent">
+    <div class="py-6">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            
-            <!-- Page Header -->
-            <div class="mb-8 flex justify-between items-center bg-white/50 backdrop-blur-sm p-6 rounded-xl shadow-sm">
-                <div class="flex items-center space-x-4">
-                    <a href="{{ route('service-points.show', $servicePoint) }}" class="text-blue-600 hover:text-blue-800">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                        </svg>
-                    </a>
-                    <div>
-                        <h2 class="text-3xl font-bold text-[#011478]">Client Details</h2>
-                        <p class="text-gray-600 mt-2">{{ $servicePoint->name }} - {{ $client->name }}</p>
+
+            <!-- Section 1: Client Summary Details -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6" x-data="{ expanded: true }">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium text-gray-900">Client Summary Details</h3>
+                        <button @click="expanded = !expanded" class="text-gray-500 hover:text-gray-700 transition-colors">
+                            <svg x-show="expanded" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                            </svg>
+                            <svg x-show="!expanded" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
                     </div>
-                </div>
-                <div class="flex space-x-3">
-                    <div class="text-center">
-                        <div class="text-sm text-gray-600">Total Items</div>
-                        <div class="text-2xl font-bold text-[#011478]">
-                            {{ $pendingItems->count() + $partiallyDoneItems->count() }}
+                    <div x-show="expanded" x-transition>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Names</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->name }}</p>
                         </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Client ID</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->id }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Phone</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->phone ?? 'N/A' }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Email</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->email ?? 'N/A' }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Address</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->address ?? 'N/A' }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Registration Date</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->created_at ? $client->created_at->format('M d, Y') : 'N/A' }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Service Point</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $servicePoint->name }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Total Items</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $pendingItems->count() + $partiallyDoneItems->count() }}</p>
+                        </div>
+                    </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Client Information Section -->
-            <div class="section-card">
-                <div class="section-header">
-                    <h3 class="text-lg font-semibold text-gray-900">Client Information</h3>
-                </div>
-                <div class="section-content">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Client Name</label>
-                                <p class="text-gray-900 font-medium">{{ $client->name }}</p>
-                            </div>
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Client ID</label>
-                                <p class="text-gray-900">{{ $client->id }}</p>
-                            </div>
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                                <p class="text-gray-900">{{ $client->phone ?? 'N/A' }}</p>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                                <p class="text-gray-900">{{ $client->email ?? 'N/A' }}</p>
-                            </div>
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                                <p class="text-gray-900">{{ $client->address ?? 'N/A' }}</p>
-                            </div>
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Registration Date</label>
-                                <p class="text-gray-900">{{ $client->created_at ? $client->created_at->format('M d, Y') : 'N/A' }}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Client Statement Section -->
-            <div class="section-card">
-                <div class="section-header">
-                    <h3 class="text-lg font-semibold text-gray-900">Client Statement</h3>
-                </div>
-                <div class="section-content">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <!-- Section 2: Client Statement -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Client Statement</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-blue-50 p-4 rounded-lg text-center">
                             <div class="flex justify-between items-center mb-2">
                                 <p class="text-sm text-gray-500">Current Balance</p>
@@ -116,6 +106,9 @@
                                 </p>
                                 <p class="text-sm text-gray-500" id="client-total-balance">
                                     <span class="text-gray-600">Total:</span> UGX {{ number_format($client->total_balance ?? 0, 2) }}
+                                    @if(($client->suspense_balance ?? 0) > 0)
+                                        <span class="text-orange-600">({{ number_format($client->suspense_balance ?? 0, 2) }} in suspense)</span>
+                                    @endif
                                 </p>
                             </div>
                         </div>
@@ -124,76 +117,51 @@
                             <p class="text-xl font-bold text-yellow-600">{{ $clientStatement->count() }}</p>
                         </div>
                     </div>
-                    
-                    @if($clientStatement->count() > 0)
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full bg-white border border-gray-200 rounded-lg text-sm">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Date</th>
-                                        <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Description</th>
-                                        <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Amount</th>
-                                        <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Balance</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-100">
-                                    @foreach($clientStatement as $transaction)
-                                        <tr class="hover:bg-gray-50">
-                                            <td class="px-4 py-3 text-gray-600">{{ $transaction->created_at->format('M d, Y H:i') }}</td>
-                                            <td class="px-4 py-3 text-gray-900">{{ $transaction->description }}</td>
-                                            <td class="px-4 py-3 text-gray-600">
-                                                <span class="@if($transaction->change_amount > 0) text-green-600 @else text-red-600 @endif">
-                                                    {{ $transaction->change_amount > 0 ? '+' : '' }}{{ number_format($transaction->change_amount, 2) }} UGX
-                                                </span>
-                                            </td>
-                                            <td class="px-4 py-3 text-gray-600">{{ number_format($transaction->new_balance, 2) }} UGX</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @else
-                        <p class="text-gray-500 text-center py-4">No transaction history available.</p>
-                    @endif
-                    
-                    <div class="mt-4 flex justify-center">
-                        <a href="{{ route('balance-statement.show', $client->id) }}" 
-                           class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
-                            View Detailed Balance Statement
+                    <div class="mt-4 flex space-x-2">
+                        <a href="{{ route('balance-statement.show', $client->id) }}" target="_blank" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                            View Balance Statement
                         </a>
                     </div>
                 </div>
             </div>
 
-            <!-- Client Notes Section -->
-            <div class="section-card">
-                <div class="section-header">
-                    <h3 class="text-lg font-semibold text-gray-900">Client Notes</h3>
-                </div>
-                <div class="section-content">
-                    @if(count($clientNotes) > 0)
-                        <div class="space-y-4">
-                            @foreach($clientNotes as $note)
-                                <div class="bg-gray-50 p-4 rounded-lg">
-                                    <div class="flex justify-between items-start mb-2">
-                                        <span class="text-sm font-medium text-gray-900">{{ $note->title ?? 'Note' }}</span>
-                                        <span class="text-xs text-gray-500">{{ $note->created_at->format('M d, Y H:i') }}</span>
-                                    </div>
-                                    <p class="text-gray-700">{{ $note->content }}</p>
+            <!-- Section 3: Client Notes -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Client Notes</h3>
+                    <div class="border border-gray-200 rounded-lg">
+                        <div class="p-4">
+                            @if(count($clientNotes) > 0)
+                                <div class="space-y-4">
+                                    @foreach($clientNotes as $note)
+                                        <div class="bg-gray-50 p-4 rounded-lg">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <span class="text-sm font-medium text-gray-900">{{ $note->title ?? 'Note' }}</span>
+                                                <span class="text-xs text-gray-500">{{ $note->created_at->format('M d, Y H:i') }}</span>
+                                            </div>
+                                            <p class="text-gray-700">{{ $note->content }}</p>
+                                        </div>
+                                    @endforeach
                                 </div>
-                            @endforeach
+                            @else
+                                <p class="text-gray-500 text-center py-4">No notes available for this client.</p>
+                            @endif
+                            <textarea placeholder="Add notes about this client..." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mt-4" rows="3"></textarea>
+                            <div class="mt-3 flex justify-end">
+                                <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                                    Save Notes
+                                </button>
+                            </div>
                         </div>
-                    @else
-                        <p class="text-gray-500 text-center py-4">No notes available for this client.</p>
-                    @endif
+                    </div>
                 </div>
             </div>
 
-            <!-- Ordered Items Section -->
-            <div class="section-card">
-                <div class="section-header">
-                    <div class="flex justify-between items-center">
-                        <h3 class="text-lg font-semibold text-gray-900">Ordered Items (Requests/Orders)</h3>
+            <!-- Section 4: Ordered Items (Requests/Orders) -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium text-gray-900">Ordered Items (Requests/Orders)</h3>
                         <div class="text-right">
                             <div class="text-sm text-gray-600">Total Amount</div>
                             <div class="text-lg font-bold text-blue-600">
@@ -201,8 +169,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="section-content">
                     <form id="itemStatusForm">
                         @csrf
                         <div class="overflow-x-auto">
@@ -302,19 +268,19 @@
                             </table>
                         </div>
                     </form>
+                    
+                    <!-- Save and Exit Button -->
+                    <div class="flex justify-end space-x-4 mt-6">
+                        <a href="{{ route('service-points.show', $servicePoint) }}" 
+                           class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
+                            Cancel
+                        </a>
+                        <button onclick="saveAndExit()" 
+                                class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors">
+                            Save and Exit
+                        </button>
+                    </div>
                 </div>
-            </div>
-
-            <!-- Save and Exit Button -->
-            <div class="flex justify-end space-x-4 mt-6">
-                <a href="{{ route('service-points.show', $servicePoint) }}" 
-                   class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
-                    Cancel
-                </a>
-                <button onclick="saveAndExit()" 
-                        class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors">
-                    Save and Exit
-                </button>
             </div>
         </div>
     </div>
