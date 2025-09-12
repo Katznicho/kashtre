@@ -19,11 +19,6 @@ Thank you for your payment! We are pleased to confirm that your transaction has 
 **Email:** {{ $client->email }}  
 @endif
 
-## Business Information
-**Business:** {{ $business->name ?? 'N/A' }}  
-**Phone:** {{ $business->phone ?? 'N/A' }}  
-**Email:** {{ $business->email ?? 'N/A' }}
-
 ## Items Purchased
 
 @component('mail::table')
