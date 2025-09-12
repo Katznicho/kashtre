@@ -134,9 +134,13 @@
                                 {{ $transaction->created_at->format('M d, H:i') }}
                             </td>
                             <td class="px-3 py-2 whitespace-nowrap text-sm text-blue-600">
-                                <a href="#" class="hover:text-blue-800">
-                                    {{ $transaction->reference }}
-                                </a>
+                                @if($transaction->invoice_id)
+                                    <a href="{{ route('invoices.show', $transaction->invoice_id) }}" class="hover:text-blue-800">
+                                        {{ $transaction->reference }}
+                                    </a>
+                                @else
+                                    <span class="text-gray-600">{{ $transaction->reference }}</span>
+                                @endif
                             </td>
                             <td class="px-3 py-2 text-sm text-gray-900">
                                 <div class="truncate max-w-xs" title="{{ $transaction->description }}">
@@ -152,11 +156,23 @@
                                 </span>
                             </td>
                             <td class="px-3 py-2 whitespace-nowrap">
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium 
-                                    {{ $transaction->status === 'completed' ? 'bg-green-100 text-green-800' : 
-                                       ($transaction->status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
-                                    {{ ucfirst($transaction->status) }}
-                                </span>
+                                <div class="flex items-center space-x-2">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium 
+                                        {{ $transaction->status === 'completed' ? 'bg-green-100 text-green-800' : 
+                                           ($transaction->status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
+                                        {{ ucfirst($transaction->status) }}
+                                    </span>
+                                    @if($transaction->status === 'failed' && $transaction->method === 'mobile_money' && $transaction->provider === 'yo')
+                                        <button onclick="reinitiateTransaction({{ $transaction->id }})" 
+                                                class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-800 hover:bg-orange-200 transition-colors"
+                                                title="Reinitiate Payment">
+                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                            </svg>
+                                            Retry
+                                        </button>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                         @endforeach
@@ -175,5 +191,49 @@
     </div>
 
 </div>
+
+<script>
+    // Reinitiate a single failed transaction from dashboard
+    async function reinitiateTransaction(transactionId) {
+        try {
+            const response = await fetch('/invoices/reinitiate-failed-transaction', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    transaction_id: transactionId
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Payment Reinitiated!',
+                    text: data.message || 'Payment has been reinitiated successfully.'
+                }).then(() => {
+                    // Reload the page to show updated status
+                    window.location.reload();
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: data.message || 'Failed to reinitiate payment.'
+                });
+            }
+        } catch (error) {
+            console.error('Error reinitiating transaction:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error!',
+                text: 'An error occurred while reinitiating the payment.'
+            });
+        }
+    }
+</script>
 
 
