@@ -39,10 +39,7 @@ A payment has been successfully received for one of your invoices.
 **Account Balance Adjustment:** -UGX {{ number_format($invoice->account_balance_adjustment, 2) }}  
 @endif
 **Subtotal 2:** UGX {{ number_format($invoice->subtotal - ($invoice->package_adjustment ?? 0) - ($invoice->account_balance_adjustment ?? 0), 2) }}  
-@if($invoice->service_charge > 0)
-**Service Charge:** UGX {{ number_format($invoice->service_charge, 2) }}  
-@endif
-**Total:** UGX {{ number_format($invoice->total_amount, 2) }}  
+**Your Revenue:** UGX {{ number_format($invoice->total_amount - $invoice->service_charge, 2) }}  
 **Amount Received:** UGX {{ number_format($invoice->amount_paid, 2) }}  
 **Outstanding Balance:** UGX {{ number_format($invoice->balance_due, 2) }}
 
