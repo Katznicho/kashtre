@@ -1059,14 +1059,47 @@ class InvoiceController extends Controller
     public function reinitiateFailedTransaction(Request $request)
     {
         try {
+            Log::info('=== RETRY TRANSACTION REQUEST STARTED ===', [
+                'timestamp' => now()->toDateTimeString(),
+                'user_agent' => request()->userAgent(),
+                'ip_address' => request()->ip(),
+                'request_data' => $request->all()
+            ]);
+            
             $validated = $request->validate([
                 'transaction_id' => 'required|exists:transactions,id',
             ]);
             
+            Log::info('Request validation passed', [
+                'validated_transaction_id' => $validated['transaction_id']
+            ]);
+            
             $transaction = \App\Models\Transaction::find($validated['transaction_id']);
+            
+            // Log transaction details
+            Log::info('Transaction found for retry', [
+                'transaction_id' => $transaction->id,
+                'reference' => $transaction->reference,
+                'status' => $transaction->status,
+                'method' => $transaction->method,
+                'provider' => $transaction->provider,
+                'amount' => $transaction->amount,
+                'phone_number' => $transaction->phone_number,
+                'external_reference' => $transaction->external_reference,
+                'client_id' => $transaction->client_id,
+                'business_id' => $transaction->business_id,
+                'invoice_id' => $transaction->invoice_id,
+                'created_at' => $transaction->created_at,
+                'updated_at' => $transaction->updated_at
+            ]);
             
             // Check if transaction is failed
             if ($transaction->status !== 'failed') {
+                Log::warning('Retry attempted on non-failed transaction', [
+                    'transaction_id' => $transaction->id,
+                    'current_status' => $transaction->status,
+                    'expected_status' => 'failed'
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Transaction is not in failed status and cannot be reinitiated.'
@@ -1075,6 +1108,11 @@ class InvoiceController extends Controller
             
             // Check if transaction is mobile money
             if ($transaction->method !== 'mobile_money' || $transaction->provider !== 'yo') {
+                Log::warning('Retry attempted on non-YoAPI mobile money transaction', [
+                    'transaction_id' => $transaction->id,
+                    'method' => $transaction->method,
+                    'provider' => $transaction->provider
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Only YoAPI mobile money transactions can be reinitiated.'
@@ -1126,30 +1164,57 @@ class InvoiceController extends Controller
             $yoPayments->set_instant_notification_url('https://webhook.site/396126eb-cc9b-4c57-a7a9-58f43d2b7935');
             $yoPayments->set_external_reference($transaction->reference);
             
+            Log::info('YoAPI initialized for retry', [
+                'yo_username' => config('payments.yo_username'),
+                'yo_password_set' => !empty(config('payments.yo_password')),
+                'external_reference' => $transaction->reference,
+                'notification_url' => 'https://webhook.site/396126eb-cc9b-4c57-a7a9-58f43d2b7935'
+            ]);
+            
             Log::info('Reinitiating mobile money payment', [
                 'original_phone' => $transaction->phone_number,
                 'formatted_phone' => $phone,
                 'amount' => $transaction->amount,
                 'description' => $transaction->description,
                 'client_id' => $transaction->client_id,
-                'business_id' => $transaction->business_id
+                'business_id' => $transaction->business_id,
+                'external_reference' => $transaction->reference
             ]);
             
             // Process payment through YoAPI
+            Log::info('Calling YoAPI ac_deposit_funds', [
+                'phone' => $phone,
+                'amount' => $transaction->amount,
+                'description' => $transaction->description
+            ]);
+            
             $result = $yoPayments->ac_deposit_funds($phone, $transaction->amount, $transaction->description);
             
             // Log the actual API response
-            Log::info('YoAPI reinitiation response', ['result' => $result]);
+            Log::info('YoAPI reinitiation response received', [
+                'result' => $result,
+                'response_type' => gettype($result),
+                'response_size' => is_string($result) ? strlen($result) : (is_array($result) ? count($result) : 'unknown')
+            ]);
             
             // Check if payment request was initiated successfully
+            Log::info('Checking YoAPI response for success', [
+                'has_status' => isset($result['Status']),
+                'status_value' => $result['Status'] ?? 'not_set',
+                'has_transaction_reference' => isset($result['TransactionReference']),
+                'transaction_reference' => $result['TransactionReference'] ?? 'not_set',
+                'full_response' => $result
+            ]);
+            
             if (isset($result['Status']) && $result['Status'] === 'OK' && isset($result['TransactionReference'])) {
                 
-                Log::info("Failed transaction reinitiated successfully", [
+                Log::info("✅ YoAPI retry SUCCESS - Failed transaction reinitiated successfully", [
                     'old_transaction_id' => $transaction->id,
                     'new_transaction_reference' => $result['TransactionReference'],
                     'phone' => $phone,
                     'amount' => $transaction->amount,
-                    'client_id' => $transaction->client_id
+                    'client_id' => $transaction->client_id,
+                    'business_id' => $transaction->business_id
                 ]);
                 
                 // Update the existing transaction with new external reference and reset status
@@ -1202,12 +1267,16 @@ class InvoiceController extends Controller
                                (isset($result['ErrorMessage']) ? "Transaction reinitiation failed: {$result['ErrorMessage']}" : 
                                'Transaction reinitiation failed: Unknown error.');
                 
-                Log::error('Failed transaction reinitiation failed', [
+                Log::error('❌ YoAPI retry FAILED - Failed transaction reinitiation failed', [
                     'result' => $result,
                     'phone' => $phone,
                     'amount' => $transaction->amount,
                     'error_message' => $errorMessage,
-                    'transaction_id' => $transaction->id
+                    'transaction_id' => $transaction->id,
+                    'status_code' => $result['StatusCode'] ?? 'not_set',
+                    'status_message' => $result['StatusMessage'] ?? 'not_set',
+                    'transaction_status' => $result['TransactionStatus'] ?? 'not_set',
+                    'error_message_field' => $result['ErrorMessage'] ?? 'not_set'
                 ]);
                 
                 return response()->json([
@@ -1218,7 +1287,13 @@ class InvoiceController extends Controller
             }
             
         } catch (\Exception $e) {
-            Log::error('Transaction reinitiation error: ' . $e->getMessage());
+            Log::error('💥 EXCEPTION in retry transaction', [
+                'error_message' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+                'error_trace' => $e->getTraceAsString(),
+                'transaction_id' => $transactionId ?? 'unknown'
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Error reinitiating transaction: ' . $e->getMessage()
