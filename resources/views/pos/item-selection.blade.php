@@ -1047,15 +1047,15 @@
                 document.getElementById('export-tracking-btn').classList.add('hidden');
             }
             
+            // Calculate balance adjustment first (needed for service charge calculation)
+            const balanceAdjustmentData = await calculateBalanceAdjustment(subtotal);
+            const balanceAdjustment = balanceAdjustmentData.balance_adjustment;
+            
             // Calculate totals with dynamic service charge
             // Service charge should be calculated based on subtotal_2 (after package and balance adjustments)
             const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment) + parseFloat(balanceAdjustment);
             const serviceCharge = await calculateServiceCharge(adjustedSubtotal);
             const subtotalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
-            
-            // Calculate balance adjustment
-            const balanceAdjustmentData = await calculateBalanceAdjustment(subtotalWithServiceCharge);
-            const balanceAdjustment = balanceAdjustmentData.balance_adjustment;
             const finalTotal = parseFloat(subtotalWithServiceCharge) - parseFloat(balanceAdjustment);
             
             // Update invoice summary

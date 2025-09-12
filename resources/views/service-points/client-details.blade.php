@@ -940,14 +940,14 @@
             const packageAdjustmentData = await calculatePackageAdjustment();
             const packageAdjustment = packageAdjustmentData.total_adjustment;
             
+            // Calculate balance adjustment first (needed for service charge calculation)
+            const balanceAdjustmentData = await calculateBalanceAdjustment(subtotal);
+            const balanceAdjustment = parseFloat(balanceAdjustmentData.balance_adjustment) || 0;
+            
             // Calculate service charge based on subtotal_2 (after package and balance adjustments)
             const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment) + parseFloat(balanceAdjustment);
             const serviceCharge = await calculateServiceCharge(adjustedSubtotal);
             const subtotalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
-            
-            // Calculate balance adjustment
-            const balanceAdjustmentData = await calculateBalanceAdjustment(subtotalWithServiceCharge);
-            const balanceAdjustment = parseFloat(balanceAdjustmentData.balance_adjustment) || 0;
             const totalAmount = parseFloat(subtotalWithServiceCharge) - parseFloat(balanceAdjustment);
             
             // Update financial summary
@@ -1077,14 +1077,15 @@
                 
                 const packageAdjustmentData = await calculatePackageAdjustment();
                 const packageAdjustment = parseFloat(packageAdjustmentData.total_adjustment) || 0;
+                
+                // Calculate balance adjustment first (needed for service charge calculation)
+                const balanceAdjustmentData = await calculateBalanceAdjustment(subtotal);
+                const balanceAdjustment = parseFloat(balanceAdjustmentData.balance_adjustment) || 0;
+                
                 // Service charge should be calculated based on subtotal_2 (after package and balance adjustments)
                 const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment) + parseFloat(balanceAdjustment);
                 const serviceCharge = await calculateServiceCharge(adjustedSubtotal);
                 const subtotalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
-                
-                // Calculate balance adjustment
-                const balanceAdjustmentData = await calculateBalanceAdjustment(subtotalWithServiceCharge);
-                const balanceAdjustment = parseFloat(balanceAdjustmentData.balance_adjustment) || 0;
                 const totalAmount = parseFloat(subtotalWithServiceCharge) - parseFloat(balanceAdjustment);
                 
                 // Get payment phone and methods
