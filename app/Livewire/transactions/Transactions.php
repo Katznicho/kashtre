@@ -190,6 +190,53 @@ class Transactions extends Component implements HasForms, HasTable
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('reinitiate')
+                    ->label('Retry')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->visible(fn (Transaction $record): bool => 
+                        $record->status === 'failed' && 
+                        $record->method === 'mobile_money' && 
+                        $record->provider === 'yo'
+                    )
+                    ->requiresConfirmation()
+                    ->modalHeading('Reinitiate Payment')
+                    ->modalDescription(fn (Transaction $record): string => 
+                        "Are you sure you want to reinitiate this failed payment of UGX " . number_format($record->amount, 2) . "?"
+                    )
+                    ->modalSubmitActionLabel('Yes, Reinitiate')
+                    ->action(function (Transaction $record): void {
+                        try {
+                            $response = \Http::withHeaders([
+                                'Content-Type' => 'application/json',
+                                'X-CSRF-TOKEN' => csrf_token(),
+                            ])->post(url('/invoices/reinitiate-failed-transaction'), [
+                                'transaction_id' => $record->id
+                            ]);
+
+                            $data = $response->json();
+
+                            if ($data['success']) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Payment Reinitiated!')
+                                    ->body($data['message'] ?? 'Payment has been reinitiated successfully.')
+                                    ->success()
+                                    ->send();
+                            } else {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Error!')
+                                    ->body($data['message'] ?? 'Failed to reinitiate payment.')
+                                    ->danger()
+                                    ->send();
+                            }
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Error!')
+                                ->body('An error occurred while reinitiating the payment.')
+                                ->danger()
+                                ->send();
+                        }
+                    }),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
