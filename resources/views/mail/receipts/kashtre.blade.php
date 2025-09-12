@@ -14,10 +14,10 @@ A transaction has been completed on the platform. Below are the transaction deta
 **KashTre Charge Amount:** UGX {{ number_format($chargeAmount, 2) }}
 
 ## Business Information
-**Business Name:** {{ $business->name }}  
-**Business ID:** {{ $business->id }}  
-**Business Email:** {{ $business->email }}  
-**Business Phone:** {{ $business->phone }}
+**Business Name:** {{ $business->name ?? 'N/A' }}  
+**Business ID:** {{ $business->id ?? 'N/A' }}  
+**Business Email:** {{ $business->email ?? 'N/A' }}  
+**Business Phone:** {{ $business->phone ?? 'N/A' }}
 
 ## Client Information
 **Client Name:** {{ $client->name }}  

@@ -33,7 +33,7 @@ class BusinessReceipt extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Payment Received - Invoice #' . $this->invoice->invoice_number . ' - ' . $this->client->name,
+            subject: 'Payment Received - Invoice #' . $this->invoice->invoice_number . ' - ' . ($this->client->name ?? 'Client'),
         );
     }
 

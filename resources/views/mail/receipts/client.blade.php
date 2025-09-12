@@ -13,9 +13,9 @@ Thank you for your payment! We are pleased to confirm that your transaction has 
 **Amount Paid:** UGX {{ number_format($invoice->amount_paid, 2) }}
 
 ## Business Information
-**Business:** {{ $business->name }}  
-**Phone:** {{ $business->phone }}  
-**Email:** {{ $business->email }}
+**Business:** {{ $business->name ?? 'N/A' }}  
+**Phone:** {{ $business->phone ?? 'N/A' }}  
+**Email:** {{ $business->email ?? 'N/A' }}
 
 ## Items Purchased
 

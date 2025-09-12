@@ -35,7 +35,7 @@ class KashTreReceipt extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Transaction Record - Invoice #' . $this->invoice->invoice_number . ' - ' . $this->business->name,
+            subject: 'Transaction Record - Invoice #' . $this->invoice->invoice_number . ' - ' . ($this->business->name ?? 'Business'),
         );
     }
 

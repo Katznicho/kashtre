@@ -1,7 +1,7 @@
 @component('mail::message')
 # Payment Received Notification
 
-Dear {{ $business->name }} Team,
+Dear {{ $business->name ?? 'Business' }} Team,
 
 A payment has been successfully received for one of your invoices.
 
