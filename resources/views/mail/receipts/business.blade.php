@@ -13,9 +13,9 @@ A payment has been successfully received for one of your invoices.
 **Amount Received:** UGX {{ number_format($invoice->amount_paid, 2) }}
 
 ## Client Information
-**Client Name:** {{ $client->name }}  
-**Client ID:** {{ $client->client_id }}  
-**Phone:** {{ $client->phone_number }}  
+**Client Name:** {{ $client->name ?? 'N/A' }}  
+**Client ID:** {{ $client->client_id ?? 'N/A' }}  
+**Phone:** {{ $client->phone_number ?? 'N/A' }}  
 @if($client->email)
 **Email:** {{ $client->email }}  
 @endif

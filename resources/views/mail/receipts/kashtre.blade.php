@@ -20,9 +20,9 @@ A transaction has been completed on the platform. Below are the transaction deta
 **Business Phone:** {{ $business->phone ?? 'N/A' }}
 
 ## Client Information
-**Client Name:** {{ $client->name }}  
-**Client ID:** {{ $client->client_id }}  
-**Client Phone:** {{ $client->phone_number }}
+**Client Name:** {{ $client->name ?? 'N/A' }}  
+**Client ID:** {{ $client->client_id ?? 'N/A' }}  
+**Client Phone:** {{ $client->phone_number ?? 'N/A' }}
 
 ## Transaction Breakdown
 **Subtotal 1:** UGX {{ number_format($invoice->subtotal, 2) }}  

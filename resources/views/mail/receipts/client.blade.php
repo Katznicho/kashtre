@@ -1,7 +1,7 @@
 @component('mail::message')
 # Payment Receipt
 
-Dear {{ $client->name }},
+Dear {{ $client->name ?? 'Valued Customer' }},
 
 Thank you for your payment! We are pleased to confirm that your transaction has been successfully processed.
 
@@ -11,6 +11,13 @@ Thank you for your payment! We are pleased to confirm that your transaction has 
 **Payment Date:** {{ $invoice->created_at->format('F d, Y \a\t g:i A') }}  
 **Payment Method:** {{ ucfirst(implode(', ', $invoice->payment_methods ?? ['Cash'])) }}  
 **Amount Paid:** UGX {{ number_format($invoice->amount_paid, 2) }}
+
+## Your Information
+**Client ID:** {{ $client->client_id ?? 'N/A' }}  
+**Phone:** {{ $client->phone_number ?? 'N/A' }}  
+@if($client->email)
+**Email:** {{ $client->email }}  
+@endif
 
 ## Business Information
 **Business:** {{ $business->name ?? 'N/A' }}  
