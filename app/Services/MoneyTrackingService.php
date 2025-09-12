@@ -515,17 +515,32 @@ class MoneyTrackingService
 
             // Send electronic receipts to all parties
             try {
-                $receiptService = new \App\Services\ReceiptService();
-                $receiptService->sendElectronicReceipts($invoice);
-                
-                Log::info("Electronic receipts sent successfully", [
+                Log::info("=== STARTING ELECTRONIC RECEIPTS PROCESS ===", [
                     'invoice_id' => $invoice->id,
-                    'invoice_number' => $invoice->invoice_number
+                    'invoice_number' => $invoice->invoice_number,
+                    'client_id' => $invoice->client_id,
+                    'business_id' => $invoice->business_id,
+                    'total_amount' => $invoice->total_amount,
+                    'service_charge' => $invoice->service_charge,
+                    'payment_status' => $invoice->payment_status
+                ]);
+
+                $receiptService = new \App\Services\ReceiptService();
+                $result = $receiptService->sendElectronicReceipts($invoice);
+                
+                Log::info("=== ELECTRONIC RECEIPTS PROCESS COMPLETED ===", [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'receipt_service_result' => $result ? 'success' : 'failed'
                 ]);
             } catch (\Exception $e) {
-                Log::error("Failed to send electronic receipts", [
+                Log::error("=== ELECTRONIC RECEIPTS PROCESS FAILED ===", [
                     'invoice_id' => $invoice->id,
-                    'error' => $e->getMessage()
+                    'invoice_number' => $invoice->invoice_number,
+                    'error' => $e->getMessage(),
+                    'error_file' => $e->getFile(),
+                    'error_line' => $e->getLine(),
+                    'trace' => $e->getTraceAsString()
                 ]);
                 // Don't throw the exception - receipt failure shouldn't stop the payment completion
             }

@@ -1453,14 +1453,30 @@ class InvoiceController extends Controller
                 abort(403, 'Unauthorized access to invoice.');
             }
             
-            Log::info("Manual receipt sending triggered", [
+            Log::info("=== MANUAL RECEIPT SENDING TEST STARTED ===", [
                 'invoice_id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
-                'user_id' => $user->id
+                'user_id' => $user->id,
+                'client_email' => $invoice->client->email ?? 'no email',
+                'business_email' => $invoice->business->email ?? 'no email',
+                'kashtre_business_id' => 1,
+                'service_charge' => $invoice->service_charge ?? 0,
+                'mail_config' => [
+                    'driver' => config('mail.default'),
+                    'host' => config('mail.mailers.smtp.host'),
+                    'port' => config('mail.mailers.smtp.port'),
+                    'username' => config('mail.mailers.smtp.username'),
+                    'kashtre_email' => config('mail.kashtre_email')
+                ]
             ]);
             
             $receiptService = new \App\Services\ReceiptService();
             $result = $receiptService->sendElectronicReceipts($invoice);
+            
+            Log::info("=== MANUAL RECEIPT SENDING TEST COMPLETED ===", [
+                'invoice_id' => $invoice->id,
+                'result' => $result ? 'success' : 'failed'
+            ]);
             
             return response()->json([
                 'success' => $result,
@@ -1822,6 +1838,55 @@ class InvoiceController extends Controller
             
         } catch (\Exception $e) {
             Log::error('Error updating client balance: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Test mail configuration
+     */
+    public function testMail()
+    {
+        try {
+            \Log::info("=== MAIL CONFIGURATION TEST ===", [
+                'driver' => config('mail.default'),
+                'host' => config('mail.mailers.smtp.host'),
+                'port' => config('mail.mailers.smtp.port'),
+                'username' => config('mail.mailers.smtp.username'),
+                'password_set' => !empty(config('mail.mailers.smtp.password')),
+                'kashtre_email' => config('mail.kashtre_email'),
+                'from_address' => config('mail.from.address'),
+                'from_name' => config('mail.from.name')
+            ]);
+
+            // Send a simple test email
+            \Mail::raw('This is a test email from KashTre system to verify mail configuration.', function ($message) {
+                $message->to('test@example.com')
+                        ->subject('KashTre Mail Test');
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Mail test completed - check logs for configuration details',
+                'config' => [
+                    'driver' => config('mail.default'),
+                    'host' => config('mail.mailers.smtp.host'),
+                    'port' => config('mail.mailers.smtp.port'),
+                    'username' => config('mail.mailers.smtp.username'),
+                    'kashtre_email' => config('mail.kashtre_email')
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error("Mail configuration test failed", [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Mail test failed: ' . $e->getMessage(),
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }
