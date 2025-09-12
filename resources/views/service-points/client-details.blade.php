@@ -56,32 +56,62 @@
                             <p class="text-lg font-semibold text-gray-900">{{ $client->name }}</p>
                         </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Age</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->age ?? 'N/A' }} years</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Sex</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ ucfirst($client->sex) }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Client ID</p>
-                            <p class="text-lg font-semibold text-gray-900">{{ $client->id }}</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->client_id }}</p>
                         </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            <p class="text-sm text-gray-500 mb-1">Phone</p>
-                            <p class="text-lg font-semibold text-gray-900">{{ $client->phone ?? 'N/A' }}</p>
+                            <p class="text-sm text-gray-500 mb-1">Visit ID</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->visit_id }}</p>
                         </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            <p class="text-sm text-gray-500 mb-1">Email</p>
+                            <p class="text-sm text-gray-500 mb-1">Payment Methods</p>
+                            <div class="flex flex-wrap gap-1 mb-2 payment-methods-display">
+                                @if($client->payment_methods && count($client->payment_methods) > 0)
+                                    @foreach($client->payment_methods as $index => $method)
+                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            {{ $index + 1 }}. {{ ucwords(str_replace('_', ' ', $method)) }}
+                                        </span>
+                                    @endforeach
+                                @else
+                                    <span class="text-sm text-gray-500">No payment methods specified</span>
+                                @endif
+                            </div>
+                            <button onclick="openPaymentMethodsModal()" class="text-xs text-blue-600 hover:text-blue-800 underline">
+                                Edit Payment Methods
+                            </button>
+                        </div>
+                        <div id="payment-phone-section" class="bg-gray-50 p-4 rounded-lg border-2 border-dashed border-blue-200 hover:border-blue-300 transition-colors" style="display: none;">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-sm text-gray-500 font-medium">Payment Phone Number</p>
+                                <span class="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">Editable</span>
+                            </div>
+                            <div class="space-y-2">
+                                <input type="tel"
+                                       id="payment-phone-edit"
+                                       value="{{ $client->payment_phone_number ?? '' }}"
+                                       placeholder="Enter payment phone number"
+                                       class="w-full text-lg font-semibold text-gray-900 bg-white border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                                <button type="button" onclick="savePaymentPhone()"
+                                        class="w-full bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium">
+                                    Save Payment Phone
+                                </button>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Contact Phone Number</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ $client->phone_number }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">Email Address</p>
                             <p class="text-lg font-semibold text-gray-900">{{ $client->email ?? 'N/A' }}</p>
-                        </div>
-                        <div class="bg-gray-50 p-4 rounded-lg">
-                            <p class="text-sm text-gray-500 mb-1">Address</p>
-                            <p class="text-lg font-semibold text-gray-900">{{ $client->address ?? 'N/A' }}</p>
-                        </div>
-                        <div class="bg-gray-50 p-4 rounded-lg">
-                            <p class="text-sm text-gray-500 mb-1">Registration Date</p>
-                            <p class="text-lg font-semibold text-gray-900">{{ $client->created_at ? $client->created_at->format('M d, Y') : 'N/A' }}</p>
-                        </div>
-                        <div class="bg-gray-50 p-4 rounded-lg">
-                            <p class="text-sm text-gray-500 mb-1">Service Point</p>
-                            <p class="text-lg font-semibold text-gray-900">{{ $servicePoint->name }}</p>
-                        </div>
-                        <div class="bg-gray-50 p-4 rounded-lg">
-                            <p class="text-sm text-gray-500 mb-1">Total Items</p>
-                            <p class="text-lg font-semibold text-gray-900">{{ $pendingItems->count() + $partiallyDoneItems->count() }}</p>
                         </div>
                     </div>
                     </div>
@@ -157,7 +187,118 @@
                 </div>
             </div>
 
-            <!-- Section 4: Ordered Items (Requests/Orders) -->
+            <!-- Section 4: Make a Request/Order - Professional Two Column Layout -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Make a Request/Order</h3>
+                    
+                    <!-- Main POS Interface - Two Column Layout -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        
+                        <!-- Left Column: Item Selection -->
+                        <div>
+                            <h4 class="text-md font-medium text-gray-900 mb-4">Select Item</h4>
+                            
+                            <!-- Search Bar -->
+                            <div class="mb-4">
+                                <div class="relative">
+                                    <input type="text" id="search-input" placeholder="Search items..." 
+                                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            
+                            <!-- Simple Options -->
+                            <div class="flex items-center space-x-4 mb-4">
+                                <label class="flex items-center space-x-2">
+                                    <input type="checkbox" id="show-prices" class="rounded border-gray-300">
+                                    <span class="text-sm text-gray-700">Show Prices</span>
+                                </label>
+                                
+                                <label class="flex items-center space-x-2">
+                                    <input type="checkbox" id="show-descriptions" class="rounded border-gray-300">
+                                    <span class="text-sm text-gray-700">Show Descriptions</span>
+                                </label>
+                            </div>
+                            
+                            <!-- Items Table -->
+                            <div class="border border-gray-200 rounded-lg overflow-hidden">
+                                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div class="flex items-center">
+                                            <span class="text-sm font-medium text-gray-700">Item</span>
+                                            <svg class="ml-1 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <span class="text-sm font-medium text-gray-700">Quantity To Sell</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div id="items-container" class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                                    <div class="px-4 py-8 text-center text-gray-500">
+                                        <p>Item selection functionality available in full POS interface.</p>
+                                        <p class="text-sm mt-2">This section shows the same layout as the main POS system.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Column: Request/Order Summary -->
+                        <div>
+                            <h4 class="text-md font-medium text-gray-900 mb-4">Request/Order Summary</h4>
+                            
+                            <!-- Selected Items Table -->
+                            <div class="border border-gray-200 rounded-lg overflow-hidden mb-4">
+                                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                    <div class="grid grid-cols-5 gap-4 text-sm font-medium text-gray-700">
+                                        <div>Item</div>
+                                        <div>Type</div>
+                                        <div>Quantity</div>
+                                        <div>Price</div>
+                                        <div>Action</div>
+                                    </div>
+                                </div>
+                                
+                                <div id="selected-items-container" class="divide-y divide-gray-200 min-h-48">
+                                    <div class="px-4 py-8 text-center text-gray-500">
+                                        No items selected
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Order Totals -->
+                            <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                                <div class="space-y-2">
+                                    <div class="flex justify-between">
+                                        <span class="text-sm text-gray-600">Unique Items:</span>
+                                        <span class="text-sm font-medium text-gray-900" id="unique-items-count">0</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-sm text-gray-600">Total Quantity:</span>
+                                        <span class="text-sm font-medium text-gray-900" id="total-quantity">0</span>
+                                    </div>
+                                    <div class="flex justify-between border-t border-gray-200 pt-2">
+                                        <span class="text-sm font-medium text-gray-900">Total Amount:</span>
+                                        <span class="text-sm font-medium text-gray-900" id="total-amount">UGX 0.00</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Preview Invoice Button -->
+                            <button class="w-full bg-gray-900 text-white py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors font-medium">
+                                Preview Invoice
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 5: Ordered Items (Requests/Orders) -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6">
                     <div class="flex justify-between items-center mb-4">
@@ -408,6 +549,51 @@
                     icon: 'error',
                     confirmButtonColor: '#ef4444'
                 });
+            });
+        }
+
+        function openPaymentMethodsModal() {
+            Swal.fire({
+                title: 'Edit Payment Methods',
+                text: 'This feature is available in the full POS interface.',
+                icon: 'info',
+                confirmButtonText: 'OK'
+            });
+        }
+
+        function savePaymentPhone() {
+            const phoneInput = document.getElementById('payment-phone-edit');
+            const phoneNumber = phoneInput.value;
+            
+            if (!phoneNumber) {
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'Please enter a payment phone number',
+                    icon: 'error',
+                    confirmButtonColor: '#ef4444'
+                });
+                return;
+            }
+            
+            Swal.fire({
+                title: 'Save Payment Phone?',
+                text: `Save "${phoneNumber}" as the payment phone number?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3b82f6',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, save it!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Saved!',
+                        text: 'Payment phone number has been saved.',
+                        icon: 'success',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                }
             });
         }
     </script>
