@@ -27,16 +27,12 @@ class CheckPaymentStatus extends Command
         ]);
 
         // Get all pending transactions that have YoAPI references
-        // Also include transactions that are older than 3 minutes for timeout handling
-        $threeMinutesAgo = now()->subMinutes(3);
-        
         $pendingTransactions = Transaction::where('status', 'pending')
-            ->whereNotNull('reference')
             ->where('method', 'mobile_money')
             ->where('provider', 'yo')
-            ->where(function($query) use ($threeMinutesAgo) {
-                $query->where('created_at', '<=', $threeMinutesAgo)
-                      ->orWhere('updated_at', '<=', $threeMinutesAgo);
+            ->where(function($query) {
+                $query->whereNotNull('reference')
+                      ->orWhereNotNull('external_reference');
             })
             ->with(['business', 'client'])
             ->get();
