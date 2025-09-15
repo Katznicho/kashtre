@@ -43,7 +43,7 @@
                         <button @click="expanded = !expanded" class="text-gray-500 hover:text-gray-700 transition-colors">
                             <svg x-show="expanded" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
-                            </svg>
+                        </svg>
                             <svg x-show="!expanded" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
@@ -83,11 +83,11 @@
                                 @else
                                     <span class="text-sm text-gray-500">No payment methods specified</span>
                                 @endif
-                            </div>
+                </div>
                             <button onclick="openPaymentMethodsModal()" class="text-xs text-blue-600 hover:text-blue-800 underline">
                                 Edit Payment Methods
                             </button>
-                        </div>
+                            </div>
                         <div id="payment-phone-section" class="bg-gray-50 p-4 rounded-lg border-2 border-dashed border-blue-200 hover:border-blue-300 transition-colors" style="display: none;">
                             <div class="flex items-center justify-between mb-2">
                                 <p class="text-sm text-gray-500 font-medium">Payment Phone Number</p>
@@ -112,7 +112,7 @@
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Email Address</p>
                             <p class="text-lg font-semibold text-gray-900">{{ $client->email ?? 'N/A' }}</p>
-                        </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -944,19 +944,24 @@
             const balanceAdjustmentData = await calculateBalanceAdjustment(subtotal);
             const balanceAdjustment = parseFloat(balanceAdjustmentData.balance_adjustment) || 0;
             
-            // Calculate service charge based on subtotal_2 (after package and balance adjustments)
-            const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment) + parseFloat(balanceAdjustment);
-            const serviceCharge = await calculateServiceCharge(adjustedSubtotal);
-            const subtotalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
-            const totalAmount = parseFloat(subtotalWithServiceCharge) - parseFloat(balanceAdjustment);
+            // Calculate totals according to correct formula:
+            // Subtotal 1 = Sum of all items (already calculated as 'subtotal')
+            // Subtotal 2 = Subtotal 1 - Package Adjustment - Account Balance Adjustment
+            // Total = Subtotal 2 + Service Charge
+            // Service Charge is calculated based on Subtotal 2
+            
+            const subtotal1 = parseFloat(subtotal);
+            const subtotal2 = subtotal1 - parseFloat(packageAdjustment) - parseFloat(balanceAdjustment);
+            const serviceCharge = await calculateServiceCharge(subtotal2);
+            const totalAmount = subtotal2 + parseFloat(serviceCharge);
             
             // Update financial summary
-            document.getElementById('invoice-subtotal').textContent = `UGX ${parseFloat(subtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('invoice-subtotal').textContent = `UGX ${subtotal1.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('package-adjustment-display').textContent = `UGX ${parseFloat(packageAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('balance-adjustment-display').textContent = `UGX ${parseFloat(balanceAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('invoice-subtotal-2').textContent = `UGX ${parseFloat(adjustedSubtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('invoice-subtotal-2').textContent = `UGX ${subtotal2.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('service-charge-display').textContent = `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('invoice-final-total').textContent = `UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('invoice-final-total').textContent = `UGX ${totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
             // Show the modal
             document.getElementById('invoice-preview-modal').classList.remove('hidden');
@@ -1082,11 +1087,16 @@
                 const balanceAdjustmentData = await calculateBalanceAdjustment(subtotal);
                 const balanceAdjustment = parseFloat(balanceAdjustmentData.balance_adjustment) || 0;
                 
-                // Service charge should be calculated based on subtotal_2 (after package and balance adjustments)
-                const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment) + parseFloat(balanceAdjustment);
-                const serviceCharge = await calculateServiceCharge(adjustedSubtotal);
-                const subtotalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
-                const totalAmount = parseFloat(subtotalWithServiceCharge) - parseFloat(balanceAdjustment);
+                // Calculate totals according to correct formula:
+                // Subtotal 1 = Sum of all items (already calculated as 'subtotal')
+                // Subtotal 2 = Subtotal 1 - Package Adjustment - Account Balance Adjustment
+                // Total = Subtotal 2 + Service Charge
+                // Service Charge is calculated based on Subtotal 2
+                
+                const subtotal1 = parseFloat(subtotal);
+                const subtotal2 = subtotal1 - parseFloat(packageAdjustment) - parseFloat(balanceAdjustment);
+                const serviceCharge = await calculateServiceCharge(subtotal2);
+                const totalAmount = subtotal2 + parseFloat(serviceCharge);
                 
                 // Get payment phone and methods
                 const paymentPhone = document.getElementById('payment-phone-edit')?.value || '';
