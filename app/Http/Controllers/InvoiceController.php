@@ -1811,13 +1811,35 @@ class InvoiceController extends Controller
                 'quantity' => $quantity
             ]);
 
+            // Get service point through BranchServicePoint relationship (same logic as cron job)
+            $branchServicePoint = $itemModel->branchServicePoints()
+                ->where('business_id', $invoice->business_id)
+                ->where('branch_id', $invoice->branch_id)
+                ->first();
+
+            Log::info("Found item model and branch service point", [
+                'item_id' => $itemModel->id,
+                'item_name' => $itemModel->name,
+                'item_type' => $itemModel->type,
+                'business_id' => $invoice->business_id,
+                'branch_id' => $invoice->branch_id,
+                'branch_service_point_found' => $branchServicePoint ? 'yes' : 'no',
+                'service_point_id' => $branchServicePoint ? $branchServicePoint->service_point_id : null
+            ]);
+
             // Handle regular items with service points
-            if ($itemModel->service_point_id) {
+            if ($branchServicePoint && $branchServicePoint->service_point_id) {
+                Log::info("Creating service delivery queue for regular item", [
+                    'item_id' => $itemId,
+                    'service_point_id' => $branchServicePoint->service_point_id,
+                    'quantity' => $quantity
+                ]);
+
                 // Create service delivery queue record for the main item
                 $queueRecord = \App\Models\ServiceDeliveryQueue::create([
                     'business_id' => $invoice->business_id,
                     'branch_id' => $invoice->branch_id,
-                    'service_point_id' => $itemModel->service_point_id,
+                    'service_point_id' => $branchServicePoint->service_point_id,
                     'invoice_id' => $invoice->id,
                     'client_id' => $invoice->client_id,
                     'item_id' => $itemId,
@@ -1831,25 +1853,28 @@ class InvoiceController extends Controller
                     'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
                 ]);
                 
-                Log::info("Item successfully queued at service point", [
+                Log::info("Service delivery queue created for regular item", [
                     'queue_id' => $queueRecord->id,
                     'item_id' => $itemId,
-                    'item_name' => $itemModel->name,
-                    'service_point_id' => $itemModel->service_point_id,
-                    'quantity' => $quantity,
-                    'status' => 'pending'
+                    'service_point_id' => $branchServicePoint->service_point_id
                 ]);
             } else {
-                Log::warning("Item skipped - no service point assigned", [
+                Log::info("Regular item has no service point for this business/branch, skipping queuing", [
                     'item_id' => $itemId,
                     'item_name' => $itemModel->name,
-                    'item_type' => $itemModel->type,
-                    'service_point_id' => $itemModel->service_point_id
+                    'business_id' => $invoice->business_id,
+                    'branch_id' => $invoice->branch_id,
+                    'branch_service_point_found' => $branchServicePoint ? 'yes' : 'no'
                 ]);
             }
 
             // Handle package items - queue each included item at its respective service point
             if ($itemModel->type === 'package') {
+                Log::info("Processing package item", [
+                    'package_item_id' => $itemId,
+                    'package_name' => $itemModel->name
+                ]);
+
                 $packageItems = $itemModel->packageItems()->with('includedItem')->get();
                 
                 foreach ($packageItems as $packageItem) {
@@ -1857,12 +1882,33 @@ class InvoiceController extends Controller
                     $maxQuantity = $packageItem->max_quantity ?? 1;
                     $totalQuantity = $maxQuantity * $quantity;
 
-                    // Only queue if the included item has a service point
-                    if ($includedItem->service_point_id) {
-                        \App\Models\ServiceDeliveryQueue::create([
+                    // Get service point for included item through BranchServicePoint relationship
+                    $includedBranchServicePoint = $includedItem->branchServicePoints()
+                        ->where('business_id', $invoice->business_id)
+                        ->where('branch_id', $invoice->branch_id)
+                        ->first();
+
+                    Log::info("Found included item service point", [
+                        'included_item_id' => $includedItem->id,
+                        'included_item_name' => $includedItem->name,
+                        'business_id' => $invoice->business_id,
+                        'branch_id' => $invoice->branch_id,
+                        'branch_service_point_found' => $includedBranchServicePoint ? 'yes' : 'no',
+                        'service_point_id' => $includedBranchServicePoint ? $includedBranchServicePoint->service_point_id : null
+                    ]);
+
+                    // Only queue if the included item has a service point for this business/branch
+                    if ($includedBranchServicePoint && $includedBranchServicePoint->service_point_id) {
+                        Log::info("Creating service delivery queue for included item", [
+                            'included_item_id' => $includedItem->id,
+                            'service_point_id' => $includedBranchServicePoint->service_point_id,
+                            'quantity' => $totalQuantity
+                        ]);
+
+                        $queueRecord = \App\Models\ServiceDeliveryQueue::create([
                             'business_id' => $invoice->business_id,
                             'branch_id' => $invoice->branch_id,
-                            'service_point_id' => $includedItem->service_point_id,
+                            'service_point_id' => $includedBranchServicePoint->service_point_id,
                             'invoice_id' => $invoice->id,
                             'client_id' => $invoice->client_id,
                             'item_id' => $includedItem->id,
@@ -1874,6 +1920,20 @@ class InvoiceController extends Controller
                             'notes' => "Package: {$itemModel->name}, Invoice: {$invoice->invoice_number}, Client: {$invoice->client_name}",
                             'queued_at' => now(),
                             'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
+                        ]);
+
+                        Log::info("Service delivery queue created for included item", [
+                            'queue_id' => $queueRecord->id,
+                            'included_item_id' => $includedItem->id,
+                            'service_point_id' => $includedBranchServicePoint->service_point_id
+                        ]);
+                    } else {
+                        Log::info("Included item has no service point for this business/branch, skipping queuing", [
+                            'included_item_id' => $includedItem->id,
+                            'included_item_name' => $includedItem->name,
+                            'business_id' => $invoice->business_id,
+                            'branch_id' => $invoice->branch_id,
+                            'branch_service_point_found' => $includedBranchServicePoint ? 'yes' : 'no'
                         ]);
                     }
                 }
