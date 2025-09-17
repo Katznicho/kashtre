@@ -770,6 +770,14 @@ class InvoiceController extends Controller
             // Try to get service charge for branch first, then business
             $serviceCharge = null;
             
+            // Debug: Check what service charges exist
+            $allServiceCharges = ServiceCharge::where('business_id', $businessId)->get();
+            \Log::info('All service charges for business', [
+                'business_id' => $businessId,
+                'count' => $allServiceCharges->count(),
+                'charges' => $allServiceCharges->toArray()
+            ]);
+            
             if ($branchId) {
                 $serviceCharge = ServiceCharge::where('business_id', $businessId)
                     ->where('entity_type', 'branch')
@@ -778,6 +786,12 @@ class InvoiceController extends Controller
                     ->where('lower_bound', '<=', $subtotal)
                     ->where('upper_bound', '>=', $subtotal)
                     ->first();
+                    
+                \Log::info('Branch service charge search', [
+                    'branch_id' => $branchId,
+                    'subtotal' => $subtotal,
+                    'found' => $serviceCharge ? 'yes' : 'no'
+                ]);
             }
             
             // If no branch service charge, try business level
@@ -789,13 +803,33 @@ class InvoiceController extends Controller
                     ->where('upper_bound', '>=', $subtotal)
                     ->orderBy('lower_bound', 'desc')
                     ->first();
+                    
+                \Log::info('Business service charge search', [
+                    'business_id' => $businessId,
+                    'subtotal' => $subtotal,
+                    'found' => $serviceCharge ? 'yes' : 'no'
+                ]);
             }
             
             if (!$serviceCharge) {
+                // Debug: Log what we're looking for
+                \Log::info('No service charge found', [
+                    'business_id' => $businessId,
+                    'branch_id' => $branchId,
+                    'subtotal' => $subtotal,
+                    'searched_branch' => $branchId ? 'yes' : 'no',
+                    'searched_business' => 'yes'
+                ]);
+                
                 return response()->json([
                     'success' => true,
                     'service_charge' => 0,
                     'message' => 'No service charge configured. Please contact admin to set up service charges.',
+                    'debug' => [
+                        'business_id' => $businessId,
+                        'branch_id' => $branchId,
+                        'subtotal' => $subtotal
+                    ]
                 ]);
             }
             
