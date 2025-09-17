@@ -126,7 +126,7 @@ class BalanceHistory extends Model
             'change_amount' => -$amount, // Negative for debit
             'new_balance' => $newBalance,
             'transaction_type' => 'payment',
-            'description' => $invoice ? "Payment for invoice #{$invoice->invoice_number}" : "Balance payment",
+            'description' => $invoice ? "Invoice #{$invoice->invoice_number}" : "Balance adjustment",
             'reference_number' => $invoice ? $invoice->invoice_number : null,
             'payment_method' => $paymentMethod,
             'payment_reference' => $paymentReference,

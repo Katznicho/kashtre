@@ -165,7 +165,7 @@ class MoneyTrackingService
                 'transfer_type' => 'payment_received',
                 'client_id' => $client->id,
                 'reference' => $reference,
-                'description' => "Payment received via {$paymentMethod}",
+                'description' => "Mobile Money",
                 'metadata' => $metadata,
                 'processed_at' => now()
             ]);
@@ -1530,7 +1530,7 @@ class MoneyTrackingService
                 $destinationAccount->id,
                 $totalAmount,
                 'credit',
-                "Payment received for bulk: {$bulkItem->name}",
+                "{$bulkItem->name}",
                 'invoice',
                 $invoice->id,
                 [
@@ -1551,7 +1551,7 @@ class MoneyTrackingService
                 $destinationAccount->id,
                 $totalAmount,
                 'credit',
-                "Payment received for bulk: {$bulkItem->name}",
+                "{$bulkItem->name}",
                 'invoice',
                 $invoice->id,
                 [
@@ -1653,7 +1653,7 @@ class MoneyTrackingService
                 $destinationAccount->id,
                 $totalAmount,
                 'credit',
-                "Payment received for: {$item->name}",
+                "{$item->name}",
                 'invoice',
                 $invoice->id,
                 [
@@ -1674,7 +1674,7 @@ class MoneyTrackingService
                 $destinationAccount->id,
                 $totalAmount,
                 'credit',
-                "Payment received for: {$item->name}",
+                "{$item->name}",
                 'invoice',
                 $invoice->id,
                 [

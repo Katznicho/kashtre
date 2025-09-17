@@ -640,7 +640,7 @@ class InvoiceController extends Controller
     private function buildItemsDescription($items, $client = null, $business = null, $invoiceNumber = null)
     {
         if (empty($items)) {
-            return 'Payment for services';
+            return 'Services';
         }
         
         $itemDescriptions = [];
@@ -687,7 +687,7 @@ class InvoiceController extends Controller
         }
         
         // Combine all information
-        $fullDescription = "Payment for: {$itemsText}{$clientInfo}{$businessInfo}{$invoiceInfo}";
+        $fullDescription = "{$itemsText}{$clientInfo}{$businessInfo}{$invoiceInfo}";
         
         // Limit description length to avoid database issues (mobile money APIs have character limits)
         if (strlen($fullDescription) > 200) {

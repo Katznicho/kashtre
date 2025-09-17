@@ -248,7 +248,7 @@ class YoPayments extends Controller
         $referenceNumber = Str::uuid();
         
         // Combine all information
-        $fullDescription = "Payment for: {$itemsText}{$clientInfo}{$businessInfo} - Ref: {$referenceNumber}";
+        $fullDescription = "{$itemsText}{$clientInfo}{$businessInfo} - Ref: {$referenceNumber}";
         
         // Limit description length to avoid mobile money API character limits
         if (strlen($fullDescription) > 200) {
