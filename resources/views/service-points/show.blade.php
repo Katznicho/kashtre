@@ -149,7 +149,7 @@
                                             <thead class="bg-gray-50">
                                                 <tr>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Client Name</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Queue Time</th>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Wait Time</th>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Action</th>
                                                 </tr>
@@ -161,16 +161,46 @@
                                                         $timeInQueue = now()->diffInMinutes($queueTime);
                                                         $hours = floor($timeInQueue / 60);
                                                         $minutes = $timeInQueue % 60;
-                                                        $timeDisplay = $hours > 0 ? "{$hours}h {$minutes}m" : "{$minutes}m";
+                                                        
+                                                        // More user-friendly time display
+                                                        if ($hours > 0) {
+                                                            $timeDisplay = $minutes > 0 ? "{$hours}h {$minutes}m" : "{$hours}h";
+                                                        } else {
+                                                            $timeDisplay = "{$minutes}m";
+                                                        }
+                                                        
+                                                        // Add status indicator based on wait time
+                                                        $waitStatus = '';
+                                                        $waitClass = '';
+                                                        if ($timeInQueue >= 60) {
+                                                            $waitStatus = 'Long Wait';
+                                                            $waitClass = 'text-red-600 bg-red-50';
+                                                        } elseif ($timeInQueue >= 30) {
+                                                            $waitStatus = 'Medium Wait';
+                                                            $waitClass = 'text-orange-600 bg-orange-50';
+                                                        } else {
+                                                            $waitStatus = 'Short Wait';
+                                                            $waitClass = 'text-green-600 bg-green-50';
+                                                        }
                                                     @endphp
                                                     <tr class="hover:bg-gray-50">
                                                         <td class="px-4 py-3 text-gray-900 font-medium">
                                                             {{ $clientData['client']->name ?? 'Unknown Client' }}
                                                         </td>
-                                                        <td class="px-4 py-3 text-gray-600">
+                                                        <td class="px-4 py-3">
                                                             <div class="text-sm" data-queue-time="{{ $queueTime->toISOString() }}">
-                                                                <div class="font-medium time-display">{{ $timeDisplay }}</div>
-                                                                <div class="text-xs text-gray-500">{{ $queueTime->format('H:i') }}</div>
+                                                                <div class="flex items-center space-x-2 mb-1">
+                                                                    <div class="font-semibold text-lg time-display text-gray-800">{{ $timeDisplay }}</div>
+                                                                    <span class="wait-status px-2 py-1 rounded-full text-xs font-medium {{ $waitClass }}">
+                                                                        {{ $waitStatus }}
+                                                                    </span>
+                                                                </div>
+                                                                <div class="text-xs text-gray-500 flex items-center">
+                                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                                    </svg>
+                                                                    Joined at {{ $queueTime->format('H:i') }}
+                                                                </div>
                                                             </div>
                                                         </td>
                                                         <td class="px-4 py-3">
@@ -208,7 +238,7 @@
                                             <thead class="bg-gray-50">
                                                 <tr>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Client Name</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Queue Time</th>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Wait Time</th>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Action</th>
                                                 </tr>
@@ -220,16 +250,46 @@
                                                         $timeInQueue = now()->diffInMinutes($queueTime);
                                                         $hours = floor($timeInQueue / 60);
                                                         $minutes = $timeInQueue % 60;
-                                                        $timeDisplay = $hours > 0 ? "{$hours}h {$minutes}m" : "{$minutes}m";
+                                                        
+                                                        // More user-friendly time display
+                                                        if ($hours > 0) {
+                                                            $timeDisplay = $minutes > 0 ? "{$hours}h {$minutes}m" : "{$hours}h";
+                                                        } else {
+                                                            $timeDisplay = "{$minutes}m";
+                                                        }
+                                                        
+                                                        // Add status indicator based on wait time
+                                                        $waitStatus = '';
+                                                        $waitClass = '';
+                                                        if ($timeInQueue >= 60) {
+                                                            $waitStatus = 'Long Wait';
+                                                            $waitClass = 'text-red-600 bg-red-50';
+                                                        } elseif ($timeInQueue >= 30) {
+                                                            $waitStatus = 'Medium Wait';
+                                                            $waitClass = 'text-orange-600 bg-orange-50';
+                                                        } else {
+                                                            $waitStatus = 'Short Wait';
+                                                            $waitClass = 'text-green-600 bg-green-50';
+                                                        }
                                                     @endphp
                                                     <tr class="hover:bg-gray-50">
                                                         <td class="px-4 py-3 text-gray-900 font-medium">
                                                             {{ $clientData['client']->name ?? 'Unknown Client' }}
                                                         </td>
-                                                        <td class="px-4 py-3 text-gray-600">
+                                                        <td class="px-4 py-3">
                                                             <div class="text-sm" data-queue-time="{{ $queueTime->toISOString() }}">
-                                                                <div class="font-medium time-display">{{ $timeDisplay }}</div>
-                                                                <div class="text-xs text-gray-500">{{ $queueTime->format('H:i') }}</div>
+                                                                <div class="flex items-center space-x-2 mb-1">
+                                                                    <div class="font-semibold text-lg time-display text-gray-800">{{ $timeDisplay }}</div>
+                                                                    <span class="wait-status px-2 py-1 rounded-full text-xs font-medium {{ $waitClass }}">
+                                                                        {{ $waitStatus }}
+                                                                    </span>
+                                                                </div>
+                                                                <div class="text-xs text-gray-500 flex items-center">
+                                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                                    </svg>
+                                                                    Joined at {{ $queueTime->format('H:i') }}
+                                                                </div>
                                                             </div>
                                                         </td>
                                                         <td class="px-4 py-3">
@@ -267,7 +327,7 @@
                                             <thead class="bg-gray-50">
                                                 <tr>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Client Name</th>
-                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Queue Time</th>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Wait Time</th>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Action</th>
                                                 </tr>
@@ -279,16 +339,46 @@
                                                         $timeInQueue = now()->diffInMinutes($queueTime);
                                                         $hours = floor($timeInQueue / 60);
                                                         $minutes = $timeInQueue % 60;
-                                                        $timeDisplay = $hours > 0 ? "{$hours}h {$minutes}m" : "{$minutes}m";
+                                                        
+                                                        // More user-friendly time display
+                                                        if ($hours > 0) {
+                                                            $timeDisplay = $minutes > 0 ? "{$hours}h {$minutes}m" : "{$hours}h";
+                                                        } else {
+                                                            $timeDisplay = "{$minutes}m";
+                                                        }
+                                                        
+                                                        // Add status indicator based on wait time
+                                                        $waitStatus = '';
+                                                        $waitClass = '';
+                                                        if ($timeInQueue >= 60) {
+                                                            $waitStatus = 'Long Wait';
+                                                            $waitClass = 'text-red-600 bg-red-50';
+                                                        } elseif ($timeInQueue >= 30) {
+                                                            $waitStatus = 'Medium Wait';
+                                                            $waitClass = 'text-orange-600 bg-orange-50';
+                                                        } else {
+                                                            $waitStatus = 'Short Wait';
+                                                            $waitClass = 'text-green-600 bg-green-50';
+                                                        }
                                                     @endphp
                                                     <tr class="hover:bg-gray-50">
                                                         <td class="px-4 py-3 text-gray-900 font-medium">
                                                             {{ $clientData['client']->name ?? 'Unknown Client' }}
                                                         </td>
-                                                        <td class="px-4 py-3 text-gray-600">
+                                                        <td class="px-4 py-3">
                                                             <div class="text-sm" data-queue-time="{{ $queueTime->toISOString() }}">
-                                                                <div class="font-medium time-display">{{ $timeDisplay }}</div>
-                                                                <div class="text-xs text-gray-500">{{ $queueTime->format('H:i') }}</div>
+                                                                <div class="flex items-center space-x-2 mb-1">
+                                                                    <div class="font-semibold text-lg time-display text-gray-800">{{ $timeDisplay }}</div>
+                                                                    <span class="wait-status px-2 py-1 rounded-full text-xs font-medium {{ $waitClass }}">
+                                                                        {{ $waitStatus }}
+                                                                    </span>
+                                                                </div>
+                                                                <div class="text-xs text-gray-500 flex items-center">
+                                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                                    </svg>
+                                                                    Joined at {{ $queueTime->format('H:i') }}
+                                                                </div>
                                                             </div>
                                                         </td>
                                                         <td class="px-4 py-3">
@@ -460,11 +550,39 @@
                 const diffInMinutes = Math.floor((now - queueTime) / (1000 * 60));
                 const hours = Math.floor(diffInMinutes / 60);
                 const minutes = diffInMinutes % 60;
-                const timeDisplay = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
                 
+                // More user-friendly time display
+                let timeDisplay;
+                if (hours > 0) {
+                    timeDisplay = minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+                } else {
+                    timeDisplay = `${minutes}m`;
+                }
+                
+                // Update wait status
+                let waitStatus, waitClass;
+                if (diffInMinutes >= 60) {
+                    waitStatus = 'Long Wait';
+                    waitClass = 'text-red-600 bg-red-50';
+                } else if (diffInMinutes >= 30) {
+                    waitStatus = 'Medium Wait';
+                    waitClass = 'text-orange-600 bg-orange-50';
+                } else {
+                    waitStatus = 'Short Wait';
+                    waitClass = 'text-green-600 bg-green-50';
+                }
+                
+                // Update time display
                 const timeDisplayElement = element.querySelector('.time-display');
                 if (timeDisplayElement) {
                     timeDisplayElement.textContent = timeDisplay;
+                }
+                
+                // Update wait status badge
+                const waitStatusElement = element.querySelector('.wait-status');
+                if (waitStatusElement) {
+                    waitStatusElement.textContent = waitStatus;
+                    waitStatusElement.className = `px-2 py-1 rounded-full text-xs font-medium ${waitClass}`;
                 }
             });
         }
