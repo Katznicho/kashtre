@@ -1323,15 +1323,14 @@
                 <!-- Client and Transaction Details -->
                 <div class="grid grid-cols-2 gap-4 mb-6 text-sm text-gray-700">
                     <div>
-                        <p><strong>Payment Phone:</strong> {{ $client->payment_phone_number ?? 'N/A' }}</p>
                         <p><strong>Client:</strong> {{ $client->name }} {{ $client->client_id }}</p>
                         <p><strong>Visit ID:</strong> {{ $client->visit_id }}</p>
                         <p><strong>Branch Name:</strong> {{ auth()->user()->currentBranch->name ?? 'N/A' }}</p>
                     </div>
                     <div>
                         <p><strong>Date:</strong> {{ now()->format('n/j/Y') }}</p>
-                        <p><strong>Hospital:</strong> {{ auth()->user()->business->name ?? 'N/A' }}</p>
-                        <p><strong>Attended To By:</strong> {{ auth()->user()->name }} {{ auth()->user()->business->name ?? '' }}</p>
+                        <p><strong>Entity:</strong> {{ auth()->user()->business->name ?? 'N/A' }}</p>
+                        <p><strong>Attended To By:</strong> {{ auth()->user()->name }}</p>
                     </div>
                 </div>
                 
