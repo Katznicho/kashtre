@@ -44,19 +44,21 @@ class ServicePointController extends Controller
             abort(403, 'You do not have access to this service point.');
         }
 
-        // Load the service point with its queues and related data
+        // Load the service point with its queues and related data, ordered by queue time
         $servicePoint->load([
-            'pendingDeliveryQueues.client',
-            'pendingDeliveryQueues.invoice',
-            'pendingDeliveryQueues.item',
-            'partiallyDoneDeliveryQueues.client', 
-            'partiallyDoneDeliveryQueues.invoice',
-            'partiallyDoneDeliveryQueues.item',
-            'partiallyDoneDeliveryQueues.startedByUser',
+            'pendingDeliveryQueues' => function($query) {
+                $query->with(['client', 'invoice', 'item'])
+                      ->orderBy('queued_at', 'asc');
+            },
+            'partiallyDoneDeliveryQueues' => function($query) {
+                $query->with(['client', 'invoice', 'item', 'startedByUser'])
+                      ->orderBy('queued_at', 'asc');
+            },
             'serviceDeliveryQueues' => function($query) {
                 $query->where('status', 'completed')
                       ->whereDate('completed_at', today())
-                      ->with(['client', 'invoice', 'item']);
+                      ->with(['client', 'invoice', 'item'])
+                      ->orderBy('queued_at', 'asc');
             }
         ]);
 
@@ -71,8 +73,14 @@ class ServicePointController extends Controller
                     'client' => $queue->client,
                     'pending' => [],
                     'partially_done' => [],
-                    'completed' => []
+                    'completed' => [],
+                    'earliest_queue_time' => $queue->queued_at
                 ];
+            } else {
+                // Update earliest queue time if this queue is earlier
+                if ($queue->queued_at < $clientsWithItems[$clientId]['earliest_queue_time']) {
+                    $clientsWithItems[$clientId]['earliest_queue_time'] = $queue->queued_at;
+                }
             }
             $clientsWithItems[$clientId]['pending'][] = $queue;
         }
@@ -85,8 +93,14 @@ class ServicePointController extends Controller
                     'client' => $queue->client,
                     'pending' => [],
                     'partially_done' => [],
-                    'completed' => []
+                    'completed' => [],
+                    'earliest_queue_time' => $queue->queued_at
                 ];
+            } else {
+                // Update earliest queue time if this queue is earlier
+                if ($queue->queued_at < $clientsWithItems[$clientId]['earliest_queue_time']) {
+                    $clientsWithItems[$clientId]['earliest_queue_time'] = $queue->queued_at;
+                }
             }
             $clientsWithItems[$clientId]['partially_done'][] = $queue;
         }
@@ -99,11 +113,22 @@ class ServicePointController extends Controller
                     'client' => $queue->client,
                     'pending' => [],
                     'partially_done' => [],
-                    'completed' => []
+                    'completed' => [],
+                    'earliest_queue_time' => $queue->queued_at
                 ];
+            } else {
+                // Update earliest queue time if this queue is earlier
+                if ($queue->queued_at < $clientsWithItems[$clientId]['earliest_queue_time']) {
+                    $clientsWithItems[$clientId]['earliest_queue_time'] = $queue->queued_at;
+                }
             }
             $clientsWithItems[$clientId]['completed'][] = $queue;
         }
+
+        // Sort clients by their earliest queue time (first in queue first)
+        uasort($clientsWithItems, function($a, $b) {
+            return $a['earliest_queue_time'] <=> $b['earliest_queue_time'];
+        });
 
         return view('service-points.show', compact('servicePoint', 'clientsWithItems'));
     }

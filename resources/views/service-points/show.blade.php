@@ -149,15 +149,29 @@
                                             <thead class="bg-gray-50">
                                                 <tr>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Client Name</th>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Queue Time</th>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="divide-y divide-gray-100">
                                                 @foreach($pendingClients as $clientId => $clientData)
+                                                    @php
+                                                        $queueTime = $clientData['earliest_queue_time'];
+                                                        $timeInQueue = now()->diffInMinutes($queueTime);
+                                                        $hours = floor($timeInQueue / 60);
+                                                        $minutes = $timeInQueue % 60;
+                                                        $timeDisplay = $hours > 0 ? "{$hours}h {$minutes}m" : "{$minutes}m";
+                                                    @endphp
                                                     <tr class="hover:bg-gray-50">
                                                         <td class="px-4 py-3 text-gray-900 font-medium">
                                                             {{ $clientData['client']->name ?? 'Unknown Client' }}
+                                                        </td>
+                                                        <td class="px-4 py-3 text-gray-600">
+                                                            <div class="text-sm" data-queue-time="{{ $queueTime->toISOString() }}">
+                                                                <div class="font-medium time-display">{{ $timeDisplay }}</div>
+                                                                <div class="text-xs text-gray-500">{{ $queueTime->format('H:i') }}</div>
+                                                            </div>
                                                         </td>
                                                         <td class="px-4 py-3">
                                                             <span class="status-badge status-pending">Pending</span>
@@ -194,15 +208,29 @@
                                             <thead class="bg-gray-50">
                                                 <tr>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Client Name</th>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Queue Time</th>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="divide-y divide-gray-100">
                                                 @foreach($inProgressClients as $clientId => $clientData)
+                                                    @php
+                                                        $queueTime = $clientData['earliest_queue_time'];
+                                                        $timeInQueue = now()->diffInMinutes($queueTime);
+                                                        $hours = floor($timeInQueue / 60);
+                                                        $minutes = $timeInQueue % 60;
+                                                        $timeDisplay = $hours > 0 ? "{$hours}h {$minutes}m" : "{$minutes}m";
+                                                    @endphp
                                                     <tr class="hover:bg-gray-50">
                                                         <td class="px-4 py-3 text-gray-900 font-medium">
                                                             {{ $clientData['client']->name ?? 'Unknown Client' }}
+                                                        </td>
+                                                        <td class="px-4 py-3 text-gray-600">
+                                                            <div class="text-sm" data-queue-time="{{ $queueTime->toISOString() }}">
+                                                                <div class="font-medium time-display">{{ $timeDisplay }}</div>
+                                                                <div class="text-xs text-gray-500">{{ $queueTime->format('H:i') }}</div>
+                                                            </div>
                                                         </td>
                                                         <td class="px-4 py-3">
                                                             <span class="status-badge status-partially-done">In Progress</span>
@@ -239,15 +267,29 @@
                                             <thead class="bg-gray-50">
                                                 <tr>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Client Name</th>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Queue Time</th>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
                                                     <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="divide-y divide-gray-100">
                                                 @foreach($completedClients as $clientId => $clientData)
+                                                    @php
+                                                        $queueTime = $clientData['earliest_queue_time'];
+                                                        $timeInQueue = now()->diffInMinutes($queueTime);
+                                                        $hours = floor($timeInQueue / 60);
+                                                        $minutes = $timeInQueue % 60;
+                                                        $timeDisplay = $hours > 0 ? "{$hours}h {$minutes}m" : "{$minutes}m";
+                                                    @endphp
                                                     <tr class="hover:bg-gray-50">
                                                         <td class="px-4 py-3 text-gray-900 font-medium">
                                                             {{ $clientData['client']->name ?? 'Unknown Client' }}
+                                                        </td>
+                                                        <td class="px-4 py-3 text-gray-600">
+                                                            <div class="text-sm" data-queue-time="{{ $queueTime->toISOString() }}">
+                                                                <div class="font-medium time-display">{{ $timeDisplay }}</div>
+                                                                <div class="text-xs text-gray-500">{{ $queueTime->format('H:i') }}</div>
+                                                            </div>
                                                         </td>
                                                         <td class="px-4 py-3">
                                                             <span class="status-badge status-completed">Completed</span>
@@ -409,10 +451,32 @@
             });
         }
 
-        // Auto-refresh every 30 seconds
+        // Update queue times every minute
+        function updateQueueTimes() {
+            const queueTimeElements = document.querySelectorAll('[data-queue-time]');
+            queueTimeElements.forEach(element => {
+                const queueTime = new Date(element.dataset.queueTime);
+                const now = new Date();
+                const diffInMinutes = Math.floor((now - queueTime) / (1000 * 60));
+                const hours = Math.floor(diffInMinutes / 60);
+                const minutes = diffInMinutes % 60;
+                const timeDisplay = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+                
+                const timeDisplayElement = element.querySelector('.time-display');
+                if (timeDisplayElement) {
+                    timeDisplayElement.textContent = timeDisplay;
+                }
+            });
+        }
+
+        // Update queue times immediately and then every minute
+        updateQueueTimes();
+        setInterval(updateQueueTimes, 60000);
+
+        // Auto-refresh every 5 minutes (reduced from 30 seconds for better performance)
         setInterval(() => {
             location.reload();
-        }, 30000);
+        }, 300000);
     </script>
 </x-app-layout>
 
