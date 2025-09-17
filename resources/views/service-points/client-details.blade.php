@@ -383,9 +383,9 @@
                                 </div>
                             </div>
                             
-                            <!-- Preview Invoice Button -->
+                            <!-- Preview Proforma Invoice Button -->
                             <button class="w-full bg-gray-900 text-white py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors font-medium">
-                                Preview Invoice
+                                Preview Proforma Invoice
                             </button>
                         </div>
                     </div>
@@ -411,7 +411,7 @@
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Item Name</th>
-                                        <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Invoice</th>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Proforma Invoice</th>
                                         <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Price</th>
                                         <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Qty</th>
                                         <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Total Amount</th>
@@ -862,9 +862,9 @@
         // Initialize package tracking numbers storage
         window.packageTrackingNumbers = new Map();
 
-        // Preview Invoice functionality - Full POS functionality
+        // Preview Proforma Invoice functionality - Full POS functionality
         document.addEventListener('click', function(e) {
-            if (e.target.textContent === 'Preview Invoice') {
+            if (e.target.textContent === 'Preview Proforma Invoice') {
                 if (selectedItems.length === 0) {
                     Swal.fire({
                         title: 'No Items Selected',
@@ -1051,10 +1051,25 @@
                 return;
             }
             
+            // Check if service charge is required and present
+            const serviceChargeElement = document.getElementById('service-charge-display');
+            const serviceChargeText = serviceChargeElement ? serviceChargeElement.textContent : 'UGX 0.00';
+            const serviceChargeValue = parseFloat(serviceChargeText.replace(/[^0-9.-]/g, '')) || 0;
+            
+            if (serviceChargeValue <= 0) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Service Charge Required',
+                    text: 'A service charge is required to save this proforma invoice. Please ensure the service charge is calculated correctly.',
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+            
             // Confirm with SweetAlert2
             const result = await Swal.fire({
-                title: 'Confirm Invoice',
-                text: 'Are you sure you want to save this invoice?',
+                title: 'Confirm Proforma Invoice',
+                text: 'Are you sure you want to save this proforma invoice?',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#3085d6',
@@ -1202,10 +1217,10 @@
                 if (result.success) {
                     Swal.fire({
                         icon: 'success',
-                        title: 'Invoice Saved Successfully!',
+                        title: 'Proforma Invoice Saved Successfully!',
                         html: `
                             <div class="text-center">
-                                <p class="text-lg font-semibold text-green-600">Invoice #${result.invoice.invoice_number}</p>
+                                <p class="text-lg font-semibold text-green-600">Proforma Invoice #${result.invoice.invoice_number}</p>
                                 <p class="text-sm text-gray-600">Total: UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
                                 ${amountPaid > 0 ? `<p class="text-sm text-green-600">Payment: UGX ${parseFloat(amountPaid).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>` : ''}
                             </div>
@@ -1292,15 +1307,15 @@
         }
     </script>
 
-    <!-- Invoice Preview Modal -->
+    <!-- Proforma Invoice Preview Modal -->
     <div id="invoice-preview-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
         <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div class="p-6">
                 <!-- Header -->
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold text-gray-900">Invoice Preview</h2>
+                    <h2 class="text-2xl font-bold text-gray-900">Proforma Invoice Preview</h2>
                     <div class="text-right">
-                        <p class="text-sm text-gray-600">Invoice Number</p>
+                        <p class="text-sm text-gray-600">Proforma Invoice Number</p>
                         <p id="invoice-number-display" class="text-lg font-semibold text-gray-900">Generating...</p>
                     </div>
                 </div>

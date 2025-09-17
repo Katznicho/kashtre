@@ -12,7 +12,7 @@
                     Active
                 </span>
                 <a href="/invoices" class="px-3 py-1 text-sm font-medium rounded-full bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors">
-                    View All Invoices
+                    View All Proforma Invoices
                 </a>
             </div>
         </div>
@@ -401,7 +401,7 @@
                                     <span id="total-amount" class="text-lg font-bold text-gray-900">UGX 0.00</span>
                                 </div>
                                 <button class="w-full bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors" onclick="showInvoicePreview()">
-                                    Preview Invoice
+                                    Preview Proforma Invoice
                                 </button>
                             </div>
                         </div>
@@ -486,14 +486,14 @@
     <div id="invoice-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
         <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
             <div class="mt-3">
-                <!-- Invoice Header -->
+                <!-- Proforma Invoice Header -->
                 <div class="text-center mb-6">
                     <h2 class="text-2xl font-bold text-gray-800 mb-2">Proforma Invoice</h2>
                     <div class="bg-blue-600 text-white py-2 px-4 rounded-lg mb-2">
-                        <span class="text-lg font-semibold">Invoice</span>
+                        <span class="text-lg font-semibold">Proforma Invoice</span>
                     </div>
                     <div class="bg-gray-100 py-2 px-4 rounded-lg border">
-                        <span class="text-sm text-gray-600">Invoice Number:</span>
+                        <span class="text-sm text-gray-600">Proforma Invoice Number:</span>
                         <span id="invoice-number-display" class="text-lg font-bold text-gray-800 ml-2">Generating...</span>
                     </div>
                 </div>
@@ -1109,10 +1109,25 @@
                 return;
             }
             
+            // Check if service charge is required and present
+            const serviceChargeElement = document.getElementById('service-charge-display');
+            const serviceChargeText = serviceChargeElement ? serviceChargeElement.textContent : 'UGX 0.00';
+            const serviceChargeValue = parseFloat(serviceChargeText.replace(/[^0-9.-]/g, '')) || 0;
+            
+            if (serviceChargeValue <= 0) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Service Charge Required',
+                    text: 'A service charge is required to save this proforma invoice. Please ensure the service charge is calculated correctly.',
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+            
             // Confirm with SweetAlert2
             const result = await Swal.fire({
-                title: 'Confirm Invoice',
-                text: 'Are you sure you want to save this invoice?',
+                title: 'Confirm Proforma Invoice',
+                text: 'Are you sure you want to save this proforma invoice?',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#3085d6',
@@ -1240,8 +1255,8 @@
                 if (!invoiceNumber || invoiceNumber === 'Generating...' || invoiceNumber === 'Error generating invoice number') {
                     Swal.fire({
                         icon: 'error',
-                        title: 'Invalid Invoice Number',
-                        text: 'Please wait for the invoice number to be generated before saving.'
+                        title: 'Invalid Proforma Invoice Number',
+                        text: 'Please wait for the proforma invoice number to be generated before saving.'
                     });
                     return;
                 }
@@ -1271,7 +1286,7 @@
                     notes: ''
                 };
                 
-                console.log('Invoice data being sent:', invoiceData);
+                console.log('Proforma Invoice data being sent:', invoiceData);
                 
                 // Save invoice
                 const response = await fetch('/invoices', {
@@ -1297,16 +1312,16 @@
                     // Show success with options
                     const result = await Swal.fire({
                         icon: 'success',
-                        title: 'Invoice Saved!',
+                        title: 'Proforma Invoice Saved!',
                         html: `
                             <div class="text-center">
-                                <p class="mb-2">Invoice has been saved successfully.</p>
-                                <p class="text-sm text-gray-600">Invoice Number: <strong>${invoiceNumber}</strong></p>
+                                <p class="mb-2">Proforma invoice has been saved successfully.</p>
+                                <p class="text-sm text-gray-600">Proforma Invoice Number: <strong>${invoiceNumber}</strong></p>
                             </div>
                         `,
                         showCancelButton: true,
-                        confirmButtonText: 'View Invoice',
-                        cancelButtonText: 'Print Invoice',
+                        confirmButtonText: 'View Proforma Invoice',
+                        cancelButtonText: 'Print Proforma Invoice',
                         showDenyButton: true,
                         denyButtonText: 'Stay Here'
                     });
@@ -1325,8 +1340,8 @@
                                 title: 'Print Window Opened',
                                 html: `
                                     <div class="text-center">
-                                        <p class="mb-2">Invoice print window has been opened.</p>
-                                        <p class="text-sm text-gray-600">Invoice Number: <strong>${invoiceNumber}</strong></p>
+                                        <p class="mb-2">Proforma invoice print window has been opened.</p>
+                                        <p class="text-sm text-gray-600">Proforma Invoice Number: <strong>${invoiceNumber}</strong></p>
                                         <p class="text-xs text-gray-500 mt-2">Please check the new tab/window for printing options.</p>
                                     </div>
                                 `,
