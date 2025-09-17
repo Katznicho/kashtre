@@ -1067,9 +1067,9 @@
             const serviceChargeNote = document.getElementById('service-charge-note');
             
             // Always show the service charge amount
-            serviceChargeElement.textContent = `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                serviceChargeElement.textContent = `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             // Hide the "No charges" note since we always have a service charge (even if 0.00)
-            serviceChargeNote.style.display = 'none';
+                serviceChargeNote.style.display = 'none';
             
             document.getElementById('invoice-final-total').textContent = `UGX ${finalTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
@@ -1116,16 +1116,40 @@
             const isServiceChargeNotConfigured = serviceChargeNote && serviceChargeNote.style.display !== 'none';
             
             // Debug logging
+            console.log('=== SERVICE CHARGE VALIDATION DEBUG ===');
             console.log('Service charge validation debug:', {
                 serviceChargeValue: serviceChargeValue,
                 serviceChargeText: serviceChargeText,
                 isServiceChargeNotConfigured: isServiceChargeNotConfigured,
-                noteDisplay: serviceChargeNote ? serviceChargeNote.style.display : 'note not found'
+                noteDisplay: serviceChargeNote ? serviceChargeNote.style.display : 'note not found',
+                serviceChargeElement: serviceChargeElement ? 'found' : 'not found',
+                serviceChargeNote: serviceChargeNote ? 'found' : 'not found',
+                timestamp: new Date().toISOString()
             });
+            
+            // Additional element inspection
+            if (serviceChargeElement) {
+                console.log('Service charge element details:', {
+                    textContent: serviceChargeElement.textContent,
+                    innerHTML: serviceChargeElement.innerHTML,
+                    style: serviceChargeElement.style.cssText
+                });
+            }
+            
+            if (serviceChargeNote) {
+                console.log('Service charge note details:', {
+                    textContent: serviceChargeNote.textContent,
+                    innerHTML: serviceChargeNote.innerHTML,
+                    style: serviceChargeNote.style.cssText,
+                    computedStyle: window.getComputedStyle(serviceChargeNote).display
+                });
+            }
             
             // Only block if service charges are not configured
             // 0.00 is a valid service charge amount
             if (isServiceChargeNotConfigured) {
+                console.log('=== BLOCKING SAVE - SERVICE CHARGES NOT CONFIGURED ===');
+                console.log('Showing "Service Charges Not Configured" modal');
                 Swal.fire({
                     icon: 'error',
                     title: 'Service Charges Not Configured',
@@ -1133,6 +1157,9 @@
                     confirmButtonText: 'OK'
                 });
                 return;
+            } else {
+                console.log('=== VALIDATION PASSED - PROCEEDING WITH SAVE ===');
+                console.log('Service charge validation passed, continuing with save process');
             }
             
             // Confirm with SweetAlert2
@@ -1523,6 +1550,8 @@
         }
         
         async function calculateServiceCharge(subtotal) {
+            console.log('=== CALCULATE SERVICE CHARGE START ===');
+            console.log('calculateServiceCharge called with subtotal:', subtotal);
             try {
                 const response = await fetch('/invoices/service-charge', {
                     method: 'POST',
@@ -1539,8 +1568,11 @@
                 });
                 
                 const data = await response.json();
+                console.log('Service charge API response:', data);
                 if (data.success) {
-                    return parseFloat(data.service_charge) || 0;
+                    const serviceCharge = parseFloat(data.service_charge) || 0;
+                    console.log('Service charge calculated:', serviceCharge);
+                    return serviceCharge;
                 } else {
                     console.error('Service charge calculation error:', data.message);
                     return 0;
