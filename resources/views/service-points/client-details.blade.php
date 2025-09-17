@@ -784,14 +784,16 @@
         }
 
         function addItemToOrder(itemId, itemName, itemType, itemPrice, quantity) {
-            const existingItemIndex = selectedItems.findIndex(item => item.id === itemId);
+            // Ensure itemId is a string for consistent comparison
+            const stringItemId = String(itemId);
+            const existingItemIndex = selectedItems.findIndex(item => String(item.id) === stringItemId);
             
             if (existingItemIndex !== -1) {
                 selectedItems[existingItemIndex].quantity = quantity;
                 selectedItems[existingItemIndex].totalAmount = itemPrice * quantity;
             } else {
                 selectedItems.push({
-                    id: itemId,
+                    id: stringItemId,
                     name: itemName,
                     type: itemType,
                     price: itemPrice,
@@ -802,7 +804,8 @@
         }
 
         function removeItemFromOrder(itemId) {
-            selectedItems = selectedItems.filter(item => item.id !== itemId);
+            const stringItemId = String(itemId);
+            selectedItems = selectedItems.filter(item => String(item.id) !== stringItemId);
         }
 
         function updateOrderSummary() {
@@ -834,7 +837,7 @@
                         <div class="text-sm text-gray-900">${item.quantity}</div>
                         <div class="text-sm text-gray-900">UGX ${item.price.toLocaleString()}</div>
                         <div>
-                            <button onclick="removeItem(${item.id})" class="text-red-600 hover:text-red-800 text-sm">
+                            <button onclick="removeItem('${item.id}')" class="text-red-600 hover:text-red-800 text-sm underline">
                                 Remove
                             </button>
                         </div>
@@ -849,14 +852,34 @@
         }
 
         function removeItem(itemId) {
+            console.log('Removing item with ID:', itemId);
+            
             // Reset the quantity input to 0
             const input = document.querySelector(`input[data-item-id="${itemId}"]`);
             if (input) {
                 input.value = '0';
+                console.log('Reset input for item:', itemId);
+            } else {
+                console.log('Input not found for item:', itemId);
             }
             
-            removeItemFromOrder(itemId);
+            // Remove from selected items array
+            const initialLength = selectedItems.length;
+            const stringItemId = String(itemId);
+            selectedItems = selectedItems.filter(item => String(item.id) !== stringItemId);
+            console.log(`Removed item. Array length: ${initialLength} -> ${selectedItems.length}`);
+            
+            // Update the order summary
             updateOrderSummary();
+            
+            // Show success message
+            Swal.fire({
+                icon: 'success',
+                title: 'Item Removed',
+                text: 'Item has been removed from your order.',
+                timer: 1500,
+                showConfirmButton: false
+            });
         }
 
         // Initialize package tracking numbers storage
