@@ -1156,19 +1156,12 @@
             
             document.getElementById('invoice-final-total').textContent = `UGX ${finalTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
-            // Show the modal
-            console.log('Showing invoice preview modal');
-            const modal = document.getElementById('invoice-preview-modal');
-            if (modal) {
-                modal.classList.remove('hidden');
-                console.log('Modal shown successfully');
-            } else {
-                console.error('Invoice preview modal not found!');
-            }
+            // Show modal
+            document.getElementById('invoice-modal').classList.remove('hidden');
         }
 
         function closeInvoicePreview() {
-            document.getElementById('invoice-preview-modal').classList.add('hidden');
+            document.getElementById('invoice-modal').classList.add('hidden');
             
             // Reset service charge display to default state
             const serviceChargeElement = document.getElementById('service-charge-display');
@@ -1563,16 +1556,19 @@
         }
     </script>
 
-    <!-- Proforma Invoice Preview Modal -->
-    <div id="invoice-preview-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div class="p-6">
-                <!-- Header -->
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold text-gray-900">Proforma Invoice Preview</h2>
-                    <div class="text-right">
-                        <p class="text-sm text-gray-600">Proforma Invoice Number</p>
-                        <p id="invoice-number-display" class="text-lg font-semibold text-gray-900">Generating...</p>
+    <!-- Order/Request Summary Modal -->
+    <div id="invoice-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <!-- Proforma Invoice Header -->
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Proforma Invoice</h2>
+                    <div class="bg-blue-600 text-white py-2 px-4 rounded-lg mb-2">
+                        <span class="text-lg font-semibold">Proforma Invoice</span>
+                    </div>
+                    <div class="bg-gray-100 py-2 px-4 rounded-lg border">
+                        <span class="text-sm text-gray-600">Proforma Invoice Number:</span>
+                        <span id="invoice-number-display" class="text-lg font-bold text-gray-800 ml-2">Generating...</span>
                     </div>
                 </div>
                 
