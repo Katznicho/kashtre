@@ -635,7 +635,7 @@ class InvoiceController extends Controller
                     'type' => 'debit',
                     'origin' => 'web',
                     'phone_number' => $validated['payment_phone'] ?? $validated['client_phone'],
-                    'provider' => 'package_adjustment',
+                    'provider' => 'yo', // Use 'yo' as default provider for zero-amount transactions
                     'service' => 'invoice_payment',
                     'date' => now(),
                     'currency' => 'UGX',
