@@ -1919,8 +1919,24 @@ class MoneyTrackingService
         ]);
 
         // Update account balances using the proper debit/credit methods
+        Log::info("Debiting from client suspense account", [
+            'account_id' => $clientSuspenseAccount->id,
+            'amount' => $packageAdjustmentAmount,
+            'balance_before' => $clientSuspenseAccount->balance
+        ]);
         $clientSuspenseAccount->debit($packageAdjustmentAmount);  // Money goes out of client suspense
+        
+        Log::info("Crediting to business account", [
+            'account_id' => $businessAccount->id,
+            'amount' => $packageAdjustmentAmount,
+            'balance_before' => $businessAccount->balance
+        ]);
         $businessAccount->credit($packageAdjustmentAmount);       // Money comes into business account
+        
+        Log::info("Account balances after debit/credit operations", [
+            'client_suspense_balance_after_debit' => $clientSuspenseAccount->fresh()->balance,
+            'business_account_balance_after_credit' => $businessAccount->fresh()->balance
+        ]);
 
         Log::info("=== PACKAGE ADJUSTMENT MONEY MOVEMENT COMPLETED ===", [
             'transfer_id' => $transfer->id,
