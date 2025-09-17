@@ -501,14 +501,15 @@
                 <!-- Client and Transaction Details -->
                 <div class="grid grid-cols-2 gap-4 mb-6 text-sm text-gray-700">
                     <div>
-                        <p><strong>Client:</strong> {{ $client->name }} {{ $client->client_id }}</p>
-                        <p><strong>Visit ID:</strong> {{ $client->visit_id }}</p>
-                        <p><strong>Branch Name:</strong> {{ auth()->user()->currentBranch->name ?? 'N/A' }}</p>
+                        <p><strong>Entity:</strong> {{ auth()->user()->business->name ?? 'N/A' }}</p>
+                        <p><strong>Date:</strong> {{ now()->format('n/j/Y') }}</p>
+                        <p><strong>Attended To By:</strong> {{ auth()->user()->name }}</p>
                     </div>
                     <div>
-                        <p><strong>Date:</strong> {{ now()->format('n/j/Y') }}</p>
-                        <p><strong>Entity:</strong> {{ auth()->user()->business->name ?? 'N/A' }}</p>
-                        <p><strong>Attended To By:</strong> {{ auth()->user()->name }}</p>
+                        <p><strong>Client Name:</strong> {{ $client->name }}</p>
+                        <p><strong>Client ID:</strong> {{ $client->client_id }}</p>
+                        <p><strong>Visit ID:</strong> {{ $client->visit_id }}</p>
+                        <p><strong>Branch Name:</strong> {{ auth()->user()->currentBranch->name ?? 'N/A' }}</p>
                     </div>
                 </div>
                 
