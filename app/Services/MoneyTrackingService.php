@@ -1327,7 +1327,7 @@ class MoneyTrackingService
                     $this->processBulkItem($item, $totalAmount, $clientSuspenseAccount, $business, $invoice, $transferRecords);
                 } else {
                     // Handle regular items (good, service) as before
-                    $this->processRegularItem($item, $totalAmount, $clientSuspenseAccount, $business, $invoice, $transferRecords);
+                    $this->processRegularItem($item, $totalAmount, $clientSuspenseAccount, $business, $invoice, $transferRecords, $quantity);
                 }
             }
 
@@ -1669,7 +1669,7 @@ class MoneyTrackingService
     /**
      * Process a regular item (good, service) - standard money movement
      */
-    private function processRegularItem($item, $totalAmount, $clientSuspenseAccount, $business, $invoice, &$transferRecords)
+    private function processRegularItem($item, $totalAmount, $clientSuspenseAccount, $business, $invoice, &$transferRecords, $quantity)
     {
         Log::info("=== PROCESSING REGULAR ITEM ===", [
             'item_id' => $item->id,
