@@ -1062,17 +1062,14 @@
             document.getElementById('balance-adjustment-display').textContent = `UGX ${parseFloat(balanceAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('invoice-subtotal-2').textContent = `UGX ${subtotal2.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
-            // Display service charge or "No Service Charges" if zero
+            // Display service charge (always show the amount, even if 0.00)
             const serviceChargeElement = document.getElementById('service-charge-display');
             const serviceChargeNote = document.getElementById('service-charge-note');
             
-            if (parseFloat(serviceCharge) > 0) {
-                serviceChargeElement.textContent = `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                serviceChargeNote.style.display = 'none';
-            } else {
-                serviceChargeElement.textContent = 'UGX 0.00';
-                serviceChargeNote.style.display = 'block';
-            }
+            // Always show the service charge amount
+            serviceChargeElement.textContent = `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            // Hide the "No charges" note since we always have a service charge (even if 0.00)
+            serviceChargeNote.style.display = 'none';
             
             document.getElementById('invoice-final-total').textContent = `UGX ${finalTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
