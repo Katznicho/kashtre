@@ -1060,7 +1060,7 @@
             
             // Calculate package adjustment
             const packageAdjustmentData = await calculatePackageAdjustment();
-            const packageAdjustment = packageAdjustmentData.total_adjustment;
+            const packageAdjustment = parseFloat(packageAdjustmentData.total_adjustment) || 0;
             
             // Show package adjustment details if any adjustments were made
             if (packageAdjustmentData.details && packageAdjustmentData.details.length > 0) {
@@ -1132,14 +1132,14 @@
             // Service Charge is calculated based on Subtotal 2
             
             const subtotal1 = parseFloat(subtotal);
-            const subtotal2 = subtotal1 - parseFloat(packageAdjustment) - parseFloat(balanceAdjustment);
+            const subtotal2 = subtotal1 - packageAdjustment - balanceAdjustment;
             const serviceCharge = await calculateServiceCharge(subtotal2);
-            const totalAmount = subtotal2 + parseFloat(serviceCharge);
+            const finalTotal = subtotal2 + parseFloat(serviceCharge);
             
             // Update financial summary
             document.getElementById('invoice-subtotal').textContent = `UGX ${subtotal1.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('package-adjustment-display').textContent = `UGX ${parseFloat(packageAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('balance-adjustment-display').textContent = `UGX ${parseFloat(balanceAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('package-adjustment-display').textContent = `UGX ${packageAdjustment.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('balance-adjustment-display').textContent = `UGX ${balanceAdjustment.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('invoice-subtotal-2').textContent = `UGX ${subtotal2.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
             // Display service charge or "No Service Charges" if zero
@@ -1154,7 +1154,7 @@
                 serviceChargeNote.style.display = 'block';
             }
             
-            document.getElementById('invoice-final-total').textContent = `UGX ${totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('invoice-final-total').textContent = `UGX ${finalTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
             // Show the modal
             console.log('Showing invoice preview modal');
@@ -1335,7 +1335,7 @@
                 // Service Charge is calculated based on Subtotal 2
                 
                 const subtotal1 = parseFloat(subtotal);
-                const subtotal2 = subtotal1 - parseFloat(packageAdjustment) - parseFloat(balanceAdjustment);
+                const subtotal2 = subtotal1 - packageAdjustment - balanceAdjustment;
                 const serviceCharge = await calculateServiceCharge(subtotal2);
                 const totalAmount = subtotal2 + parseFloat(serviceCharge);
                 
