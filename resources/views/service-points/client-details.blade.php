@@ -1133,7 +1133,11 @@
             
             const subtotal1 = parseFloat(subtotal);
             const subtotal2 = subtotal1 - packageAdjustment - balanceAdjustment;
+            
+            console.log('Service charge calculation - subtotal2:', subtotal2);
             const serviceCharge = await calculateServiceCharge(subtotal2);
+            console.log('Service charge result:', serviceCharge);
+            
             const finalTotal = subtotal2 + parseFloat(serviceCharge);
             
             // Update financial summary
@@ -1201,6 +1205,7 @@
         }
 
         async function calculateServiceCharge(amount) {
+            console.log('calculateServiceCharge called with amount:', amount);
             try {
                 const response = await fetch('/invoices/calculate-service-charge', {
                     method: 'POST',
@@ -1216,6 +1221,7 @@
                 });
                 
                 const data = await response.json();
+                console.log('Service charge API response:', data);
                 return data.service_charge || 0;
             } catch (error) {
                 console.error('Error calculating service charge:', error);
