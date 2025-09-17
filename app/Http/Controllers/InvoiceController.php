@@ -601,6 +601,32 @@ class InvoiceController extends Controller
             
             // SERVICE POINT QUEUING: Items will be queued only after payment is completed
             // This is now handled by the CheckPaymentStatus cron job
+            // EXCEPTION: For zero-amount transactions (due to package adjustments), queue immediately
+            if ($validated['total_amount'] == 0) {
+                Log::info("Zero-amount transaction detected - auto-completing and queuing items", [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'total_amount' => $validated['total_amount'],
+                    'package_adjustment' => $validated['package_adjustment'] ?? 0
+                ]);
+                
+                // Auto-complete the transaction
+                $invoice->update([
+                    'payment_status' => 'paid',
+                    'status' => 'confirmed',
+                    'amount_paid' => 0,
+                    'balance_due' => 0,
+                    'confirmed_at' => now()
+                ]);
+                
+                // Queue items immediately for zero-amount transactions
+                $this->queueItemsAtServicePoints($invoice, $validated['items']);
+                
+                Log::info("Zero-amount transaction auto-completed and items queued", [
+                    'invoice_id' => $invoice->id,
+                    'items_queued' => count($validated['items'])
+                ]);
+            }
             
             // Generate next invoice number (default to proforma type)
             $nextInvoiceNumber = Invoice::generateInvoiceNumber($business->id, 'proforma');
