@@ -1115,6 +1115,14 @@
             // Check if service charges are not configured (note is visible)
             const isServiceChargeNotConfigured = serviceChargeNote && serviceChargeNote.style.display !== 'none';
             
+            // Debug logging
+            console.log('Service charge validation debug:', {
+                serviceChargeValue: serviceChargeValue,
+                serviceChargeText: serviceChargeText,
+                isServiceChargeNotConfigured: isServiceChargeNotConfigured,
+                noteDisplay: serviceChargeNote ? serviceChargeNote.style.display : 'note not found'
+            });
+            
             // Only block if service charges are not configured
             // 0.00 is a valid service charge amount
             if (isServiceChargeNotConfigured) {
