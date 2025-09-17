@@ -1388,8 +1388,8 @@ class MoneyTrackingService
             Log::info("=== PACKAGE ADJUSTMENT CHECK END ===", [
                 'invoice_id' => $invoice->id
             ]);
-
-            if ($shouldProcessServiceCharge) {
+                
+                if ($shouldProcessServiceCharge) {
 
                 $kashtreSuspenseAccount = $this->getOrCreateKashtreSuspenseAccount($business);
                 
@@ -1783,8 +1783,9 @@ class MoneyTrackingService
             'amount' => $packageAdjustmentAmount
         ]);
 
-        $this->updateAccountBalance($clientSuspenseAccount->id, $packageAdjustmentAmount, 'debit');
-        $this->updateAccountBalance($businessAccount->id, $packageAdjustmentAmount, 'credit');
+        // Update account balances using the proper debit/credit methods
+        $clientSuspenseAccount->debit($packageAdjustmentAmount);  // Money goes out of client suspense
+        $businessAccount->credit($packageAdjustmentAmount);       // Money comes into business account
 
         Log::info("=== PACKAGE ADJUSTMENT MONEY MOVEMENT COMPLETED ===", [
             'transfer_id' => $transfer->id,
