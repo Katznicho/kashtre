@@ -11,11 +11,11 @@ use App\Models\Item;
 use App\Models\Business;
 use App\Models\ContractorProfile;
 use App\Models\BalanceHistory;
+use App\Models\BusinessBalanceHistory;
+use App\Models\ContractorBalanceHistory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Exception;
-use App\Models\BusinessBalanceHistory;
-use App\Models\ContractorBalanceHistory;
 
 class MoneyTrackingService
 {
@@ -1932,6 +1932,25 @@ class MoneyTrackingService
             'balance_before' => $businessAccount->balance
         ]);
         $businessAccount->credit($packageAdjustmentAmount);       // Money comes into business account
+        
+        // Record the balance changes in BusinessBalanceHistory for dashboard display
+        BusinessBalanceHistory::recordChange(
+            $business->id,
+            $businessAccount->id,
+            $packageAdjustmentAmount,
+            'credit',
+            "Package adjustment money movement - {$transfer->description}",
+            'MoneyTransfer',
+            $transfer->id,
+            [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'package_adjustment_amount' => $packageAdjustmentAmount,
+                'from_account' => $clientSuspenseAccount->name,
+                'to_account' => $businessAccount->name
+            ],
+            auth()->id()
+        );
         
         Log::info("Account balances after debit/credit operations", [
             'client_suspense_balance_after_debit' => $clientSuspenseAccount->fresh()->balance,
