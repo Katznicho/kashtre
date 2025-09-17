@@ -1115,22 +1115,15 @@
             // Check if service charges are not configured (note is visible)
             const isServiceChargeNotConfigured = serviceChargeNote && serviceChargeNote.style.display !== 'none';
             
-            if (serviceChargeValue <= 0) {
-                if (isServiceChargeNotConfigured) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Service Charges Not Configured',
-                        text: 'Service charges have not been set up by system administrators. Please contact your system administrator to configure service charges before saving proforma invoices.',
-                        confirmButtonText: 'OK'
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Service Charge Required',
-                        text: 'A service charge is required to save this proforma invoice. Please ensure the service charge is calculated correctly.',
-                        confirmButtonText: 'OK'
-                    });
-                }
+            // Only block if service charges are not configured
+            // 0.00 is a valid service charge amount
+            if (isServiceChargeNotConfigured) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Service Charges Not Configured',
+                    text: 'Service charges have not been set up by system administrators. Please contact your system administrator to configure service charges before saving proforma invoices.',
+                    confirmButtonText: 'OK'
+                });
                 return;
             }
             
