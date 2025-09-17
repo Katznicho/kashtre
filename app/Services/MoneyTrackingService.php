@@ -1683,7 +1683,7 @@ class MoneyTrackingService
             // Contractor item - move to contractor account
             $contractor = ContractorProfile::find($item->contractor_account_id);
             $destinationAccount = $this->getOrCreateContractorAccount($contractor);
-            $transferDescription = "Contractor payment for: {$item->name}";
+            $transferDescription = "{$item->name} ({$quantity})";
             
             Log::info("Item assigned to contractor", [
                 'item_id' => $item->id,
@@ -1695,7 +1695,7 @@ class MoneyTrackingService
         } else {
             // Business item - move to business account
             $destinationAccount = $this->getOrCreateBusinessAccount($business);
-            $transferDescription = "Business payment for: {$item->name}";
+            $transferDescription = "{$item->name} ({$quantity})";
             
             Log::info("Item assigned to business", [
                 'item_id' => $item->id,
