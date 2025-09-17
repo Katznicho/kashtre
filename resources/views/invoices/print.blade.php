@@ -345,7 +345,7 @@
                 
                 <div class="totals-row">
                     <span class="totals-label">Subtotal 2:</span>
-                    <span class="totals-amount">UGX {{ number_format($invoice->subtotal - ($invoice->package_adjustment ?? 0) - ($invoice->account_balance_adjustment ?? 0), 2) }}</span>
+                    <span class="totals-amount">UGX {{ number_format(max(0, $invoice->subtotal - ($invoice->package_adjustment ?? 0) - ($invoice->account_balance_adjustment ?? 0)), 2) }}</span>
                 </div>
                 
                 @if($invoice->service_charge > 0)

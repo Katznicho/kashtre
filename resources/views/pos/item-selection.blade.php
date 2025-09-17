@@ -1052,9 +1052,20 @@
             // Service Charge is calculated based on Subtotal 2
             
             const subtotal1 = parseFloat(subtotal);
-            const subtotal2 = subtotal1 - parseFloat(packageAdjustment) - parseFloat(balanceAdjustment);
+            let subtotal2 = subtotal1 - parseFloat(packageAdjustment) - parseFloat(balanceAdjustment);
+            
+            // Ensure subtotal2 never goes below 0
+            if (subtotal2 < 0) {
+                subtotal2 = 0;
+            }
+            
             const serviceCharge = await calculateServiceCharge(subtotal2);
-            const finalTotal = subtotal2 + parseFloat(serviceCharge);
+            let finalTotal = subtotal2 + parseFloat(serviceCharge);
+            
+            // Ensure final total never goes below 0
+            if (finalTotal < 0) {
+                finalTotal = 0;
+            }
             
             // Update invoice summary
             document.getElementById('invoice-subtotal').textContent = `UGX ${subtotal1.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
@@ -1194,13 +1205,24 @@
                 const packageAdjustmentData = await calculatePackageAdjustment();
                 const packageAdjustment = parseFloat(packageAdjustmentData.total_adjustment) || 0;
                 const serviceCharge = await calculateServiceCharge(subtotal);
-                const adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
+                let adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
+                
+                // Ensure adjustedSubtotal never goes below 0
+                if (adjustedSubtotal < 0) {
+                    adjustedSubtotal = 0;
+                }
+                
                 const subtotalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
                 
                 // Calculate balance adjustment
                 const balanceAdjustmentData = await calculateBalanceAdjustment(subtotalWithServiceCharge);
                 const balanceAdjustment = parseFloat(balanceAdjustmentData.balance_adjustment) || 0;
-                const totalAmount = parseFloat(subtotalWithServiceCharge) - parseFloat(balanceAdjustment);
+                let totalAmount = parseFloat(subtotalWithServiceCharge) - parseFloat(balanceAdjustment);
+                
+                // Ensure totalAmount never goes below 0
+                if (totalAmount < 0) {
+                    totalAmount = 0;
+                }
                 
                 console.log('Calculated values:', {
                     subtotal: subtotal,

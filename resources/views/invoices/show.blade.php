@@ -182,7 +182,7 @@
                                 @endif
                                 <div class="flex justify-between">
                                     <dt class="text-sm font-medium text-gray-500">Subtotal 2</dt>
-                                    <dd class="text-sm text-gray-900">UGX {{ number_format($invoice->subtotal - ($invoice->package_adjustment ?? 0) - ($invoice->account_balance_adjustment ?? 0), 2) }}</dd>
+                                    <dd class="text-sm text-gray-900">UGX {{ number_format(max(0, $invoice->subtotal - ($invoice->package_adjustment ?? 0) - ($invoice->account_balance_adjustment ?? 0)), 2) }}</dd>
                                 </div>
                                 @if($invoice->service_charge > 0)
                                 <div class="flex justify-between">

@@ -1132,7 +1132,12 @@
             // Service Charge is calculated based on Subtotal 2
             
             const subtotal1 = parseFloat(subtotal);
-            const subtotal2 = subtotal1 - packageAdjustment - balanceAdjustment;
+            let subtotal2 = subtotal1 - packageAdjustment - balanceAdjustment;
+            
+            // Ensure subtotal2 never goes below 0
+            if (subtotal2 < 0) {
+                subtotal2 = 0;
+            }
             
             console.log('Service charge calculation - subtotal2:', subtotal2);
             const serviceCharge = await calculateServiceCharge(subtotal2);
@@ -1330,9 +1335,20 @@
                 // Service Charge is calculated based on Subtotal 2
                 
                 const subtotal1 = parseFloat(subtotal);
-                const subtotal2 = subtotal1 - packageAdjustment - balanceAdjustment;
+                let subtotal2 = subtotal1 - packageAdjustment - balanceAdjustment;
+                
+                // Ensure subtotal2 never goes below 0
+                if (subtotal2 < 0) {
+                    subtotal2 = 0;
+                }
+                
                 const serviceCharge = await calculateServiceCharge(subtotal2);
-                const totalAmount = subtotal2 + parseFloat(serviceCharge);
+                let totalAmount = subtotal2 + parseFloat(serviceCharge);
+                
+                // Ensure totalAmount never goes below 0
+                if (totalAmount < 0) {
+                    totalAmount = 0;
+                }
                 
                 // Get payment phone and methods
                 const paymentPhone = document.getElementById('payment-phone-edit')?.value || '';

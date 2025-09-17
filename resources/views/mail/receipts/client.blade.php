@@ -37,7 +37,7 @@ Thank you for your payment! We are pleased to confirm that your transaction has 
 @if($invoice->account_balance_adjustment > 0)
 **Account Balance Adjustment:** -UGX {{ number_format($invoice->account_balance_adjustment, 2) }}  
 @endif
-**Subtotal 2:** UGX {{ number_format($invoice->subtotal - ($invoice->package_adjustment ?? 0) - ($invoice->account_balance_adjustment ?? 0), 2) }}  
+**Subtotal 2:** UGX {{ number_format(max(0, $invoice->subtotal - ($invoice->package_adjustment ?? 0) - ($invoice->account_balance_adjustment ?? 0)), 2) }}  
 @if($invoice->service_charge > 0)
 **Service Charge:** UGX {{ number_format($invoice->service_charge, 2) }}  
 @endif
