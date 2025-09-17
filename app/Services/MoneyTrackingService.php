@@ -1266,6 +1266,21 @@ class MoneyTrackingService
                     'contractor_account_id' => $item->contractor_account_id
                 ]);
 
+                // Check if this item is included in a package
+                $isIncludedInPackage = $item->includedInPackages()->exists();
+                
+                if ($isIncludedInPackage) {
+                    Log::info("Item is included in package - skipping individual processing", [
+                        'item_id' => $itemId,
+                        'item_name' => $item->name,
+                        'item_type' => $item->type,
+                        'total_amount' => $totalAmount,
+                        'reason' => 'Package items are processed via package adjustment, not individually'
+                    ]);
+                    // Skip individual item processing - package adjustment will handle the money movement
+                    continue;
+                }
+                
                 // Handle bulk items differently
                 if ($item->type === 'bulk') {
                     Log::info("Processing bulk item", [
