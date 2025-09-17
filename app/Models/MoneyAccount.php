@@ -79,12 +79,14 @@ class MoneyAccount extends Model
     public function debit($amount)
     {
         $this->decrement('balance', $amount);
+        $this->save();
         return $this;
     }
 
     public function credit($amount)
     {
         $this->increment('balance', $amount);
+        $this->save();
         return $this;
     }
 
