@@ -1224,7 +1224,9 @@
                 let paymentResult = null;
                 let amountPaid = 0;
                 
-                if (paymentMethods.includes('mobile_money') && paymentPhone) {
+                // Only process mobile money payment if total amount > 0
+                if (paymentMethods.includes('mobile_money') && paymentPhone && totalAmount > 0) {
+                    console.log('=== PROCESSING MOBILE MONEY PAYMENT ===');
                     console.log('Processing mobile money payment:', { 
                         totalAmount, 
                         paymentPhone,
@@ -1278,6 +1280,13 @@
                         });
                         return;
                     }
+                } else if (paymentMethods.includes('mobile_money') && totalAmount === 0) {
+                    console.log('=== SKIPPING MOBILE MONEY PAYMENT - ZERO AMOUNT ===');
+                    console.log('Mobile money payment skipped because total amount is 0:', {
+                        totalAmount: totalAmount,
+                        paymentMethods: paymentMethods,
+                        paymentPhone: paymentPhone
+                    });
                 }
                 
                 // Prepare cart items with total_amount for each item
