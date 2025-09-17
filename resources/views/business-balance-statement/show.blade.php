@@ -90,9 +90,9 @@
                                                         // Remove invoice reference (e.g., "- Invoice: P2025090013")
                                                         $description = preg_replace('/\s*-\s*Invoice:\s*[A-Z0-9]+/', '', $description);
                                                         
-                                                        // Remove "payment" and "service charge" words
+                                                        // Remove "payment" word and change service charge to Service Fee
                                                         $description = preg_replace('/\bpayment\b/i', '', $description);
-                                                        $description = preg_replace('/\bservice\s+charge\b/i', 'Platform Fee', $description);
+                                                        $description = preg_replace('/\bservice\s+charge\b/i', 'Service Fee', $description);
                                                         $description = preg_replace('/\breceived\s+via\b/i', 'via', $description);
                                                         $description = preg_replace('/\bcompleted\s*-\s*Item\s+purchased:\s*/i', '', $description);
                                                         
@@ -105,7 +105,7 @@
                                                             $description = substr($description, 0, 47) . '...';
                                                         }
                                                     } elseif (str_contains($description, 'Service Charge')) {
-                                                        $description = 'Platform Fee';
+                                                        $description = 'Service Fee';
                                                     }
                                                 @endphp
                                                 {{ $description }}

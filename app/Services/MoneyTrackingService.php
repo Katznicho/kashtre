@@ -408,9 +408,9 @@ class MoneyTrackingService
                 $creditRecord = BalanceHistory::recordCredit(
                     $client,
                     $invoice->amount_paid,
-                    "Payment received via {$primaryMethod}",
+                    "Mobile Money",
                     $invoice->invoice_number,
-                    "Payment received for invoice",
+                    "Mobile Money",
                     $primaryMethod
                 );
 
@@ -453,9 +453,9 @@ class MoneyTrackingService
                 $debitRecord = BalanceHistory::recordDebit(
                     $client,
                     $totalAmount,
-                    "Payment for: {$item->name} (x{$quantity})",
+                    "{$item->name} (x{$quantity})",
                     $invoice->invoice_number,
-                    "Payment completed - Item purchased: {$item->name}"
+                    "{$item->name} (x{$quantity})"
                 );
 
                 $debitRecords[] = [
@@ -482,9 +482,9 @@ class MoneyTrackingService
                 $serviceChargeRecord = BalanceHistory::recordDebit(
                     $client,
                     $invoice->service_charge,
-                    "Service Charge Payment",
+                    "Service Fee",
                     $invoice->invoice_number,
-                    "Service charge payment for invoice {$invoice->invoice_number}"
+                    "Service Fee"
                 );
 
                 $debitRecords[] = [
