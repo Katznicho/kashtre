@@ -647,12 +647,81 @@
         }
 
         function openPaymentMethodsModal() {
-            Swal.fire({
-                title: 'Edit Payment Methods',
-                text: 'This feature is available in the full POS interface.',
-                icon: 'info',
-                confirmButtonText: 'OK'
+            document.getElementById('payment-methods-modal').classList.remove('hidden');
+        }
+        
+        function closePaymentMethodsModal() {
+            document.getElementById('payment-methods-modal').classList.add('hidden');
+        }
+        
+        function savePaymentMethods() {
+            const selectedMethods = [];
+            const checkboxes = document.querySelectorAll('input[name="payment_methods[]"]:checked');
+            
+            checkboxes.forEach(checkbox => {
+                selectedMethods.push(checkbox.value);
             });
+            
+            // Send AJAX request to update payment methods
+            fetch(`/clients/{{ $client->id }}/update-payment-methods`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    payment_methods: selectedMethods
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the display
+                    const displayContainer = document.querySelector('.payment-methods-display');
+                    if (displayContainer) {
+                        if (selectedMethods.length > 0) {
+                            let displayHTML = '';
+                            selectedMethods.forEach((method, index) => {
+                                displayHTML += `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">${index + 1}. ${ucwords(method.replace('_', ' '))}</span>`;
+                            });
+                            displayContainer.innerHTML = displayHTML;
+                        } else {
+                            displayContainer.innerHTML = '<span class="text-sm text-gray-500">No payment methods specified</span>';
+                        }
+                    }
+                    
+                    // Close modal
+                    closePaymentMethodsModal();
+                    
+                    // Show success message
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Payment Methods Updated',
+                        text: 'Payment methods have been saved successfully.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.message || 'Failed to update payment methods'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error updating payment methods:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to update payment methods'
+                });
+            });
+        }
+        
+        function ucwords(str) {
+            return str.replace(/\b\w/g, l => l.toUpperCase());
         }
 
         function savePaymentPhone() {
@@ -884,6 +953,24 @@
 
         // Initialize package tracking numbers storage
         window.packageTrackingNumbers = new Map();
+        
+        // Generate package tracking number
+        function generatePackageTrackingNumber(packageId, packageName) {
+            if (window.packageTrackingNumbers.has(packageId)) {
+                return window.packageTrackingNumbers.get(packageId);
+            }
+            
+            // Generate a unique tracking number
+            const timestamp = Date.now().toString().slice(-6);
+            const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
+            const packagePrefix = packageName ? packageName.substring(0, 3).toUpperCase() : 'PKG';
+            const trackingNumber = `${packagePrefix}-${timestamp}-${randomSuffix}`;
+            
+            // Store the tracking number
+            window.packageTrackingNumbers.set(packageId, trackingNumber);
+            
+            return trackingNumber;
+        }
 
         // Preview Proforma Invoice functionality - Full POS functionality
         document.addEventListener('click', function(e) {
@@ -946,9 +1033,15 @@
                 const itemTotal = (item.price || 0) * (item.quantity || 0);
                 subtotal += itemTotal;
                 
+                // Generate tracking number for packages
+                let trackingNumber = 'N/A';
+                if (item.type === 'package') {
+                    trackingNumber = generatePackageTrackingNumber(item.id, item.name);
+                }
+                
                 tableHTML += `
                     <tr class="bg-white">
-                        <td class="border border-gray-300 px-4 py-2">${item.displayName || item.name}</td>
+                        <td class="border border-gray-300 px-4 py-2">${item.name}</td>
                         <td class="border border-gray-300 px-4 py-2 text-center">${item.type || 'N/A'}</td>
                         <td class="border border-gray-300 px-4 py-2 text-center">${item.quantity}</td>
                         <td class="border border-gray-300 px-4 py-2 text-right">UGX ${(item.price || 0).toLocaleString()}</td>
@@ -962,6 +1055,65 @@
             // Calculate package adjustment
             const packageAdjustmentData = await calculatePackageAdjustment();
             const packageAdjustment = packageAdjustmentData.total_adjustment;
+            
+            // Show package adjustment details if any adjustments were made
+            if (packageAdjustmentData.details && packageAdjustmentData.details.length > 0) {
+                const adjustmentDetailsContainer = document.getElementById('package-adjustment-details');
+                const adjustmentList = document.getElementById('package-adjustment-list');
+                
+                let detailsHTML = '';
+                packageAdjustmentData.details.forEach(detail => {
+                    // Generate tracking number for package adjustments
+                    const packageTrackingNumber = generatePackageTrackingNumber(detail.package_id || 'adj_' + Date.now(), detail.package_name);
+                    
+                    detailsHTML += `
+                        <div class="flex justify-between items-center text-sm">
+                            <div>
+                                <span class="font-medium text-gray-800">${detail.item_name}</span>
+                                <span class="text-gray-600"> (${detail.quantity_adjusted} × UGX ${(detail.adjustment_amount / detail.quantity_adjusted).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})})</span>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-medium text-green-800">-UGX ${detail.adjustment_amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                <div class="text-xs text-gray-500">From: ${detail.package_name}</div>
+                                <div class="text-xs text-blue-600 font-mono">${packageTrackingNumber}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                adjustmentList.innerHTML = detailsHTML;
+                adjustmentDetailsContainer.classList.remove('hidden');
+            } else {
+                document.getElementById('package-adjustment-details').classList.add('hidden');
+            }
+            
+            // Show package tracking summary if there are packages in the cart
+            const packagesInCart = selectedItems.filter(item => item.type === 'package');
+            if (packagesInCart.length > 0) {
+                const trackingSummaryContainer = document.getElementById('package-tracking-summary');
+                const trackingList = document.getElementById('package-tracking-list');
+                
+                let trackingHTML = '';
+                packagesInCart.forEach(package => {
+                    const trackingNumber = window.packageTrackingNumbers.get(package.id) || generatePackageTrackingNumber(package.id, package.name);
+                    trackingHTML += `
+                        <div class="flex justify-between items-center text-sm">
+                            <div>
+                                <span class="font-medium text-gray-800">${package.name}</span>
+                                <span class="text-gray-600"> (Qty: ${package.quantity})</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-blue-600 font-mono font-semibold">${trackingNumber}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                trackingList.innerHTML = trackingHTML;
+                trackingSummaryContainer.classList.remove('hidden');
+            } else {
+                document.getElementById('package-tracking-summary').classList.add('hidden');
+            }
             
             // Calculate balance adjustment first (needed for service charge calculation)
             const balanceAdjustmentData = await calculateBalanceAdjustment(subtotal);
@@ -983,7 +1135,19 @@
             document.getElementById('package-adjustment-display').textContent = `UGX ${parseFloat(packageAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('balance-adjustment-display').textContent = `UGX ${parseFloat(balanceAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('invoice-subtotal-2').textContent = `UGX ${subtotal2.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('service-charge-display').textContent = `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            // Display service charge or "No Service Charges" if zero
+            const serviceChargeElement = document.getElementById('service-charge-display');
+            const serviceChargeNote = document.getElementById('service-charge-note');
+            
+            if (parseFloat(serviceCharge) > 0) {
+                serviceChargeElement.textContent = `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                serviceChargeNote.style.display = 'none';
+            } else {
+                serviceChargeElement.textContent = 'UGX 0.00';
+                serviceChargeNote.style.display = 'block';
+            }
+            
             document.getElementById('invoice-final-total').textContent = `UGX ${totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
             // Show the modal
@@ -992,6 +1156,19 @@
 
         function closeInvoicePreview() {
             document.getElementById('invoice-preview-modal').classList.add('hidden');
+            
+            // Reset service charge display to default state
+            const serviceChargeElement = document.getElementById('service-charge-display');
+            const serviceChargeNote = document.getElementById('service-charge-note');
+            if (serviceChargeElement && serviceChargeNote) {
+                serviceChargeElement.textContent = 'UGX 0.00';
+                serviceChargeNote.style.display = 'block';
+            }
+            
+            // Reset package tracking numbers
+            if (window.packageTrackingNumbers) {
+                window.packageTrackingNumbers.clear();
+            }
         }
 
         async function calculatePackageAdjustment() {
@@ -1251,26 +1428,56 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    Swal.fire({
+                    const invoiceNumber = result.invoice.invoice_number;
+                    
+                    // Clear the cart and close modal
+                    selectedItems = [];
+                    updateOrderSummary();
+                    closeInvoicePreview();
+                    
+                    // Show success with options
+                    const result = await Swal.fire({
                         icon: 'success',
-                        title: 'Proforma Invoice Saved Successfully!',
+                        title: 'Proforma Invoice Saved!',
                         html: `
                             <div class="text-center">
-                                <p class="text-lg font-semibold text-green-600">Proforma Invoice #${result.invoice.invoice_number}</p>
-                                <p class="text-sm text-gray-600">Total: UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-                                ${amountPaid > 0 ? `<p class="text-sm text-green-600">Payment: UGX ${parseFloat(amountPaid).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>` : ''}
+                                <p class="mb-2">Proforma invoice has been saved successfully.</p>
+                                <p class="text-sm text-gray-600">Proforma Invoice Number: <strong>${invoiceNumber}</strong></p>
                             </div>
                         `,
-                        confirmButtonText: 'OK'
-                    }).then(() => {
-                        // Clear the cart and close modal
-                        selectedItems = [];
-                        updateOrderSummary();
-                        closeInvoicePreview();
-                        
-                        // Reload the page to show updated data
-                        window.location.reload();
+                        showCancelButton: true,
+                        confirmButtonText: 'View Proforma Invoice',
+                        cancelButtonText: 'Print Proforma Invoice',
+                        showDenyButton: true,
+                        denyButtonText: 'Stay Here'
                     });
+                    
+                    if (result.isConfirmed) {
+                        // View invoice
+                        window.location.href = `/invoices/${data.invoice.id}`;
+                    } else if (result.dismiss === Swal.DismissReason.cancel) {
+                        // Print invoice
+                        const printWindow = window.open(`/invoices/${data.invoice.id}/print`, '_blank');
+                        
+                        // Show print confirmation
+                        setTimeout(() => {
+                            Swal.fire({
+                                icon: 'info',
+                                title: 'Print Window Opened',
+                                html: `
+                                    <div class="text-center">
+                                        <p class="mb-2">Proforma invoice print window has been opened.</p>
+                                        <p class="text-sm text-gray-600">Proforma Invoice Number: <strong>${invoiceNumber}</strong></p>
+                                        <p class="text-xs text-gray-500 mt-2">Please check the new tab/window for printing options.</p>
+                                    </div>
+                                `,
+                                timer: 3000,
+                                showConfirmButton: false
+                            });
+                        }, 1000);
+                    }
+                    // If "Stay Here" is clicked, do nothing
+                    
                 } else {
                     throw new Error(result.message || 'Failed to save invoice');
                 }
@@ -1450,6 +1657,86 @@
                     </button>
                     <button onclick="confirmAndSaveInvoice()" class="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
                         Confirm & Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Methods Modal -->
+    <div id="payment-methods-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Edit Payment Methods</h3>
+                    <button onclick="closePaymentMethodsModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600 mb-3">Select payment methods in order of preference:</p>
+                    
+                    <div class="space-y-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="insurance" 
+                                   {{ in_array('insurance', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">🏥 Insurance</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="credit_arrangement_institutions" 
+                                   {{ in_array('credit_arrangement_institutions', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">🏦 Credit Arrangement Institutions</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="mobile_money" 
+                                   {{ in_array('mobile_money', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">📱 Mobile Money</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="v_card" 
+                                   {{ in_array('v_card', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">💳 V Card (Virtual Card)</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="p_card" 
+                                   {{ in_array('p_card', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">💳 P Card (Physical Card)</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="bank_transfer" 
+                                   {{ in_array('bank_transfer', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">🏦 Bank Transfer</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="cash" 
+                                   {{ in_array('cash', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">💵 Cash (if enabled)</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3">
+                    <button onclick="closePaymentMethodsModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors">
+                        Cancel
+                    </button>
+                    <button onclick="savePaymentMethods()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                        Save Changes
                     </button>
                 </div>
             </div>
