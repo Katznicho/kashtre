@@ -1371,13 +1371,33 @@ class MoneyTrackingService
                     ->first();
                 
                 if ($existingServiceChargeTransfer) {
-                    // Service charge has already been processed for this invoice - don't process again
-                    Log::info("Service charge already processed for this invoice - skipping", [
+                    // Service charge has already been processed for this invoice - check if money was actually moved
+                    Log::info("Service charge already processed for this invoice - checking if money was actually moved", [
                         'invoice_id' => $invoice->id,
                         'existing_transfer_id' => $existingServiceChargeTransfer->id,
                         'service_charge_amount' => $invoice->service_charge,
+                        'transfer_status' => $existingServiceChargeTransfer->status,
+                        'transfer_amount' => $existingServiceChargeTransfer->amount,
+                        'from_account_id' => $existingServiceChargeTransfer->from_account_id,
+                        'to_account_id' => $existingServiceChargeTransfer->to_account_id,
                         'reason' => 'Service charge transfer record already exists for this invoice'
                     ]);
+                    
+                    // Check if the transfer actually moved money by looking at account balances
+                    $fromAccount = \App\Models\MoneyAccount::find($existingServiceChargeTransfer->from_account_id);
+                    $toAccount = \App\Models\MoneyAccount::find($existingServiceChargeTransfer->to_account_id);
+                    
+                    Log::info("Service charge transfer account details", [
+                        'transfer_id' => $existingServiceChargeTransfer->id,
+                        'from_account_id' => $existingServiceChargeTransfer->from_account_id,
+                        'from_account_name' => $fromAccount ? $fromAccount->name : 'NOT FOUND',
+                        'from_account_balance' => $fromAccount ? $fromAccount->balance : 'N/A',
+                        'to_account_id' => $existingServiceChargeTransfer->to_account_id,
+                        'to_account_name' => $toAccount ? $toAccount->name : 'NOT FOUND',
+                        'to_account_balance' => $toAccount ? $toAccount->balance : 'N/A',
+                        'transfer_amount' => $existingServiceChargeTransfer->amount
+                    ]);
+                    
                     $shouldProcessServiceCharge = false;
                 } else {
                     Log::info("Processing service charge for item", [
