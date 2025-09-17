@@ -704,14 +704,21 @@ class TestingController extends Controller
                             Log::info('Cleared service delivery queues for business 3', ['count' => $queueCount]);
                         }
 
-                        // Clear transactions for business_id 3
-                        $transactionCount = Transaction::where('business_id', 3)->count();
-                        if ($transactionCount > 0) {
-                            Transaction::where('business_id', 3)->delete();
-                            $totalCleared += $transactionCount;
-                            $details[] = "{$transactionCount} transactions";
-                            Log::info('Cleared transactions for business 3', ['count' => $transactionCount]);
-                        }
+                        // DANGEROUS: Transaction deletion disabled for safety
+                        // This was deleting real financial transactions - CRITICAL SECURITY RISK
+                        Log::warning('Transaction deletion disabled for safety - this was deleting real financial data', [
+                            'business_id' => 3,
+                            'reason' => 'CRITICAL SECURITY RISK - Real financial transactions were being deleted'
+                        ]);
+                        
+                        // Clear transactions for business_id 3 - DISABLED FOR SAFETY
+                        // $transactionCount = Transaction::where('business_id', 3)->count();
+                        // if ($transactionCount > 0) {
+                        //     Transaction::where('business_id', 3)->delete();
+                        //     $totalCleared += $transactionCount;
+                        //     $details[] = "{$transactionCount} transactions";
+                        //     Log::info('Cleared transactions for business 3', ['count' => $transactionCount]);
+                        // }
 
                         // Clear balance histories for business_id 3
                         $balanceHistoryCount = BalanceHistory::whereHas('client', function($query) {
