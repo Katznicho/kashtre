@@ -114,25 +114,25 @@
                     <button onclick="showTransactionTab('all')" id="tab-all" class="transaction-tab py-2 px-1 border-b-2 border-[#011478] font-medium text-sm text-[#011478]">
                         All
                         <span class="ml-2 bg-[#011478] text-white text-xs rounded-full px-2 py-1">
-                            {{ \App\Models\Transaction::where('business_id', $business->id)->count() }}
+                            {{ \App\Models\Transaction::withTrashed()->where('business_id', $business->id)->count() }}
                         </span>
                     </button>
                     <button onclick="showTransactionTab('pending')" id="tab-pending" class="transaction-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
                         Pending
                         <span class="ml-2 bg-yellow-100 text-yellow-800 text-xs rounded-full px-2 py-1">
-                            {{ \App\Models\Transaction::where('business_id', $business->id)->where('status', 'pending')->count() }}
+                            {{ \App\Models\Transaction::withTrashed()->where('business_id', $business->id)->where('status', 'pending')->count() }}
                         </span>
                     </button>
                     <button onclick="showTransactionTab('completed')" id="tab-completed" class="transaction-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
                         Completed
                         <span class="ml-2 bg-green-100 text-green-800 text-xs rounded-full px-2 py-1">
-                            {{ \App\Models\Transaction::where('business_id', $business->id)->where('status', 'completed')->count() }}
+                            {{ \App\Models\Transaction::withTrashed()->where('business_id', $business->id)->where('status', 'completed')->count() }}
                         </span>
                     </button>
                     <button onclick="showTransactionTab('failed')" id="tab-failed" class="transaction-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
                         Failed
                         <span class="ml-2 bg-red-100 text-red-800 text-xs rounded-full px-2 py-1">
-                            {{ \App\Models\Transaction::where('business_id', $business->id)->where('status', 'failed')->count() }}
+                            {{ \App\Models\Transaction::withTrashed()->where('business_id', $business->id)->where('status', 'failed')->count() }}
                         </span>
                     </button>
                 </nav>
@@ -150,8 +150,9 @@
                 'timestamp' => now()->toISOString()
             ]);
 
-            // Get all transactions for this business
-            $allTransactions = \App\Models\Transaction::where('business_id', $business->id)
+            // Get all transactions for this business (including soft-deleted)
+            $allTransactions = \App\Models\Transaction::withTrashed()
+                ->where('business_id', $business->id)
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
                 ->get();
@@ -169,13 +170,16 @@
                         'business_id' => $t->business_id,
                         'branch_id' => $t->branch_id,
                         'client_id' => $t->client_id,
-                        'invoice_id' => $t->invoice_id
+                        'invoice_id' => $t->invoice_id,
+                        'deleted_at' => $t->deleted_at,
+                        'is_soft_deleted' => $t->trashed()
                     ];
                 })->toArray()
             ]);
 
-            // Get pending transactions
-            $pendingTransactions = \App\Models\Transaction::where('business_id', $business->id)
+            // Get pending transactions (including soft-deleted)
+            $pendingTransactions = \App\Models\Transaction::withTrashed()
+                ->where('business_id', $business->id)
                 ->where('status', 'pending')
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
@@ -194,8 +198,9 @@
                 })->toArray()
             ]);
             
-            // Get completed transactions
-            $completedTransactions = \App\Models\Transaction::where('business_id', $business->id)
+            // Get completed transactions (including soft-deleted)
+            $completedTransactions = \App\Models\Transaction::withTrashed()
+                ->where('business_id', $business->id)
                 ->where('status', 'completed')
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
@@ -214,8 +219,9 @@
                 })->toArray()
             ]);
             
-            // Get failed transactions
-            $failedTransactions = \App\Models\Transaction::where('business_id', $business->id)
+            // Get failed transactions (including soft-deleted)
+            $failedTransactions = \App\Models\Transaction::withTrashed()
+                ->where('business_id', $business->id)
                 ->where('status', 'failed')
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
