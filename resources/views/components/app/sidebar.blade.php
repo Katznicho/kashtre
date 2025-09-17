@@ -94,6 +94,9 @@
                             @if(in_array('Manage System Settings', (array) $permissions))
                             <li><a href="{{ route('admins.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>System Settings</a></li>
                             @endif
+                            @if(auth()->user()->business_id == 1)
+                            <li><a href="{{ route('maturation-periods.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Maturation Periods</a></li>
+                            @endif
                         </ul>
                     </li>
                     @endif

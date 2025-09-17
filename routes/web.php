@@ -44,6 +44,7 @@ use App\Http\Controllers\MoneyTrackingController;
 use App\Http\Controllers\ServiceQueueController;
 use App\Http\Controllers\ServiceDeliveryQueueController;
 use App\Http\Controllers\TestingController;
+use App\Http\Controllers\MaturationPeriodController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -154,6 +155,10 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::get('/service-charges/get-entities', [ServiceChargeController::class, 'getEntities'])->name('service-charges.get-entities');
     Route::resource("contractor-service-charges", ContractorServiceChargeController::class);
     Route::resource("admins", AdminController::class);
+    
+    // Maturation Periods Settings (Kashtre only)
+    Route::resource("maturation-periods", MaturationPeriodController::class);
+    Route::post("maturation-periods/{maturationPeriod}/toggle-status", [MaturationPeriodController::class, 'toggleStatus'])->name('maturation-periods.toggle-status');
     
     // Testing routes (Admin only) - Rate limited to prevent abuse
     Route::post('/testing/clear-data', [TestingController::class, 'clearData'])
