@@ -1085,7 +1085,7 @@
             const serviceChargeNote = document.getElementById('service-charge-note');
             if (serviceChargeElement && serviceChargeNote) {
                 serviceChargeElement.textContent = 'UGX 0.00';
-                serviceChargeNote.style.display = 'block';
+                serviceChargeNote.style.display = 'none'; // Keep the note hidden
             }
             
             // Reset package tracking numbers
