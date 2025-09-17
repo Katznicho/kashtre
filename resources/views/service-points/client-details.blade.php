@@ -384,7 +384,7 @@
                             </div>
                             
                             <!-- Preview Proforma Invoice Button -->
-                            <button class="w-full bg-gray-900 text-white py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors font-medium">
+                            <button onclick="showInvoicePreview()" class="w-full bg-gray-900 text-white py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors font-medium">
                                 Preview Proforma Invoice
                             </button>
                         </div>
@@ -843,6 +843,8 @@
             const itemPrice = parseFloat(input.dataset.itemPrice);
             const quantity = parseInt(input.value) || 0;
 
+            console.log('Quantity changed:', { itemId, itemName, itemType, itemPrice, quantity });
+
             if (quantity > 0) {
                 addItemToOrder(itemId, itemName, itemType, itemPrice, quantity);
             } else {
@@ -850,6 +852,7 @@
             }
             
             updateOrderSummary();
+            console.log('Current selectedItems:', selectedItems);
         }
 
         function addItemToOrder(itemId, itemName, itemType, itemPrice, quantity) {
@@ -990,6 +993,9 @@
         });
 
         async function showInvoicePreview() {
+            console.log('showInvoicePreview called');
+            console.log('selectedItems:', selectedItems);
+            
             if (selectedItems.length === 0) {
                 Swal.fire({
                     icon: 'warning',
@@ -1151,7 +1157,14 @@
             document.getElementById('invoice-final-total').textContent = `UGX ${totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
             // Show the modal
-            document.getElementById('invoice-preview-modal').classList.remove('hidden');
+            console.log('Showing invoice preview modal');
+            const modal = document.getElementById('invoice-preview-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                console.log('Modal shown successfully');
+            } else {
+                console.error('Invoice preview modal not found!');
+            }
         }
 
         function closeInvoicePreview() {
