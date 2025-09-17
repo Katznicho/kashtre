@@ -1283,34 +1283,7 @@ class MoneyTrackingService
                 }
             }
 
-            // Handle service charge if applicable (only once per invoice and when item is completed or partially done)
-            $shouldProcessServiceCharge = false;
-            if ($invoice->service_charge > 0 && in_array($itemStatus, ['completed', 'partially_done'])) {
-                // Check if service charge has already been processed for this invoice (any transfer type)
-                $existingServiceChargeTransfer = \App\Models\MoneyTransfer::where('invoice_id', $invoice->id)
-                    ->where('description', 'like', '%Service charge for invoice%')
-                    ->first();
-                
-                if ($existingServiceChargeTransfer) {
-                    // Service charge has already been processed for this invoice - don't process again
-                    Log::info("Service charge already processed for this invoice - skipping", [
-                        'invoice_id' => $invoice->id,
-                        'existing_transfer_id' => $existingServiceChargeTransfer->id,
-                        'service_charge_amount' => $invoice->service_charge,
-                        'reason' => 'Service charge transfer record already exists for this invoice'
-                    ]);
-                    $shouldProcessServiceCharge = false;
-                } else {
-                    Log::info("Processing service charge for item", [
-                        'service_charge_amount' => $invoice->service_charge,
-                        'invoice_id' => $invoice->id,
-                        'item_status' => $itemStatus
-                    ]);
-                    $shouldProcessServiceCharge = true;
-                }
-            }
-
-            // Handle package adjustment money movement (only once per package and when package items are used)
+            // Handle package adjustment money movement (only once per invoice and when package items are used)
             Log::info("=== PACKAGE ADJUSTMENT CHECK START ===", [
                 'invoice_id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
@@ -1388,6 +1361,34 @@ class MoneyTrackingService
             Log::info("=== PACKAGE ADJUSTMENT CHECK END ===", [
                 'invoice_id' => $invoice->id
             ]);
+
+            // Handle service charge if applicable (only once per invoice and when item is completed or partially done)
+            $shouldProcessServiceCharge = false;
+            if ($invoice->service_charge > 0 && in_array($itemStatus, ['completed', 'partially_done'])) {
+                // Check if service charge has already been processed for this invoice (any transfer type)
+                $existingServiceChargeTransfer = \App\Models\MoneyTransfer::where('invoice_id', $invoice->id)
+                    ->where('description', 'like', '%Service charge for invoice%')
+                    ->first();
+                
+                if ($existingServiceChargeTransfer) {
+                    // Service charge has already been processed for this invoice - don't process again
+                    Log::info("Service charge already processed for this invoice - skipping", [
+                        'invoice_id' => $invoice->id,
+                        'existing_transfer_id' => $existingServiceChargeTransfer->id,
+                        'service_charge_amount' => $invoice->service_charge,
+                        'reason' => 'Service charge transfer record already exists for this invoice'
+                    ]);
+                    $shouldProcessServiceCharge = false;
+                } else {
+                    Log::info("Processing service charge for item", [
+                        'service_charge_amount' => $invoice->service_charge,
+                        'invoice_id' => $invoice->id,
+                        'item_status' => $itemStatus
+                    ]);
+                    $shouldProcessServiceCharge = true;
+                }
+            }
+
                 
                 if ($shouldProcessServiceCharge) {
 
