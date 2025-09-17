@@ -1315,7 +1315,14 @@ class MoneyTrackingService
                 'invoice_id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
                 'package_adjustment' => $invoice->package_adjustment,
-                'item_status' => $itemStatus
+                'item_status' => $itemStatus,
+                'service_delivery_queue_id' => $serviceDeliveryQueue->id ?? null,
+                'item_id' => $serviceDeliveryQueue->item_id ?? null,
+                'item_name' => $serviceDeliveryQueue->item_name ?? null,
+                'client_id' => $invoice->client_id,
+                'client_name' => $invoice->client_name,
+                'business_id' => $invoice->business_id,
+                'timestamp' => now()->toISOString()
             ]);
 
             if ($invoice->package_adjustment > 0 && in_array($itemStatus, ['completed', 'partially_done'])) {
@@ -1345,12 +1352,25 @@ class MoneyTrackingService
                         'reason' => 'Package adjustment transfer record already exists for this invoice'
                     ]);
                 } else {
-                    Log::info("Processing package adjustment money movement", [
-                        'package_adjustment_amount' => $invoice->package_adjustment,
-                        'invoice_id' => $invoice->id,
-                        'item_status' => $itemStatus,
-                        'reason' => 'Package items are being used - moving package adjustment money to business account'
-                    ]);
+                // Get detailed item information for logging
+                $itemModel = \App\Models\Item::find($serviceDeliveryQueue->item_id);
+                $itemType = $itemModel ? $itemModel->type : 'unknown';
+                $isPackageItem = $itemModel && $itemModel->type === 'package';
+                $isIncludedInPackage = $itemModel ? $itemModel->includedInPackages()->exists() : false;
+                
+                Log::info("Processing package adjustment money movement", [
+                    'package_adjustment_amount' => $invoice->package_adjustment,
+                    'invoice_id' => $invoice->id,
+                    'item_status' => $itemStatus,
+                    'triggering_item_id' => $serviceDeliveryQueue->item_id,
+                    'triggering_item_name' => $serviceDeliveryQueue->item_name,
+                    'triggering_item_type' => $itemType,
+                    'is_package_item' => $isPackageItem,
+                    'is_included_in_package' => $isIncludedInPackage,
+                    'service_delivery_queue_id' => $serviceDeliveryQueue->id,
+                    'reason' => 'Package items are being used - moving package adjustment money to business account',
+                    'timestamp' => now()->toISOString()
+                ]);
                     
                     // Move package adjustment money from client suspense to business account
                     $this->processPackageAdjustmentMoneyMovement($invoice, $clientSuspenseAccount, $business, $transferRecords);
@@ -1770,9 +1790,14 @@ class MoneyTrackingService
             'amount' => $packageAdjustmentAmount,
             'from_account' => $clientSuspenseAccount->name,
             'to_account' => $businessAccount->name,
+            'client_suspense_balance_before' => $clientSuspenseAccount->balance,
             'client_suspense_balance_after' => $clientSuspenseAccount->fresh()->balance,
+            'business_account_balance_before' => $businessAccount->balance,
             'business_account_balance_after' => $businessAccount->fresh()->balance,
-            'transfer_record_created' => true
+            'transfer_record_created' => true,
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'timestamp' => now()->toISOString()
         ]);
 
         $transferRecords[] = [

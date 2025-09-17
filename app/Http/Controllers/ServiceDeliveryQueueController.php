@@ -30,6 +30,24 @@ class ServiceDeliveryQueueController extends Controller
                 ], 403);
             }
 
+            // Log the action before processing money transfers
+            Log::info("=== MARKING ITEM AS PARTIALLY DONE ===", [
+                'service_delivery_queue_id' => $serviceDeliveryQueue->id,
+                'item_id' => $serviceDeliveryQueue->item_id,
+                'item_name' => $serviceDeliveryQueue->item_name,
+                'invoice_id' => $serviceDeliveryQueue->invoice_id,
+                'invoice_number' => $serviceDeliveryQueue->invoice->invoice_number ?? 'N/A',
+                'client_id' => $serviceDeliveryQueue->client_id,
+                'client_name' => $serviceDeliveryQueue->client->name ?? 'N/A',
+                'business_id' => $serviceDeliveryQueue->business_id,
+                'service_point_id' => $serviceDeliveryQueue->service_point_id,
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'current_status' => $serviceDeliveryQueue->status,
+                'new_status' => 'partially_done',
+                'timestamp' => now()->toISOString()
+            ]);
+
             // Process money transfers
             $moneyTrackingService = app(MoneyTrackingService::class);
             $moneyTrackingService->processServiceDeliveryMoneyTransfer($serviceDeliveryQueue, $user);
@@ -78,6 +96,24 @@ class ServiceDeliveryQueueController extends Controller
                     'message' => 'You do not have access to this service point.'
                 ], 403);
             }
+
+            // Log the action before processing money transfers
+            Log::info("=== MARKING ITEM AS COMPLETED ===", [
+                'service_delivery_queue_id' => $serviceDeliveryQueue->id,
+                'item_id' => $serviceDeliveryQueue->item_id,
+                'item_name' => $serviceDeliveryQueue->item_name,
+                'invoice_id' => $serviceDeliveryQueue->invoice_id,
+                'invoice_number' => $serviceDeliveryQueue->invoice->invoice_number ?? 'N/A',
+                'client_id' => $serviceDeliveryQueue->client_id,
+                'client_name' => $serviceDeliveryQueue->client->name ?? 'N/A',
+                'business_id' => $serviceDeliveryQueue->business_id,
+                'service_point_id' => $serviceDeliveryQueue->service_point_id,
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'current_status' => $serviceDeliveryQueue->status,
+                'new_status' => 'completed',
+                'timestamp' => now()->toISOString()
+            ]);
 
             // Process money transfers (including package adjustments)
             $moneyTrackingService = app(MoneyTrackingService::class);
