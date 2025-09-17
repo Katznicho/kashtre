@@ -1204,10 +1204,10 @@
             }
         }
 
-        async function calculateServiceCharge(amount) {
-            console.log('calculateServiceCharge called with amount:', amount);
+        async function calculateServiceCharge(subtotal) {
+            console.log('calculateServiceCharge called with subtotal:', subtotal);
             try {
-                const response = await fetch('/invoices/calculate-service-charge', {
+                const response = await fetch('/invoices/service-charge', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1215,14 +1215,20 @@
                         'Accept': 'application/json',
                     },
                     body: JSON.stringify({
-                        amount: amount,
-                        business_id: {{ auth()->user()->business_id }}
+                        subtotal: subtotal,
+                        business_id: {{ auth()->user()->business_id }},
+                        branch_id: {{ auth()->user()->currentBranch->id ?? 'null' }}
                     })
                 });
                 
                 const data = await response.json();
                 console.log('Service charge API response:', data);
-                return data.service_charge || 0;
+                if (data.success) {
+                    return parseFloat(data.service_charge) || 0;
+                } else {
+                    console.error('Service charge calculation failed:', data.message);
+                    return 0;
+                }
             } catch (error) {
                 console.error('Error calculating service charge:', error);
                 return 0;
