@@ -620,6 +620,40 @@ class InvoiceController extends Controller
                     'confirmed_at' => now()
                 ]);
                 
+                // Create transaction record for zero-amount transactions
+                $itemsDescription = $this->buildItemsDescription($validated['items'], $client, $business, $invoiceNumber);
+                
+                \App\Models\Transaction::create([
+                    'business_id' => $validated['business_id'],
+                    'branch_id' => $validated['branch_id'],
+                    'client_id' => $validated['client_id'],
+                    'invoice_id' => $invoice->id,
+                    'amount' => 0,
+                    'reference' => $invoiceNumber,
+                    'description' => $itemsDescription,
+                    'status' => 'completed',
+                    'type' => 'debit',
+                    'origin' => 'web',
+                    'phone_number' => $validated['payment_phone'] ?? $validated['client_phone'],
+                    'provider' => 'package_adjustment',
+                    'service' => 'invoice_payment',
+                    'date' => now(),
+                    'currency' => 'UGX',
+                    'names' => $validated['client_name'],
+                    'email' => null,
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                    'method' => 'package_adjustment',
+                    'transaction_for' => 'main',
+                ]);
+                
+                Log::info("Transaction record created for zero-amount transaction", [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoiceNumber,
+                    'amount' => 0,
+                    'description' => $itemsDescription
+                ]);
+                
                 // Queue items immediately for zero-amount transactions
                 $this->queueItemsAtServicePoints($invoice, $validated['items']);
                 
@@ -1746,20 +1780,41 @@ class InvoiceController extends Controller
      */
     private function queueItemsAtServicePoints($invoice, $items)
     {
+        Log::info("=== QUEUEING ITEMS AT SERVICE POINTS STARTED ===", [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'items_count' => count($items),
+            'items' => $items
+        ]);
+        
         foreach ($items as $item) {
             $itemId = $item['id'] ?? $item['item_id'] ?? null;
-            if (!$itemId) continue;
+            if (!$itemId) {
+                Log::warning("Skipping item - no item ID", ['item' => $item]);
+                continue;
+            }
 
             // Get the item from database
             $itemModel = \App\Models\Item::find($itemId);
-            if (!$itemModel) continue;
+            if (!$itemModel) {
+                Log::warning("Skipping item - item model not found", ['item_id' => $itemId]);
+                continue;
+            }
 
             $quantity = $item['quantity'] ?? 1;
+            
+            Log::info("Processing item for service point queuing", [
+                'item_id' => $itemId,
+                'item_name' => $itemModel->name,
+                'item_type' => $itemModel->type,
+                'service_point_id' => $itemModel->service_point_id,
+                'quantity' => $quantity
+            ]);
 
             // Handle regular items with service points
             if ($itemModel->service_point_id) {
                 // Create service delivery queue record for the main item
-                \App\Models\ServiceDeliveryQueue::create([
+                $queueRecord = \App\Models\ServiceDeliveryQueue::create([
                     'business_id' => $invoice->business_id,
                     'branch_id' => $invoice->branch_id,
                     'service_point_id' => $itemModel->service_point_id,
@@ -1774,6 +1829,22 @@ class InvoiceController extends Controller
                     'notes' => "Invoice: {$invoice->invoice_number}, Client: {$invoice->client_name}",
                     'queued_at' => now(),
                     'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
+                ]);
+                
+                Log::info("Item successfully queued at service point", [
+                    'queue_id' => $queueRecord->id,
+                    'item_id' => $itemId,
+                    'item_name' => $itemModel->name,
+                    'service_point_id' => $itemModel->service_point_id,
+                    'quantity' => $quantity,
+                    'status' => 'pending'
+                ]);
+            } else {
+                Log::warning("Item skipped - no service point assigned", [
+                    'item_id' => $itemId,
+                    'item_name' => $itemModel->name,
+                    'item_type' => $itemModel->type,
+                    'service_point_id' => $itemModel->service_point_id
                 ]);
             }
 
@@ -1808,6 +1879,12 @@ class InvoiceController extends Controller
                 }
             }
         }
+        
+        Log::info("=== QUEUEING ITEMS AT SERVICE POINTS COMPLETED ===", [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'total_items_processed' => count($items)
+        ]);
     }
 
     /**
