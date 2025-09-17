@@ -1266,19 +1266,43 @@ class MoneyTrackingService
                     'contractor_account_id' => $item->contractor_account_id
                 ]);
 
-                // Check if this item is included in a package
+                // Check if this item is included in a package AND if package adjustment is being processed
                 $isIncludedInPackage = $item->includedInPackages()->exists();
+                $hasPackageAdjustment = $invoice->package_adjustment > 0;
                 
-                if ($isIncludedInPackage) {
-                    Log::info("Item is included in package - skipping individual processing", [
+                if ($isIncludedInPackage && $hasPackageAdjustment) {
+                    // Check if this specific item is covered by the package adjustment
+                    $isCoveredByPackageAdjustment = $this->isItemCoveredByPackageAdjustment($item, $invoice);
+                    
+                    if ($isCoveredByPackageAdjustment) {
+                        Log::info("Item is covered by package adjustment - skipping individual processing", [
+                            'item_id' => $itemId,
+                            'item_name' => $item->name,
+                            'item_type' => $item->type,
+                            'total_amount' => $totalAmount,
+                            'package_adjustment' => $invoice->package_adjustment,
+                            'reason' => 'Item is covered by package adjustment - will be processed via package adjustment'
+                        ]);
+                        // Skip individual item processing - package adjustment will handle the money movement
+                        continue;
+                    } else {
+                        Log::info("Item is included in package but not covered by current package adjustment - processing individually", [
+                            'item_id' => $itemId,
+                            'item_name' => $item->name,
+                            'item_type' => $item->type,
+                            'total_amount' => $totalAmount,
+                            'package_adjustment' => $invoice->package_adjustment,
+                            'reason' => 'Item is not covered by current package adjustment - processing as individual item'
+                        ]);
+                    }
+                } else if ($isIncludedInPackage && !$hasPackageAdjustment) {
+                    Log::info("Item is included in package but no package adjustment - processing individually", [
                         'item_id' => $itemId,
                         'item_name' => $item->name,
                         'item_type' => $item->type,
                         'total_amount' => $totalAmount,
-                        'reason' => 'Package items are processed via package adjustment, not individually'
+                        'reason' => 'No package adjustment for this invoice - processing as individual item'
                     ]);
-                    // Skip individual item processing - package adjustment will handle the money movement
-                    continue;
                 }
                 
                 // Handle bulk items differently
@@ -1753,6 +1777,50 @@ class MoneyTrackingService
             'item_id' => $item->id,
             'total_amount' => $totalAmount
         ]);
+    }
+
+    /**
+     * Check if an item is covered by the current package adjustment
+     * This helps determine if we should skip individual processing for package items
+     */
+    private function isItemCoveredByPackageAdjustment($item, $invoice)
+    {
+        // Get client's valid package tracking records
+        $validPackages = \App\Models\PackageTracking::where('client_id', $invoice->client_id)
+            ->where('business_id', $invoice->business_id)
+            ->where('status', 'active')
+            ->where('remaining_quantity', '>', 0)
+            ->where('valid_until', '>=', now()->toDateString())
+            ->with(['packageItem.packageItems.includedItem'])
+            ->get();
+
+        foreach ($validPackages as $packageTracking) {
+            // Check if the current item is included in this package
+            $packageItems = $packageTracking->packageItem->packageItems;
+            
+            foreach ($packageItems as $packageItem) {
+                if ($packageItem->included_item_id == $item->id) {
+                    // This item is included in a valid package
+                    // Check if the package adjustment amount matches this package's price
+                    $packagePrice = $packageTracking->package_price;
+                    
+                    Log::info("Checking if item is covered by package adjustment", [
+                        'item_id' => $item->id,
+                        'item_name' => $item->name,
+                        'package_tracking_id' => $packageTracking->id,
+                        'package_price' => $packagePrice,
+                        'invoice_package_adjustment' => $invoice->package_adjustment,
+                        'is_covered' => $invoice->package_adjustment >= $packagePrice
+                    ]);
+                    
+                    // If the package adjustment amount is at least the package price, 
+                    // then this item is covered by the package adjustment
+                    return $invoice->package_adjustment >= $packagePrice;
+                }
+            }
+        }
+        
+        return false;
     }
 
     /**
