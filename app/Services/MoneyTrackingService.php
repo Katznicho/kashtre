@@ -1316,9 +1316,9 @@ class MoneyTrackingService
                 'invoice_number' => $invoice->invoice_number,
                 'package_adjustment' => $invoice->package_adjustment,
                 'item_status' => $itemStatus,
-                'service_delivery_queue_id' => $serviceDeliveryQueue->id ?? null,
-                'item_id' => $serviceDeliveryQueue->item_id ?? null,
-                'item_name' => $serviceDeliveryQueue->item_name ?? null,
+                'service_delivery_queue_id' => null, // Not available in processSaveAndExit context
+                'item_id' => null, // Not available in processSaveAndExit context
+                'item_name' => null, // Not available in processSaveAndExit context
                 'client_id' => $invoice->client_id,
                 'client_name' => $invoice->client_name,
                 'business_id' => $invoice->business_id,
@@ -1352,8 +1352,9 @@ class MoneyTrackingService
                         'reason' => 'Package adjustment transfer record already exists for this invoice'
                     ]);
                 } else {
-                // Get detailed item information for logging
-                $itemModel = \App\Models\Item::find($serviceDeliveryQueue->item_id);
+                // Get detailed item information for logging (using first item from invoice since serviceDeliveryQueue is not available)
+                $firstItem = $invoice->items[0] ?? null;
+                $itemModel = $firstItem ? \App\Models\Item::find($firstItem['id'] ?? $firstItem['item_id']) : null;
                 $itemType = $itemModel ? $itemModel->type : 'unknown';
                 $isPackageItem = $itemModel && $itemModel->type === 'package';
                 $isIncludedInPackage = $itemModel ? $itemModel->includedInPackages()->exists() : false;
@@ -1362,12 +1363,12 @@ class MoneyTrackingService
                     'package_adjustment_amount' => $invoice->package_adjustment,
                     'invoice_id' => $invoice->id,
                     'item_status' => $itemStatus,
-                    'triggering_item_id' => $serviceDeliveryQueue->item_id,
-                    'triggering_item_name' => $serviceDeliveryQueue->item_name,
+                    'triggering_item_id' => $firstItem['id'] ?? $firstItem['item_id'] ?? null,
+                    'triggering_item_name' => $firstItem['name'] ?? null,
                     'triggering_item_type' => $itemType,
                     'is_package_item' => $isPackageItem,
                     'is_included_in_package' => $isIncludedInPackage,
-                    'service_delivery_queue_id' => $serviceDeliveryQueue->id,
+                    'service_delivery_queue_id' => null, // Not available in processSaveAndExit context
                     'reason' => 'Package items are being used - moving package adjustment money to business account',
                     'timestamp' => now()->toISOString()
                 ]);
