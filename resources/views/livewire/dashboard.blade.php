@@ -140,80 +140,185 @@
         </div>
         
         @php
+            // Add comprehensive logging for dashboard transaction queries
+            \Log::info("=== DASHBOARD TRANSACTION QUERIES START ===", [
+                'business_id' => $business->id,
+                'business_name' => $business->name,
+                'current_branch_id' => $currentBranch->id ?? null,
+                'current_branch_name' => $currentBranch->name ?? null,
+                'user_id' => auth()->user()->id,
+                'timestamp' => now()->toISOString()
+            ]);
+
+            // Get all transactions for this business
             $allTransactions = \App\Models\Transaction::where('business_id', $business->id)
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
                 ->get();
             
+            \Log::info("All transactions query result", [
+                'business_id' => $business->id,
+                'total_count' => $allTransactions->count(),
+                'transactions' => $allTransactions->map(function($t) {
+                    return [
+                        'id' => $t->id,
+                        'reference' => $t->reference,
+                        'amount' => $t->amount,
+                        'status' => $t->status,
+                        'created_at' => $t->created_at,
+                        'business_id' => $t->business_id,
+                        'branch_id' => $t->branch_id,
+                        'client_id' => $t->client_id,
+                        'invoice_id' => $t->invoice_id
+                    ];
+                })->toArray()
+            ]);
+
+            // Get pending transactions
             $pendingTransactions = \App\Models\Transaction::where('business_id', $business->id)
                 ->where('status', 'pending')
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
                 ->get();
             
+            \Log::info("Pending transactions query result", [
+                'business_id' => $business->id,
+                'pending_count' => $pendingTransactions->count(),
+                'pending_transactions' => $pendingTransactions->map(function($t) {
+                    return [
+                        'id' => $t->id,
+                        'reference' => $t->reference,
+                        'amount' => $t->amount,
+                        'status' => $t->status
+                    ];
+                })->toArray()
+            ]);
+            
+            // Get completed transactions
             $completedTransactions = \App\Models\Transaction::where('business_id', $business->id)
                 ->where('status', 'completed')
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
                 ->get();
             
+            \Log::info("Completed transactions query result", [
+                'business_id' => $business->id,
+                'completed_count' => $completedTransactions->count(),
+                'completed_transactions' => $completedTransactions->map(function($t) {
+                    return [
+                        'id' => $t->id,
+                        'reference' => $t->reference,
+                        'amount' => $t->amount,
+                        'status' => $t->status
+                    ];
+                })->toArray()
+            ]);
+            
+            // Get failed transactions
             $failedTransactions = \App\Models\Transaction::where('business_id', $business->id)
                 ->where('status', 'failed')
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
                 ->get();
+            
+            \Log::info("Failed transactions query result", [
+                'business_id' => $business->id,
+                'failed_count' => $failedTransactions->count(),
+                'failed_transactions' => $failedTransactions->map(function($t) {
+                    return [
+                        'id' => $t->id,
+                        'reference' => $t->reference,
+                        'amount' => $t->amount,
+                        'status' => $t->status
+                    ];
+                })->toArray()
+            ]);
+
+            // Also log raw database query to see all transactions
+            $rawAllTransactions = \DB::table('transactions')
+                ->where('business_id', $business->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
+            
+            \Log::info("Raw database query result", [
+                'business_id' => $business->id,
+                'raw_count' => $rawAllTransactions->count(),
+                'raw_transactions' => $rawAllTransactions->map(function($t) {
+                    return [
+                        'id' => $t->id,
+                        'reference' => $t->reference,
+                        'amount' => $t->amount,
+                        'status' => $t->status,
+                        'created_at' => $t->created_at,
+                        'business_id' => $t->business_id,
+                        'branch_id' => $t->branch_id,
+                        'deleted_at' => $t->deleted_at
+                    ];
+                })->toArray()
+            ]);
+
+            \Log::info("=== DASHBOARD TRANSACTION QUERIES END ===", [
+                'business_id' => $business->id,
+                'summary' => [
+                    'all_count' => $allTransactions->count(),
+                    'pending_count' => $pendingTransactions->count(),
+                    'completed_count' => $completedTransactions->count(),
+                    'failed_count' => $failedTransactions->count(),
+                    'raw_count' => $rawAllTransactions->count()
+                ]
+            ]);
         @endphp
         
         <!-- All Transactions Tab Content -->
         <div id="transactions-all" class="transaction-content">
             @if($allTransactions->count() > 0)
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
-                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
-                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
                             @foreach($allTransactions as $transaction)
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                                    {{ $transaction->created_at->format('M d, H:i') }}
-                                </td>
-                                <td class="px-3 py-2 whitespace-nowrap text-sm text-blue-600">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                                {{ $transaction->created_at->format('M d, H:i') }}
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap text-sm text-blue-600">
                                     @if($transaction->invoice_id)
                                         <a href="{{ route('invoices.show', $transaction->invoice_id) }}" class="hover:text-blue-800">
-                                            {{ $transaction->reference }}
-                                        </a>
+                                    {{ $transaction->reference }}
+                                </a>
                                     @else
                                         <span class="text-gray-600">{{ $transaction->reference }}</span>
                                     @endif
-                                </td>
-                                <td class="px-3 py-2 text-sm text-gray-900">
-                                    <div class="truncate max-w-xs" title="{{ $transaction->description }}">
-                                        {{ $transaction->description }}
-                                    </div>
-                                </td>
-                                <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
-                                    UGX {{ number_format($transaction->amount, 2) }}
-                                </td>
-                                <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                        {{ ucwords(str_replace('_', ' ', $transaction->method ?? $transaction->provider)) }}
-                                    </span>
-                                </td>
-                                <td class="px-3 py-2 whitespace-nowrap">
+                            </td>
+                            <td class="px-3 py-2 text-sm text-gray-900">
+                                <div class="truncate max-w-xs" title="{{ $transaction->description }}">
+                                    {{ $transaction->description }}
+                                </div>
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                                UGX {{ number_format($transaction->amount, 2) }}
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {{ ucwords(str_replace('_', ' ', $transaction->method ?? $transaction->provider)) }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap">
                                     <div class="flex items-center space-x-2">
-                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium 
-                                            {{ $transaction->status === 'completed' ? 'bg-green-100 text-green-800' : 
-                                               ($transaction->status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
-                                            {{ ucfirst($transaction->status) }}
-                                        </span>
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium 
+                                    {{ $transaction->status === 'completed' ? 'bg-green-100 text-green-800' : 
+                                       ($transaction->status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
+                                    {{ ucfirst($transaction->status) }}
+                                </span>
                                         @if($transaction->status === 'failed' && $transaction->method === 'mobile_money' && $transaction->provider === 'yo')
                                             <button onclick="reinitiateTransaction({{ $transaction->id }})" 
                                                     class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-800 hover:bg-orange-200 transition-colors"
@@ -225,21 +330,21 @@
                                             </button>
                                         @endif
                                     </div>
-                                </td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @else
-                <div class="text-center py-8">
-                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <h3 class="mt-2 text-sm font-medium text-gray-900">No transactions found</h3>
-                    <p class="mt-1 text-sm text-gray-500">No transactions have been recorded yet.</p>
-                </div>
-            @endif
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @else
+            <div class="text-center py-8">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">No transactions found</h3>
+                <p class="mt-1 text-sm text-gray-500">No transactions have been recorded yet.</p>
+            </div>
+        @endif
         </div>
 
         <!-- Pending Transactions Tab Content -->
