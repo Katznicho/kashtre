@@ -1270,6 +1270,15 @@ class MoneyTrackingService
                 $isIncludedInPackage = $item->includedInPackages()->exists();
                 $hasPackageAdjustment = $invoice->package_adjustment > 0;
                 
+                Log::info("Package item check for processing decision", [
+                    'item_id' => $itemId,
+                    'item_name' => $item->name,
+                    'is_included_in_package' => $isIncludedInPackage,
+                    'has_package_adjustment' => $hasPackageAdjustment,
+                    'package_adjustment_amount' => $invoice->package_adjustment,
+                    'invoice_id' => $invoice->id
+                ]);
+                
                 if ($isIncludedInPackage && $hasPackageAdjustment) {
                     // Check if this specific item is covered by the package adjustment
                     $isCoveredByPackageAdjustment = $this->isItemCoveredByPackageAdjustment($item, $invoice);
@@ -1785,6 +1794,15 @@ class MoneyTrackingService
      */
     private function isItemCoveredByPackageAdjustment($item, $invoice)
     {
+        Log::info("=== CHECKING IF ITEM IS COVERED BY PACKAGE ADJUSTMENT ===", [
+            'item_id' => $item->id,
+            'item_name' => $item->name,
+            'invoice_id' => $invoice->id,
+            'invoice_package_adjustment' => $invoice->package_adjustment,
+            'client_id' => $invoice->client_id,
+            'business_id' => $invoice->business_id
+        ]);
+        
         // Get client's valid package tracking records
         $validPackages = \App\Models\PackageTracking::where('client_id', $invoice->client_id)
             ->where('business_id', $invoice->business_id)
@@ -1793,6 +1811,19 @@ class MoneyTrackingService
             ->where('valid_until', '>=', now()->toDateString())
             ->with(['packageItem.packageItems.includedItem'])
             ->get();
+            
+        Log::info("Found valid packages for coverage check", [
+            'item_id' => $item->id,
+            'valid_packages_count' => $validPackages->count(),
+            'valid_packages' => $validPackages->map(function($pkg) {
+                return [
+                    'id' => $pkg->id,
+                    'package_price' => $pkg->package_price,
+                    'remaining_quantity' => $pkg->remaining_quantity,
+                    'status' => $pkg->status
+                ];
+            })
+        ]);
 
         foreach ($validPackages as $packageTracking) {
             // Check if the current item is included in this package
