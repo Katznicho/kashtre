@@ -79,11 +79,16 @@ class ServiceDeliveryQueueController extends Controller
                 ], 403);
             }
 
+            // Process money transfers (including package adjustments)
+            $moneyTrackingService = app(MoneyTrackingService::class);
+            $moneyTrackingService->processServiceDeliveryMoneyTransfer($serviceDeliveryQueue, $user);
+
+            // Update the item status
             $serviceDeliveryQueue->markAsCompleted();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Item marked as completed successfully.',
+                'message' => 'Item marked as completed successfully. Money transfers processed.',
                 'item' => $serviceDeliveryQueue->fresh()
             ]);
         } catch (Exception $e) {
