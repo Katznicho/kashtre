@@ -2477,7 +2477,7 @@ class MoneyTrackingService
     }
 
     /**
-     * Create client account statement entry for package usage (type: package)
+     * Create client account statement entry for package usage (type: debit)
      */
     private function createClientPackageStatementEntry($invoice, $packageSales)
     {
@@ -2491,27 +2491,22 @@ class MoneyTrackingService
                 'package_sales_count' => count($packageSales)
             ]);
 
-            // Create transaction record for client statement (type: package)
-            \App\Models\Transaction::create([
-                'business_id' => $invoice->business_id,
-                'branch_id' => $invoice->branch_id,
-                'client_id' => $invoice->client_id,
-                'amount' => $totalAmount,
-                'reference' => 'CLIENT-PKG-' . time() . '-' . $invoice->invoice_number,
-                'description' => "Package item usage from invoice {$invoice->invoice_number}",
-                'status' => 'completed',
-                'type' => 'package', // Special type for package transactions
-                'origin' => 'package_usage',
-                'date' => now()->toDateString(),
-                'currency' => 'UGX',
-                'method' => 'package_usage',
-                'transaction_for' => 'client_statement' // Mark for client statement
-            ]);
+            // Create BalanceHistory record for client statement (type: debit)
+            // This represents the client using their package items
+            \App\Models\BalanceHistory::recordDebit(
+                $invoice->client,
+                $totalAmount,
+                "Package item usage from invoice {$invoice->invoice_number}",
+                $invoice->invoice_number,
+                "Package items used: " . implode(', ', array_column($packageSales, 'item_name')),
+                'package_usage'
+            );
 
             Log::info("Client package statement entry created", [
                 'invoice_id' => $invoice->id,
                 'client_id' => $invoice->client_id,
-                'total_amount' => $totalAmount
+                'total_amount' => $totalAmount,
+                'type' => 'debit'
             ]);
 
         } catch (\Exception $e) {
@@ -2525,7 +2520,7 @@ class MoneyTrackingService
     }
 
     /**
-     * Create business account statement entry for package sales (type: package)
+     * Create business account statement entry for package sales (type: credit)
      */
     private function createBusinessPackageStatementEntry($invoice, $packageSales)
     {
@@ -2540,27 +2535,27 @@ class MoneyTrackingService
                 'package_sales_count' => count($packageSales)
             ]);
 
-            // Create transaction record for business statement (type: package)
-            \App\Models\Transaction::create([
-                'business_id' => $invoice->business_id,
-                'branch_id' => $invoice->branch_id,
-                'client_id' => $invoice->client_id,
-                'amount' => $totalAmount,
-                'reference' => 'BIZ-PKG-' . time() . '-' . $invoice->invoice_number,
-                'description' => "Package sales revenue from invoice {$invoice->invoice_number}",
-                'status' => 'completed',
-                'type' => 'package', // Special type for package transactions
-                'origin' => 'package_sales',
-                'date' => now()->toDateString(),
-                'currency' => 'UGX',
-                'method' => 'package_sales',
-                'transaction_for' => 'business_statement' // Mark for business statement
-            ]);
+            // Create BusinessBalanceHistory record for business statement (type: credit)
+            // This represents the business receiving revenue from package item sales
+            $business = $invoice->business;
+            $businessAccount = $this->getOrCreateBusinessAccount($business);
+            
+            \App\Models\BusinessBalanceHistory::recordChange(
+                $business->id,
+                $businessAccount->id,
+                $totalAmount,
+                'credit',
+                "Package sales revenue from invoice {$invoice->invoice_number}",
+                'package_sales',
+                $invoice->id,
+                "Package items sold: " . implode(', ', array_column($packageSales, 'item_name'))
+            );
 
             Log::info("Business package statement entry created", [
                 'invoice_id' => $invoice->id,
                 'business_id' => $invoice->business_id,
-                'total_amount' => $totalAmount
+                'total_amount' => $totalAmount,
+                'type' => 'credit'
             ]);
 
         } catch (\Exception $e) {
