@@ -80,7 +80,9 @@ class CheckPaymentStatus extends Command
                     continue;
                 }
 
+                // COMMENTED OUT: 3-minute transaction timeout logic
                 // Check if transaction has timed out (older than 3 minutes)
+                /*
                 $transactionAge = now()->diffInMinutes($transaction->created_at);
                 if ($transactionAge >= 3) {
                     Log::warning("Transaction {$transaction->id} has timed out after {$transactionAge} minutes - marking as failed", [
@@ -145,6 +147,7 @@ class CheckPaymentStatus extends Command
                     'age_minutes' => now()->diffInMinutes($transaction->created_at),
                     'timeout_threshold' => '3 minutes'
                 ]);
+                */
 
                 Log::info("Checking payment status with YoAPI", [
                     'transaction_id' => $transaction->id,
