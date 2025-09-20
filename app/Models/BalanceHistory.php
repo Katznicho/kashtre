@@ -239,8 +239,8 @@ class BalanceHistory extends Model
             'branch_id' => $client->branch_id,
             'user_id' => auth()->id() ?? 1, // Default to user ID 1 if no auth
             'previous_balance' => $previousBalance,
-            'change_amount' => 0, // No balance change for package usage
-            'new_balance' => $newBalance,
+            'change_amount' => $amount, // Show actual item amount for display purposes
+            'new_balance' => $newBalance, // Balance remains unchanged (package already paid for)
             'transaction_type' => 'package',
             'description' => $description,
             'reference_number' => $referenceNumber,
@@ -258,8 +258,10 @@ class BalanceHistory extends Model
             'balance_history_id' => $balanceHistory->id,
             'client_id' => $client->id,
             'transaction_type' => 'package',
-            'amount' => $amount,
-            'description' => $description
+            'display_amount' => $amount,
+            'balance_change' => 0,
+            'description' => $description,
+            'note' => 'Package usage shows item amount for display but does not affect balance'
         ]);
 
         return $balanceHistory;
