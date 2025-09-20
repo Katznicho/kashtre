@@ -743,7 +743,7 @@ class CheckPaymentStatus extends Command
             }
 
             $businessAccount = \App\Models\MoneyAccount::where('business_id', $business->id)
-                ->where('account_type', 'business_account')
+                ->where('type', 'business_account')
                 ->first();
 
             if (!$businessAccount) {
@@ -792,7 +792,9 @@ class CheckPaymentStatus extends Command
                 'business_id' => $business->id,
                 'amount' => $totalPackageAmount,
                 'type' => 'credit',
-                'description' => "Package purchase from invoice {$invoice->invoice_number}"
+                'description' => "Package purchase from invoice {$invoice->invoice_number}",
+                'business_account_balance_after' => $businessAccount->fresh()->balance,
+                'balance_change' => $totalPackageAmount
             ]);
 
         } catch (\Exception $e) {
@@ -857,7 +859,10 @@ class CheckPaymentStatus extends Command
                 'client_id' => $client->id,
                 'amount' => $totalPackageAmount,
                 'transaction_type' => 'package',
-                'description' => "Package purchase from invoice {$invoice->invoice_number}"
+                'description' => "Package purchase from invoice {$invoice->invoice_number}",
+                'client_name' => $client->name,
+                'invoice_number' => $invoice->invoice_number,
+                'package_count' => $packageCount
             ]);
 
         } catch (\Exception $e) {

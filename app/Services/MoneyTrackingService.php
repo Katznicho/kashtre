@@ -2643,7 +2643,11 @@ class MoneyTrackingService
                 'total_amount' => $totalAmount,
                 'transaction_type' => 'package',
                 'description' => "Package item usage from invoice {$invoice->invoice_number}",
-                'reference_number' => $invoice->invoice_number
+                'reference_number' => $invoice->invoice_number,
+                'client_name' => $invoice->client->name ?? 'Unknown',
+                'package_sales_count' => count($packageSales),
+                'package_items_used' => implode(', ', array_column($packageSales, 'item_name')),
+                'note' => 'Package usage shows item amount for display but does not affect client balance'
             ]);
 
         } catch (\Exception $e) {
@@ -2725,6 +2729,9 @@ class MoneyTrackingService
                 'description' => "Package sales revenue from invoice {$invoice->invoice_number}",
                 'reference_type' => 'package_sales',
                 'reference_id' => $invoice->id,
+                'business_account_balance' => $businessAccount->balance,
+                'package_sales_count' => count($packageSales),
+                'package_items_sold' => implode(', ', array_column($packageSales, 'item_name')),
                 'note' => 'Package sales revenue recorded as package type (no balance change) - money already transferred via package adjustment'
             ]);
 

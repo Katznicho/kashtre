@@ -48,10 +48,21 @@ class Dashboard extends Component
             // For other businesses, show business_account balance
             // Get the actual business account balance from MoneyAccount (source of truth)
             $businessAccount = \App\Models\MoneyAccount::where('business_id', $this->business->id)
-                ->where('account_type', 'business_account')
+                ->where('type', 'business_account')
                 ->first();
             
             $this->balance = $businessAccount ? $businessAccount->balance : 0;
+            
+            \Log::info("Dashboard balance calculation", [
+                'business_id' => $this->business->id,
+                'business_name' => $this->business->name,
+                'business_account_id' => $businessAccount ? $businessAccount->id : null,
+                'business_account_name' => $businessAccount ? $businessAccount->name : null,
+                'balance' => $this->balance,
+                'account_type' => 'business_account',
+                'calculation_method' => 'MoneyAccount balance (source of truth)',
+                'timestamp' => now()->toDateTimeString()
+            ]);
         }
 
         $this->lastUpdate = now()->format('H:i:s');
