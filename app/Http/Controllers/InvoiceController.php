@@ -418,7 +418,7 @@ class InvoiceController extends Controller
                 'subtotal' => 'required|numeric|min:0',
                 'package_adjustment' => 'nullable|numeric',
                 'account_balance_adjustment' => 'nullable|numeric',
-                'service_charge' => 'required|numeric|min:0.01',
+                'service_charge' => 'required|numeric|min:0',
                 'total_amount' => 'required|numeric|min:0',
                 'amount_paid' => 'nullable|numeric|min:0',
                 'balance_due' => 'required|numeric|min:0',

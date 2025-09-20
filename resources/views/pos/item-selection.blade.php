@@ -1167,7 +1167,7 @@
             
             // Block if service charges are not configured OR if service charge is 0.00
             // Proforma invoices should not save without a service charge
-            if (isServiceChargeNotConfigured || serviceChargeValue === 0) {
+            if (isServiceChargeNotConfigured || (serviceChargeValue === 0 && subtotal2 > 0)) {
                 if (isServiceChargeNotConfigured) {
                     console.log('=== BLOCKING SAVE - SERVICE CHARGES NOT CONFIGURED ===');
                     console.log('Showing "Service Charges Not Configured" modal');
@@ -1178,12 +1178,12 @@
                         confirmButtonText: 'OK'
                     });
                 } else {
-                    console.log('=== BLOCKING SAVE - SERVICE CHARGE IS 0.00 ===');
+                    console.log('=== BLOCKING SAVE - SERVICE CHARGE IS 0.00 AND TOTAL > 0 ===');
                     console.log('Showing "Service Charge Required" modal');
                     Swal.fire({
                         icon: 'error',
                         title: 'Service Charge Required',
-                        text: 'Proforma invoices cannot be saved without a service charge. Please ensure a service charge is applied before saving.',
+                        text: 'Proforma invoices cannot be saved without a service charge when there is a payable amount. Please ensure a service charge is applied before saving.',
                         confirmButtonText: 'OK'
                     });
                 }

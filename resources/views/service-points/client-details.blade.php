@@ -1302,13 +1302,13 @@
                 noteDisplay: serviceChargeNote ? serviceChargeNote.style.display : 'note not found',
                 serviceChargeElement: serviceChargeElement ? 'found' : 'not found',
                 serviceChargeNote: serviceChargeNote ? 'found' : 'not found',
-                willBlock: (isServiceChargeNotConfigured || serviceChargeValue === 0),
+                willBlock: (isServiceChargeNotConfigured || (serviceChargeValue === 0 && subtotal2 > 0)),
                 timestamp: new Date().toISOString()
             });
             
-            // Block if service charges are not configured OR if service charge is 0.00
-            // Proforma invoices should not save without a service charge
-            if (isServiceChargeNotConfigured || serviceChargeValue === 0) {
+            // Block if service charges are not configured OR if service charge is 0.00 AND total amount > 0
+            // Proforma invoices should not save without a service charge when there's a payable amount
+            if (isServiceChargeNotConfigured || (serviceChargeValue === 0 && subtotal2 > 0)) {
                 if (isServiceChargeNotConfigured) {
                     Swal.fire({
                         icon: 'error',
@@ -1320,7 +1320,7 @@
                     Swal.fire({
                         icon: 'error',
                         title: 'Service Charge Required',
-                        text: 'Proforma invoices cannot be saved without a service charge. Please ensure a service charge is applied before saving.',
+                        text: 'Proforma invoices cannot be saved without a service charge when there is a payable amount. Please ensure a service charge is applied before saving.',
                         confirmButtonText: 'OK'
                     });
                 }
