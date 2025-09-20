@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+// Package functionality with comprehensive logging - Updated for testing
+
 use App\Models\Invoice;
 use App\Models\ServiceCharge;
 use App\Models\Client;
