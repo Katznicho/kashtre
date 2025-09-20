@@ -217,7 +217,7 @@ Route::resource('quotations', QuotationController::class);
 Route::get('/package-tracking/dashboard', [PackageTrackingController::class, 'dashboard'])->name('package-tracking.dashboard');
 Route::post('/package-tracking/{packageTracking}/use-quantity', [PackageTrackingController::class, 'useQuantity'])->name('package-tracking.use-quantity');
 Route::get('/clients/{client}/packages', [PackageTrackingController::class, 'clientPackages'])->name('package-tracking.client-packages');
-Route::resource('package-tracking', PackageTrackingController::class)->except(['create', 'store']);
+Route::resource('package-tracking', PackageTrackingController::class)->except(['create', 'store', 'edit', 'update']);
 
 // Service Delivery routes
 Route::post('/service-delivery/deliver-item', [ServiceDeliveryController::class, 'deliverItem'])->name('service-delivery.deliver-item');

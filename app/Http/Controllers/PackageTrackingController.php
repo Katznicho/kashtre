@@ -81,62 +81,7 @@ class PackageTrackingController extends Controller
         return view('package-tracking.show', compact('packageTracking', 'packageItems', 'packageSales'));
     }
 
-    /**
-     * Show the form for editing the specified package tracking record
-     */
-    public function edit(PackageTracking $packageTracking)
-    {
-        $user = Auth::user();
-        
-        // Check if user has access to this package tracking record
-        if ($packageTracking->business_id !== $user->business_id) {
-            abort(403, 'Unauthorized access to package tracking record.');
-        }
 
-        $clients = Client::where('business_id', $user->business_id)->get();
-        $invoices = Invoice::where('business_id', $user->business_id)->get();
-
-        return view('package-tracking.edit', compact('packageTracking', 'clients', 'invoices'));
-    }
-
-    /**
-     * Update the specified package tracking record
-     */
-    public function update(Request $request, PackageTracking $packageTracking)
-    {
-        $user = Auth::user();
-        
-        // Check if user has access to this package tracking record
-        if ($packageTracking->business_id !== $user->business_id) {
-            abort(403, 'Unauthorized access to package tracking record.');
-        }
-
-        $validated = $request->validate([
-            'client_id' => 'required|exists:clients,id',
-            'invoice_id' => 'required|exists:invoices,id',
-            'package_item_id' => 'required|exists:items,id',
-            'included_item_id' => 'required|exists:items,id',
-            'total_quantity' => 'required|integer|min:1',
-            'used_quantity' => 'required|integer|min:0',
-            'remaining_quantity' => 'required|integer|min:0',
-            'valid_from' => 'required|date',
-            'valid_until' => 'required|date|after:valid_from',
-            'package_price' => 'required|numeric|min:0',
-            'item_price' => 'required|numeric|min:0',
-            'status' => 'required|in:active,expired,fully_used,cancelled',
-            'notes' => 'nullable|string',
-        ]);
-
-        // Validate that used_quantity + remaining_quantity = total_quantity
-        if ($validated['used_quantity'] + $validated['remaining_quantity'] !== $validated['total_quantity']) {
-            return back()->withErrors(['used_quantity' => 'Used quantity + remaining quantity must equal total quantity.']);
-        }
-
-        $packageTracking->update($validated);
-
-        return redirect()->route('package-tracking.index')
-            ->with('success', 'Package tracking record updated successfully.');
-    }
 
     /**
      * Remove the specified package tracking record
