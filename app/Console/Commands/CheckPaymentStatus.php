@@ -743,7 +743,7 @@ class CheckPaymentStatus extends Command
             }
 
             $businessAccount = \App\Models\MoneyAccount::where('business_id', $business->id)
-                ->where('type', 'business_account')
+                ->where('account_type', 'business_account')
                 ->first();
 
             if (!$businessAccount) {
