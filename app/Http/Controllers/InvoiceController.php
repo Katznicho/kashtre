@@ -599,7 +599,7 @@ class InvoiceController extends Controller
             // PACKAGE TRACKING: Package tracking records will be created after successful payment
             // This is handled in CheckPaymentStatus command when payment succeeds
             
-            // PACKAGE ADJUSTMENT: Update package tracking records when adjustments are used
+            // PACKAGE ADJUSTMENT: Log that package adjustments will be processed after payment completion
             if ($validated['package_adjustment'] > 0) {
                 Log::info("=== PACKAGE ADJUSTMENT DETECTED IN INVOICE CREATION ===", [
                     'invoice_id' => $invoice->id,
@@ -611,14 +611,10 @@ class InvoiceController extends Controller
                     'client_id' => $validated['client_id'],
                     'business_id' => $validated['business_id'],
                     'branch_id' => $validated['branch_id'],
-                    'timestamp' => now()->toISOString()
+                    'timestamp' => now()->toISOString(),
+                    'note' => 'Package tracking will be updated after payment completion'
                 ]);
-                
-                $this->updatePackageTrackingForAdjustments($invoice, $validated['items']);
             }
-            
-            // PACKAGE ADJUSTMENT: Update package usage for items covered by packages
-            $this->updatePackageUsage($invoice, $validated['items']);
             
             // BALANCE ADJUSTMENT: Update client balance if balance adjustment was used
             if ($validated['account_balance_adjustment'] > 0) {
