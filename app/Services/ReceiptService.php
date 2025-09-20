@@ -68,19 +68,22 @@ class ReceiptService
             // Send receipts to all parties
             Log::info("=== SENDING CLIENT RECEIPT ===", [
                 'invoice_id' => $invoice->id,
-                'client_email' => $invoice->client->email ?? 'no email'
+                'client_email' => $invoice->client->email ?? 'no email',
+                'pdf_attached' => 'no' // Client doesn't receive PDF
             ]);
-            $this->sendClientReceipt($invoice, $pdfPath);
+            $this->sendClientReceipt($invoice, null); // No PDF for client
             
             Log::info("=== SENDING BUSINESS RECEIPT ===", [
                 'invoice_id' => $invoice->id,
-                'business_email' => $invoice->business->email ?? 'no email'
+                'business_email' => $invoice->business->email ?? 'no email',
+                'pdf_attached' => 'no' // Business doesn't receive PDF
             ]);
-            $this->sendBusinessReceipt($invoice, $pdfPath);
+            $this->sendBusinessReceipt($invoice, null); // No PDF for business
             
             Log::info("=== SENDING KASHTRE RECEIPT ===", [
                 'invoice_id' => $invoice->id,
-                'kashtre_email' => $kashtreBusiness && $kashtreBusiness->email ? $kashtreBusiness->email : config('mail.kashtre_email', 'admin@kashtre.com')
+                'kashtre_email' => $kashtreBusiness && $kashtreBusiness->email ? $kashtreBusiness->email : config('mail.kashtre_email', 'admin@kashtre.com'),
+                'pdf_attached' => 'yes' // Only Kashtre receives PDF
             ]);
             $this->sendKashTreReceipt($invoice, $chargeAmount, $pdfPath, $kashtreBusiness);
 

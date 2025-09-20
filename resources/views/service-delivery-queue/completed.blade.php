@@ -29,6 +29,7 @@
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completed At</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Wait Time</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                     </tr>
                                 </thead>
@@ -40,6 +41,11 @@
                                             <td class="px-4 py-3 text-sm text-gray-600">{{ $item->quantity }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-600">{{ $item->invoice->invoice_number ?? 'N/A' }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-600">{{ $item->completed_at ? $item->completed_at->format('H:i') : 'N/A' }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-900">
+                                                <span class="font-mono font-semibold text-green-600">
+                                                    {{ $item->getFormattedWaitingTime() }}
+                                                </span>
+                                            </td>
                                             <td class="px-4 py-3 text-sm">
                                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                                     ✓ Completed

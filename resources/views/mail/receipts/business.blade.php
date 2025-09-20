@@ -20,26 +20,8 @@ A payment has been successfully received for one of your invoices.
 **Email:** {{ $client->email }}  
 @endif
 
-## Items Sold
-
-@component('mail::table')
-| Item | Quantity | Price Each | Total |
-|------|----------|------------|-------|
-@foreach($invoice->items as $item)
-| {{ $item['name'] ?? 'N/A' }} | {{ $item['quantity'] ?? 1 }} | UGX {{ number_format($item['price'] ?? 0, 2) }} | UGX {{ number_format(($item['price'] ?? 0) * ($item['quantity'] ?? 1), 2) }} |
-@endforeach
-@endcomponent
-
 ## Revenue Summary
-**Subtotal 1:** UGX {{ number_format($invoice->subtotal, 2) }}  
-@if($invoice->package_adjustment > 0)
-**Package Adjustment:** -UGX {{ number_format($invoice->package_adjustment, 2) }}  
-@endif
-@if($invoice->account_balance_adjustment > 0)
-**Account Balance Adjustment:** -UGX {{ number_format($invoice->account_balance_adjustment, 2) }}  
-@endif
-**Subtotal 2:** UGX {{ number_format(max(0, $invoice->subtotal - ($invoice->package_adjustment ?? 0) - ($invoice->account_balance_adjustment ?? 0)), 2) }}  
-**Your Revenue:** UGX {{ number_format($invoice->total_amount - $invoice->service_charge, 2) }}  
+**Subtotal:** UGX {{ number_format($invoice->subtotal, 2) }}  
 **Amount Received:** UGX {{ number_format($invoice->amount_paid, 2) }}  
 **Outstanding Balance:** UGX {{ number_format($invoice->balance_due, 2) }}
 
@@ -52,8 +34,6 @@ A payment has been successfully received for one of your invoices.
 
 **Payment Status:** {{ ucfirst($invoice->payment_status) }}  
 **Invoice Status:** {{ ucfirst($invoice->status) }}
-
-A detailed business receipt is attached to this email for your records.
 
 Best regards,  
 Kashtre Team

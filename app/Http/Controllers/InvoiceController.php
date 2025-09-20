@@ -418,7 +418,7 @@ class InvoiceController extends Controller
                 'subtotal' => 'required|numeric|min:0',
                 'package_adjustment' => 'nullable|numeric',
                 'account_balance_adjustment' => 'nullable|numeric',
-                'service_charge' => 'required|numeric|min:0',
+                'service_charge' => 'required|numeric|min:0.01',
                 'total_amount' => 'required|numeric|min:0',
                 'amount_paid' => 'nullable|numeric|min:0',
                 'balance_due' => 'required|numeric|min:0',
@@ -596,11 +596,24 @@ class InvoiceController extends Controller
                 ]);
             }
             
-            // PACKAGE TRACKING: Create package tracking records for package items
-            $this->createPackageTrackingRecords($invoice, $validated['items']);
+            // PACKAGE TRACKING: Package tracking records will be created after successful payment
+            // This is handled in CheckPaymentStatus command when payment succeeds
             
             // PACKAGE ADJUSTMENT: Update package tracking records when adjustments are used
             if ($validated['package_adjustment'] > 0) {
+                Log::info("=== PACKAGE ADJUSTMENT DETECTED IN INVOICE CREATION ===", [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'package_adjustment_amount' => $validated['package_adjustment'],
+                    'subtotal' => $validated['subtotal'],
+                    'total_amount' => $validated['total_amount'],
+                    'items_count' => count($validated['items']),
+                    'client_id' => $validated['client_id'],
+                    'business_id' => $validated['business_id'],
+                    'branch_id' => $validated['branch_id'],
+                    'timestamp' => now()->toISOString()
+                ]);
+                
                 $this->updatePackageTrackingForAdjustments($invoice, $validated['items']);
             }
             
@@ -886,23 +899,48 @@ class InvoiceController extends Controller
             }
             
             if (!$serviceCharge) {
+                // Check if any service charge ranges exist for this business/branch
+                $hasServiceChargeRanges = false;
+                
+                if ($branchId) {
+                    // Check if branch has any service charge ranges
+                    $hasServiceChargeRanges = ServiceCharge::where('business_id', $businessId)
+                        ->where('entity_type', 'branch')
+                        ->where('entity_id', $branchId)
+                        ->where('is_active', true)
+                        ->exists();
+                }
+                
+                // If no branch ranges, check business level
+                if (!$hasServiceChargeRanges) {
+                    $hasServiceChargeRanges = ServiceCharge::where('business_id', $businessId)
+                        ->where('entity_type', 'business')
+                        ->where('is_active', true)
+                        ->exists();
+                }
+                
                 // Debug: Log what we're looking for
                 \Log::info('No service charge found', [
                     'business_id' => $businessId,
                     'branch_id' => $branchId,
                     'subtotal' => $subtotal,
                     'searched_branch' => $branchId ? 'yes' : 'no',
-                    'searched_business' => 'yes'
+                    'searched_business' => 'yes',
+                    'has_service_charge_ranges' => $hasServiceChargeRanges
                 ]);
                 
                 return response()->json([
                     'success' => true,
                     'service_charge' => 0,
-                    'message' => 'No service charge configured. Please contact admin to set up service charges.',
+                    'has_service_charge_ranges' => $hasServiceChargeRanges,
+                    'message' => $hasServiceChargeRanges 
+                        ? 'No service charge configured for this amount range. Please contact admin to set up service charges for this range.'
+                        : 'No service charge configured. Please contact admin to set up service charges.',
                     'debug' => [
                         'business_id' => $businessId,
                         'branch_id' => $branchId,
-                        'subtotal' => $subtotal
+                        'subtotal' => $subtotal,
+                        'has_service_charge_ranges' => $hasServiceChargeRanges
                     ]
                 ]);
             }
@@ -920,6 +958,7 @@ class InvoiceController extends Controller
             return response()->json([
                 'success' => true,
                 'service_charge' => $calculatedCharge,
+                'has_service_charge_ranges' => true, // Service charge ranges are configured
                 'service_charge_info' => [
                     'type' => $serviceCharge->type,
                     'amount' => $serviceCharge->amount,

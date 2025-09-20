@@ -880,8 +880,32 @@ class MoneyTrackingService
             $item = $serviceDeliveryQueue->item;
             $business = Business::find($invoice->business_id);
             
+            Log::info("=== PACKAGE ADJUSTMENT MONEY TRANSFER START ===", [
+                'service_delivery_queue_id' => $serviceDeliveryQueue->id,
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'item_id' => $item->id,
+                'item_name' => $item->name,
+                'item_type' => $item->type,
+                'business_id' => $business->id,
+                'business_name' => $business->name,
+                'user_id' => $user ? $user->id : null,
+                'user_name' => $user ? $user->name : null,
+                'timestamp' => now()->toISOString()
+            ]);
+            
             // Get the item amount from the service delivery queue record
             $itemAmount = $serviceDeliveryQueue->price * $serviceDeliveryQueue->quantity;
+            
+            Log::info("Service delivery queue item details", [
+                'service_delivery_queue_id' => $serviceDeliveryQueue->id,
+                'queue_price' => $serviceDeliveryQueue->price,
+                'queue_quantity' => $serviceDeliveryQueue->quantity,
+                'calculated_item_amount' => $itemAmount,
+                'invoice_package_adjustment' => $invoice->package_adjustment ?? 0,
+                'invoice_subtotal' => $invoice->subtotal ?? 0,
+                'invoice_total_amount' => $invoice->total_amount ?? 0
+            ]);
             
             // Get service charge for this invoice
             $serviceCharge = $invoice->service_charge ?? 0;
@@ -891,6 +915,18 @@ class MoneyTrackingService
             
             // Get Kashtre account (business_id = 1)
             $kashtreAccount = $this->getOrCreateKashtreAccount();
+            
+            // Check if this is a package item and log package adjustment details
+            $isPackageItem = $invoice->package_adjustment > 0;
+            
+            Log::info("Package adjustment analysis", [
+                'is_package_item' => $isPackageItem,
+                'invoice_package_adjustment' => $invoice->package_adjustment ?? 0,
+                'item_amount_from_queue' => $itemAmount,
+                'item_amount_for_display' => $isPackageItem ? $this->calculateItemAmount($invoice, $item) : $itemAmount,
+                'money_transfer_amount' => $itemAmount,
+                'note' => $isPackageItem ? 'Package item: Display shows item amount, money transfer uses full package amount' : 'Regular item: Same amount for display and transfer'
+            ]);
             
             // Transfer item amount to business account
             $this->transferMoney(
@@ -1038,13 +1074,34 @@ class MoneyTrackingService
             
             DB::commit();
             
-            Log::info("Service delivery money transfer processed", [
+            Log::info("=== PACKAGE ADJUSTMENT MONEY TRANSFER COMPLETED ===", [
                 'service_delivery_queue_id' => $serviceDeliveryQueue->id,
                 'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
                 'item_id' => $item->id,
-                'item_amount' => $itemAmount,
+                'item_name' => $item->name,
+                'item_type' => $item->type,
+                'item_amount_transferred' => $itemAmount,
+                'item_amount_for_display' => $isPackageItem ? $this->calculateItemAmount($invoice, $item) : $itemAmount,
                 'service_charge' => $serviceCharge,
-                'business_id' => $business->id
+                'business_id' => $business->id,
+                'business_name' => $business->name,
+                'is_package_item' => $isPackageItem,
+                'package_adjustment_total' => $invoice->package_adjustment ?? 0,
+                'timestamp' => now()->toISOString()
+            ]);
+            
+            // Final summary log for easy tracking
+            Log::info("=== PACKAGE ADJUSTMENT SUMMARY ===", [
+                'action' => 'ITEM_COMPLETED',
+                'invoice_number' => $invoice->invoice_number,
+                'item_name' => $item->name,
+                'is_package_item' => $isPackageItem,
+                'money_transferred_to_business' => $itemAmount,
+                'display_amount_for_adjustments' => $isPackageItem ? $this->calculateItemAmount($invoice, $item) : $itemAmount,
+                'package_adjustment_total_in_invoice' => $invoice->package_adjustment ?? 0,
+                'note' => $isPackageItem ? 'Package item: Full package amount transferred, item amount shown in adjustments' : 'Regular item: Same amount for transfer and display',
+                'timestamp' => now()->toISOString()
             ]);
             
             return true;
@@ -1061,9 +1118,22 @@ class MoneyTrackingService
     
     /**
      * Calculate item amount considering package adjustments
+     * For package items: returns the item amount (what customer paid for this specific item)
+     * For regular items: returns the original item amount
      */
     private function calculateItemAmount($invoice, $item)
     {
+        Log::info("=== CALCULATING ITEM AMOUNT FOR DISPLAY ===", [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'item_id' => $item->id,
+            'item_name' => $item->name,
+            'item_type' => $item->type,
+            'invoice_package_adjustment' => $invoice->package_adjustment ?? 0,
+            'invoice_subtotal' => $invoice->subtotal ?? 0,
+            'timestamp' => now()->toISOString()
+        ]);
+        
         // Get the original item price from invoice items array
         $invoiceItem = null;
         if ($invoice->items && is_array($invoice->items)) {
@@ -1076,26 +1146,73 @@ class MoneyTrackingService
         }
         
         if (!$invoiceItem) {
+            Log::warning("Invoice item not found in invoice items array", [
+                'invoice_id' => $invoice->id,
+                'item_id' => $item->id,
+                'invoice_items_count' => is_array($invoice->items) ? count($invoice->items) : 0
+            ]);
             return 0;
         }
         
         $originalAmount = ($invoiceItem['quantity'] ?? 0) * ($invoiceItem['price'] ?? 0);
         
-        // Apply package adjustment if any
+        Log::info("Invoice item details found", [
+            'invoice_id' => $invoice->id,
+            'item_id' => $item->id,
+            'invoice_item_quantity' => $invoiceItem['quantity'] ?? 0,
+            'invoice_item_price' => $invoiceItem['price'] ?? 0,
+            'original_amount' => $originalAmount
+        ]);
+        
+        // For package items, the adjustment should show the item amount (what customer paid)
+        // The actual money transfer still uses the full package amount
         if ($invoice->package_adjustment > 0) {
-            // Calculate package adjustment for this specific item
-            $packageAdjustment = $this->calculateItemPackageAdjustment($invoice, $item);
-            $originalAmount -= $packageAdjustment;
+            // For display purposes, return the item amount (what customer paid for this specific item)
+            $itemAmount = $this->calculateItemPackageAdjustment($invoice, $item);
+            
+            Log::info('=== PACKAGE ITEM AMOUNT CALCULATION ===', [
+                'item_id' => $item->id,
+                'item_name' => $item->name,
+                'original_amount' => $originalAmount,
+                'item_amount_for_display' => $itemAmount,
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'package_adjustment_total' => $invoice->package_adjustment,
+                'note' => 'PACKAGE ITEM: Display shows item amount, money transfer uses full package amount'
+            ]);
+            
+            return $itemAmount;
         }
+        
+        Log::info('=== REGULAR ITEM AMOUNT CALCULATION ===', [
+            'item_id' => $item->id,
+            'item_name' => $item->name,
+            'original_amount' => $originalAmount,
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'note' => 'REGULAR ITEM: Same amount for display and transfer'
+        ]);
         
         return max(0, $originalAmount);
     }
     
     /**
      * Calculate package adjustment for a specific item
+     * For display purposes, this should return the item amount (what customer paid for this specific item)
+     * The actual money transfer still uses the full package amount
      */
     private function calculateItemPackageAdjustment($invoice, $item)
     {
+        Log::info("=== CALCULATING PACKAGE ADJUSTMENT FOR ITEM ===", [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'item_id' => $item->id,
+            'item_name' => $item->name,
+            'item_type' => $item->type,
+            'invoice_package_adjustment_total' => $invoice->package_adjustment ?? 0,
+            'timestamp' => now()->toISOString()
+        ]);
+        
         // Get the item from invoice items array
         $invoiceItem = null;
         if ($invoice->items && is_array($invoice->items)) {
@@ -1108,24 +1225,31 @@ class MoneyTrackingService
         }
         
         if (!$invoiceItem) {
+            Log::warning("Invoice item not found for package adjustment calculation", [
+                'invoice_id' => $invoice->id,
+                'item_id' => $item->id,
+                'invoice_items_count' => is_array($invoice->items) ? count($invoice->items) : 0
+            ]);
             return 0;
         }
         
-        $itemTotal = ($invoiceItem['quantity'] ?? 0) * ($invoiceItem['price'] ?? 0);
+        // Return the actual item amount (what the customer paid for this specific item)
+        // This is what should be displayed in package adjustments
+        $itemAmount = ($invoiceItem['quantity'] ?? 0) * ($invoiceItem['price'] ?? 0);
         
-        // Calculate total invoice amount from items array
-        $totalInvoiceAmount = 0;
-        if ($invoice->items && is_array($invoice->items)) {
-            foreach ($invoice->items as $invItem) {
-                $totalInvoiceAmount += ($invItem['quantity'] ?? 0) * ($invItem['price'] ?? 0);
-            }
-        }
+        Log::info('=== PACKAGE ADJUSTMENT CALCULATION RESULT ===', [
+            'item_id' => $item->id,
+            'item_name' => $item->name,
+            'invoice_item_quantity' => $invoiceItem['quantity'] ?? 0,
+            'invoice_item_price' => $invoiceItem['price'] ?? 0,
+            'calculated_item_amount' => $itemAmount,
+            'invoice_package_adjustment_total' => $invoice->package_adjustment ?? 0,
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'note' => 'DISPLAY AMOUNT: Shows item amount (what customer paid), money transfer uses full package amount'
+        ]);
         
-        if ($totalInvoiceAmount > 0) {
-            return ($itemTotal / $totalInvoiceAmount) * $invoice->package_adjustment;
-        }
-        
-        return 0;
+        return $itemAmount;
     }
     
     /**

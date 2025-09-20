@@ -159,7 +159,8 @@
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Package</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tracking #</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Max Qty</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Balance</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage %</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                         </tr>
@@ -187,7 +188,12 @@
                                                     </div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="text-sm text-gray-900">{{ $package->remaining_quantity }}/{{ $package->total_quantity }}</div>
+                                                    <div class="text-sm font-medium text-gray-900">{{ $package->total_quantity }}</div>
+                                                    <div class="text-xs text-gray-500">Total available</div>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <div class="text-sm font-medium text-green-600">{{ $package->remaining_quantity }}</div>
+                                                    <div class="text-xs text-gray-500">Remaining</div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm text-gray-900">{{ number_format($package->usage_percentage, 1) }}%</div>

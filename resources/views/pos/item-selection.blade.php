@@ -1059,7 +1059,8 @@
                 subtotal2 = 0;
             }
             
-            const serviceCharge = await calculateServiceCharge(subtotal2);
+            const serviceChargeData = await calculateServiceCharge(subtotal2);
+            const serviceCharge = serviceChargeData.amount;
             let finalTotal = subtotal2 + parseFloat(serviceCharge);
             
             // Ensure final total never goes below 0
@@ -1073,14 +1074,21 @@
             document.getElementById('balance-adjustment-display').textContent = `UGX ${parseFloat(balanceAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('invoice-subtotal-2').textContent = `UGX ${subtotal2.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
-            // Display service charge (always show the amount, even if 0.00)
+            // Display service charge and handle note visibility
             const serviceChargeElement = document.getElementById('service-charge-display');
             const serviceChargeNote = document.getElementById('service-charge-note');
             
             // Always show the service charge amount
-                serviceChargeElement.textContent = `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            // Hide the "No charges" note since we always have a service charge (even if 0.00)
+            serviceChargeElement.textContent = `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            // Show/hide note based on whether service charge ranges exist
+            if (serviceChargeData.hasRanges) {
+                // Service charge ranges are configured, hide the note
                 serviceChargeNote.style.display = 'none';
+            } else {
+                // No service charge ranges configured, show the note
+                serviceChargeNote.style.display = 'block';
+            }
             
             document.getElementById('invoice-final-total').textContent = `UGX ${finalTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
@@ -1126,7 +1134,7 @@
             // Check if service charges are not configured (note is visible)
             const isServiceChargeNotConfigured = serviceChargeNote && serviceChargeNote.style.display !== 'none';
             
-            // Debug logging
+            // Debug logging for service charge validation
             console.log('=== SERVICE CHARGE VALIDATION DEBUG ===');
             console.log('Service charge validation debug:', {
                 serviceChargeValue: serviceChargeValue,
@@ -1135,6 +1143,7 @@
                 noteDisplay: serviceChargeNote ? serviceChargeNote.style.display : 'note not found',
                 serviceChargeElement: serviceChargeElement ? 'found' : 'not found',
                 serviceChargeNote: serviceChargeNote ? 'found' : 'not found',
+                willBlock: (isServiceChargeNotConfigured || serviceChargeValue === 0),
                 timestamp: new Date().toISOString()
             });
             
@@ -1156,17 +1165,28 @@
                 });
             }
             
-            // Only block if service charges are not configured
-            // 0.00 is a valid service charge amount
-            if (isServiceChargeNotConfigured) {
-                console.log('=== BLOCKING SAVE - SERVICE CHARGES NOT CONFIGURED ===');
-                console.log('Showing "Service Charges Not Configured" modal');
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Service Charges Not Configured',
-                    text: 'Service charges have not been set up by system administrators. Please contact your system administrator to configure service charges before saving proforma invoices.',
-                    confirmButtonText: 'OK'
-                });
+            // Block if service charges are not configured OR if service charge is 0.00
+            // Proforma invoices should not save without a service charge
+            if (isServiceChargeNotConfigured || serviceChargeValue === 0) {
+                if (isServiceChargeNotConfigured) {
+                    console.log('=== BLOCKING SAVE - SERVICE CHARGES NOT CONFIGURED ===');
+                    console.log('Showing "Service Charges Not Configured" modal');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Service Charges Not Configured',
+                        text: 'Service charges have not been set up by system administrators. Please contact your system administrator to configure service charges before saving proforma invoices.',
+                        confirmButtonText: 'OK'
+                    });
+                } else {
+                    console.log('=== BLOCKING SAVE - SERVICE CHARGE IS 0.00 ===');
+                    console.log('Showing "Service Charge Required" modal');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Service Charge Required',
+                        text: 'Proforma invoices cannot be saved without a service charge. Please ensure a service charge is applied before saving.',
+                        confirmButtonText: 'OK'
+                    });
+                }
                 return;
             } else {
                 console.log('=== VALIDATION PASSED - PROCEEDING WITH SAVE ===');
@@ -1204,7 +1224,8 @@
                 
                 const packageAdjustmentData = await calculatePackageAdjustment();
                 const packageAdjustment = parseFloat(packageAdjustmentData.total_adjustment) || 0;
-                const serviceCharge = await calculateServiceCharge(subtotal);
+                const serviceChargeData = await calculateServiceCharge(subtotal);
+                const serviceCharge = serviceChargeData.amount;
                 let adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
                 
                 // Ensure adjustedSubtotal never goes below 0
@@ -1602,15 +1623,19 @@
                 console.log('Service charge API response:', data);
                 if (data.success) {
                     const serviceCharge = parseFloat(data.service_charge) || 0;
-                    console.log('Service charge calculated:', serviceCharge);
-                    return serviceCharge;
+                    const hasServiceChargeRanges = data.has_service_charge_ranges || false;
+                    console.log('Service charge calculated:', serviceCharge, 'Has ranges:', hasServiceChargeRanges);
+                    return {
+                        amount: serviceCharge,
+                        hasRanges: hasServiceChargeRanges
+                    };
                 } else {
                     console.error('Service charge calculation error:', data.message);
-                    return 0;
+                    return { amount: 0, hasRanges: false };
                 }
             } catch (error) {
                 console.error('Error calculating service charge:', error);
-                return 0;
+                return { amount: 0, hasRanges: false };
             }
         }
         

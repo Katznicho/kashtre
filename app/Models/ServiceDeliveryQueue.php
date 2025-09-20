@@ -242,4 +242,63 @@ class ServiceDeliveryQueue extends Model
     {
         return 'id';
     }
+
+    /**
+     * Calculate waiting time in seconds
+     */
+    public function getWaitingTimeInSeconds()
+    {
+        if ($this->status === 'completed' && $this->completed_at) {
+            // For completed items, calculate from queued_at to completed_at
+            return $this->queued_at->diffInSeconds($this->completed_at);
+        } elseif ($this->status === 'in_progress' && $this->started_at) {
+            // For in-progress items, calculate from queued_at to started_at
+            return $this->queued_at->diffInSeconds($this->started_at);
+        } else {
+            // For pending items, calculate from queued_at to now
+            return $this->queued_at->diffInSeconds(now());
+        }
+    }
+
+    /**
+     * Format waiting time as 2m:45s
+     */
+    public function getFormattedWaitingTime()
+    {
+        $seconds = $this->getWaitingTimeInSeconds();
+        return $this->formatSecondsToMinutesSeconds($seconds);
+    }
+
+    /**
+     * Format seconds to 2m:45s format
+     */
+    public static function formatSecondsToMinutesSeconds($seconds)
+    {
+        $minutes = floor($seconds / 60);
+        $remainingSeconds = $seconds % 60;
+        
+        return sprintf('%dm:%02ds', $minutes, $remainingSeconds);
+    }
+
+    /**
+     * Get waiting time for display (with real-time updates for pending items)
+     */
+    public function getWaitingTimeForDisplay()
+    {
+        if ($this->status === 'pending') {
+            // For pending items, return a data attribute for JavaScript to update
+            return [
+                'formatted' => $this->getFormattedWaitingTime(),
+                'seconds' => $this->getWaitingTimeInSeconds(),
+                'is_live' => true
+            ];
+        } else {
+            // For completed/in-progress items, return static time
+            return [
+                'formatted' => $this->getFormattedWaitingTime(),
+                'seconds' => $this->getWaitingTimeInSeconds(),
+                'is_live' => false
+            ];
+        }
+    }
 }

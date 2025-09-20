@@ -26,6 +26,7 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Queued At</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Waiting Time</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
@@ -48,6 +49,13 @@
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {{ $item->queued_at->format('M d, Y H:i') }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <span class="waiting-time font-mono font-semibold text-blue-600" 
+                                                      data-queued-at="{{ $item->queued_at->toISOString() }}"
+                                                      data-item-id="{{ $item->id }}">
+                                                    {{ $item->getFormattedWaitingTime() }}
+                                                </span>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <button 
@@ -76,6 +84,39 @@
     </div>
 
     <script>
+        // Real-time waiting time updates
+        function updateWaitingTimes() {
+            const waitingTimeElements = document.querySelectorAll('.waiting-time');
+            
+            waitingTimeElements.forEach(element => {
+                const queuedAt = new Date(element.dataset.queuedAt);
+                const now = new Date();
+                const diffInSeconds = Math.floor((now - queuedAt) / 1000);
+                
+                const minutes = Math.floor(diffInSeconds / 60);
+                const seconds = diffInSeconds % 60;
+                
+                const formattedTime = `${minutes}m:${seconds.toString().padStart(2, '0')}s`;
+                element.textContent = formattedTime;
+                
+                // Add color coding based on waiting time
+                element.className = 'waiting-time font-mono font-semibold';
+                if (diffInSeconds < 300) { // Less than 5 minutes
+                    element.classList.add('text-green-600');
+                } else if (diffInSeconds < 900) { // Less than 15 minutes
+                    element.classList.add('text-yellow-600');
+                } else { // 15+ minutes
+                    element.classList.add('text-red-600');
+                }
+            });
+        }
+
+        // Update waiting times every second
+        setInterval(updateWaitingTimes, 1000);
+        
+        // Initial update
+        updateWaitingTimes();
+
         function moveToPartiallyDone(itemId) {
             // Show confirmation dialog
             Swal.fire({

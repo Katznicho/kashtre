@@ -80,9 +80,6 @@ class CheckPaymentStatus extends Command
                     continue;
                 }
 
-                // TIMEOUT LOGIC DISABLED - Transactions will not be auto-failed based on age
-                // This was causing issues when payments were completed but webhook notifications were delayed
-                /*
                 // Check if transaction has timed out (older than 3 minutes)
                 $transactionAge = now()->diffInMinutes($transaction->created_at);
                 if ($transactionAge >= 3) {
@@ -102,29 +99,32 @@ class CheckPaymentStatus extends Command
                             'updated_at' => now()
                         ]);
 
-                        // Update related invoice if exists
+                        // Update related invoice if exists and make it available for reinitiation
                         if ($transaction->invoice_id) {
                             $invoice = Invoice::find($transaction->invoice_id);
                             if ($invoice) {
                                 $invoice->update([
-                                    'status' => 'failed',
-                                    'payment_status' => 'failed'
+                                    'status' => 'draft', // Reset to draft to allow reinitiation
+                                    'payment_status' => 'pending' // Reset payment status
                                 ]);
                                 
-                                Log::info("Invoice status updated to failed due to transaction timeout", [
+                                Log::info("Invoice status reset to draft for reinitiation due to transaction timeout", [
                                     'invoice_id' => $invoice->id,
                                     'invoice_number' => $invoice->invoice_number,
-                                    'transaction_id' => $transaction->id
+                                    'transaction_id' => $transaction->id,
+                                    'new_status' => 'draft',
+                                    'new_payment_status' => 'pending'
                                 ]);
                             }
                         }
 
                         DB::commit();
                         
-                        Log::info("Transaction ID {$transaction->id} marked as FAILED due to timeout", [
+                        Log::info("Transaction ID {$transaction->id} marked as FAILED due to timeout - Order available for reinitiation", [
                             'transaction_id' => $transaction->id,
                             'reference' => $transaction->reference,
-                            'timeout_minutes' => $transactionAge
+                            'timeout_minutes' => $transactionAge,
+                            'order_reinitiation' => 'enabled'
                         ]);
                         
                         continue; // Skip the YoAPI status check for timed out transactions
@@ -138,12 +138,12 @@ class CheckPaymentStatus extends Command
                         continue;
                     }
                 }
-                */
 
-                Log::info("Transaction timeout logic disabled - proceeding with YoAPI status check", [
+                Log::info("Transaction within timeout period - proceeding with YoAPI status check", [
                     'transaction_id' => $transaction->id,
                     'reference' => $transaction->reference,
-                    'age_minutes' => now()->diffInMinutes($transaction->created_at)
+                    'age_minutes' => now()->diffInMinutes($transaction->created_at),
+                    'timeout_threshold' => '3 minutes'
                 ]);
 
                 Log::info("Checking payment status with YoAPI", [
@@ -485,39 +485,63 @@ class CheckPaymentStatus extends Command
                 ]);
             }
 
-            // Handle bulk items - queue as single unit at bulk item's service point
+            // Handle bulk items - bulk items don't have service points, use service point from one of their included items
             if ($itemModel->type === 'bulk') {
                 Log::info("Processing bulk item", [
                     'bulk_item_id' => $itemId,
                     'bulk_name' => $itemModel->name
                 ]);
 
-                // Get service point for bulk item through BranchServicePoint relationship
-                $bulkBranchServicePoint = $itemModel->branchServicePoints()
-                    ->where('business_id', $invoice->business_id)
-                    ->where('branch_id', $invoice->branch_id)
-                    ->first();
-
-                Log::info("Found bulk item service point", [
+                // Get service point from one of the bulk item's contained items
+                Log::info("Bulk items don't have service points, checking contained items for service point", [
                     'bulk_item_id' => $itemId,
-                    'business_id' => $invoice->business_id,
-                    'branch_id' => $invoice->branch_id,
-                    'branch_service_point_found' => $bulkBranchServicePoint ? 'yes' : 'no',
-                    'service_point_id' => $bulkBranchServicePoint ? $bulkBranchServicePoint->service_point_id : null
+                    'bulk_name' => $itemModel->name
                 ]);
 
-                // If bulk item has a service point, queue it there
-                if ($bulkBranchServicePoint && $bulkBranchServicePoint->service_point_id) {
-                    Log::info("Creating service delivery queue for bulk item", [
+                $bulkItems = $itemModel->bulkItems()->with('includedItem')->get();
+                
+                Log::info("Found bulk items for service point lookup", [
+                    'bulk_item_id' => $itemId,
+                    'included_items_count' => $bulkItems->count()
+                ]);
+
+                $servicePointId = null;
+                $selectedIncludedItem = null;
+                
+                // Find the first included item that has a service point for this business/branch
+                foreach ($bulkItems as $bulkItem) {
+                    $includedItem = $bulkItem->includedItem;
+                    
+                    $includedItemBranchServicePoint = $includedItem->branchServicePoints()
+                        ->where('business_id', $invoice->business_id)
+                        ->where('branch_id', $invoice->branch_id)
+                        ->first();
+
+                    if ($includedItemBranchServicePoint && $includedItemBranchServicePoint->service_point_id) {
+                        $servicePointId = $includedItemBranchServicePoint->service_point_id;
+                        $selectedIncludedItem = $includedItem;
+                        Log::info("Found service point from included item", [
+                            'included_item_id' => $includedItem->id,
+                            'included_item_name' => $includedItem->name,
+                            'service_point_id' => $servicePointId
+                        ]);
+                        break;
+                    }
+                }
+
+                // Queue bulk item at the service point from its included item
+                if ($servicePointId) {
+                    Log::info("Creating service delivery queue for bulk item using included item's service point", [
                         'bulk_item_id' => $itemId,
-                        'service_point_id' => $bulkBranchServicePoint->service_point_id,
+                        'service_point_id' => $servicePointId,
+                        'selected_included_item' => $selectedIncludedItem ? $selectedIncludedItem->name : 'Unknown',
                         'quantity' => $quantity
                     ]);
 
                     $queueRecord = \App\Models\ServiceDeliveryQueue::create([
                         'business_id' => $invoice->business_id,
                         'branch_id' => $invoice->branch_id,
-                        'service_point_id' => $bulkBranchServicePoint->service_point_id,
+                        'service_point_id' => $servicePointId,
                         'invoice_id' => $invoice->id,
                         'client_id' => $invoice->client_id,
                         'item_id' => $itemId,
@@ -526,92 +550,25 @@ class CheckPaymentStatus extends Command
                         'price' => $item['price'] ?? $itemModel->default_price ?? 0,
                         'status' => 'pending',
                         'priority' => 'normal',
-                        'notes' => "Invoice: {$invoice->invoice_number}, Client: {$invoice->client_name}",
+                        'notes' => "Bulk item queued at SP from included item: {$selectedIncludedItem->name}, Invoice: {$invoice->invoice_number}, Client: {$invoice->client_name}",
                         'queued_at' => now(),
                         'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
                     ]);
 
                     $queuedCount++;
-                    Log::info("Service delivery queue created for bulk item", [
+                    Log::info("Service delivery queue created for bulk item using included item's service point", [
                         'queue_id' => $queueRecord->id,
                         'bulk_item_id' => $itemId,
-                        'service_point_id' => $bulkBranchServicePoint->service_point_id
+                        'service_point_id' => $servicePointId,
+                        'selected_included_item' => $selectedIncludedItem ? $selectedIncludedItem->name : 'Unknown'
                     ]);
                 } else {
-                    // Fallback: Get service point from any of the bulk item's contained items
-                    Log::info("Bulk item has no service point, checking contained items for fallback", [
+                    Log::info("No service point found for bulk item or any of its contained items, skipping queuing", [
                         'bulk_item_id' => $itemId,
-                        'bulk_name' => $itemModel->name
+                        'bulk_name' => $itemModel->name,
+                        'business_id' => $invoice->business_id,
+                        'branch_id' => $invoice->branch_id
                     ]);
-
-                    $bulkItems = $itemModel->bulkItems()->with('includedItem')->get();
-                    
-                    Log::info("Found bulk items for fallback", [
-                        'bulk_item_id' => $itemId,
-                        'included_items_count' => $bulkItems->count()
-                    ]);
-
-                    $fallbackServicePointId = null;
-                    
-                    // Find the first included item that has a service point for this business/branch
-                    foreach ($bulkItems as $bulkItem) {
-                        $includedItem = $bulkItem->includedItem;
-                        
-                        $includedItemBranchServicePoint = $includedItem->branchServicePoints()
-                            ->where('business_id', $invoice->business_id)
-                            ->where('branch_id', $invoice->branch_id)
-                            ->first();
-
-                        if ($includedItemBranchServicePoint && $includedItemBranchServicePoint->service_point_id) {
-                            $fallbackServicePointId = $includedItemBranchServicePoint->service_point_id;
-                            Log::info("Found fallback service point from included item", [
-                                'included_item_id' => $includedItem->id,
-                                'included_item_name' => $includedItem->name,
-                                'fallback_service_point_id' => $fallbackServicePointId
-                            ]);
-                            break;
-                        }
-                    }
-
-                    // Queue bulk item at fallback service point if found
-                    if ($fallbackServicePointId) {
-                        Log::info("Creating service delivery queue for bulk item using fallback service point", [
-                            'bulk_item_id' => $itemId,
-                            'fallback_service_point_id' => $fallbackServicePointId,
-                            'quantity' => $quantity
-                        ]);
-
-                        $queueRecord = \App\Models\ServiceDeliveryQueue::create([
-                            'business_id' => $invoice->business_id,
-                            'branch_id' => $invoice->branch_id,
-                            'service_point_id' => $fallbackServicePointId,
-                            'invoice_id' => $invoice->id,
-                            'client_id' => $invoice->client_id,
-                            'item_id' => $itemId,
-                            'item_name' => $item['name'] ?? $itemModel->name,
-                            'quantity' => $quantity,
-                            'price' => $item['price'] ?? $itemModel->default_price ?? 0,
-                            'status' => 'pending',
-                            'priority' => 'normal',
-                            'notes' => "Bulk (fallback SP), Invoice: {$invoice->invoice_number}, Client: {$invoice->client_name}",
-                            'queued_at' => now(),
-                            'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
-                        ]);
-
-                        $queuedCount++;
-                        Log::info("Service delivery queue created for bulk item using fallback service point", [
-                            'queue_id' => $queueRecord->id,
-                            'bulk_item_id' => $itemId,
-                            'fallback_service_point_id' => $fallbackServicePointId
-                        ]);
-                    } else {
-                        Log::info("No service point found for bulk item or any of its contained items, skipping queuing", [
-                            'bulk_item_id' => $itemId,
-                            'bulk_name' => $itemModel->name,
-                            'business_id' => $invoice->business_id,
-                            'branch_id' => $invoice->branch_id
-                        ]);
-                    }
                 }
             }
 
@@ -687,6 +644,25 @@ class CheckPaymentStatus extends Command
 
                 // Calculate total quantity for this included item
                 $totalQuantity = $maxQuantity * $quantity;
+
+                // Check if package tracking record already exists to prevent duplicates
+                $existingTracking = \App\Models\PackageTracking::where([
+                    'invoice_id' => $invoice->id,
+                    'package_item_id' => $itemId,
+                    'included_item_id' => $includedItemId,
+                    'client_id' => $invoice->client_id
+                ])->first();
+
+                if ($existingTracking) {
+                    Log::warning("Package tracking record already exists - skipping creation to prevent duplicate", [
+                        'existing_tracking_id' => $existingTracking->id,
+                        'invoice_id' => $invoice->id,
+                        'package_item_id' => $itemId,
+                        'included_item_id' => $includedItemId,
+                        'client_id' => $invoice->client_id
+                    ]);
+                    continue;
+                }
 
                 Log::info("Creating package tracking record", [
                     'package_item_id' => $itemId,

@@ -55,8 +55,6 @@ Thank you for your payment! We are pleased to confirm that your transaction has 
 **Payment Status:** {{ ucfirst($invoice->payment_status) }}  
 **Invoice Status:** {{ ucfirst($invoice->status) }}
 
-A detailed receipt is attached to this email for your records.
-
 Thank you for choosing {{ $business->name ?? 'our services' }}!
 
 Best regards,  

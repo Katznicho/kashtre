@@ -70,7 +70,8 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tracking #</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Package</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Max Qty</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Balance</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valid Until</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -102,8 +103,12 @@
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-blue-600 font-mono font-semibold">{{ $package->remaining_quantity }}/{{ $package->total_quantity }}</div>
-                                                <div class="text-sm text-gray-500">{{ number_format($package->usage_percentage, 1) }}% used</div>
+                                                <div class="text-sm font-medium text-gray-900">{{ $package->total_quantity }}</div>
+                                                <div class="text-xs text-gray-500">Total available</div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm font-medium text-green-600">{{ $package->remaining_quantity }}</div>
+                                                <div class="text-xs text-gray-500">{{ number_format($package->usage_percentage, 1) }}% used</div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <span class="px-2 py-1 text-xs rounded-full {{ $package->status === 'active' ? 'bg-green-100 text-green-800' : ($package->status === 'expired' ? 'bg-red-100 text-red-800' : ($package->status === 'fully_used' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800')) }}">
@@ -115,10 +120,7 @@
                                                 <div class="text-sm text-gray-500">{{ $package->valid_until->diffForHumans() }}</div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                <div class="flex space-x-2">
-                                                    <a href="{{ route('package-tracking.show', $package) }}" class="text-blue-600 hover:text-blue-900">View</a>
-                                                    <a href="{{ route('package-tracking.edit', $package) }}" class="text-green-600 hover:text-green-900">Edit</a>
-                                                </div>
+                                                <a href="{{ route('package-tracking.show', $package) }}" class="text-blue-600 hover:text-blue-900">View</a>
                                             </td>
                                         </tr>
                                     @endforeach
