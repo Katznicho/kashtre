@@ -2696,13 +2696,12 @@ class MoneyTrackingService
                 'business_account_name' => $businessAccount->name
             ]);
             
-            // For package sales revenue, we should use 'credit' type, not 'package' type
-            // This represents the business receiving revenue from package item sales
-            $businessBalanceHistory = \App\Models\BusinessBalanceHistory::recordChange(
+            // For package sales revenue, we should use 'package' type to avoid double crediting
+            // The actual money transfer already happened in the package adjustment money movement
+            $businessBalanceHistory = \App\Models\BusinessBalanceHistory::recordPackageTransaction(
                 $business->id,
                 $businessAccount->id,
                 $totalAmount,
-                'credit',
                 "Package sales revenue from invoice {$invoice->invoice_number}",
                 'package_sales',
                 $invoice->id,
@@ -2711,7 +2710,8 @@ class MoneyTrackingService
                     'package_sales_count' => count($packageSales),
                     'package_items_sold' => implode(', ', array_column($packageSales, 'item_name')),
                     'package_amount' => $totalAmount,
-                    'item_amounts_sum' => array_sum(array_column($packageSales, 'amount'))
+                    'item_amounts_sum' => array_sum(array_column($packageSales, 'amount')),
+                    'note' => 'Record only - money already transferred via package adjustment'
                 ],
                 null
             );
@@ -2721,11 +2721,11 @@ class MoneyTrackingService
                 'business_id' => $invoice->business_id,
                 'business_balance_history_id' => $businessBalanceHistory->id,
                 'total_amount' => $totalAmount,
-                'transaction_type' => 'credit',
+                'transaction_type' => 'package',
                 'description' => "Package sales revenue from invoice {$invoice->invoice_number}",
                 'reference_type' => 'package_sales',
                 'reference_id' => $invoice->id,
-                'note' => 'Package sales revenue is recorded as credit with package amount (120)'
+                'note' => 'Package sales revenue recorded as package type (no balance change) - money already transferred via package adjustment'
             ]);
 
         } catch (\Exception $e) {
