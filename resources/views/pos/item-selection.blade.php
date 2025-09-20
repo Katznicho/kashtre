@@ -1215,14 +1215,15 @@
                 
                 const packageAdjustmentData = await calculatePackageAdjustment();
                 const packageAdjustment = parseFloat(packageAdjustmentData.total_adjustment) || 0;
-                const serviceChargeData = await calculateServiceCharge(subtotal);
-                const serviceCharge = serviceChargeData.amount;
                 let adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
                 
                 // Ensure adjustedSubtotal never goes below 0
                 if (adjustedSubtotal < 0) {
                     adjustedSubtotal = 0;
                 }
+                
+                const serviceChargeData = await calculateServiceCharge(adjustedSubtotal);
+                const serviceCharge = serviceChargeData.amount;
                 
                 const subtotalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
                 
