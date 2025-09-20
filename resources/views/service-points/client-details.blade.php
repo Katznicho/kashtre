@@ -1306,13 +1306,24 @@
                 timestamp: new Date().toISOString()
             });
             
+            // Check if this is a package invoice (has package adjustment)
+            const packageAdjustmentElement = document.getElementById('package-adjustment-display');
+            const packageAdjustmentText = packageAdjustmentElement ? packageAdjustmentElement.textContent : 'UGX 0.00';
+            const packageAdjustmentValue = parseFloat(packageAdjustmentText.replace(/[^0-9.-]/g, '')) || 0;
+            const isPackageInvoice = packageAdjustmentValue > 0;
+            
             // Only block if service charges are not configured at all
-            // Let the backend handle service charge validation based on configured ranges
-            if (isServiceChargeNotConfigured) {
+            // OR if it's a non-package invoice with no service charge
+            if (isServiceChargeNotConfigured || (!isPackageInvoice && serviceChargeValue <= 0)) {
+                const errorTitle = isServiceChargeNotConfigured ? 'Service Charges Not Configured' : 'Service Charge Required';
+                const errorMessage = isServiceChargeNotConfigured 
+                    ? 'Service charges are not configured for this business. Please configure service charges before creating invoices.'
+                    : 'Service charge must be applied for non-package invoices. Please ensure a service charge is configured and applied.';
+                
                 Swal.fire({
                     icon: 'error',
-                    title: 'Service Charges Not Configured',
-                    text: 'Service charges have not been set up by system administrators. Please contact your system administrator to configure service charges before saving proforma invoices.',
+                    title: errorTitle,
+                    text: errorMessage,
                     confirmButtonText: 'OK'
                 });
                 return;

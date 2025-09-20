@@ -434,6 +434,18 @@ class InvoiceController extends Controller
             // Get client
             $client = Client::find($validated['client_id']);
             
+            // Validate service charge for non-package invoices
+            if ($validated['package_adjustment'] <= 0) {
+                // For non-package invoices, ensure service charge is applied
+                if ($validated['service_charge'] <= 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Service charge must be applied for non-package invoices. Please ensure a service charge is configured and applied.',
+                        'errors' => ['service_charge' => ['Service charge is required for non-package invoices']]
+                    ], 422);
+                }
+            }
+            
             // Use provided invoice number or generate one
             // Always start as proforma invoice (P prefix)
             $invoiceNumber = $validated['invoice_number'] ?? Invoice::generateInvoiceNumber($business->id, 'proforma');
