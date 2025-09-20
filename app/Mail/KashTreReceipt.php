@@ -30,6 +30,20 @@ class KashTreReceipt extends Mailable
         $this->business = $invoice->business;
         $this->chargeAmount = $chargeAmount;
         $this->pdfPath = $pdfPath;
+        
+        // Log business information for debugging
+        Log::info("=== KASHTRE RECEIPT - BUSINESS DATA DEBUG ===", [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'business_id' => $invoice->business_id,
+            'business_loaded' => $this->business ? 'yes' : 'no',
+            'business_name' => $this->business->name ?? 'N/A',
+            'business_email' => $this->business->email ?? 'N/A',
+            'business_id_field' => $this->business->id ?? 'N/A',
+            'client_loaded' => $this->client ? 'yes' : 'no',
+            'client_name' => $this->client->name ?? 'N/A',
+            'charge_amount' => $chargeAmount
+        ]);
     }
 
     public function envelope(): Envelope

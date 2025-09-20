@@ -80,10 +80,16 @@ class ReceiptService
             ]);
             $this->sendBusinessReceipt($invoice, null); // No PDF for business
             
+            // Ensure business relationship is loaded for the invoice
+            $invoice->load(['business', 'client']);
+            
             Log::info("=== SENDING KASHTRE RECEIPT ===", [
                 'invoice_id' => $invoice->id,
                 'kashtre_email' => $kashtreBusiness && $kashtreBusiness->email ? $kashtreBusiness->email : config('mail.kashtre_email', 'admin@kashtre.com'),
-                'pdf_attached' => 'yes' // Only Kashtre receives PDF
+                'pdf_attached' => 'yes', // Only Kashtre receives PDF
+                'invoice_business_loaded' => $invoice->business ? 'yes' : 'no',
+                'invoice_business_name' => $invoice->business->name ?? 'N/A',
+                'invoice_business_email' => $invoice->business->email ?? 'N/A'
             ]);
             $this->sendKashTreReceipt($invoice, $chargeAmount, $pdfPath, $kashtreBusiness);
 

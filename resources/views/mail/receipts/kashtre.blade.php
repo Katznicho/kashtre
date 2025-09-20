@@ -21,9 +21,13 @@ A transaction has been completed on the platform. Below are the complete transac
 @endif
 
 ## Business Information
-**Business Name:** {{ $business->name ?? 'N/A' }}  
-**Business ID:** {{ $business->id ?? 'N/A' }}  
-**Business Email:** {{ $business->email ?? 'N/A' }}
+**Business Name:** {{ $business->name ?? ($invoice->business->name ?? 'N/A') }}  
+**Business ID:** {{ $business->id ?? ($invoice->business->id ?? $invoice->business_id ?? 'N/A') }}  
+**Business Email:** {{ $business->email ?? ($invoice->business->email ?? 'N/A') }}
+
+@if(config('app.debug'))
+**Debug Info:** Business Object: {{ $business ? 'Loaded' : 'Null' }}, Invoice Business: {{ $invoice->business ? 'Loaded' : 'Null' }}, Business ID: {{ $invoice->business_id }}
+@endif
 
 ## Complete Item Details
 
