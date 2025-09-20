@@ -10,7 +10,7 @@ A payment has been successfully received for one of your invoices.
 **Invoice Number:** {{ $invoice->invoice_number }}  
 **Payment Date:** {{ $invoice->created_at->format('F d, Y \a\t g:i A') }}  
 **Payment Method:** {{ ucfirst(implode(', ', $invoice->payment_methods ?? ['Cash'])) }}  
-**Amount Received:** UGX {{ number_format($invoice->amount_paid, 2) }}
+**Amount Received:** UGX {{ number_format(max(0, $invoice->subtotal - ($invoice->package_adjustment ?? 0) - ($invoice->account_balance_adjustment ?? 0)), 2) }}
 
 ## Client Information
 **Client Name:** {{ $client->name ?? 'N/A' }}  
@@ -21,9 +21,9 @@ A payment has been successfully received for one of your invoices.
 @endif
 
 ## Revenue Summary
-**Subtotal:** UGX {{ number_format($invoice->subtotal, 2) }}  
-**Amount Received:** UGX {{ number_format($invoice->amount_paid, 2) }}  
-**Outstanding Balance:** UGX {{ number_format($invoice->balance_due, 2) }}
+**Subtotal 2:** UGX {{ number_format(max(0, $invoice->subtotal - ($invoice->package_adjustment ?? 0) - ($invoice->account_balance_adjustment ?? 0)), 2) }}  
+**Amount Received:** UGX {{ number_format(max(0, $invoice->subtotal - ($invoice->package_adjustment ?? 0) - ($invoice->account_balance_adjustment ?? 0)), 2) }}  
+**Outstanding Balance:** UGX 0.00
 
 @if($invoice->notes)
 ## Client Notes
