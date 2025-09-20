@@ -2477,7 +2477,7 @@ class MoneyTrackingService
     }
 
     /**
-     * Create client account statement entry for package usage (type: debit)
+     * Create client account statement entry for package usage (type: package)
      */
     private function createClientPackageStatementEntry($invoice, $packageSales)
     {
@@ -2491,9 +2491,9 @@ class MoneyTrackingService
                 'package_sales_count' => count($packageSales)
             ]);
 
-            // Create BalanceHistory record for client statement (type: debit)
+            // Create BalanceHistory record for client statement (type: package)
             // This represents the client using their package items
-            \App\Models\BalanceHistory::recordDebit(
+            \App\Models\BalanceHistory::recordPackageUsage(
                 $invoice->client,
                 $totalAmount,
                 "Package item usage from invoice {$invoice->invoice_number}",
@@ -2506,7 +2506,7 @@ class MoneyTrackingService
                 'invoice_id' => $invoice->id,
                 'client_id' => $invoice->client_id,
                 'total_amount' => $totalAmount,
-                'type' => 'debit'
+                'type' => 'package'
             ]);
 
         } catch (\Exception $e) {
@@ -2520,7 +2520,7 @@ class MoneyTrackingService
     }
 
     /**
-     * Create business account statement entry for package sales (type: credit)
+     * Create business account statement entry for package sales (type: package)
      */
     private function createBusinessPackageStatementEntry($invoice, $packageSales)
     {
@@ -2535,16 +2535,15 @@ class MoneyTrackingService
                 'package_sales_count' => count($packageSales)
             ]);
 
-            // Create BusinessBalanceHistory record for business statement (type: credit)
+            // Create BusinessBalanceHistory record for business statement (type: package)
             // This represents the business receiving revenue from package item sales
             $business = $invoice->business;
             $businessAccount = $this->getOrCreateBusinessAccount($business);
             
-            \App\Models\BusinessBalanceHistory::recordChange(
+            \App\Models\BusinessBalanceHistory::recordPackageTransaction(
                 $business->id,
                 $businessAccount->id,
                 $totalAmount,
-                'credit',
                 "Package sales revenue from invoice {$invoice->invoice_number}",
                 'package_sales',
                 $invoice->id,
@@ -2555,7 +2554,7 @@ class MoneyTrackingService
                 'invoice_id' => $invoice->id,
                 'business_id' => $invoice->business_id,
                 'total_amount' => $totalAmount,
-                'type' => 'credit'
+                'type' => 'package'
             ]);
 
         } catch (\Exception $e) {

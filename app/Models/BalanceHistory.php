@@ -203,4 +203,31 @@ class BalanceHistory extends Model
             'notes' => $notes,
         ]);
     }
+
+    public static function recordPackageUsage($client, $amount, $description, $referenceNumber = null, $notes = null, $paymentMethod = null)
+    {
+        // Calculate previous balance from existing balance history records
+        $previousBalance = self::where('client_id', $client->id)
+            ->orderBy('created_at', 'desc')
+            ->value('new_balance') ?? 0;
+        
+        // Package usage doesn't affect balance - it's just a record
+        // The balance remains the same since package was already paid for
+        $newBalance = $previousBalance;
+
+        return self::create([
+            'client_id' => $client->id,
+            'business_id' => $client->business_id,
+            'branch_id' => $client->branch_id,
+            'user_id' => auth()->id() ?? 1, // Default to user ID 1 if no auth
+            'previous_balance' => $previousBalance,
+            'change_amount' => 0, // No balance change for package usage
+            'new_balance' => $newBalance,
+            'transaction_type' => 'package',
+            'description' => $description,
+            'reference_number' => $referenceNumber,
+            'notes' => $notes,
+            'payment_method' => $paymentMethod,
+        ]);
+    }
 }

@@ -80,6 +80,14 @@ class BusinessBalanceHistory extends Model
     }
 
     /**
+     * Scope for package transactions
+     */
+    public function scopePackages($query)
+    {
+        return $query->where('type', 'package');
+    }
+
+    /**
      * Scope for a specific date range
      */
     public function scopeDateRange($query, $startDate, $endDate)
@@ -116,6 +124,41 @@ class BusinessBalanceHistory extends Model
 
         // Update the account balance
         $account->update(['balance' => $newBalance]);
+
+        return $history;
+    }
+
+    /**
+     * Record a package transaction for a business
+     * Package transactions don't affect balance - they're just records
+     */
+    public static function recordPackageTransaction($businessId, $moneyAccountId, $amount, $description, $referenceType = null, $referenceId = null, $metadata = [], $userId = null)
+    {
+        $account = MoneyAccount::find($moneyAccountId);
+        if (!$account) {
+            throw new \Exception("Money account not found");
+        }
+
+        $previousBalance = $account->balance;
+        // Package transactions don't change balance - they're just records
+        $newBalance = $previousBalance;
+
+        $history = self::create([
+            'business_id' => $businessId,
+            'money_account_id' => $moneyAccountId,
+            'previous_balance' => $previousBalance,
+            'amount' => $amount,
+            'new_balance' => $newBalance,
+            'type' => 'package',
+            'description' => $description,
+            'reference_type' => $referenceType,
+            'reference_id' => $referenceId,
+            'metadata' => $metadata,
+            'user_id' => $userId,
+        ]);
+
+        // No balance update for package transactions
+        // The account balance remains the same
 
         return $history;
     }
