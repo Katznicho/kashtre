@@ -158,15 +158,16 @@
                                                 @foreach($pendingClients as $clientId => $clientData)
                                                     @php
                                                         $queueTime = $clientData['earliest_queue_time'];
-                                                        $timeInQueue = now()->diffInMinutes($queueTime);
-                                                        $hours = floor($timeInQueue / 60);
-                                                        $minutes = $timeInQueue % 60;
+                                                        $timeInQueue = now()->diffInSeconds($queueTime);
+                                                        $hours = floor($timeInQueue / 3600);
+                                                        $minutes = floor(($timeInQueue % 3600) / 60);
+                                                        $seconds = $timeInQueue % 60;
                                                         
-                                                        // More user-friendly time display
+                                                        // Format time display with seconds (2m:45s format)
                                                         if ($hours > 0) {
-                                                            $timeDisplay = $minutes > 0 ? "{$hours}h {$minutes}m" : "{$hours}h";
+                                                            $timeDisplay = sprintf("%dh %dm:%02ds", $hours, $minutes, $seconds);
                                                         } else {
-                                                            $timeDisplay = "{$minutes}m";
+                                                            $timeDisplay = sprintf("%dm:%02ds", $minutes, $seconds);
                                                         }
                                                         
                                                         // Add status indicator based on wait time
@@ -247,15 +248,16 @@
                                                 @foreach($inProgressClients as $clientId => $clientData)
                                                     @php
                                                         $queueTime = $clientData['earliest_queue_time'];
-                                                        $timeInQueue = now()->diffInMinutes($queueTime);
-                                                        $hours = floor($timeInQueue / 60);
-                                                        $minutes = $timeInQueue % 60;
+                                                        $timeInQueue = now()->diffInSeconds($queueTime);
+                                                        $hours = floor($timeInQueue / 3600);
+                                                        $minutes = floor(($timeInQueue % 3600) / 60);
+                                                        $seconds = $timeInQueue % 60;
                                                         
-                                                        // More user-friendly time display
+                                                        // Format time display with seconds (2m:45s format)
                                                         if ($hours > 0) {
-                                                            $timeDisplay = $minutes > 0 ? "{$hours}h {$minutes}m" : "{$hours}h";
+                                                            $timeDisplay = sprintf("%dh %dm:%02ds", $hours, $minutes, $seconds);
                                                         } else {
-                                                            $timeDisplay = "{$minutes}m";
+                                                            $timeDisplay = sprintf("%dm:%02ds", $minutes, $seconds);
                                                         }
                                                         
                                                         // Add status indicator based on wait time
@@ -336,15 +338,16 @@
                                                 @foreach($completedClients as $clientId => $clientData)
                                                     @php
                                                         $queueTime = $clientData['earliest_queue_time'];
-                                                        $timeInQueue = now()->diffInMinutes($queueTime);
-                                                        $hours = floor($timeInQueue / 60);
-                                                        $minutes = $timeInQueue % 60;
+                                                        $timeInQueue = now()->diffInSeconds($queueTime);
+                                                        $hours = floor($timeInQueue / 3600);
+                                                        $minutes = floor(($timeInQueue % 3600) / 60);
+                                                        $seconds = $timeInQueue % 60;
                                                         
-                                                        // More user-friendly time display
+                                                        // Format time display with seconds (2m:45s format)
                                                         if ($hours > 0) {
-                                                            $timeDisplay = $minutes > 0 ? "{$hours}h {$minutes}m" : "{$hours}h";
+                                                            $timeDisplay = sprintf("%dh %dm:%02ds", $hours, $minutes, $seconds);
                                                         } else {
-                                                            $timeDisplay = "{$minutes}m";
+                                                            $timeDisplay = sprintf("%dm:%02ds", $minutes, $seconds);
                                                         }
                                                         
                                                         // Add status indicator based on wait time
@@ -541,25 +544,27 @@
             });
         }
 
-        // Update queue times every minute
+        // Update queue times every second for precise timing
         function updateQueueTimes() {
             const queueTimeElements = document.querySelectorAll('[data-queue-time]');
             queueTimeElements.forEach(element => {
                 const queueTime = new Date(element.dataset.queueTime);
                 const now = new Date();
-                const diffInMinutes = Math.floor((now - queueTime) / (1000 * 60));
-                const hours = Math.floor(diffInMinutes / 60);
-                const minutes = diffInMinutes % 60;
+                const diffInSeconds = Math.floor((now - queueTime) / 1000);
+                const hours = Math.floor(diffInSeconds / 3600);
+                const minutes = Math.floor((diffInSeconds % 3600) / 60);
+                const seconds = diffInSeconds % 60;
                 
-                // More user-friendly time display
+                // Format time display with seconds (2m:45s format)
                 let timeDisplay;
                 if (hours > 0) {
-                    timeDisplay = minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+                    timeDisplay = `${hours}h ${minutes}m:${seconds.toString().padStart(2, '0')}s`;
                 } else {
-                    timeDisplay = `${minutes}m`;
+                    timeDisplay = `${minutes}m:${seconds.toString().padStart(2, '0')}s`;
                 }
                 
-                // Update wait status
+                // Update wait status (convert seconds to minutes for comparison)
+                const diffInMinutes = Math.floor(diffInSeconds / 60);
                 let waitStatus, waitClass;
                 if (diffInMinutes >= 60) {
                     waitStatus = 'Long Wait';
@@ -587,9 +592,9 @@
             });
         }
 
-        // Update queue times immediately and then every minute
+        // Update queue times immediately and then every second for precise timing
         updateQueueTimes();
-        setInterval(updateQueueTimes, 60000);
+        setInterval(updateQueueTimes, 1000);
 
         // Auto-refresh every 5 minutes (reduced from 30 seconds for better performance)
         setInterval(() => {
