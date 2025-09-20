@@ -703,6 +703,12 @@ class CheckPaymentStatus extends Command
             }
         }
 
+        // Create business and client statement entries for package purchase if any packages were created
+        if ($packageTrackingCount > 0) {
+            $this->createPackagePurchaseBusinessStatementEntry($invoice, $packageTrackingCount);
+            $this->createPackagePurchaseClientStatementEntry($invoice, $packageTrackingCount);
+        }
+
         Log::info("=== PACKAGE TRACKING CREATION COMPLETED ===", [
             'invoice_id' => $invoice->id,
             'invoice_number' => $invoice->invoice_number,
@@ -710,5 +716,156 @@ class CheckPaymentStatus extends Command
         ]);
 
         return $packageTrackingCount;
+    }
+
+    /**
+     * Create business statement entry for package purchase
+     */
+    private function createPackagePurchaseBusinessStatementEntry($invoice, $packageCount)
+    {
+        try {
+            Log::info("=== CREATING PACKAGE PURCHASE BUSINESS STATEMENT ENTRY ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'package_count' => $packageCount,
+                'business_id' => $invoice->business_id,
+                'client_id' => $invoice->client_id
+            ]);
+
+            // Get business and business account
+            $business = \App\Models\Business::find($invoice->business_id);
+            if (!$business) {
+                Log::error("Business not found for package purchase statement", [
+                    'business_id' => $invoice->business_id,
+                    'invoice_id' => $invoice->id
+                ]);
+                return;
+            }
+
+            $businessAccount = \App\Models\MoneyAccount::where('business_id', $business->id)
+                ->where('account_type', 'business_account')
+                ->first();
+
+            if (!$businessAccount) {
+                Log::error("Business account not found for package purchase statement", [
+                    'business_id' => $business->id,
+                    'invoice_id' => $invoice->id
+                ]);
+                return;
+            }
+
+            // Calculate total package amount from the invoice
+            $totalPackageAmount = 0;
+            foreach ($invoice->items as $item) {
+                $itemModel = \App\Models\Item::find($item['id'] ?? $item['item_id'] ?? null);
+                if ($itemModel && $itemModel->type === 'package') {
+                    $totalPackageAmount += ($item['price'] ?? 0) * ($item['quantity'] ?? 1);
+                }
+            }
+
+            Log::info("Package purchase details", [
+                'total_package_amount' => $totalPackageAmount,
+                'package_count' => $packageCount,
+                'business_account_id' => $businessAccount->id,
+                'business_account_balance' => $businessAccount->balance
+            ]);
+
+            // Create business balance history entry for package purchase
+            $businessBalanceHistory = \App\Models\BusinessBalanceHistory::recordChange(
+                $business->id,
+                $businessAccount->id,
+                $totalPackageAmount,
+                'credit',
+                "Package purchase from invoice {$invoice->invoice_number}",
+                'package_purchase',
+                $invoice->id,
+                [
+                    'invoice_id' => $invoice->id,
+                    'package_count' => $packageCount,
+                    'total_package_amount' => $totalPackageAmount,
+                    'note' => 'Package purchase recorded - client paid for package access'
+                ]
+            );
+
+            Log::info("Package purchase business statement entry created successfully", [
+                'business_balance_history_id' => $businessBalanceHistory->id,
+                'business_id' => $business->id,
+                'amount' => $totalPackageAmount,
+                'type' => 'credit',
+                'description' => "Package purchase from invoice {$invoice->invoice_number}"
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Failed to create package purchase business statement entry", [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
+     * Create client statement entry for package purchase
+     */
+    private function createPackagePurchaseClientStatementEntry($invoice, $packageCount)
+    {
+        try {
+            Log::info("=== CREATING PACKAGE PURCHASE CLIENT STATEMENT ENTRY ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'package_count' => $packageCount,
+                'client_id' => $invoice->client_id
+            ]);
+
+            // Get client
+            $client = \App\Models\Client::find($invoice->client_id);
+            if (!$client) {
+                Log::error("Client not found for package purchase statement", [
+                    'client_id' => $invoice->client_id,
+                    'invoice_id' => $invoice->id
+                ]);
+                return;
+            }
+
+            // Calculate total package amount from the invoice
+            $totalPackageAmount = 0;
+            foreach ($invoice->items as $item) {
+                $itemModel = \App\Models\Item::find($item['id'] ?? $item['item_id'] ?? null);
+                if ($itemModel && $itemModel->type === 'package') {
+                    $totalPackageAmount += ($item['price'] ?? 0) * ($item['quantity'] ?? 1);
+                }
+            }
+
+            Log::info("Client package purchase details", [
+                'total_package_amount' => $totalPackageAmount,
+                'package_count' => $packageCount,
+                'client_id' => $client->id
+            ]);
+
+            // Create client balance history entry for package purchase
+            $balanceHistory = \App\Models\BalanceHistory::recordPackageUsage(
+                $client,
+                $totalPackageAmount,
+                "Package purchase from invoice {$invoice->invoice_number}",
+                $invoice->invoice_number,
+                "Package purchased: {$packageCount} package(s) for future use",
+                'package_purchase'
+            );
+
+            Log::info("Package purchase client statement entry created successfully", [
+                'balance_history_id' => $balanceHistory->id,
+                'client_id' => $client->id,
+                'amount' => $totalPackageAmount,
+                'transaction_type' => 'package',
+                'description' => "Package purchase from invoice {$invoice->invoice_number}"
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Failed to create package purchase client statement entry", [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
     }
 }
