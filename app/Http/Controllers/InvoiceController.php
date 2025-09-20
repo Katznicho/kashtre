@@ -116,9 +116,9 @@ class InvoiceController extends Controller
                             $quantityToUse = min($remainingQuantity, $availableFromPackage);
                             
                             if ($quantityToUse > 0) {
-                                // Use package price instead of individual item price for adjustment
-                                $packagePrice = $packageTracking->package_price;
-                                $itemAdjustment = $quantityToUse * $packagePrice;
+                                // Use individual item price for display purposes (what customer paid for this specific item)
+                                // The actual money transfer will still use the full package amount
+                                $itemAdjustment = $quantityToUse * $price;
                                 $totalAdjustment += $itemAdjustment;
                                 
                                 Log::info("Package adjustment calculation", [
@@ -126,10 +126,10 @@ class InvoiceController extends Controller
                                     'item_name' => $item['name'] ?? 'Unknown',
                                     'quantity_to_use' => $quantityToUse,
                                     'individual_item_price' => $price,
-                                    'package_price' => $packagePrice,
+                                    'package_price' => $packageTracking->package_price,
                                     'item_adjustment' => $itemAdjustment,
                                     'package_tracking_id' => $packageTracking->id,
-                                    'reason' => 'Using package price for adjustment instead of individual item price'
+                                    'reason' => 'Using individual item price for display, package price used for money transfer'
                                 ]);
                                 
                                 $adjustmentDetails[] = [
