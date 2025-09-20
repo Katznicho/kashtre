@@ -1411,30 +1411,18 @@ class MoneyTrackingService
                 ]);
                 
                 if ($isIncludedInPackage && $hasPackageAdjustment) {
-                    // Check if this specific item is covered by the package adjustment
-                    $isCoveredByPackageAdjustment = $this->isItemCoveredByPackageAdjustment($item, $invoice);
-                    
-                    if ($isCoveredByPackageAdjustment) {
-                        Log::info("Item is covered by package adjustment - skipping individual processing", [
-                            'item_id' => $itemId,
-                            'item_name' => $item->name,
-                            'item_type' => $item->type,
-                            'total_amount' => $totalAmount,
-                            'package_adjustment' => $invoice->package_adjustment,
-                            'reason' => 'Item is covered by package adjustment - will be processed via package adjustment'
-                        ]);
-                        // Skip individual item processing - package adjustment will handle the money movement
-                        continue;
-                    } else {
-                        Log::info("Item is included in package but not covered by current package adjustment - processing individually", [
-                            'item_id' => $itemId,
-                            'item_name' => $item->name,
-                            'item_type' => $item->type,
-                            'total_amount' => $totalAmount,
-                            'package_adjustment' => $invoice->package_adjustment,
-                            'reason' => 'Item is not covered by current package adjustment - processing as individual item'
-                        ]);
-                    }
+                    // If item is included in package AND there's a package adjustment,
+                    // skip individual processing - package adjustment will handle the money movement
+                    Log::info("Item is included in package with package adjustment - skipping individual processing", [
+                        'item_id' => $itemId,
+                        'item_name' => $item->name,
+                        'item_type' => $item->type,
+                        'total_amount' => $totalAmount,
+                        'package_adjustment' => $invoice->package_adjustment,
+                        'reason' => 'Package item with package adjustment - will be processed via package adjustment logic'
+                    ]);
+                    // Skip individual item processing - package adjustment will handle the money movement
+                    continue;
                 } else if ($isIncludedInPackage && !$hasPackageAdjustment) {
                     Log::info("Item is included in package but no package adjustment - processing individually", [
                         'item_id' => $itemId,
@@ -1992,12 +1980,64 @@ class MoneyTrackingService
     }
 
     /**
+     * Get the actual package amount for an invoice
+     * This is needed because invoice.package_adjustment contains the item amount,
+     * but for money movement we need the actual package amount
+     */
+    private function getPackageAmountForInvoice($invoice)
+    {
+        // Get client's valid package tracking records
+        $validPackages = \App\Models\PackageTracking::where('client_id', $invoice->client_id)
+            ->where('business_id', $invoice->business_id)
+            ->where('status', 'active')
+            ->where('remaining_quantity', '>', 0)
+            ->where('valid_until', '>=', now()->toDateString())
+            ->get();
+            
+        Log::info("Getting package amount for invoice", [
+            'invoice_id' => $invoice->id,
+            'invoice_package_adjustment' => $invoice->package_adjustment,
+            'valid_packages_count' => $validPackages->count(),
+            'valid_packages' => $validPackages->map(function($pkg) {
+                return [
+                    'id' => $pkg->id,
+                    'package_price' => $pkg->package_price,
+                    'remaining_quantity' => $pkg->remaining_quantity,
+                    'status' => $pkg->status
+                ];
+            })
+        ]);
+
+        // Return the package price from the first valid package
+        // In most cases, there should be only one active package per client
+        if ($validPackages->count() > 0) {
+            $packageAmount = $validPackages->first()->package_price;
+            Log::info("Package amount determined", [
+                'invoice_id' => $invoice->id,
+                'package_amount' => $packageAmount,
+                'invoice_package_adjustment' => $invoice->package_adjustment,
+                'note' => 'Using package amount for money movement, not item amount'
+            ]);
+            return $packageAmount;
+        }
+        
+        // Fallback to invoice package adjustment if no valid packages found
+        Log::warning("No valid packages found, using invoice package adjustment as fallback", [
+            'invoice_id' => $invoice->id,
+            'fallback_amount' => $invoice->package_adjustment
+        ]);
+        return $invoice->package_adjustment;
+    }
+
+    /**
      * Process package adjustment money movement from client suspense to business account
      * This is called only when package items are actually used (Save & Exit)
      */
     private function processPackageAdjustmentMoneyMovement($invoice, $clientSuspenseAccount, $business, &$transferRecords)
     {
-        $packageAdjustmentAmount = $invoice->package_adjustment;
+        // For package items, we need to use the actual package amount, not the item amount
+        // The invoice package_adjustment contains the item amount (113), but we need the package amount (120)
+        $packageAdjustmentAmount = $this->getPackageAmountForInvoice($invoice);
         
         Log::info("=== PROCESSING PACKAGE ADJUSTMENT MONEY MOVEMENT START ===", [
             'invoice_id' => $invoice->id,
@@ -2625,7 +2665,10 @@ class MoneyTrackingService
     private function createBusinessPackageStatementEntry($invoice, $packageSales)
     {
         try {
-            $totalAmount = array_sum(array_column($packageSales, 'amount'));
+            // For business statement, we should use the package amount, not the sum of item amounts
+            // The package sales contain item amounts (113), but the business should see the package amount (120)
+            $packageAmount = $this->getPackageAmountForInvoice($invoice);
+            $totalAmount = $packageAmount;
             
             Log::info("=== CREATING BUSINESS PACKAGE STATEMENT ENTRY ===", [
                 'invoice_id' => $invoice->id,
@@ -2633,9 +2676,11 @@ class MoneyTrackingService
                 'business_id' => $invoice->business_id,
                 'business_name' => $invoice->business->name ?? 'Unknown',
                 'branch_id' => $invoice->branch_id,
-                'total_amount' => $totalAmount,
+                'package_amount_for_business' => $totalAmount,
+                'item_amounts_sum' => array_sum(array_column($packageSales, 'amount')),
                 'package_sales_count' => count($packageSales),
                 'package_sales_breakdown' => $packageSales,
+                'note' => 'Business statement uses package amount (120), not sum of item amounts (113)',
                 'timestamp' => now()->toDateTimeString()
             ]);
 
@@ -2651,14 +2696,24 @@ class MoneyTrackingService
                 'business_account_name' => $businessAccount->name
             ]);
             
-            $businessBalanceHistory = \App\Models\BusinessBalanceHistory::recordPackageTransaction(
+            // For package sales revenue, we should use 'credit' type, not 'package' type
+            // This represents the business receiving revenue from package item sales
+            $businessBalanceHistory = \App\Models\BusinessBalanceHistory::recordChange(
                 $business->id,
                 $businessAccount->id,
                 $totalAmount,
+                'credit',
                 "Package sales revenue from invoice {$invoice->invoice_number}",
                 'package_sales',
                 $invoice->id,
-                "Package items sold: " . implode(', ', array_column($packageSales, 'item_name'))
+                [
+                    'invoice_id' => $invoice->id,
+                    'package_sales_count' => count($packageSales),
+                    'package_items_sold' => implode(', ', array_column($packageSales, 'item_name')),
+                    'package_amount' => $totalAmount,
+                    'item_amounts_sum' => array_sum(array_column($packageSales, 'amount'))
+                ],
+                null
             );
 
             Log::info("Business package statement entry created successfully", [
@@ -2666,10 +2721,11 @@ class MoneyTrackingService
                 'business_id' => $invoice->business_id,
                 'business_balance_history_id' => $businessBalanceHistory->id,
                 'total_amount' => $totalAmount,
-                'transaction_type' => 'package',
+                'transaction_type' => 'credit',
                 'description' => "Package sales revenue from invoice {$invoice->invoice_number}",
                 'reference_type' => 'package_sales',
-                'reference_id' => $invoice->id
+                'reference_id' => $invoice->id,
+                'note' => 'Package sales revenue is recorded as credit with package amount (120)'
             ]);
 
         } catch (\Exception $e) {
