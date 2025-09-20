@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 // Package functionality with comprehensive logging - Updated for testing
+// Version: 2025-09-20-20:30 - Fresh deployment with package transaction type support
 
 use App\Models\Invoice;
 use App\Models\ServiceCharge;
