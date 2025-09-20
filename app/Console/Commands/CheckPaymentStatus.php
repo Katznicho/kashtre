@@ -770,7 +770,7 @@ class CheckPaymentStatus extends Command
                 'business_account_balance' => $businessAccount->balance
             ]);
 
-            // Create business balance history entry for package purchase
+            // Create business balance history entry for package purchase (credit type - money actually moved)
             $businessBalanceHistory = \App\Models\BusinessBalanceHistory::recordChange(
                 $business->id,
                 $businessAccount->id,
@@ -783,7 +783,7 @@ class CheckPaymentStatus extends Command
                     'invoice_id' => $invoice->id,
                     'package_count' => $packageCount,
                     'total_package_amount' => $totalPackageAmount,
-                    'note' => 'Package purchase recorded - client paid for package access'
+                    'note' => 'Package purchase recorded - full amount moved to business account'
                 ]
             );
 
