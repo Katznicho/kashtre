@@ -1331,14 +1331,19 @@ class MoneyTrackingService
                 'invoice_id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
                 'client_id' => $invoice->client_id,
+                'client_name' => $invoice->client->name ?? 'Unknown',
                 'business_id' => $invoice->business_id,
+                'business_name' => $invoice->business->name ?? 'Unknown',
+                'branch_id' => $invoice->branch_id,
                 'items_count' => count($items),
                 'service_charge' => $invoice->service_charge ?? 0,
                 'package_adjustment' => $invoice->package_adjustment ?? 0,
                 'item_status' => $itemStatus,
                 'total_amount' => $invoice->total_amount ?? 0,
                 'subtotal_1' => $invoice->subtotal_1 ?? 0,
-                'subtotal_2' => $invoice->subtotal_2 ?? 0
+                'subtotal_2' => $invoice->subtotal_2 ?? 0,
+                'invoice_status' => $invoice->status,
+                'timestamp' => now()->toDateTimeString()
             ]);
 
             Log::info("Items being processed in Save & Exit", [
@@ -2361,6 +2366,13 @@ class MoneyTrackingService
                 $itemModel = \App\Models\Item::find($itemId);
                 $price = $itemModel ? $itemModel->default_price : 0;
                 
+                Log::info("Item price calculation for package sales", [
+                    'item_id' => $itemId,
+                    'item_name' => $itemModel->name ?? 'Unknown',
+                    'default_price' => $price,
+                    'branch_id' => $invoice->branch_id
+                ]);
+                
                 // Check for branch-specific price
                 $branchPrice = \App\Models\BranchItemPrice::where('branch_id', $invoice->branch_id)
                     ->where('item_id', $itemId)
@@ -2368,40 +2380,108 @@ class MoneyTrackingService
                 
                 if ($branchPrice) {
                     $price = $branchPrice->price;
+                    Log::info("Using branch-specific price for package sales", [
+                        'item_id' => $itemId,
+                        'branch_id' => $invoice->branch_id,
+                        'branch_price' => $price,
+                        'default_price' => $itemModel->default_price
+                    ]);
+                } else {
+                    Log::info("Using default price for package sales", [
+                        'item_id' => $itemId,
+                        'default_price' => $price
+                    ]);
                 }
 
                 // Check if this item is included in any valid packages
                 foreach ($validPackages as $packageTracking) {
                     if ($remainingQuantity <= 0) break;
 
+                    Log::info("Checking package for item match in package sales", [
+                        'package_tracking_id' => $packageTracking->id,
+                        'package_name' => $packageTracking->packageItem->display_name,
+                        'item_id' => $itemId,
+                        'package_remaining_quantity' => $packageTracking->remaining_quantity,
+                        'package_status' => $packageTracking->status
+                    ]);
+
                     // Check if the current item is included in this package
                     $packageItems = $packageTracking->packageItem->packageItems;
                     
+                    Log::info("Package items in this package", [
+                        'package_tracking_id' => $packageTracking->id,
+                        'package_items_count' => $packageItems->count(),
+                        'package_items' => $packageItems->map(function($pi) {
+                            return [
+                                'id' => $pi->id,
+                                'included_item_id' => $pi->included_item_id,
+                                'max_quantity' => $pi->max_quantity,
+                                'fixed_quantity' => $pi->fixed_quantity
+                            ];
+                        })
+                    ]);
+                    
                     foreach ($packageItems as $packageItem) {
                         if ($packageItem->included_item_id == $itemId) {
+                            Log::info("Item found in package for sales creation", [
+                                'package_tracking_id' => $packageTracking->id,
+                                'package_item_id' => $packageItem->id,
+                                'included_item_id' => $packageItem->included_item_id,
+                                'max_quantity' => $packageItem->max_quantity,
+                                'fixed_quantity' => $packageItem->fixed_quantity
+                            ]);
                             // Check max quantity constraint from package_items table
                             $maxQuantity = $packageItem->max_quantity ?? null;
                             $fixedQuantity = $packageItem->fixed_quantity ?? null;
+                            
+                            Log::info("Package quantity constraints", [
+                                'package_tracking_id' => $packageTracking->id,
+                                'max_quantity' => $maxQuantity,
+                                'fixed_quantity' => $fixedQuantity,
+                                'package_remaining_quantity' => $packageTracking->remaining_quantity
+                            ]);
                             
                             // Determine how much quantity can be used from this package
                             $availableFromPackage = $packageTracking->remaining_quantity;
                             
                             if ($maxQuantity !== null) {
                                 $availableFromPackage = min($availableFromPackage, $maxQuantity);
+                                Log::info("Limited by max_quantity constraint for sales", [
+                                    'max_quantity' => $maxQuantity,
+                                    'available_from_package' => $availableFromPackage
+                                ]);
                             } elseif ($fixedQuantity !== null) {
                                 $availableFromPackage = min($availableFromPackage, $fixedQuantity);
+                                Log::info("Limited by fixed_quantity constraint for sales", [
+                                    'fixed_quantity' => $fixedQuantity,
+                                    'available_from_package' => $availableFromPackage
+                                ]);
                             }
                             
                             // Calculate how much we can actually use
                             $quantityToUse = min($remainingQuantity, $availableFromPackage);
+                            
+                            Log::info("Calculated quantity to use for package sales", [
+                                'remaining_quantity_needed' => $remainingQuantity,
+                                'available_from_package' => $availableFromPackage,
+                                'quantity_to_use' => $quantityToUse
+                            ]);
                             
                             if ($quantityToUse > 0) {
                                 // Calculate amount for this package sale
                                 $itemAmount = $price * $quantityToUse;
                                 $totalPackageAmount += $itemAmount;
 
+                                Log::info("Calculating package sale amount", [
+                                    'item_id' => $itemId,
+                                    'item_price' => $price,
+                                    'quantity_to_use' => $quantityToUse,
+                                    'item_amount' => $itemAmount,
+                                    'total_package_amount' => $totalPackageAmount
+                                ]);
+
                                 // Create PackageSales record
-                                $packageSale = \App\Models\PackageSales::create([
+                                $packageSaleData = [
                                     'name' => $packageTracking->client->name ?? 'Unknown Client',
                                     'invoice_number' => $invoice->invoice_number,
                                     'pkn' => $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}",
@@ -2416,7 +2496,13 @@ class MoneyTrackingService
                                     'item_id' => $itemId,
                                     'status' => 'completed',
                                     'notes' => "Package item sale from invoice {$invoice->invoice_number}"
+                                ];
+
+                                Log::info("Creating PackageSales record", [
+                                    'package_sale_data' => $packageSaleData
                                 ]);
+
+                                $packageSale = \App\Models\PackageSales::create($packageSaleData);
 
                                 Log::info("Package sales record created", [
                                     'package_sale_id' => $packageSale->id,
@@ -2462,7 +2548,9 @@ class MoneyTrackingService
                 'invoice_id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
                 'package_sales_created' => count($packageSalesCreated),
-                'total_package_amount' => $totalPackageAmount
+                'total_package_amount' => $totalPackageAmount,
+                'package_sales_details' => $packageSalesCreated,
+                'timestamp' => now()->toDateTimeString()
             ]);
 
         } catch (\Exception $e) {
@@ -2484,16 +2572,20 @@ class MoneyTrackingService
         try {
             $totalAmount = array_sum(array_column($packageSales, 'amount'));
             
-            Log::info("Creating client package statement entry", [
+            Log::info("=== CREATING CLIENT PACKAGE STATEMENT ENTRY ===", [
                 'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
                 'client_id' => $invoice->client_id,
+                'client_name' => $invoice->client->name ?? 'Unknown',
                 'total_amount' => $totalAmount,
-                'package_sales_count' => count($packageSales)
+                'package_sales_count' => count($packageSales),
+                'package_sales_breakdown' => $packageSales,
+                'timestamp' => now()->toDateTimeString()
             ]);
 
             // Create BalanceHistory record for client statement (type: package)
             // This represents the client using their package items
-            \App\Models\BalanceHistory::recordPackageUsage(
+            $balanceHistory = \App\Models\BalanceHistory::recordPackageUsage(
                 $invoice->client,
                 $totalAmount,
                 "Package item usage from invoice {$invoice->invoice_number}",
@@ -2502,18 +2594,24 @@ class MoneyTrackingService
                 'package_usage'
             );
 
-            Log::info("Client package statement entry created", [
+            Log::info("Client package statement entry created successfully", [
                 'invoice_id' => $invoice->id,
                 'client_id' => $invoice->client_id,
+                'balance_history_id' => $balanceHistory->id,
                 'total_amount' => $totalAmount,
-                'type' => 'package'
+                'transaction_type' => 'package',
+                'description' => "Package item usage from invoice {$invoice->invoice_number}",
+                'reference_number' => $invoice->invoice_number
             ]);
 
         } catch (\Exception $e) {
             Log::error("Failed to create client package statement entry", [
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'invoice_id' => $invoice->id,
-                'client_id' => $invoice->client_id
+                'client_id' => $invoice->client_id,
+                'package_sales_data' => $packageSales,
+                'timestamp' => now()->toDateTimeString()
             ]);
             throw $e;
         }
@@ -2527,12 +2625,16 @@ class MoneyTrackingService
         try {
             $totalAmount = array_sum(array_column($packageSales, 'amount'));
             
-            Log::info("Creating business package statement entry", [
+            Log::info("=== CREATING BUSINESS PACKAGE STATEMENT ENTRY ===", [
                 'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
                 'business_id' => $invoice->business_id,
+                'business_name' => $invoice->business->name ?? 'Unknown',
                 'branch_id' => $invoice->branch_id,
                 'total_amount' => $totalAmount,
-                'package_sales_count' => count($packageSales)
+                'package_sales_count' => count($packageSales),
+                'package_sales_breakdown' => $packageSales,
+                'timestamp' => now()->toDateTimeString()
             ]);
 
             // Create BusinessBalanceHistory record for business statement (type: package)
@@ -2540,7 +2642,14 @@ class MoneyTrackingService
             $business = $invoice->business;
             $businessAccount = $this->getOrCreateBusinessAccount($business);
             
-            \App\Models\BusinessBalanceHistory::recordPackageTransaction(
+            Log::info("Business account details for package statement", [
+                'business_id' => $business->id,
+                'business_account_id' => $businessAccount->id,
+                'business_account_balance' => $businessAccount->balance,
+                'business_account_name' => $businessAccount->name
+            ]);
+            
+            $businessBalanceHistory = \App\Models\BusinessBalanceHistory::recordPackageTransaction(
                 $business->id,
                 $businessAccount->id,
                 $totalAmount,
@@ -2550,18 +2659,25 @@ class MoneyTrackingService
                 "Package items sold: " . implode(', ', array_column($packageSales, 'item_name'))
             );
 
-            Log::info("Business package statement entry created", [
+            Log::info("Business package statement entry created successfully", [
                 'invoice_id' => $invoice->id,
                 'business_id' => $invoice->business_id,
+                'business_balance_history_id' => $businessBalanceHistory->id,
                 'total_amount' => $totalAmount,
-                'type' => 'package'
+                'transaction_type' => 'package',
+                'description' => "Package sales revenue from invoice {$invoice->invoice_number}",
+                'reference_type' => 'package_sales',
+                'reference_id' => $invoice->id
             ]);
 
         } catch (\Exception $e) {
             Log::error("Failed to create business package statement entry", [
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'invoice_id' => $invoice->id,
-                'business_id' => $invoice->business_id
+                'business_id' => $invoice->business_id,
+                'package_sales_data' => $packageSales,
+                'timestamp' => now()->toDateTimeString()
             ]);
             throw $e;
         }

@@ -206,16 +206,34 @@ class BalanceHistory extends Model
 
     public static function recordPackageUsage($client, $amount, $description, $referenceNumber = null, $notes = null, $paymentMethod = null)
     {
+        \Log::info("=== CREATING PACKAGE USAGE BALANCE HISTORY RECORD ===", [
+            'client_id' => $client->id,
+            'client_name' => $client->name ?? 'Unknown',
+            'business_id' => $client->business_id,
+            'branch_id' => $client->branch_id,
+            'amount' => $amount,
+            'description' => $description,
+            'reference_number' => $referenceNumber,
+            'notes' => $notes,
+            'payment_method' => $paymentMethod,
+            'timestamp' => now()->toDateTimeString()
+        ]);
+
         // Calculate previous balance from existing balance history records
         $previousBalance = self::where('client_id', $client->id)
             ->orderBy('created_at', 'desc')
             ->value('new_balance') ?? 0;
         
+        \Log::info("Previous balance calculated for package usage", [
+            'client_id' => $client->id,
+            'previous_balance' => $previousBalance
+        ]);
+        
         // Package usage doesn't affect balance - it's just a record
         // The balance remains the same since package was already paid for
         $newBalance = $previousBalance;
 
-        return self::create([
+        $balanceHistoryData = [
             'client_id' => $client->id,
             'business_id' => $client->business_id,
             'branch_id' => $client->branch_id,
@@ -228,6 +246,22 @@ class BalanceHistory extends Model
             'reference_number' => $referenceNumber,
             'notes' => $notes,
             'payment_method' => $paymentMethod,
+        ];
+
+        \Log::info("Creating BalanceHistory record for package usage", [
+            'balance_history_data' => $balanceHistoryData
         ]);
+
+        $balanceHistory = self::create($balanceHistoryData);
+
+        \Log::info("Package usage BalanceHistory record created successfully", [
+            'balance_history_id' => $balanceHistory->id,
+            'client_id' => $client->id,
+            'transaction_type' => 'package',
+            'amount' => $amount,
+            'description' => $description
+        ]);
+
+        return $balanceHistory;
     }
 }

@@ -134,16 +134,39 @@ class BusinessBalanceHistory extends Model
      */
     public static function recordPackageTransaction($businessId, $moneyAccountId, $amount, $description, $referenceType = null, $referenceId = null, $metadata = [], $userId = null)
     {
+        \Log::info("=== CREATING PACKAGE TRANSACTION BUSINESS BALANCE HISTORY RECORD ===", [
+            'business_id' => $businessId,
+            'money_account_id' => $moneyAccountId,
+            'amount' => $amount,
+            'description' => $description,
+            'reference_type' => $referenceType,
+            'reference_id' => $referenceId,
+            'metadata' => $metadata,
+            'user_id' => $userId,
+            'timestamp' => now()->toDateTimeString()
+        ]);
+
         $account = MoneyAccount::find($moneyAccountId);
         if (!$account) {
+            \Log::error("Money account not found for package transaction", [
+                'money_account_id' => $moneyAccountId,
+                'business_id' => $businessId
+            ]);
             throw new \Exception("Money account not found");
         }
+
+        \Log::info("Money account found for package transaction", [
+            'money_account_id' => $moneyAccountId,
+            'account_name' => $account->name,
+            'account_type' => $account->type,
+            'current_balance' => $account->balance
+        ]);
 
         $previousBalance = $account->balance;
         // Package transactions don't change balance - they're just records
         $newBalance = $previousBalance;
 
-        $history = self::create([
+        $businessBalanceHistoryData = [
             'business_id' => $businessId,
             'money_account_id' => $moneyAccountId,
             'previous_balance' => $previousBalance,
@@ -155,6 +178,22 @@ class BusinessBalanceHistory extends Model
             'reference_id' => $referenceId,
             'metadata' => $metadata,
             'user_id' => $userId,
+        ];
+
+        \Log::info("Creating BusinessBalanceHistory record for package transaction", [
+            'business_balance_history_data' => $businessBalanceHistoryData
+        ]);
+
+        $history = self::create($businessBalanceHistoryData);
+
+        \Log::info("Package transaction BusinessBalanceHistory record created successfully", [
+            'business_balance_history_id' => $history->id,
+            'business_id' => $businessId,
+            'money_account_id' => $moneyAccountId,
+            'type' => 'package',
+            'amount' => $amount,
+            'description' => $description,
+            'note' => 'No balance update for package transactions - they are records only'
         ]);
 
         // No balance update for package transactions

@@ -606,13 +606,19 @@ class InvoiceController extends Controller
                     'invoice_number' => $invoice->invoice_number,
                     'package_adjustment_amount' => $validated['package_adjustment'],
                     'subtotal' => $validated['subtotal'],
+                    'subtotal_1' => $validated['subtotal_1'] ?? 0,
+                    'subtotal_2' => $validated['subtotal_2'] ?? 0,
+                    'service_charge' => $validated['service_charge'] ?? 0,
                     'total_amount' => $validated['total_amount'],
                     'items_count' => count($validated['items']),
+                    'items_details' => $validated['items'],
                     'client_id' => $validated['client_id'],
+                    'client_name' => $client->name ?? 'Unknown',
                     'business_id' => $validated['business_id'],
+                    'business_name' => $business->name ?? 'Unknown',
                     'branch_id' => $validated['branch_id'],
                     'timestamp' => now()->toISOString(),
-                    'note' => 'Package tracking will be updated after payment completion'
+                    'note' => 'Package tracking will be updated after payment completion via Save & Exit'
                 ]);
             }
             
