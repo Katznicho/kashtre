@@ -73,7 +73,12 @@ class PackageTrackingController extends Controller
         // Load all included items for this package
         $packageItems = $packageTracking->packageItem->packageItems()->with('includedItem')->get();
 
-        return view('package-tracking.show', compact('packageTracking', 'packageItems'));
+        // Load package sales for this package tracking record
+        $packageSales = \App\Models\PackageSales::where('package_tracking_id', $packageTracking->id)
+            ->orderBy('date', 'desc')
+            ->get();
+
+        return view('package-tracking.show', compact('packageTracking', 'packageItems', 'packageSales'));
     }
 
     /**
