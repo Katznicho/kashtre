@@ -1178,7 +1178,7 @@
                     ? 'Service charges are not configured for this business. Please configure service charges before creating invoices.'
                     : 'Service charge must be applied for non-package invoices. Please ensure a service charge is configured and applied.';
                 
-                console.log('=== BLOCKING SAVE - SERVICE CHARGE VALIDATION ===');
+                console.log('=== BLOCKING SAVE - SERVICE CHARGE VALIDATION IF NOT PACKAGE INVOICE ===');
                 console.log('Showing error modal:', { errorTitle, errorMessage, isPackageInvoice, serviceChargeValue });
                 Swal.fire({
                     icon: 'error',
