@@ -440,8 +440,8 @@ class InvoiceController extends Controller
                 if ($validated['service_charge'] <= 0) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Service charge must be applied for non-package invoices. Please ensure a service charge is configured and applied.',
-                        'errors' => ['service_charge' => ['Service charge is required for non-package invoices']]
+                        'message' => 'Service charge not configured. Please contact support.',
+                        'errors' => ['service_charge' => ['Service charge not configured. Please contact support.']]
                     ], 422);
                 }
             }

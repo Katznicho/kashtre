@@ -1175,8 +1175,8 @@
             if (isServiceChargeNotConfigured || (!isPackageInvoice && serviceChargeValue <= 0)) {
                 const errorTitle = isServiceChargeNotConfigured ? 'Service Charges Not Configured' : 'Service Charge Required';
                 const errorMessage = isServiceChargeNotConfigured 
-                    ? 'Service charges are not configured for this business. Please configure service charges before creating invoices.'
-                    : 'Service charge must be applied for non-package invoices. Please ensure a service charge is configured and applied.';
+                    ? 'Service charges not configured. Please contact support.'
+                    : 'Service charge not configured. Please contact support.';
                 
                 console.log('=== BLOCKING SAVE - SERVICE CHARGE VALIDATION IF NOT PACKAGE INVOICE ===');
                 console.log('Showing error modal:', { errorTitle, errorMessage, isPackageInvoice, serviceChargeValue });
