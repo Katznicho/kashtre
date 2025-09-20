@@ -17,13 +17,66 @@
                 </div>
             </div>
 
-            <!-- Package Details -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Basic Information -->
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
-                        <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+            <!-- Package Sales Section -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Package Sales</h3>
+                    @if(isset($packageSales) && $packageSales->count() > 0)
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    @foreach($packageSales as $sale)
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {{ $sale->date->format('M d, Y H:i') }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <span class="font-mono text-blue-600">{{ $sale->invoice_number }}</span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm font-medium text-gray-900">{{ $sale->item_name }}</div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {{ $sale->qty }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                UGX {{ number_format($sale->amount, 2) }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 py-1 text-xs rounded-full {{ $sale->status === 'completed' ? 'bg-green-100 text-green-800' : ($sale->status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800') }}">
+                                                    {{ ucfirst($sale->status) }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @else
+                        <p class="text-gray-500 text-center py-4">No package sales recorded yet.</p>
+                    @endif
+                </div>
+            </div>
+
+            <!-- Package Tracking Details Section -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Package Tracking Details</h3>
+                    
+                    <!-- Basic Information -->
+                    <div class="mb-6">
+                        <h4 class="text-md font-medium text-gray-800 mb-3">Basic Information</h4>
+                        <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Client</dt>
                                 <dd class="mt-1 text-sm text-gray-900">{{ $packageTracking->client->name }}</dd>
@@ -58,13 +111,11 @@
                             </div>
                         </dl>
                     </div>
-                </div>
 
-                <!-- Quantity Information -->
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Quantity Information</h3>
-                        <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                    <!-- Quantity Information -->
+                    <div class="mb-6">
+                        <h4 class="text-md font-medium text-gray-800 mb-3">Quantity Information</h4>
+                        <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Total Quantity</dt>
                                 <dd class="mt-1 text-sm text-gray-900">{{ $packageTracking->total_quantity }}</dd>
@@ -92,7 +143,7 @@
                         </dl>
 
                         <!-- Progress Bar -->
-                        <div class="mt-6">
+                        <div class="mt-4">
                             <div class="flex justify-between text-sm text-gray-600 mb-2">
                                 <span>Usage Progress</span>
                                 <span>{{ number_format($packageTracking->usage_percentage, 1) }}%</span>
@@ -102,13 +153,11 @@
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Validity Information -->
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Validity Information</h3>
-                        <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                    <!-- Validity Information -->
+                    <div class="mb-6">
+                        <h4 class="text-md font-medium text-gray-800 mb-3">Validity Information</h4>
+                        <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Valid From</dt>
                                 <dd class="mt-1 text-sm text-gray-900">{{ $packageTracking->valid_from->format('M d, Y') }}</dd>
@@ -133,12 +182,10 @@
                             </div>
                         </dl>
                     </div>
-                </div>
 
-                <!-- Package Items -->
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Package Contents</h3>
+                    <!-- Package Contents -->
+                    <div class="mb-6">
+                        <h4 class="text-md font-medium text-gray-800 mb-3">Package Contents</h4>
                         @if($packageItems->count() > 0)
                             <div class="overflow-x-auto">
                                 <table class="min-w-full divide-y divide-gray-200">
@@ -195,63 +242,10 @@
                             <p class="text-gray-500 text-center py-4">No items found in this package.</p>
                         @endif
                     </div>
-                </div>
 
-                <!-- Package Sales -->
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Package Sales</h3>
-                        @if(isset($packageSales) && $packageSales->count() > 0)
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-gray-200">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="bg-white divide-y divide-gray-200">
-                                        @foreach($packageSales as $sale)
-                                            <tr>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {{ $sale->date->format('M d, Y H:i') }}
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    <span class="font-mono text-blue-600">{{ $sale->invoice_number }}</span>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="text-sm font-medium text-gray-900">{{ $sale->item_name }}</div>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {{ $sale->qty }}
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    UGX {{ number_format($sale->amount, 2) }}
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <span class="px-2 py-1 text-xs rounded-full {{ $sale->status === 'completed' ? 'bg-green-100 text-green-800' : ($sale->status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800') }}">
-                                                        {{ ucfirst($sale->status) }}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
-                        @else
-                            <p class="text-gray-500 text-center py-4">No package sales recorded yet.</p>
-                        @endif
-                    </div>
-                </div>
-
-                <!-- Notes -->
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Notes</h3>
+                    <!-- Notes -->
+                    <div>
+                        <h4 class="text-md font-medium text-gray-800 mb-3">Notes</h4>
                         @if($packageTracking->notes)
                             <p class="text-sm text-gray-900">{{ $packageTracking->notes }}</p>
                         @else
@@ -260,73 +254,7 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Use Package Section -->
-            @if($packageTracking->status === 'active' && $packageTracking->remaining_quantity > 0 && !$packageTracking->is_expired)
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mt-6">
-                    <div class="p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Use Package</h3>
-                        <form id="usePackageForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            @csrf
-                            <div>
-                                <label for="quantity" class="block text-sm font-medium text-gray-700">Quantity to Use</label>
-                                <input type="number" name="quantity" id="quantity" min="1" max="{{ $packageTracking->remaining_quantity }}" 
-                                       value="1" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                            <div class="flex items-end">
-                                <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-                                    Use Package
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            @endif
         </div>
     </div>
 
-    <script>
-        document.getElementById('usePackageForm')?.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const quantity = document.getElementById('quantity').value;
-            const formData = new FormData();
-            formData.append('quantity', quantity);
-            formData.append('_token', '{{ csrf_token() }}');
-
-            try {
-                const response = await fetch('{{ route("package-tracking.use-quantity", $packageTracking) }}', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    Swal.fire({
-                        title: 'Success!',
-                        text: result.message,
-                        icon: 'success',
-                        confirmButtonText: 'OK'
-                    }).then(() => {
-                        window.location.reload();
-                    });
-                } else {
-                    Swal.fire({
-                        title: 'Error!',
-                        text: result.message,
-                        icon: 'error',
-                        confirmButtonText: 'OK'
-                    });
-                }
-            } catch (error) {
-                Swal.fire({
-                    title: 'Error!',
-                    text: 'An error occurred while using the package.',
-                    icon: 'error',
-                    confirmButtonText: 'OK'
-                });
-            }
-        });
-    </script>
 </x-app-layout>
