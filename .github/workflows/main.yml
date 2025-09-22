@@ -1,4 +1,4 @@
-name: Deploy Main Branch to Hostinger (Root)
+name: Deploy Main Branch to Hostinger (Root) - Updated
 
 on:
   push:
