@@ -17,11 +17,11 @@ return new class extends Migration
             $table->uuid('uuid')->unique()->index();
             $table->unsignedBigInteger('business_id')->nullable()->index();
             $table->unsignedBigInteger('branch_id')->nullable()->index();
-            $table->unsignedBigInteger('client_id')->nullable()->after('branch_id');
-            $table->unsignedBigInteger('invoice_id')->nullable()->after('client_id');
+            $table->unsignedBigInteger('client_id')->nullable();
+            $table->unsignedBigInteger('invoice_id')->nullable();
             $table->string('amount')->nullable();
             $table->string('reference')->index(); // used for lookups
-            $table->string('external_reference')->nullable()->after('reference')->index();
+            $table->string('external_reference')->nullable()->index();
             $table->string('description')->nullable();
             $table->enum('status', ['pending', 'completed', 'failed', 'cancelled', 'processing'])->nullable()->index();
             $table->enum("type", ["credit", "debit"])->index();
