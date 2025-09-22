@@ -136,6 +136,7 @@ class UserController extends Controller
                     'bank_name' => $validated['bank_name'],
                     'account_name' => $validated['account_name'],
                     'account_number' => $validated['account_number'],
+                    'user_id' => $user->id,
                 ]);
             }
 

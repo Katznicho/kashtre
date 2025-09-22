@@ -5,12 +5,12 @@
                 <div class="flex justify-between items-center mb-6">
 
                     <h2 class="text-xl font-bold text-gray-800 dark:text-white">Contractor Profiles</h2>
-                    @if(in_array('Add Contractor Profile', (array) (Auth::user()->permissions ?? [])))
+                    {{-- @if(in_array('Add Contractor Profile', (array) (Auth::user()->permissions ?? [])))
                         <a href="{{ route('contractor-profiles.create') }}" 
                            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                             Create New Contractor Profile
                         </a>
-                    @endif
+                    @endif --}}
                 </div>
 
                 @if(session('success'))
