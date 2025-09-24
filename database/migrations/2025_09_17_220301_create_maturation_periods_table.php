@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('maturation_periods', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('business_id');
-            $table->enum('payment_method', ['mtn', 'airtel', 'yo', 'cash', 'bank_transfer']);
+            $table->enum('payment_method', ['insurance', 'credit_arrangement', 'mobile_money', 'v_card', 'p_card', 'bank_transfer', 'cash']);
             $table->integer('maturation_days'); // Number of days for maturation
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);

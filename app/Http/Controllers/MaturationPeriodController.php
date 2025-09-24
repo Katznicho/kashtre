@@ -11,11 +11,17 @@ class MaturationPeriodController extends Controller
 {
     public function __construct()
     {
-        // Only allow Kashtre users (business_id = 1) to access these settings
+        // Only allow Kashtre users (business_id = 1) with proper permissions to access these settings
         $this->middleware(function ($request, $next) {
             if (auth()->user()->business_id !== 1) {
                 abort(403, 'Access denied. This feature is only available to Kashtre administrators.');
             }
+            
+            // Check for View Maturation Periods permission
+            if (!in_array('View Maturation Periods', auth()->user()->permissions ?? [])) {
+                abort(403, 'Access denied. You do not have permission to view maturation periods.');
+            }
+            
             return $next($request);
         });
     }
@@ -28,24 +34,34 @@ class MaturationPeriodController extends Controller
             ->get();
 
         $businesses = Business::where('id', '!=', 1)->orderBy('name')->get();
-        $paymentMethods = ['mtn', 'airtel', 'yo', 'cash', 'bank_transfer'];
+        $paymentMethods = ['insurance', 'credit_arrangement', 'mobile_money', 'v_card', 'p_card', 'bank_transfer', 'cash'];
 
         return view('settings.maturation-periods.index', compact('maturationPeriods', 'businesses', 'paymentMethods'));
     }
 
     public function create()
     {
+        // Check for Add Maturation Periods permission
+        if (!in_array('Add Maturation Periods', auth()->user()->permissions ?? [])) {
+            abort(403, 'Access denied. You do not have permission to add maturation periods.');
+        }
+
         $businesses = Business::where('id', '!=', 1)->orderBy('name')->get();
-        $paymentMethods = ['mtn', 'airtel', 'yo', 'cash', 'bank_transfer'];
+        $paymentMethods = ['insurance', 'credit_arrangement', 'mobile_money', 'v_card', 'p_card', 'bank_transfer', 'cash'];
 
         return view('settings.maturation-periods.create', compact('businesses', 'paymentMethods'));
     }
 
     public function store(Request $request)
     {
+        // Check for Add Maturation Periods permission
+        if (!in_array('Add Maturation Periods', auth()->user()->permissions ?? [])) {
+            abort(403, 'Access denied. You do not have permission to add maturation periods.');
+        }
+
         $validated = $request->validate([
             'business_id' => 'required|exists:businesses,id',
-            'payment_method' => 'required|in:mtn,airtel,yo,cash,bank_transfer',
+            'payment_method' => 'required|in:insurance,credit_arrangement,mobile_money,v_card,p_card,bank_transfer,cash',
             'maturation_days' => 'required|integer|min:0|max:365',
             'description' => 'nullable|string|max:1000',
             'is_active' => 'boolean',
@@ -73,17 +89,27 @@ class MaturationPeriodController extends Controller
 
     public function edit(MaturationPeriod $maturationPeriod)
     {
+        // Check for Edit Maturation Periods permission
+        if (!in_array('Edit Maturation Periods', auth()->user()->permissions ?? [])) {
+            abort(403, 'Access denied. You do not have permission to edit maturation periods.');
+        }
+
         $businesses = Business::where('id', '!=', 1)->orderBy('name')->get();
-        $paymentMethods = ['mtn', 'airtel', 'yo', 'cash', 'bank_transfer'];
+        $paymentMethods = ['insurance', 'credit_arrangement', 'mobile_money', 'v_card', 'p_card', 'bank_transfer', 'cash'];
 
         return view('settings.maturation-periods.edit', compact('maturationPeriod', 'businesses', 'paymentMethods'));
     }
 
     public function update(Request $request, MaturationPeriod $maturationPeriod)
     {
+        // Check for Edit Maturation Periods permission
+        if (!in_array('Edit Maturation Periods', auth()->user()->permissions ?? [])) {
+            abort(403, 'Access denied. You do not have permission to edit maturation periods.');
+        }
+
         $validated = $request->validate([
             'business_id' => 'required|exists:businesses,id',
-            'payment_method' => 'required|in:mtn,airtel,yo,cash,bank_transfer',
+            'payment_method' => 'required|in:insurance,credit_arrangement,mobile_money,v_card,p_card,bank_transfer,cash',
             'maturation_days' => 'required|integer|min:0|max:365',
             'description' => 'nullable|string|max:1000',
             'is_active' => 'boolean',
@@ -112,6 +138,11 @@ class MaturationPeriodController extends Controller
 
     public function destroy(MaturationPeriod $maturationPeriod)
     {
+        // Check for Delete Maturation Periods permission
+        if (!in_array('Delete Maturation Periods', auth()->user()->permissions ?? [])) {
+            abort(403, 'Access denied. You do not have permission to delete maturation periods.');
+        }
+
         $maturationPeriod->delete();
 
         return redirect()->route('maturation-periods.index')
@@ -120,6 +151,11 @@ class MaturationPeriodController extends Controller
 
     public function toggleStatus(MaturationPeriod $maturationPeriod)
     {
+        // Check for Manage Maturation Periods permission
+        if (!in_array('Manage Maturation Periods', auth()->user()->permissions ?? [])) {
+            abort(403, 'Access denied. You do not have permission to manage maturation periods.');
+        }
+
         $maturationPeriod->update([
             'is_active' => !$maturationPeriod->is_active,
             'updated_by' => Auth::id(),

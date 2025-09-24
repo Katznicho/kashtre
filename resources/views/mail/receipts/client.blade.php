@@ -21,13 +21,9 @@ Thank you for your payment! We are pleased to confirm that your transaction has 
 
 ## Items Purchased
 
-@component('mail::table')
-| Item | Quantity | Price Each | Total |
-|------|----------|------------|-------|
 @foreach($invoice->items as $item)
-| {{ $item['name'] ?? 'N/A' }} | {{ $item['quantity'] ?? 1 }} | UGX {{ number_format($item['price'] ?? 0, 2) }} | UGX {{ number_format(($item['price'] ?? 0) * ($item['quantity'] ?? 1), 2) }} |
+- **{{ $item['name'] ?? 'N/A' }}** ({{ $item['quantity'] ?? 1 }}) - UGX {{ number_format(($item['price'] ?? 0) * ($item['quantity'] ?? 1), 2) }}
 @endforeach
-@endcomponent
 
 ## Payment Summary
 **Subtotal 1:** UGX {{ number_format($invoice->subtotal, 2) }}  

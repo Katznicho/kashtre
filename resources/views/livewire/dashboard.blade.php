@@ -4,14 +4,18 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
         <div class="flex flex-wrap gap-4">
+            @if(in_array('Add Clients', auth()->user()->permissions ?? []))
             <a href="{{ route('clients.create') }}" class="bg-[#011478] text-white px-6 py-3 rounded-lg hover:bg-[#011478]/90 transition-colors flex items-center">
                 <i class="fas fa-user-plus mr-2"></i>
                 Add New Client
             </a>
+            @endif
+            @if(in_array('View Clients', auth()->user()->permissions ?? []))
             <a href="{{ route('clients.index') }}" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center">
                 <i class="fas fa-users mr-2"></i>
                 View All Clients
             </a>
+            @endif
         </div>
     </div>
     

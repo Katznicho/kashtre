@@ -36,6 +36,7 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\QuotationController;
 
 use App\Http\Controllers\PackageTrackingController;
+use App\Http\Controllers\PackageSalesController;
 use App\Http\Controllers\BalanceHistoryController;
 use App\Http\Controllers\BusinessBalanceHistoryController;
 use App\Http\Controllers\ContractorBalanceHistoryController;
@@ -218,6 +219,12 @@ Route::get('/package-tracking/dashboard', [PackageTrackingController::class, 'da
 Route::post('/package-tracking/{packageTracking}/use-quantity', [PackageTrackingController::class, 'useQuantity'])->name('package-tracking.use-quantity');
 Route::get('/clients/{client}/packages', [PackageTrackingController::class, 'clientPackages'])->name('package-tracking.client-packages');
 Route::resource('package-tracking', PackageTrackingController::class)->except(['create', 'store', 'edit', 'update']);
+
+// Package Sales Routes
+Route::get('/package-sales/history', [PackageSalesController::class, 'history'])->name('package-sales.history');
+Route::get('/package-sales/export', [PackageSalesController::class, 'export'])->name('package-sales.export');
+Route::get('/package-sales/stats', [PackageSalesController::class, 'getStats'])->name('package-sales.stats');
+Route::resource('package-sales', PackageSalesController::class)->except(['create', 'store', 'edit', 'update']);
 
 // Service Delivery routes
 Route::post('/service-delivery/deliver-item', [ServiceDeliveryController::class, 'deliverItem'])->name('service-delivery.deliver-item');

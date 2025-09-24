@@ -2030,6 +2030,53 @@ class MoneyTrackingService
     }
 
     /**
+     * Get package information for invoice descriptions
+     */
+    private function getPackageInfoForInvoice($invoice)
+    {
+        try {
+            // Get client's valid package tracking records
+            $validPackages = \App\Models\PackageTracking::where('client_id', $invoice->client_id)
+                ->where('business_id', $invoice->business_id)
+                ->where('status', 'active')
+                ->where('remaining_quantity', '>', 0)
+                ->where('valid_until', '>=', now()->toDateString())
+                ->with(['packageItem.packageItems.includedItem'])
+                ->get();
+
+            $packageDescriptions = [];
+            $packageTrackingNumbers = [];
+            
+            foreach ($validPackages as $packageTracking) {
+                $packageName = $packageTracking->packageItem->display_name ?? 'Unknown Package';
+                $trackingNumber = $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}";
+                $packageDescriptions[] = "{$packageName} (Ref: {$trackingNumber})";
+                $packageTrackingNumbers[] = $trackingNumber;
+            }
+            
+            $description = implode(', ', $packageDescriptions);
+            $trackingNumbers = implode(', ', array_unique($packageTrackingNumbers));
+            
+            return [
+                'description' => $description ?: 'Package items',
+                'tracking_numbers' => $trackingNumbers ?: 'N/A'
+            ];
+            
+        } catch (\Exception $e) {
+            Log::error("Failed to get package info for invoice", [
+                'error' => $e->getMessage(),
+                'invoice_id' => $invoice->id,
+                'client_id' => $invoice->client_id
+            ]);
+            
+            return [
+                'description' => 'Package items',
+                'tracking_numbers' => 'N/A'
+            ];
+        }
+    }
+
+    /**
      * Process package adjustment money movement from client suspense to business account
      * This is called only when package items are actually used (Save & Exit)
      */
@@ -2067,18 +2114,22 @@ class MoneyTrackingService
             'invoice_id' => $invoice->id
         ]);
 
+        // Get package information for description
+        $packageInfo = $this->getPackageInfoForInvoice($invoice);
+        
         $transfer = MoneyTransfer::create([
             'business_id' => $business->id,
             'from_account_id' => $clientSuspenseAccount->id,
             'to_account_id' => $businessAccount->id,
             'amount' => $packageAdjustmentAmount,
             'type' => 'package_adjustment_transfer',
-            'description' => "Package adjustment for invoice {$invoice->invoice_number}",
+            'description' => "Package adjustment: {$packageInfo['description']} for invoice {$invoice->invoice_number}",
             'reference' => $invoice->invoice_number,
             'invoice_id' => $invoice->id,
             'metadata' => [
                 'invoice_number' => $invoice->invoice_number,
-                'description' => 'Package adjustment money moved to business account when package items were used'
+                'description' => 'Package adjustment money moved to business account when package items were used',
+                'package_tracking_numbers' => $packageInfo['tracking_numbers']
             ]
         ]);
 
@@ -2627,12 +2678,29 @@ class MoneyTrackingService
 
             // Create BalanceHistory record for client statement (type: package)
             // This represents the client using their package items
+            
+            // Build description with constituent items and quantities in brackets, with package tracking numbers as ref
+            $constituentItems = [];
+            $packageTrackingNumbers = [];
+            
+            foreach ($packageSales as $sale) {
+                $packageTracking = \App\Models\PackageTracking::find($sale['package_tracking_id']);
+                if ($packageTracking) {
+                    $trackingNumber = $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}";
+                    $constituentItems[] = "{$sale['item_name']} ({$sale['quantity']})";
+                    $packageTrackingNumbers[] = $trackingNumber;
+                }
+            }
+            
+            $constituentItemsDescription = implode(', ', $constituentItems);
+            $trackingNumbersRef = implode(', ', array_unique($packageTrackingNumbers));
+            
             $balanceHistory = \App\Models\BalanceHistory::recordPackageUsage(
                 $invoice->client,
                 $totalAmount,
-                "Package item usage from invoice {$invoice->invoice_number}",
+                "Package item usage: {$constituentItemsDescription} (Ref: {$trackingNumbersRef}) from invoice {$invoice->invoice_number}",
                 $invoice->invoice_number,
-                "Package items used: " . implode(', ', array_column($packageSales, 'item_name')),
+                "Package items used: {$constituentItemsDescription} (Ref: {$trackingNumbersRef})",
                 'package_usage'
             );
 
@@ -2642,11 +2710,12 @@ class MoneyTrackingService
                 'balance_history_id' => $balanceHistory->id,
                 'total_amount' => $totalAmount,
                 'transaction_type' => 'package',
-                'description' => "Package item usage from invoice {$invoice->invoice_number}",
+                'description' => "Package item usage: {$constituentItemsDescription} (Ref: {$trackingNumbersRef}) from invoice {$invoice->invoice_number}",
                 'reference_number' => $invoice->invoice_number,
                 'client_name' => $invoice->client->name ?? 'Unknown',
                 'package_sales_count' => count($packageSales),
-                'package_items_used' => implode(', ', array_column($packageSales, 'item_name')),
+                'package_items_used' => $constituentItemsDescription,
+                'package_tracking_numbers' => $trackingNumbersRef,
                 'note' => 'Package usage shows item amount for display but does not affect client balance'
             ]);
 
@@ -2702,11 +2771,29 @@ class MoneyTrackingService
             
             // For package sales revenue, we should use 'package' type to avoid double crediting
             // The actual money transfer already happened in the package adjustment money movement
+            
+            // Build description with package names and tracking numbers
+            $packageDescriptions = [];
+            $packageTrackingNumbers = [];
+            
+            foreach ($packageSales as $sale) {
+                $packageTracking = \App\Models\PackageTracking::find($sale['package_tracking_id']);
+                if ($packageTracking) {
+                    $packageName = $packageTracking->packageItem->display_name ?? 'Unknown Package';
+                    $trackingNumber = $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}";
+                    $packageDescriptions[] = "{$packageName} (Ref: {$trackingNumber})";
+                    $packageTrackingNumbers[] = $trackingNumber;
+                }
+            }
+            
+            $packageDescription = implode(', ', $packageDescriptions);
+            $trackingNumbersRef = implode(', ', array_unique($packageTrackingNumbers));
+            
             $businessBalanceHistory = \App\Models\BusinessBalanceHistory::recordPackageTransaction(
                 $business->id,
                 $businessAccount->id,
                 $totalAmount,
-                "Package sales revenue from invoice {$invoice->invoice_number}",
+                "Package sales revenue: {$packageDescription} from invoice {$invoice->invoice_number}",
                 'package_sales',
                 $invoice->id,
                 [
@@ -2715,6 +2802,7 @@ class MoneyTrackingService
                     'package_items_sold' => implode(', ', array_column($packageSales, 'item_name')),
                     'package_amount' => $totalAmount,
                     'item_amounts_sum' => array_sum(array_column($packageSales, 'amount')),
+                    'package_tracking_numbers' => $trackingNumbersRef,
                     'note' => 'Record only - money already transferred via package adjustment'
                 ],
                 null
@@ -2726,12 +2814,13 @@ class MoneyTrackingService
                 'business_balance_history_id' => $businessBalanceHistory->id,
                 'total_amount' => $totalAmount,
                 'transaction_type' => 'package',
-                'description' => "Package sales revenue from invoice {$invoice->invoice_number}",
+                'description' => "Package sales revenue: {$packageDescription} from invoice {$invoice->invoice_number}",
                 'reference_type' => 'package_sales',
                 'reference_id' => $invoice->id,
                 'business_account_balance' => $businessAccount->balance,
                 'package_sales_count' => count($packageSales),
                 'package_items_sold' => implode(', ', array_column($packageSales, 'item_name')),
+                'package_tracking_numbers' => $trackingNumbersRef,
                 'note' => 'Package sales revenue recorded as package type (no balance change) - money already transferred via package adjustment'
             ]);
 

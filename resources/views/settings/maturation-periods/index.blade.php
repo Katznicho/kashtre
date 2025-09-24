@@ -1,8 +1,4 @@
-@extends('layouts.app')
-
-@section('title', 'Maturation Periods Settings')
-
-@section('content')
+<x-app-layout>
 <div class="min-h-screen bg-gray-50 py-6">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- Header -->
@@ -15,6 +11,7 @@
                     Configure maturation periods for different payment methods by entity
                 </p>
             </div>
+            @if(in_array('Add Maturation Periods', auth()->user()->permissions ?? []))
             <div class="mt-4 flex md:mt-0 md:ml-4">
                 <a href="{{ route('maturation-periods.create') }}" 
                    class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
@@ -24,6 +21,7 @@
                     Add Maturation Period
                 </a>
             </div>
+            @endif
         </div>
 
         <!-- Alert Messages -->
@@ -80,10 +78,14 @@
                                         </div>
                                     </div>
                                     <div class="flex items-center space-x-2">
+                                        @if(in_array('Edit Maturation Periods', auth()->user()->permissions ?? []))
                                         <a href="{{ route('maturation-periods.edit', $period) }}" 
                                            class="text-blue-600 hover:text-blue-900 text-sm font-medium">
                                             Edit
                                         </a>
+                                        @endif
+                                        
+                                        @if(in_array('Manage Maturation Periods', auth()->user()->permissions ?? []))
                                         <form action="{{ route('maturation-periods.toggle-status', $period) }}" method="POST" class="inline">
                                             @csrf
                                             <button type="submit" 
@@ -91,6 +93,9 @@
                                                 {{ $period->is_active ? 'Deactivate' : 'Activate' }}
                                             </button>
                                         </form>
+                                        @endif
+                                        
+                                        @if(in_array('Delete Maturation Periods', auth()->user()->permissions ?? []))
                                         <form action="{{ route('maturation-periods.destroy', $period) }}" method="POST" class="inline" 
                                               onsubmit="return confirm('Are you sure you want to delete this maturation period?')">
                                             @csrf
@@ -99,6 +104,7 @@
                                                 Delete
                                             </button>
                                         </form>
+                                        @endif
                                     </div>
                                 </div>
                             </li>
@@ -112,6 +118,7 @@
                     </svg>
                     <h3 class="mt-2 text-sm font-medium text-gray-900">No maturation periods</h3>
                     <p class="mt-1 text-sm text-gray-500">Get started by creating a new maturation period.</p>
+                    @if(in_array('Add Maturation Periods', auth()->user()->permissions ?? []))
                     <div class="mt-6">
                         <a href="{{ route('maturation-periods.create') }}" 
                            class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
@@ -121,12 +128,17 @@
                             Add Maturation Period
                         </a>
                     </div>
+                    @endif
                 </div>
             @endif
         </div>
     </div>
 </div>
-@endsection
+</x-app-layout>
+
+
+
+
 
 
 

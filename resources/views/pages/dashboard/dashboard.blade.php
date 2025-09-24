@@ -41,7 +41,7 @@
                 </div>
                 <div class="text-right">
                     <p class="text-sm font-semibold text-[#011478]/80">Current Time</p>
-                    <p class="text-lg font-mono">{{ now()->format('H:i:s') }} UTC</p>
+                    <p class="text-lg font-mono">{{ now()->format('H:i:s') }} EAT</p>
                 </div>
             </div>
 

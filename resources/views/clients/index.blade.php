@@ -9,10 +9,12 @@
                         <p class="text-sm text-blue-600 mt-1">Showing clients for: <strong>{{ $selectedBranch->name }}</strong></p>
                     </div>
                     <div class="text-right">
+                        @if(in_array('Add Clients', auth()->user()->permissions ?? []))
                         <a href="{{ route('clients.create') }}" class="bg-[#011478] text-white px-6 py-3 rounded-lg hover:bg-[#011478]/90 transition-colors">
                             <i class="fas fa-plus mr-2"></i>Add New Client
                         </a>
                         <div class="text-xs text-gray-500 mt-1">New clients will be registered at: <strong>{{ $currentBranch->name }}</strong></div>
+                        @endif
                     </div>
                 </div>
 

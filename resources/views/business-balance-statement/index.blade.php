@@ -116,13 +116,13 @@
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    @if($history->type === 'credit' || $history->type === 'package')
+                                    @if($history->type === 'credit')
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                            @if($history->type === 'package')
-                                                Package
-                                            @else
-                                                Credit
-                                            @endif
+                                            Credit
+                                        </span>
+                                    @elseif($history->type === 'package')
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            Package
                                         </span>
                                     @else
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
@@ -131,8 +131,10 @@
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    @if($history->type === 'credit' || $history->type === 'package')
+                                    @if($history->type === 'credit')
                                         <span class="text-green-600">+{{ number_format($history->amount, 2) }} UGX</span>
+                                    @elseif($history->type === 'package')
+                                        <span class="text-blue-600">+{{ number_format($history->amount, 2) }} UGX</span>
                                     @else
                                         <span class="text-red-600">-{{ number_format($history->amount, 2) }} UGX</span>
                                     @endif

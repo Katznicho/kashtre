@@ -76,6 +76,7 @@ trait AccessTrait
         "Stores" => ['View Stores', 'Edit Stores', 'Add Stores', 'Delete Stores', 'Bulky Update Stores'],
         "Insurance Companies" => ['View Insurance Companies', 'Edit Insurance Companies', 'Add Insurance Companies', 'Delete Insurance Companies', 'Bulky Update Insurance Companies'],
         "Sub Groups" => ['View Sub Groups', 'Edit Sub Groups', 'Add Sub Groups', 'Delete Sub Groups', 'Bulky Update Sub Groups'],
+        "Maturation Periods" => ['View Maturation Periods', 'Edit Maturation Periods', 'Add Maturation Periods', 'Delete Maturation Periods', 'Manage Maturation Periods'],
     ];
 
     public static $adminAccess = [
@@ -120,6 +121,11 @@ trait AccessTrait
         "Package Tracking" => ['View Package Tracking', 'Edit Package Tracking', 'Add Package Tracking', 'Delete Package Tracking', 'View Package History'],
     ];
 
+    public static $packageSales = [
+        "Package Sales" => ['View Package Sales', 'Edit Package Sales', 'Add Package Sales', 'Delete Package Sales', 'View Package Sales History', 'Export Package Sales'],
+    ];
+
+
     public static function spreadArrayKeys($assocArray)
     {
         $result = [];
@@ -161,7 +167,8 @@ trait AccessTrait
                 static::$reportAccess,
                 static::$bulkUpload,
                 static::$finance,
-                static::$packageTracking
+                static::$packageTracking,
+                static::$packageSales
             )
         );
         return $roles;
@@ -192,6 +199,7 @@ trait AccessTrait
         "Bulk Upload" => self::$bulkUpload,
         "Finance" => self::$finance,
         "Package Tracking" => self::$packageTracking,
+        "Package Sales" => self::$packageSales,
     ];
 
     if (!empty($exclude)) {

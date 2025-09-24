@@ -41,9 +41,13 @@ class Constants {
     //['mobile_money', 'cash', 'wallet']
 
     const PAYMENT_METHOD = [
+        'INSURANCE' => 'insurance',
+        'CREDIT_ARRANGEMENT' => 'credit_arrangement',
         'MOBILE_MONEY' => 'mobile_money',
+        'V_CARD' => 'v_card',
+        'P_CARD' => 'p_card',
+        'BANK_TRANSFER' => 'bank_transfer',
         'CASH' => 'cash',
-        'WALLET' => 'wallet',
     ];
 
     //fundraiser group status ['active',  'cancelled', 'completed']

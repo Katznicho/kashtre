@@ -94,9 +94,6 @@
                             @if(in_array('Manage System Settings', (array) $permissions))
                             <li><a href="{{ route('admins.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>System Settings</a></li>
                             @endif
-                            @if(auth()->user()->business_id == 1)
-                            <li><a href="{{ route('maturation-periods.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Maturation Periods</a></li>
-                            @endif
                         </ul>
                     </li>
                     @endif
@@ -194,6 +191,34 @@
                     </li>
                     @endif
 
+                    <!-- Package Sales Group -->
+                    @if(in_array('View Package Sales', $permissions))
+                    <li>
+                        <button @click="openGroup === 'package-sales' ? openGroup = '' : openGroup = 'package-sales'" :class="openGroup === 'package-sales' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                                </svg>
+                                <span class="ml-3">Package Sales</span>
+                            </span>
+                            <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'package-sales' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <ul x-show="openGroup === 'package-sales'" x-collapse class="mt-1 space-y-1 pl-10">
+                            @if(in_array('View Package Sales', $permissions))
+                            <li><a href="{{ route('package-sales.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>All Package Sales</a></li>
+                            @endif
+                            @if(in_array('View Package Sales History', $permissions))
+                            <li><a href="{{ route('package-sales.history') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Sales History</a></li>
+                            @endif
+                            @if(in_array('Export Package Sales', $permissions))
+                            <li><a href="{{ route('package-sales.export') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Export Sales</a></li>
+                            @endif
+                        </ul>
+                    </li>
+                    @endif
+
                     <!-- Manage Finance -->
                     @if(in_array('View Finance', $permissions))
                     <li>
@@ -246,8 +271,12 @@
                             </svg>
                         </button>
                         <ul x-show="openGroup === 'clients'" x-collapse class="mt-1 space-y-1 pl-10">
+                            @if(in_array('View Clients', $permissions))
                             <li><a href="{{ route('clients.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>View All Clients</a></li>
+                            @endif
+                            @if(in_array('Add Clients', $permissions))
                             <li><a href="{{ route('clients.create') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Add New Client</a></li>
+                            @endif
                         </ul>
                     </li>
                     @endif
@@ -328,6 +357,10 @@
 
                             @if(in_array('View Titles', $permissions))
                             <li><a href="{{ route('titles.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Titles</a></li>
+                            @endif
+
+                            @if(in_array('View Maturation Periods', $permissions))
+                            <li><a href="{{ route('maturation-periods.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Maturation Periods</a></li>
                             @endif
 
                             @if(in_array('View Rooms', $permissions))

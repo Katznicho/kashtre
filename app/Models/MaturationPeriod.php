@@ -59,7 +59,17 @@ class MaturationPeriod extends Model
     // Accessors
     public function getPaymentMethodNameAttribute()
     {
-        return ucfirst(str_replace('_', ' ', $this->payment_method));
+        $methodNames = [
+            'insurance' => '🛡️ Insurance',
+            'credit_arrangement' => '💳 Credit Arrangement',
+            'mobile_money' => '📱 MM (Mobile Money)',
+            'v_card' => '💳 V Card (Virtual Card)',
+            'p_card' => '💳 P Card (Physical Card)',
+            'bank_transfer' => '🏦 Bank Transfer',
+            'cash' => '💵 Cash',
+        ];
+
+        return $methodNames[$this->payment_method] ?? ucfirst(str_replace('_', ' ', $this->payment_method));
     }
 
     public function getFormattedMaturationPeriodAttribute()

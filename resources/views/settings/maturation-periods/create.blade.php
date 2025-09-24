@@ -1,8 +1,4 @@
-@extends('layouts.app')
-
-@section('title', 'Create Maturation Period')
-
-@section('content')
+<x-app-layout>
 <div class="min-h-screen bg-gray-50 py-6">
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- Header -->
@@ -78,8 +74,20 @@
                                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm @error('payment_method') border-red-300 @enderror">
                                 <option value="">Select payment method...</option>
                                 @foreach($paymentMethods as $method)
+                                    @php
+                                        $methodNames = [
+                                            'insurance' => '🛡️ Insurance',
+                                            'credit_arrangement' => '💳 Credit Arrangement',
+                                            'mobile_money' => '📱 MM (Mobile Money)',
+                                            'v_card' => '💳 V Card (Virtual Card)',
+                                            'p_card' => '💳 P Card (Physical Card)',
+                                            'bank_transfer' => '🏦 Bank Transfer',
+                                            'cash' => '💵 Cash',
+                                        ];
+                                        $displayName = $methodNames[$method] ?? ucfirst(str_replace('_', ' ', $method));
+                                    @endphp
                                     <option value="{{ $method }}" {{ old('payment_method') == $method ? 'selected' : '' }}>
-                                        {{ ucfirst(str_replace('_', ' ', $method)) }}
+                                        {{ $displayName }}
                                     </option>
                                 @endforeach
                             </select>
@@ -143,7 +151,11 @@
         </div>
     </div>
 </div>
-@endsection
+</x-app-layout>
+
+
+
+
 
 
 
