@@ -64,6 +64,7 @@ class MaturationPeriodSeeder extends Seeder
 
         $this->command->info('Maturation periods created successfully!');
         $this->command->info('Total maturation periods created: ' . ($businesses->count() * count($paymentMethodDefaults)));
+        $this->command->info('All businesses now have configured maturation periods for payment processing.');
     }
 
     /**
