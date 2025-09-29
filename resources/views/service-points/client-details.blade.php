@@ -187,8 +187,237 @@
                 </div>
             </div>
 
-            {{-- Unified Make a Request/Order Component --}}
-            <x-pos.make-request-order :items="$items" />
+            {{-- Make a Request/Order Section - Same as POS page --}}
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Make a Request/Order</h3>
+                    
+                    <!-- Main POS Interface - Two Column Layout -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        
+                        <!-- Left Column: Item Selection -->
+                        <div>
+                            <h4 class="text-md font-medium text-gray-900 mb-4">Select Item</h4>
+                            
+                            <!-- Search Bar -->
+                            <div class="mb-4">
+                                <div class="relative">
+                                    <input type="text" id="search-input" placeholder="Search items..." 
+                                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            
+                            <!-- Simple Options -->
+                            <div class="flex items-center space-x-4 mb-4">
+                                <label class="flex items-center space-x-2">
+                                    <input type="checkbox" id="show-prices" class="rounded border-gray-300">
+                                    <span class="text-sm text-gray-700">Show Prices</span>
+                                </label>
+                                
+                                <label class="flex items-center space-x-2">
+                                    <input type="checkbox" id="show-descriptions" class="rounded border-gray-300">
+                                    <span class="text-sm text-gray-700">Show Descriptions</span>
+                                </label>
+                            </div>
+                            
+                            <!-- Items Table -->
+                            <div class="border border-gray-200 rounded-lg overflow-hidden">
+                                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div class="flex items-center">
+                                            <span class="text-sm font-medium text-gray-700">Item</span>
+                                            <svg class="ml-1 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <span class="text-sm font-medium text-gray-700">Quantity To Sell</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div id="items-container" class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                                    @forelse($items as $item)
+                                    <div class="item-row px-4 py-3 hover:bg-gray-50" data-item-name="{{ strtolower($item->name) }}" data-item-display-name="{{ $item->display_name }}" data-item-other-names="{{ strtolower($item->other_names ?? '') }}" data-item-type="{{ $item->type ?? 'N/A' }}">
+                                        <div class="grid grid-cols-2 gap-4 items-center">
+                                            <div>
+                                                <span class="text-sm text-gray-900">{{ $item->display_name }}</span>
+                                                @php
+                                                    // Generate dynamic description based on item properties
+                                                    $description = '';
+                                                    if ($item->description && !empty(trim($item->description))) {
+                                                        $description = $item->description;
+                                                    } else {
+                                                        // Generate dynamic description based on item type and properties
+                                                        $descriptionParts = [];
+                                                        
+                                                        // Add type-specific description based on item name and type
+                                                        $itemName = strtolower($item->display_name ?? $item->name);
+                                                        
+                                                        // Generate intelligent descriptions based on item name patterns
+                                                        if (str_contains($itemName, 'amoxicillin')) {
+                                                            $descriptionParts[] = 'Antibiotic medication for bacterial infections';
+                                                        } elseif (str_contains($itemName, 'paracetamol') || str_contains($itemName, 'acetaminophen')) {
+                                                            $descriptionParts[] = 'Pain relief and fever reducer';
+                                                        } elseif (str_contains($itemName, 'ibuprofen')) {
+                                                            $descriptionParts[] = 'Anti-inflammatory pain relief';
+                                                        } elseif (str_contains($itemName, 'vitamin') || str_contains($itemName, 'supplement')) {
+                                                            $descriptionParts[] = 'Nutritional supplement';
+                                                        } elseif (str_contains($itemName, 'hair') || str_contains($itemName, 'shampoo') || str_contains($itemName, 'conditioner')) {
+                                                            $descriptionParts[] = 'Hair care product';
+                                                        } elseif (str_contains($itemName, 'treatment') || str_contains($itemName, 'therapy')) {
+                                                            $descriptionParts[] = 'Therapeutic treatment service';
+                                                        } else {
+                                                            // Fallback to type-based description
+                                                            switch ($item->type) {
+                                                                case 'bulk':
+                                                                    $descriptionParts[] = 'Bulk package containing multiple items';
+                                                                    break;
+                                                                case 'package':
+                                                                    $descriptionParts[] = 'Service package with included items';
+                                                                    break;
+                                                                case 'service':
+                                                                    $descriptionParts[] = 'Professional service';
+                                                                    break;
+                                                                case 'good':
+                                                                default:
+                                                                    $descriptionParts[] = 'Product item';
+                                                                    break;
+                                                            }
+                                                        }
+                                                        
+                                                        // Add item variation info if present in name
+                                                        if (str_contains($itemName, 'advanced') || str_contains($itemName, 'premium') || str_contains($itemName, 'deluxe') || str_contains($itemName, 'professional') || str_contains($itemName, 'enhanced')) {
+                                                            $descriptionParts[] = 'Premium quality variant';
+                                                        } elseif (str_contains($itemName, 'basic') || str_contains($itemName, 'standard')) {
+                                                            $descriptionParts[] = 'Standard quality variant';
+                                                        }
+                                                        
+                                                        // Add category if available
+                                                        if ($item->category && !empty(trim($item->category))) {
+                                                            $descriptionParts[] = "Category: {$item->category}";
+                                                        }
+                                                        
+                                                        // Add other names if available
+                                                        if ($item->other_names && !empty(trim($item->other_names))) {
+                                                            $descriptionParts[] = "Also known as: {$item->other_names}";
+                                                        }
+                                                        
+                                                        // Add unit information if available
+                                                        if ($item->unit && !empty(trim($item->unit))) {
+                                                            $descriptionParts[] = "Unit: {$item->unit}";
+                                                        }
+                                                        
+                                                        $description = implode(' • ', $descriptionParts);
+                                                    }
+                                                @endphp
+                                                @if($description)
+                                                <p class="text-xs text-gray-500 mt-1 description-display">{{ $description }}</p>
+                                                @endif
+                                                <p class="text-xs text-blue-600 mt-1 price-display" style="display: none;">
+                                                    Price: UGX {{ number_format($item->final_price ?? 0, 2) }}
+                                                    @if(isset($item->final_price) && $item->final_price != $item->default_price)
+                                                        <span class="text-green-600">(Branch Price)</span>
+                                                    @else
+                                                        <span class="text-gray-500">(Default Price)</span>
+                                                    @endif
+                                                    @if($item->vat_rate && $item->vat_rate > 0)
+                                                        <span class="text-orange-600">(VAT: {{ $item->vat_rate }}%)</span>
+                                                    @endif
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <input type="number" min="0" value="0" 
+                                                       class="quantity-input w-20 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                       data-item-id="{{ $item->id }}" 
+                                                       data-item-price="{{ $item->final_price ?? 0 }}"
+                                                       data-item-name="{{ $item->name }}"
+                                                       data-item-display-name="{{ $item->display_name }}"
+                                                       data-item-other-names="{{ $item->other_names ?? '' }}"
+                                                       data-item-type="{{ $item->type ?? 'N/A' }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @empty
+                                    <div class="px-4 py-8">
+                                        <p class="text-sm text-gray-500 text-center">No items available for this hospital</p>
+                                    </div>
+                                    @endforelse
+                                </div>
+                            </div>
+                            
+                            <!-- Pagination -->
+                            <div class="mt-4 flex items-center justify-between text-sm text-gray-500">
+                                <span>Showing 1 to {{ min(5, count($items)) }} of {{ count($items) }} results</span>
+                                <div class="flex items-center space-x-2">
+                                    <select class="px-2 py-1 border border-gray-300 rounded-md">
+                                        <option value="5">5</option>
+                                        <option value="10">10</option>
+                                        <option value="25">25</option>
+                                    </select>
+                                    <span>Per page</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Column: Request/Order Summary -->
+                        <div>
+                            <h4 class="text-md font-medium text-gray-900 mb-4">Request/Order Summary</h4>
+                            
+                            <!-- Request/Order Summary Table -->
+                            <div class="border border-gray-200 rounded-lg overflow-hidden">
+                                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                    <div class="grid grid-cols-5 gap-4">
+                                        <div>
+                                            <span class="text-sm font-medium text-gray-700">Item</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-sm font-medium text-gray-700">Type</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-sm font-medium text-gray-700">Quantity</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-sm font-medium text-gray-700">Price</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-sm font-medium text-gray-700">Action</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div id="request-order-summary-items" class="divide-y divide-gray-200 min-h-32">
+                                    <div class="px-4 py-8">
+                                        <p class="text-sm text-gray-500 text-center">No items selected</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Request/Order Summary -->
+                            <div class="mt-4 bg-gray-50 p-4 rounded-lg">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-sm text-gray-600">Unique Items:</span>
+                                    <span id="total-items" class="text-sm font-medium text-gray-900">0</span>
+                                </div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-sm text-gray-600">Total Quantity:</span>
+                                    <span id="total-quantity" class="text-sm font-medium text-gray-900">0</span>
+                                </div>
+                                <div class="flex justify-between items-center mb-4">
+                                    <span class="text-sm text-gray-600">Total Amount:</span>
+                                    <span id="total-amount" class="text-lg font-bold text-gray-900">UGX 0.00</span>
+                                </div>
+                                <button class="w-full bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors" onclick="showInvoicePreview()">
+                                    Preview Proforma Invoice
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             {{-- Unified Ordered Items Component --}}
             <x-pos.ordered-items 
@@ -454,243 +683,168 @@
             });
         }
 
-        // POS Functionality
-        let selectedItems = [];
-        let showPrices = false;
-        let showDescriptions = false;
+        // POS Functionality - Same as POS page
+        let cart = [];
 
-        // Initialize POS functionality
+        // Add event listeners to quantity inputs
         document.addEventListener('DOMContentLoaded', function() {
-            initializePOS();
+            // Check initial payment methods for mobile money
+            const initialPaymentMethods = @json($client->payment_methods ?? []);
+            if (initialPaymentMethods.includes('mobile_money')) {
+                document.getElementById('payment-phone-section').style.display = 'block';
+            }
+            
+            const quantityInputs = document.querySelectorAll('.quantity-input');
+            quantityInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    const itemId = this.dataset.itemId;
+                    const itemName = this.dataset.itemName;
+                    const itemDisplayName = this.dataset.itemDisplayName;
+                    const rawPrice = this.dataset.itemPrice;
+                    const itemPrice = parseFloat(rawPrice) || 0;
+                    const quantity = parseInt(this.value) || 0;
+                    const itemType = this.dataset.itemType || 'N/A';
+                    
+                    // Debug logging
+                    console.log('Item:', itemName, 'Raw Price:', rawPrice, 'Parsed Price:', itemPrice, 'Quantity:', quantity, 'Type:', itemType);
+                    
+                    if (quantity > 0) {
+                        addToCart(itemId, itemName, itemPrice, quantity, itemType, itemDisplayName);
+                        // Don't reset the input value - keep the state
+                    } else if (quantity === 0) {
+                        // Remove item from cart if quantity is 0
+                        removeFromCartByItemId(itemId);
+                    }
+                });
+            });
+            
+            // Add search functionality
+            const searchInput = document.getElementById('search-input');
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const itemRows = document.querySelectorAll('.item-row');
+                
+                itemRows.forEach(row => {
+                    const itemName = row.dataset.itemName;
+                    const itemOtherNames = row.dataset.itemOtherNames;
+                    
+                    // Search in both item name and other names
+                    if (itemName.includes(searchTerm) || itemOtherNames.includes(searchTerm)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+            
+            // Add show prices functionality
+            const showPricesCheckbox = document.getElementById('show-prices');
+            showPricesCheckbox.addEventListener('change', function() {
+                const priceElements = document.querySelectorAll('.price-display');
+                priceElements.forEach(element => {
+                    element.style.display = this.checked ? 'block' : 'none';
+                });
+            });
+            
+            // Add show descriptions functionality
+            const showDescriptionsCheckbox = document.getElementById('show-descriptions');
+            showDescriptionsCheckbox.addEventListener('change', function() {
+                const descriptionElements = document.querySelectorAll('.description-display');
+                descriptionElements.forEach(element => {
+                    element.style.display = this.checked ? 'block' : 'none';
+                });
+            });
         });
 
-        function initializePOS() {
-            // Search functionality
-            const searchInput = document.getElementById('search-input');
-            if (searchInput) {
-                searchInput.addEventListener('input', function() {
-                    filterItems(this.value);
-                });
-            }
-
-            // Show Prices checkbox
-            const showPricesCheckbox = document.getElementById('show-prices');
-            if (showPricesCheckbox) {
-                showPricesCheckbox.addEventListener('change', function() {
-                    showPrices = this.checked;
-                    togglePriceDisplay();
-                });
-            }
-
-            // Show Descriptions checkbox
-            const showDescriptionsCheckbox = document.getElementById('show-descriptions');
-            if (showDescriptionsCheckbox) {
-                showDescriptionsCheckbox.addEventListener('change', function() {
-                    showDescriptions = this.checked;
-                    toggleDescriptionDisplay();
-                });
-            }
-
-            // Quantity input changes
-            document.addEventListener('input', function(e) {
-                if (e.target.classList.contains('quantity-input')) {
-                    handleQuantityChange(e.target);
-                }
-            });
-        }
-
-        function filterItems(searchTerm) {
-            const items = document.querySelectorAll('.item-row');
-            const term = searchTerm.toLowerCase();
+        function addToCart(itemId, itemName, itemPrice, quantity, itemType, displayName) {
+            // Ensure proper number types
+            const price = parseFloat(itemPrice) || 0;
+            const qty = parseInt(quantity) || 0;
             
-            items.forEach(item => {
-                const itemName = item.dataset.itemName || '';
-                const itemDisplayName = item.dataset.itemDisplayName || '';
-                const itemOtherNames = item.dataset.itemOtherNames || '';
-                
-                const matches = itemName.includes(term) || 
-                               itemDisplayName.toLowerCase().includes(term) || 
-                               itemOtherNames.includes(term);
-                
-                item.style.display = matches ? 'block' : 'none';
-            });
-        }
-
-        function togglePriceDisplay() {
-            const priceElements = document.querySelectorAll('.price-display');
-            priceElements.forEach(element => {
-                element.style.display = showPrices ? 'block' : 'none';
-            });
-        }
-
-        function toggleDescriptionDisplay() {
-            const descriptionElements = document.querySelectorAll('.description-display');
-            descriptionElements.forEach(element => {
-                element.style.display = showDescriptions ? 'block' : 'none';
-            });
-        }
-
-        function handleQuantityChange(input) {
-            const itemId = input.dataset.itemId;
-            const itemName = input.dataset.itemName;
-            const itemType = input.dataset.itemType;
-            const itemPrice = parseFloat(input.dataset.itemPrice);
-            const quantity = parseInt(input.value) || 0;
-
-            console.log('Quantity changed:', { itemId, itemName, itemType, itemPrice, quantity });
-
-            if (quantity > 0) {
-                addItemToOrder(itemId, itemName, itemType, itemPrice, quantity);
+            // Check if item already exists in cart
+            const existingItem = cart.find(item => item.id === itemId);
+            if (existingItem) {
+                existingItem.quantity = qty; // Update quantity instead of adding
             } else {
-                removeItemFromOrder(itemId);
-            }
-            
-            updateOrderSummary();
-            console.log('Current selectedItems:', selectedItems);
-        }
-
-        function addItemToOrder(itemId, itemName, itemType, itemPrice, quantity) {
-            // Ensure itemId is a string for consistent comparison
-            const stringItemId = String(itemId);
-            const existingItemIndex = selectedItems.findIndex(item => String(item.id) === stringItemId);
-            
-            if (existingItemIndex !== -1) {
-                selectedItems[existingItemIndex].quantity = quantity;
-                selectedItems[existingItemIndex].totalAmount = itemPrice * quantity;
-            } else {
-                selectedItems.push({
-                    id: stringItemId,
+                cart.push({
+                    id: itemId,
                     name: itemName,
-                    type: itemType,
-                    price: itemPrice,
-                    quantity: quantity,
-                    totalAmount: itemPrice * quantity
+                    displayName: displayName,
+                    price: price,
+                    quantity: qty,
+                    type: itemType || 'N/A'
                 });
             }
+            
+            updateRequestOrderSummaryDisplay();
         }
-
-        function removeItemFromOrder(itemId) {
-            const stringItemId = String(itemId);
-            selectedItems = selectedItems.filter(item => String(item.id) !== stringItemId);
+        
+        function removeFromCartByItemId(itemId) {
+            cart = cart.filter(item => item.id !== itemId);
+            updateRequestOrderSummaryDisplay();
         }
-
-        function updateOrderSummary() {
-            const container = document.getElementById('selected-items-container');
-            const uniqueItemsSpan = document.getElementById('unique-items-count');
+        
+        function updateRequestOrderSummaryDisplay() {
+            const requestOrderSummaryContainer = document.getElementById('request-order-summary-items');
+            const totalItemsSpan = document.getElementById('total-items');
             const totalQuantitySpan = document.getElementById('total-quantity');
             const totalAmountSpan = document.getElementById('total-amount');
-
-            if (selectedItems.length === 0) {
-                container.innerHTML = '<div class="px-4 py-8 text-center text-gray-500">No items selected</div>';
-                uniqueItemsSpan.textContent = '0';
+            
+            if (cart.length === 0) {
+                requestOrderSummaryContainer.innerHTML = '<div class="px-4 py-8"><p class="text-sm text-gray-500 text-center">No items selected</p></div>';
+                totalItemsSpan.textContent = '0';
                 totalQuantitySpan.textContent = '0';
                 totalAmountSpan.textContent = 'UGX 0.00';
                 return;
             }
-
-            let html = '';
+            
+            let requestOrderSummaryHTML = '';
+            let totalItems = 0;
             let totalQuantity = 0;
             let totalAmount = 0;
-
-            selectedItems.forEach(item => {
-                totalQuantity += item.quantity;
-                totalAmount += item.totalAmount;
+            
+            cart.forEach((item, index) => {
+                const itemTotal = parseFloat(item.price || 0) * parseInt(item.quantity || 0);
+                totalItems += 1; // Count unique items
+                totalQuantity += parseInt(item.quantity || 0); // Sum of all quantities
+                totalAmount += itemTotal;
                 
-                html += `
-                    <div class="px-4 py-3 grid grid-cols-5 gap-4 items-center">
-                        <div class="text-sm text-gray-900">${item.name}</div>
-                        <div class="text-sm text-gray-600">${item.type}</div>
-                        <div class="text-sm text-gray-900">${item.quantity}</div>
-                        <div class="text-sm text-gray-900">UGX ${item.price.toLocaleString()}</div>
-                        <div>
-                            <button onclick="removeItem('${item.id}')" class="text-red-600 hover:text-red-800 text-sm underline">
-                                Remove
-                            </button>
+                requestOrderSummaryHTML += `
+                    <div class="px-4 py-3">
+                        <div class="grid grid-cols-4 gap-4 items-center">
+                            <div>
+                                <span class="text-sm text-gray-900 font-medium">${item.displayName || item.name}</span>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-600">${item.type || 'N/A'}</span>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-900">${item.quantity}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-blue-600">UGX ${(item.price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                <button class="text-red-500 hover:text-red-700 text-sm ml-2" onclick="removeFromCart(${index})">
+                                    Remove
+                                </button>
+                            </div>
                         </div>
                     </div>
                 `;
             });
-
-            container.innerHTML = html;
-            uniqueItemsSpan.textContent = selectedItems.length;
-            totalQuantitySpan.textContent = totalQuantity;
-            totalAmountSpan.textContent = `UGX ${totalAmount.toLocaleString()}`;
+            
+            requestOrderSummaryContainer.innerHTML = requestOrderSummaryHTML;
+            totalItemsSpan.textContent = totalItems; // This now shows total quantity of all items
+            totalQuantitySpan.textContent = totalQuantity; // This now shows total quantity of all items
+            totalAmountSpan.textContent = `UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         }
-
-        function removeItem(itemId) {
-            console.log('Removing item with ID:', itemId);
-            
-            // Reset the quantity input to 0
-            const input = document.querySelector(`input[data-item-id="${itemId}"]`);
-            if (input) {
-                input.value = '0';
-                console.log('Reset input for item:', itemId);
-            } else {
-                console.log('Input not found for item:', itemId);
-            }
-            
-            // Remove from selected items array
-            const initialLength = selectedItems.length;
-            const stringItemId = String(itemId);
-            selectedItems = selectedItems.filter(item => String(item.id) !== stringItemId);
-            console.log(`Removed item. Array length: ${initialLength} -> ${selectedItems.length}`);
-            
-            // Update the order summary
-            updateOrderSummary();
-            
-            // Show success message
-            Swal.fire({
-                icon: 'success',
-                title: 'Item Removed',
-                text: 'Item has been removed from your order.',
-                timer: 1500,
-                showConfirmButton: false
-            });
-        }
-
-        // Initialize package tracking numbers storage
-        window.packageTrackingNumbers = new Map();
         
-        // Generate package tracking number
-        function generatePackageTrackingNumber(packageId, packageName) {
-            if (window.packageTrackingNumbers.has(packageId)) {
-                return window.packageTrackingNumbers.get(packageId);
-            }
-            
-            // Generate a unique tracking number
-            const timestamp = Date.now().toString().slice(-6);
-            const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
-            const packagePrefix = packageName ? packageName.substring(0, 3).toUpperCase() : 'PKG';
-            const trackingNumber = `${packagePrefix}-${timestamp}-${randomSuffix}`;
-            
-            // Store the tracking number
-            window.packageTrackingNumbers.set(packageId, trackingNumber);
-            
-            return trackingNumber;
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            updateRequestOrderSummaryDisplay();
         }
-
-        // Preview Proforma Invoice functionality - Full POS functionality
-        document.addEventListener('click', function(e) {
-            if (e.target.textContent === 'Preview Proforma Invoice') {
-                if (selectedItems.length === 0) {
-                    Swal.fire({
-                        title: 'No Items Selected',
-                        text: 'Please select at least one item before previewing the invoice.',
-                        icon: 'warning',
-                        confirmButtonColor: '#3b82f6'
-                    });
-                    return;
-                }
-
-                showInvoicePreview();
-            }
-        });
 
         async function showInvoicePreview() {
-            console.log('showInvoicePreview called');
-            console.log('selectedItems:', selectedItems);
-            
-            if (selectedItems.length === 0) {
+            if (cart.length === 0) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'Empty Cart',
@@ -729,19 +883,13 @@
             let tableHTML = '';
             let subtotal = 0;
             
-            selectedItems.forEach(item => {
+            cart.forEach(item => {
                 const itemTotal = (item.price || 0) * (item.quantity || 0);
                 subtotal += itemTotal;
                 
-                // Generate tracking number for packages
-                let trackingNumber = 'N/A';
-                if (item.type === 'package') {
-                    trackingNumber = generatePackageTrackingNumber(item.id, item.name);
-                }
-                
                 tableHTML += `
                     <tr class="bg-white">
-                        <td class="border border-gray-300 px-4 py-2">${item.name}</td>
+                        <td class="border border-gray-300 px-4 py-2">${item.displayName || item.name}</td>
                         <td class="border border-gray-300 px-4 py-2 text-center">${item.type || 'N/A'}</td>
                         <td class="border border-gray-300 px-4 py-2 text-center">${item.quantity}</td>
                         <td class="border border-gray-300 px-4 py-2 text-right">UGX ${(item.price || 0).toLocaleString()}</td>
@@ -752,54 +900,271 @@
             
             invoiceTable.innerHTML = tableHTML;
             
-            // Calculate package adjustment
-            const packageAdjustmentData = await calculatePackageAdjustment();
-            const packageAdjustment = parseFloat(packageAdjustmentData.total_adjustment) || 0;
-            
-            // Show package adjustment details if any adjustments were made
-            if (packageAdjustmentData.details && packageAdjustmentData.details.length > 0) {
-                const adjustmentDetailsContainer = document.getElementById('package-adjustment-details');
-                const adjustmentList = document.getElementById('package-adjustment-list');
-                
-                let detailsHTML = '';
-                packageAdjustmentData.details.forEach(detail => {
-                    // Generate tracking number for package adjustments
-                    const packageTrackingNumber = generatePackageTrackingNumber(detail.package_id || 'adj_' + Date.now(), detail.package_name);
-                    
-                    detailsHTML += `
-                        <div class="flex justify-between items-center text-sm">
-                            <div>
-                                <span class="font-medium text-gray-800">${detail.item_name}</span>
-                                <span class="text-gray-600"> (${detail.quantity_adjusted} × UGX ${(detail.adjustment_amount / detail.quantity_adjusted).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})})</span>
-                            </div>
-                            <div class="text-right">
-                                <div class="font-medium text-green-800">-UGX ${detail.adjustment_amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
-                                <div class="text-xs text-gray-500">From: ${detail.package_name}</div>
-                                <div class="text-xs text-blue-600 font-mono">${packageTrackingNumber}</div>
-                            </div>
+            // Calculate totals
+            document.getElementById('invoice-subtotal').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('invoice-total').textContent = `UGX ${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+            // Show the modal
+            document.getElementById('invoice-preview-modal').classList.remove('hidden');
+        }
+        
+        function closeInvoicePreview() {
+            document.getElementById('invoice-preview-modal').classList.add('hidden');
+        }
+        
+        function closeClientConfirmation() {
+            document.getElementById('client-confirmation-modal').classList.add('hidden');
+        }
+        
+        function printClientDetails() {
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Client Details - {{ $client->name }}</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 20px; }
+                            .header { text-align: center; margin-bottom: 30px; }
+                            .client-info { margin-bottom: 20px; }
+                            .qr-code { text-align: center; margin: 20px 0; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                            <h1>{{ auth()->user()->business->name ?? 'Medical Centre' }}</h1>
                         </div>
-                    `;
-                });
+                        <div class="client-info">
+                            <h2>Client Details</h2>
+                            <p><strong>Name:</strong> {{ $client->name }}</p>
+                            <p><strong>Client ID:</strong> {{ $client->client_id }}</p>
+                            <p><strong>Visit ID:</strong> {{ $client->visit_id }}</p>
+                            <p><strong>Branch:</strong> {{ auth()->user()->currentBranch->name ?? 'N/A' }}</p>
+                        </div>
+                        <div class="qr-code">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=128x128&data={{ urlencode($client->client_id . '|' . $client->name) }}" alt="QR Code">
+                        </div>
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+        
+        function saveAndExit() {
+            // Log the save and exit action
+            console.log('=== SERVICE POINTS CLIENT DETAILS - SAVE AND EXIT TRIGGERED ===', {
+                client_id: {{ $client->id }},
+                client_name: '{{ $client->name }}',
+                page: 'Service Points Client Details',
+                action: 'Save and Exit',
+                timestamp: new Date().toISOString()
+            });
+
+            // Show confirmation dialog
+            Swal.fire({
+                title: 'Save Changes?',
+                text: 'Are you sure you want to save the selected statuses?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3b82f6',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, save changes!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    console.log('=== SERVICE POINTS CLIENT DETAILS - SAVE CONFIRMED ===', {
+                        client_id: {{ $client->id }},
+                        action: 'Save Confirmed',
+                        redirect_to: 'service-points.show',
+                        timestamp: new Date().toISOString()
+                    });
+
+                    Swal.fire({
+                        title: 'Saved Successfully!',
+                        text: 'Changes have been saved successfully.',
+                        icon: 'success',
+                        confirmButtonColor: '#10b981'
+                    }).then(() => {
+                        // Redirect back to service point
+                        window.location.href = '{{ route("service-points.show", $servicePoint) }}';
+                    });
+                } else {
+                    console.log('=== SERVICE POINTS CLIENT DETAILS - SAVE CANCELLED ===', {
+                        client_id: {{ $client->id }},
+                        action: 'Save Cancelled',
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            });
+        }
+    </script>
+
+    <!-- Payment Methods Modal -->
+    <div id="payment-methods-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+                    <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </div>
+                <div class="mt-3 text-center sm:mt-5">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">Select Payment Methods</h3>
+                    <div class="mt-2">
+                        <p class="text-sm text-gray-500">Choose how the client will pay for this order.</p>
+                    </div>
+                </div>
                 
-                adjustmentList.innerHTML = detailsHTML;
-                adjustmentDetailsContainer.classList.remove('hidden');
-            } else {
-                document.getElementById('package-adjustment-details').classList.add('hidden');
-            }
+                <!-- Payment Method Options -->
+                <div class="mt-5 sm:mt-6 space-y-3">
+                    <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" name="payment_methods[]" value="cash" class="mr-3 rounded border-gray-300">
+                        <span class="text-sm font-medium text-gray-700">Cash Payment</span>
+                    </label>
+                    
+                    <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" name="payment_methods[]" value="mobile_money" class="mr-3 rounded border-gray-300">
+                        <span class="text-sm font-medium text-gray-700">Mobile Money</span>
+                    </label>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                    <button type="button" onclick="confirmAndSaveInvoice()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:col-start-2 sm:text-sm">
+                        Confirm Order
+                    </button>
+                    <button type="button" onclick="closePaymentMethodsModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order/Request Summary Modal -->
+    <div id="invoice-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Order Summary</h3>
+                <button onclick="closeInvoicePreview()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
             
-            // Show package tracking summary if there are packages in the cart
-            const packagesInCart = selectedItems.filter(item => item.type === 'package');
-            if (packagesInCart.length > 0) {
-                const trackingSummaryContainer = document.getElementById('package-tracking-summary');
-                const trackingList = document.getElementById('package-tracking-list');
+            <!-- Proforma Invoice Header -->
+            <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Proforma Invoice</h2>
+                <div class="bg-blue-600 text-white py-2 px-4 rounded-lg mb-2">
+                    <span class="text-lg font-semibold">Proforma Invoice</span>
+                </div>
+                <div class="bg-gray-100 py-2 px-4 rounded-lg border">
+                    <span class="text-sm text-gray-600">Proforma Invoice Number:</span>
+                    <span id="invoice-number-display" class="text-lg font-bold text-gray-800 ml-2">Generating...</span>
+                </div>
+            </div>
+            
+            <!-- Invoice Items Table -->
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoice-items-table" class="bg-white divide-y divide-gray-200">
+                        <!-- Invoice items will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Invoice Totals -->
+            <div class="mt-6 bg-gray-50 p-4 rounded-lg">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm text-gray-600">Subtotal:</span>
+                    <span id="invoice-subtotal" class="text-sm font-medium text-gray-900">UGX 0.00</span>
+                </div>
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-lg font-semibold text-gray-900">Total Amount:</span>
+                    <span id="invoice-total" class="text-lg font-bold text-gray-900">UGX 0.00</span>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="mt-6 flex justify-end space-x-3">
+                <button onclick="closeInvoicePreview()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors">
+                    Close
+                </button>
+                <button onclick="openPaymentMethodsModal()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                    Proceed to Payment
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Methods Modal -->
+    <div id="payment-methods-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Edit Payment Methods</h3>
+                    <button onclick="closePaymentMethodsModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
                 
-                let trackingHTML = '';
-                packagesInCart.forEach(package => {
-                    const trackingNumber = window.packageTrackingNumbers.get(package.id) || generatePackageTrackingNumber(package.id, package.name);
-                    trackingHTML += `
-                        <div class="flex justify-between items-center text-sm">
-                            <div>
-                                <span class="font-medium text-gray-800">${package.name}</span>
+                <div class="mb-4">
+                    <div class="space-y-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="insurance" 
+                                   {{ in_array('insurance', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">🏥 Insurance</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="credit_arrangement_institutions" 
+                                   {{ in_array('credit_arrangement_institutions', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">🏦 Credit Arrangement Institutions</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="mobile_money" 
+                                   {{ in_array('mobile_money', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">📱 Mobile Money</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="v_card" 
+                                   {{ in_array('v_card', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">💳 V Card (Virtual Card)</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="p_card" 
+                                   {{ in_array('p_card', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">💳 P Card (Physical Card)</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="payment_methods[]" value="bank_transfer" 
+                                   {{ in_array('bank_transfer', $client->payment_methods ?? []) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <span class="ml-3 text-sm font-medium text-gray-700">🏦 Bank Transfer</span>
+                        </label>
+                        
+                        <label class="flex items-center">
                                 <span class="text-gray-600"> (Qty: ${package.quantity})</span>
                             </div>
                             <div class="text-right">
