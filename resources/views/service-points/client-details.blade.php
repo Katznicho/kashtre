@@ -1871,7 +1871,48 @@
                 confirmButtonColor: '#3b82f6',
                 cancelButtonColor: '#6b7280',
                 confirmButtonText: 'Yes, save changes!',
-                cancelButtonText: 'Cancel'
+                cancelButtonText: 'Cancel',
+                showLoaderOnConfirm: true,
+                preConfirm: () => {
+                    // Get form data
+                    const form = document.getElementById('itemStatusForm');
+                    if (!form) {
+                        throw new Error('Item status form not found');
+                    }
+                    const formData = new FormData(form);
+                    
+                    // Debug: Log what's being sent
+                    console.log('Form data being sent:');
+                    for (let [key, value] of formData.entries()) {
+                        console.log(key + ': ' + value);
+                    }
+                    
+                    return fetch('{{ route("service-points.update-statuses-and-process-money", [$servicePoint, $client->id]) }}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        },
+                        body: formData
+                    })
+                    .then(response => {
+                        // Check if response is JSON
+                        const contentType = response.headers.get('content-type');
+                        if (!contentType || !contentType.includes('application/json')) {
+                            // If not JSON, get the text and log it for debugging
+                            return response.text().then(text => {
+                                console.error('Non-JSON response received:', text);
+                                throw new Error('Server returned non-JSON response. Check console for details.');
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (!data.success) {
+                            throw new Error(data.message || 'An error occurred');
+                        }
+                        return data;
+                    });
+                }
             }).then((result) => {
                 if (result.isConfirmed) {
                     console.log('=== SERVICE POINTS CLIENT DETAILS - SAVE CONFIRMED ===', {
@@ -1883,7 +1924,7 @@
 
                     Swal.fire({
                         title: 'Saved Successfully!',
-                        text: 'Changes have been saved successfully.',
+                        text: result.value.message,
                         icon: 'success',
                         confirmButtonColor: '#10b981'
                     }).then(() => {
@@ -1897,6 +1938,19 @@
                         timestamp: new Date().toISOString()
                     });
                 }
+            }).catch((error) => {
+                console.error('=== SERVICE POINTS CLIENT DETAILS - SAVE ERROR ===', {
+                    client_id: {{ $client->id }},
+                    error: error.message,
+                    timestamp: new Date().toISOString()
+                });
+
+                Swal.fire({
+                    title: 'Error!',
+                    text: error.message,
+                    icon: 'error',
+                    confirmButtonColor: '#ef4444'
+                });
             });
         }
         
