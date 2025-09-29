@@ -1825,7 +1825,7 @@ class InvoiceController extends Controller
                 // Calculate total quantity for this included item
                 $totalQuantity = $maxQuantity * $quantity;
 
-                // Create package tracking record
+                // Create package tracking record with timestamp format
                 \App\Models\PackageTracking::create([
                     'business_id' => $invoice->business_id,
                     'client_id' => $invoice->client_id,
@@ -1841,7 +1841,7 @@ class InvoiceController extends Controller
                     'package_price' => $packagePrice,
                     'item_price' => $includedItemPrice,
                     'notes' => "Package: {$itemModel->name}, Invoice: {$invoice->invoice_number}",
-                    'tracking_number' => "PKG-{$packageTrackingCount + 1}" // Simple format: PKG-1, PKG-2, etc.
+                    'tracking_number' => 'PKG-' . $packageTrackingCount . '-' . now()->format('YmdHis')
                 ]);
                 
                 $packageTrackingCount++;

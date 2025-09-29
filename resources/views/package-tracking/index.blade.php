@@ -89,7 +89,7 @@
                                                 <div class="text-sm text-gray-500">{{ $package->invoice->created_at->format('M d, Y') }}</div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-blue-600 font-mono font-semibold">{{ $package->tracking_number ?? "PKG-" . $package->id }}</div>
+                                                <div class="text-sm text-blue-600 font-mono font-semibold">{{ $package->tracking_number ?? "PKG-" . $package->id . "-" . $package->created_at->format("YmdHis") }}</div>
                                                 <div class="text-xs text-gray-500">
                                                     Package ID
                                                 </div>

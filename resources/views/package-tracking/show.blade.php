@@ -87,7 +87,7 @@
                             </div>
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Package Tracking Number</dt>
-                                <dd class="mt-1 text-sm text-gray-900 font-mono text-blue-600">{{ $packageTracking->tracking_number ?? 'PKG-' . $packageTracking->id }}</dd>
+                                <dd class="mt-1 text-sm text-gray-900 font-mono text-blue-600">{{ $packageTracking->tracking_number ?? 'PKG-' . $packageTracking->id . '-' . $packageTracking->created_at->format('YmdHis') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Package Item</dt>
