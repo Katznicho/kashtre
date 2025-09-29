@@ -83,17 +83,51 @@ class TransactionController extends Controller
         $currentBranch = $user->currentBranch;
 
         // Fetch items that belong to this hospital/business
-        $items = Item::where('business_id', $user->business_id)
-                    ->orderBy('name')
-                    ->get();
+        // If user is from Kashtre (business_id 1), they can access items from all businesses
+        if ($user->business_id == 1) {
+            $items = Item::orderBy('name')->get();
+        } else {
+            $items = Item::where('business_id', $user->business_id)
+                        ->orderBy('name')
+                        ->get();
+        }
 
-        // Get branch-specific prices if branch exists
+        // Get branch-specific prices for each item
+        // For each item, we need to find the appropriate branch price based on the item's business
         $branchPrices = [];
-        if ($currentBranch) {
-            $branchPrices = BranchItemPrice::where('branch_id', $currentBranch->id)
-                ->where('business_id', $user->business_id)
-                ->pluck('price', 'item_id')
-                ->toArray();
+        
+        // Get all branch prices for items from all businesses
+        $allBranchPrices = BranchItemPrice::with('branch')
+            ->get()
+            ->groupBy('item_id');
+        
+        // For each item, find the appropriate branch price
+        foreach ($allBranchPrices as $itemId => $itemBranchPrices) {
+            // Find the item to determine its business
+            $item = $items->where('id', $itemId)->first();
+            if (!$item) continue;
+            
+            // If user is from Kashtre (business_id 1), they can use any branch price
+            // Otherwise, use branch prices from the item's business
+            if ($user->business_id == 1) {
+                // For Kashtre users, prefer the current branch if it has a price, otherwise use any available price
+                $preferredPrice = $itemBranchPrices->where('branch_id', $currentBranch->id)->first();
+                if (!$preferredPrice) {
+                    $preferredPrice = $itemBranchPrices->first();
+                }
+            } else {
+                // For non-Kashtre users, prefer the current branch if it has a price for this item's business,
+                // otherwise use any available price from the item's business
+                $businessBranchPrices = $itemBranchPrices->where('branch.business_id', $item->business_id);
+                $preferredPrice = $businessBranchPrices->where('branch_id', $currentBranch->id)->first();
+                if (!$preferredPrice) {
+                    $preferredPrice = $businessBranchPrices->first();
+                }
+            }
+            
+            if ($preferredPrice) {
+                $branchPrices[$itemId] = $preferredPrice->price;
+            }
         }
 
         // Add branch price or default price to each item
