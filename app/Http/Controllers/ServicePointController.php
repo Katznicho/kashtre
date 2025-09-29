@@ -200,13 +200,11 @@ class ServicePointController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('service-points.client-details', compact(
+        return view('pos.item-selection', compact(
             'servicePoint', 
             'client', 
             'pendingItems', 
             'partiallyDoneItems', 
-            'clientStatement',
-            'clientNotes',
             'correctTotalAmount',
             'items'
         ));
