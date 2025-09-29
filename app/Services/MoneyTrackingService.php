@@ -336,7 +336,7 @@ class MoneyTrackingService
                         'order_confirmed',
                         $invoice,
                         $item,
-                        "Package item usage: {$item->name}"
+                        $item->display_name ?? $item->name
                     );
 
                 } else {
@@ -2082,6 +2082,33 @@ class MoneyTrackingService
      */
     private function processPackageAdjustmentMoneyMovement($invoice, $clientSuspenseAccount, $business, &$transferRecords)
     {
+        Log::info("=== PACKAGE ADJUSTMENT MONEY MOVEMENT START ===", [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'client_id' => $invoice->client_id,
+            'business_id' => $business->id,
+            'business_name' => $business->name,
+            'description_format_update' => 'Updated package descriptions: Business=Package name + ref, Client=Item + quantity + ref',
+            'amount_calculation_update' => 'Business statement now uses sum of item amounts (actual revenue) instead of package price',
+            'timestamp' => now()->toDateTimeString()
+        ]);
+        
+        // Check if this invoice already has individual package item entries to prevent duplicates
+        $hasIndividualPackageEntries = \App\Models\BalanceHistory::where('client_id', $invoice->client_id)
+            ->where('reference_number', $invoice->invoice_number)
+            ->where('transaction_type', 'debit')
+            ->where('description', 'like', '%(x%')
+            ->exists();
+
+        if ($hasIndividualPackageEntries) {
+            Log::info("Skipping package purchase entry - individual package items already recorded", [
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $invoice->client_id,
+                'reason' => 'Individual package items already recorded as debits - avoiding duplicate package purchase entry'
+            ]);
+            return; // Skip creating package purchase entry
+        }
+
         // For package items, we need to use the actual package amount, not the item amount
         // The invoice package_adjustment contains the item amount (113), but we need the package amount (120)
         $packageAdjustmentAmount = $this->getPackageAmountForInvoice($invoice);
@@ -2673,6 +2700,7 @@ class MoneyTrackingService
                 'total_amount' => $totalAmount,
                 'package_sales_count' => count($packageSales),
                 'package_sales_breakdown' => $packageSales,
+                'description_format' => 'Item + quantity + ref (PKG tracking number)',
                 'timestamp' => now()->toDateTimeString()
             ]);
 
@@ -2687,7 +2715,7 @@ class MoneyTrackingService
                 $packageTracking = \App\Models\PackageTracking::find($sale['package_tracking_id']);
                 if ($packageTracking) {
                     $trackingNumber = $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}";
-                    $constituentItems[] = "{$sale['item_name']} ({$sale['quantity']})";
+                    $constituentItems[] = "{$sale['item_name']} ({$sale['quantity']}) (Ref: {$trackingNumber})";
                     $packageTrackingNumbers[] = $trackingNumber;
                 }
             }
@@ -2698,9 +2726,9 @@ class MoneyTrackingService
             $balanceHistory = \App\Models\BalanceHistory::recordPackageUsage(
                 $invoice->client,
                 $totalAmount,
-                "Package item usage: {$constituentItemsDescription} (Ref: {$trackingNumbersRef}) from invoice {$invoice->invoice_number}",
+                "{$constituentItemsDescription} from invoice {$invoice->invoice_number}",
                 $invoice->invoice_number,
-                "Package items used: {$constituentItemsDescription} (Ref: {$trackingNumbersRef})",
+                $constituentItemsDescription,
                 'package_usage'
             );
 
@@ -2710,7 +2738,8 @@ class MoneyTrackingService
                 'balance_history_id' => $balanceHistory->id,
                 'total_amount' => $totalAmount,
                 'transaction_type' => 'package',
-                'description' => "Package item usage: {$constituentItemsDescription} (Ref: {$trackingNumbersRef}) from invoice {$invoice->invoice_number}",
+                'description' => $constituentItemsDescription,
+                'description_format' => 'Item + quantity + ref (PKG tracking number)',
                 'reference_number' => $invoice->invoice_number,
                 'client_name' => $invoice->client->name ?? 'Unknown',
                 'package_sales_count' => count($packageSales),
@@ -2738,10 +2767,9 @@ class MoneyTrackingService
     private function createBusinessPackageStatementEntry($invoice, $packageSales)
     {
         try {
-            // For business statement, we should use the package amount, not the sum of item amounts
-            // The package sales contain item amounts (113), but the business should see the package amount (120)
-            $packageAmount = $this->getPackageAmountForInvoice($invoice);
-            $totalAmount = $packageAmount;
+            // For business statement, we should use the sum of item amounts, not the package amount
+            // The business should see the actual revenue from individual items sold (113), not the package price (120)
+            $totalAmount = array_sum(array_column($packageSales, 'amount'));
             
             Log::info("=== CREATING BUSINESS PACKAGE STATEMENT ENTRY ===", [
                 'invoice_id' => $invoice->id,
@@ -2749,11 +2777,12 @@ class MoneyTrackingService
                 'business_id' => $invoice->business_id,
                 'business_name' => $invoice->business->name ?? 'Unknown',
                 'branch_id' => $invoice->branch_id,
-                'package_amount_for_business' => $totalAmount,
+                'business_revenue_amount' => $totalAmount,
                 'item_amounts_sum' => array_sum(array_column($packageSales, 'amount')),
                 'package_sales_count' => count($packageSales),
                 'package_sales_breakdown' => $packageSales,
-                'note' => 'Business statement uses package amount (120), not sum of item amounts (113)',
+                'description_format' => 'Package name + ref (PKG tracking number)',
+                'note' => 'Business statement uses sum of item amounts (actual revenue), not package price',
                 'timestamp' => now()->toDateTimeString()
             ]);
 
@@ -2793,7 +2822,7 @@ class MoneyTrackingService
                 $business->id,
                 $businessAccount->id,
                 $totalAmount,
-                "Package sales revenue: {$packageDescription} from invoice {$invoice->invoice_number}",
+                "{$packageDescription} from invoice {$invoice->invoice_number}",
                 'package_sales',
                 $invoice->id,
                 [
@@ -2815,6 +2844,7 @@ class MoneyTrackingService
                 'total_amount' => $totalAmount,
                 'transaction_type' => 'package',
                 'description' => "Package sales revenue: {$packageDescription} from invoice {$invoice->invoice_number}",
+                'description_format' => 'Package name + ref (PKG tracking number)',
                 'reference_type' => 'package_sales',
                 'reference_id' => $invoice->id,
                 'business_account_balance' => $businessAccount->balance,

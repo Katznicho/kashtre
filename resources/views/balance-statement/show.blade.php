@@ -57,6 +57,7 @@
                                                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
                                                     @if($history->transaction_type === 'credit') bg-green-100 text-green-800
                                                     @elseif($history->transaction_type === 'payment') bg-red-100 text-red-800
+                                                    @elseif($history->transaction_type === 'package') bg-blue-100 text-blue-800
                                                     @else bg-yellow-100 text-yellow-800 @endif">
                                                     {{ ucfirst($history->transaction_type) }}
                                                 </span>
@@ -110,7 +111,7 @@
                                                 @endif
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                <span class="@if($history->change_amount > 0) text-green-600 @else text-red-600 @endif">
+                                                <span class="@if($history->transaction_type === 'package') text-blue-600 @elseif($history->change_amount > 0) text-green-600 @else text-red-600 @endif">
                                                     {{ $history->getFormattedChangeAmount() }}
                                                 </span>
                                             </td>

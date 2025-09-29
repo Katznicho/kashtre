@@ -265,7 +265,7 @@ class PackageSalesService
                 'client_id' => $clientId,
                 'amount' => $amount,
                 'reference' => 'CLIENT-PKG-' . time() . '-' . $invoiceNumber,
-                'description' => "Package item usage from invoice {$invoiceNumber}",
+                'description' => "Package usage from invoice {$invoiceNumber}",
                 'status' => 'completed',
                 'type' => 'package', // Special type for package transactions
                 'origin' => 'package_usage',
