@@ -452,12 +452,14 @@ class MoneyTrackingService
                 $totalAmount = $itemData['total_amount'] ?? ($item->default_price * $quantity);
 
                 // Create debit record for client balance statement
+                // Use display_name for packages (avoids showing other_names), fallback to name for regular items
+                $itemDisplayName = $item->display_name ?? $item->name;
                 $debitRecord = BalanceHistory::recordDebit(
                     $client,
                     $totalAmount,
-                    "{$item->name} (x{$quantity})",
+                    "{$itemDisplayName} (x{$quantity})",
                     $invoice->invoice_number,
-                    "{$item->name} (x{$quantity})"
+                    "{$itemDisplayName} (x{$quantity})"
                 );
 
                 $debitRecords[] = [
@@ -473,9 +475,11 @@ class MoneyTrackingService
                     'invoice_id' => $invoice->id,
                     'item_id' => $itemId,
                     'item_name' => $item->name,
+                    'item_display_name' => $itemDisplayName,
                     'quantity' => $quantity,
                     'amount' => $totalAmount,
-                    'balance_history_id' => $debitRecord->id ?? null
+                    'balance_history_id' => $debitRecord->id ?? null,
+                    'note' => 'Using display_name to avoid showing other_names for packages'
                 ]);
             }
 

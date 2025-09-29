@@ -704,9 +704,29 @@ class CheckPaymentStatus extends Command
         }
 
         // Create business and client statement entries for package purchase if any packages were created
+        // BUT only if there's actual package usage (package adjustment or package item sales)
+        // Package purchase entries should only be created when there's actual package consumption
         if ($packageTrackingCount > 0) {
-            $this->createPackagePurchaseBusinessStatementEntry($invoice, $packageTrackingCount);
-            $this->createPackagePurchaseClientStatementEntry($invoice, $packageTrackingCount);
+            // Check if there's actual package usage before creating package purchase entries
+            $hasPackageUsage = $this->checkForPackageUsage($invoice);
+            
+            if ($hasPackageUsage) {
+                Log::info("Package usage detected - creating package purchase entries", [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'package_tracking_count' => $packageTrackingCount
+                ]);
+                
+                $this->createPackagePurchaseBusinessStatementEntry($invoice, $packageTrackingCount);
+                $this->createPackagePurchaseClientStatementEntry($invoice, $packageTrackingCount);
+            } else {
+                Log::info("No package usage detected - skipping package purchase entries", [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'package_tracking_count' => $packageTrackingCount,
+                    'reason' => 'Package tracking records created but no actual package usage/sales detected'
+                ]);
+            }
         }
 
         Log::info("=== PACKAGE TRACKING CREATION COMPLETED ===", [
@@ -871,6 +891,68 @@ class CheckPaymentStatus extends Command
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
+        }
+    }
+
+    /**
+     * Check if there's actual package usage (package adjustment or package item sales)
+     * Package purchase entries should only be created when there's actual package consumption
+     */
+    private function checkForPackageUsage($invoice)
+    {
+        try {
+            Log::info("=== CHECKING FOR PACKAGE USAGE ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $invoice->client_id
+            ]);
+
+            // Check if there are any package sales for this invoice
+            $packageSales = \App\Models\PackageSales::where('invoice_id', $invoice->id)->get();
+            
+            if ($packageSales->count() > 0) {
+                Log::info("Package sales found - package usage detected", [
+                    'invoice_id' => $invoice->id,
+                    'package_sales_count' => $packageSales->count(),
+                    'package_sales' => $packageSales->pluck('item_name', 'id')
+                ]);
+                return true;
+            }
+
+            // Check if there are any individual package item debit entries for this invoice
+            $individualPackageEntries = \App\Models\BalanceHistory::where('client_id', $invoice->client_id)
+                ->where('reference_number', $invoice->invoice_number)
+                ->where('transaction_type', 'debit')
+                ->where('description', 'like', '%(x%')
+                ->exists();
+
+            if ($individualPackageEntries) {
+                Log::info("Individual package item entries found - package usage detected", [
+                    'invoice_id' => $invoice->id,
+                    'client_id' => $invoice->client_id,
+                    'reference_number' => $invoice->invoice_number
+                ]);
+                return true;
+            }
+
+            Log::info("No package usage detected", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $invoice->client_id,
+                'package_sales_count' => $packageSales->count(),
+                'individual_package_entries_found' => $individualPackageEntries
+            ]);
+
+            return false;
+
+        } catch (\Exception $e) {
+            Log::error("Error checking for package usage", [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            // Default to false to prevent creating package purchase entries when uncertain
+            return false;
         }
     }
 }
