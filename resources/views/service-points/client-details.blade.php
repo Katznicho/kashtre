@@ -1372,46 +1372,6 @@
                     </table>
                 </div>
                 
-                <!-- Package Adjustment Details -->
-                <div id="package-adjustment-details" class="mb-6 hidden">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Package Adjustments Applied</h3>
-                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <div id="package-adjustment-list" class="space-y-2">
-                            <!-- Package adjustment details will be populated by JavaScript -->
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Financial Summary -->
-                <div class="text-right space-y-2 text-sm">
-                    <div class="flex justify-between">
-                        <span>Subtotal 1:</span>
-                        <span id="invoice-subtotal">UGX 0.00</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Package Adjustment:</span>
-                        <span id="package-adjustment-display">UGX 0.00</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Account Balance(A/c) Adjustment:</span>
-                        <span id="balance-adjustment-display">UGX 0.00</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Subtotal 2:</span>
-                        <span id="invoice-subtotal-2">UGX 0.00</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Service Charge:</span>
-                        <span id="service-charge-display">UGX 0.00</span>
-                    </div>
-                    <div class="text-xs text-gray-500 text-right italic" id="service-charge-note">
-                        No charges for this amount range
-                    </div>
-                    <div class="flex justify-between text-lg font-bold border-t pt-2">
-                        <span>Total:</span>
-                        <span id="invoice-final-total">UGX 0.00</span>
-                    </div>
-                </div>
                 
                 <!-- Package Tracking Numbers Summary -->
                 <div id="package-tracking-summary" class="mb-6 hidden">

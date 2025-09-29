@@ -219,6 +219,46 @@
                     </div>
                 </div>
                 
+                <!-- Package Adjustment Details -->
+                <div id="package-adjustment-details" class="mb-4 hidden">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Package Adjustments Applied</h3>
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div id="package-adjustment-list" class="space-y-2">
+                            <!-- Package adjustment details will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Financial Summary -->
+                <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span>Subtotal 1:</span>
+                            <span id="invoice-subtotal">UGX 0.00</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Package Adjustment:</span>
+                            <span id="package-adjustment-display">UGX 0.00</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Account Balance(A/c) Adjustment:</span>
+                            <span id="balance-adjustment-display">UGX 0.00</span>
+                        </div>
+                        <div class="flex justify-between border-t border-gray-200 pt-2">
+                            <span class="font-medium">Subtotal 2:</span>
+                            <span id="invoice-subtotal-2" class="font-medium">UGX 0.00</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Service Charge:</span>
+                            <span id="service-charge-display">UGX 0.00</span>
+                        </div>
+                        <div class="flex justify-between border-t border-gray-200 pt-2 font-semibold text-lg">
+                            <span>Total Amount:</span>
+                            <span id="invoice-total">UGX 0.00</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Preview Proforma Invoice Button -->
                 <button onclick="showInvoicePreview()" class="w-full bg-gray-900 text-white py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors font-medium">
                     Preview Proforma Invoice
