@@ -896,7 +896,9 @@
                     },
                     body: JSON.stringify({
                         items: selectedItems,
-                        business_id: {{ auth()->user()->business_id }}
+                        client_id: {{ $client->id }},
+                        business_id: {{ auth()->user()->business_id }},
+                        branch_id: {{ auth()->user()->currentBranch->id ?? 'null' }}
                     })
                 });
                 
@@ -954,8 +956,7 @@
                         'Accept': 'application/json',
                     },
                     body: JSON.stringify({
-                        amount: amount,
-                        business_id: {{ auth()->user()->business_id }},
+                        total_amount: amount,
                         client_id: {{ $client->id }}
                     })
                 });
