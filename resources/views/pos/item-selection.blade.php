@@ -409,26 +409,6 @@
                 </div>
             </div>
             
-            <!-- Section 4.5: Client Details (Patrick Dorgu) -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
-                <div class="p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Client Details</h3>
-                    <div class="bg-blue-50 p-4 rounded-lg">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <h4 class="text-lg font-semibold text-gray-900">{{ $client->name }}</h4>
-                                <p class="text-sm text-gray-600">Client ID: {{ $client->client_id }} | Visit ID: {{ $client->visit_id }}</p>
-                            </div>
-                            <div class="text-right">
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                                    Active
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
             <!-- Section 5: Ordered Items (Requests/Orders) -->
             <x-pos.ordered-items 
                 :pendingItems="$pendingItems" 
