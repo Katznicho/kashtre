@@ -101,7 +101,7 @@ class PackageSalesService
                     $packageSale = PackageSales::create([
                         'name' => $packageTracking->client->name ?? 'Unknown Client',
                         'invoice_number' => $invoiceNumber,
-                        'pkn' => $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}",
+                        'pkn' => $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}-{$packageTracking->created_at->format('YmdHis')}",
                         'date' => now()->toDateString(),
                         'qty' => $quantityToUse,
                         'item_name' => $packageTracking->includedItem->name ?? 'Unknown Item',

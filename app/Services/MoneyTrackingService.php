@@ -2613,7 +2613,7 @@ class MoneyTrackingService
                                 $packageSaleData = [
                                     'name' => $packageTracking->client->name ?? 'Unknown Client',
                                     'invoice_number' => $invoice->invoice_number,
-                                    'pkn' => $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}",
+                                    'pkn' => $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}-{$packageTracking->created_at->format('YmdHis')}",
                                     'date' => now()->toDateString(),
                                     'qty' => $quantityToUse,
                                     'item_name' => $itemModel->name ?? 'Unknown Item',
