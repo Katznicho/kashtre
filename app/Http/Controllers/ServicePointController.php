@@ -195,10 +195,86 @@ class ServicePointController extends Controller
         $invoice = $clientItems->first()?->invoice;
         $correctTotalAmount = $invoice ? $invoice->total_amount : 0;
 
-        // Get items for the POS functionality
-        $items = \App\Models\Item::where('business_id', $client->business_id ?? 1)
-            ->orderBy('name')
-            ->get();
+        // Get items for the POS functionality with branch-specific pricing
+        // If user is from Kashtre (business_id 1), they can access items from all businesses
+        if ($user->business_id == 1) {
+            $items = \App\Models\Item::orderBy('name')->get();
+        } else {
+            $items = \App\Models\Item::where('business_id', $user->business_id)
+                        ->orderBy('name')
+                        ->get();
+        }
+
+        // Get current branch
+        $currentBranch = $user->currentBranch;
+
+        // Get branch-specific prices for each item
+        // For each item, we need to find the appropriate branch price based on the item's business
+        $branchPrices = [];
+        
+        // Get all branch prices for items from all businesses
+        $allBranchPrices = \App\Models\BranchItemPrice::with('branch')
+            ->get()
+            ->groupBy('item_id');
+        
+        // For each item, find the appropriate branch price
+        foreach ($allBranchPrices as $itemId => $itemBranchPrices) {
+            // Find the item to determine its business
+            $item = $items->where('id', $itemId)->first();
+            if (!$item) continue;
+            
+            // If user is from Kashtre (business_id 1), they can use any branch price
+            // Otherwise, use branch prices from the item's business
+            if ($user->business_id == 1) {
+                // For Kashtre users, prefer the current branch if it has a price, otherwise use any available price
+                $preferredPrice = $itemBranchPrices->where('branch_id', $currentBranch->id)->first();
+                if (!$preferredPrice) {
+                    $preferredPrice = $itemBranchPrices->first();
+                }
+            } else {
+                // For non-Kashtre users, prefer the current branch if it has a price for this item's business,
+                // otherwise use any available price from the item's business
+                $businessBranchPrices = $itemBranchPrices->where('branch.business_id', $item->business_id);
+                $preferredPrice = $businessBranchPrices->where('branch_id', $currentBranch->id)->first();
+                if (!$preferredPrice) {
+                    $preferredPrice = $businessBranchPrices->first();
+                }
+            }
+            
+            if ($preferredPrice) {
+                $branchPrices[$itemId] = $preferredPrice->price;
+            }
+        }
+
+        // Add branch price or default price to each item
+        $items->each(function ($item) use ($branchPrices, $currentBranch, $user) {
+            // Ensure we have a valid default price
+            $defaultPrice = $item->default_price ?? 0;
+            
+            // Get branch price if available
+            $branchPrice = $branchPrices[$item->id] ?? null;
+            
+            // Set final price - prefer branch price, fallback to default price
+            $item->final_price = $branchPrice ?? $defaultPrice;
+            
+            // Ensure final_price is never null or empty
+            if (empty($item->final_price) || $item->final_price === null) {
+                $item->final_price = 0;
+            }
+            
+            // Debug logging for pricing issues
+            \Illuminate\Support\Facades\Log::info("=== SERVICE POINTS ITEM PRICING DEBUG ===", [
+                'item_id' => $item->id,
+                'item_name' => $item->name,
+                'default_price' => $defaultPrice,
+                'branch_price' => $branchPrice,
+                'final_price' => $item->final_price,
+                'branch_id' => $currentBranch ? $currentBranch->id : 'null',
+                'branch_name' => $currentBranch ? $currentBranch->name : 'null',
+                'has_branch_price' => isset($branchPrices[$item->id]),
+                'business_id' => $user->business_id
+            ]);
+        });
 
         return view('pos.item-selection', compact(
             'servicePoint', 
