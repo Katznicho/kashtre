@@ -27,7 +27,8 @@ class PackageTracking extends Model
         'status',
         'package_price',
         'item_price',
-        'notes'
+        'notes',
+        'tracking_number'
     ];
 
     protected $casts = [

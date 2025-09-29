@@ -689,7 +689,8 @@ class CheckPaymentStatus extends Command
                     'status' => 'active',
                     'package_price' => $packagePrice,
                     'item_price' => $includedItemPrice,
-                    'notes' => "Package: {$itemModel->name}, Invoice: {$invoice->invoice_number}"
+                    'notes' => "Package: {$itemModel->name}, Invoice: {$invoice->invoice_number}",
+                    'tracking_number' => "PKG-{$packageTrackingCount + 1}" // Simple format: PKG-1, PKG-2, etc.
                 ]);
 
                 $packageTrackingCount++;

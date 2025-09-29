@@ -102,7 +102,7 @@
                                             <div>
                                                 <p class="font-medium text-gray-900">{{ $package->client->name }}</p>
                                                 <p class="text-sm text-gray-600">{{ $package->packageItem->display_name }}</p>
-                                                <p class="text-xs text-blue-600 font-mono">{{ $package->tracking_number ?? 'PKG-' . $package->id . '-' . $package->created_at->format('YmdHis') }}</p>
+                                                <p class="text-xs text-blue-600 font-mono">{{ $package->tracking_number ?? 'PKG-' . $package->id }}</p>
                                                 <p class="text-xs text-gray-500">{{ $package->remaining_quantity }}/{{ $package->total_quantity }} remaining • {{ $package->packageItem->packageItems->count() }} items</p>
                                             </div>
                                             <span class="px-2 py-1 text-xs rounded-full {{ $package->status === 'active' ? 'bg-green-100 text-green-800' : ($package->status === 'expired' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800') }}">
@@ -130,7 +130,7 @@
                                             <div>
                                                 <p class="font-medium text-gray-900">{{ $package->client->name }}</p>
                                                 <p class="text-sm text-gray-600">{{ $package->packageItem->display_name }}</p>
-                                                <p class="text-xs text-blue-600 font-mono">{{ $package->tracking_number ?? 'PKG-' . $package->id . '-' . $package->created_at->format('YmdHis') }}</p>
+                                                <p class="text-xs text-blue-600 font-mono">{{ $package->tracking_number ?? 'PKG-' . $package->id }}</p>
                                                 <p class="text-xs text-red-600">Expires: {{ $package->valid_until->format('M d, Y') }} • {{ $package->packageItem->packageItems->count() }} items</p>
                                             </div>
                                             <span class="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">

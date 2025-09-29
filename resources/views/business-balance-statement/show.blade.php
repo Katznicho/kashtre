@@ -113,7 +113,11 @@
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 <span class="@if($history->type === 'credit') text-green-600 @elseif($history->type === 'package') text-blue-600 @else text-red-600 @endif font-semibold">
-                                                    {{ $history->type === 'credit' || $history->type === 'package' ? '+' : '-' }}{{ number_format($history->amount, 0) }} UGX
+                                                    @if($history->type === 'package')
+                                                        {{ number_format($history->amount, 0) }} UGX
+                                                    @else
+                                                        {{ $history->type === 'credit' ? '+' : '-' }}{{ number_format($history->amount, 0) }} UGX
+                                                    @endif
                                                 </span>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

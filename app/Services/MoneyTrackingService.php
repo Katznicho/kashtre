@@ -2058,7 +2058,12 @@ class MoneyTrackingService
                 $packageTrackingNumbers[] = $trackingNumber;
             }
             
-            $description = implode(', ', $packageDescriptions);
+            // Simplify description - use first package, add "and X more" if multiple
+            if (count($packageDescriptions) == 1) {
+                $description = $packageDescriptions[0];
+            } else {
+                $description = $packageDescriptions[0] . " and " . (count($packageDescriptions) - 1) . " more";
+            }
             $trackingNumbers = implode(', ', array_unique($packageTrackingNumbers));
             
             return [
@@ -2154,7 +2159,7 @@ class MoneyTrackingService
             'to_account_id' => $businessAccount->id,
             'amount' => $packageAdjustmentAmount,
             'type' => 'package_adjustment_transfer',
-            'description' => "Package adjustment: {$packageInfo['description']} for invoice {$invoice->invoice_number}",
+            'description' => $packageInfo['description'],
             'reference' => $invoice->invoice_number,
             'invoice_id' => $invoice->id,
             'metadata' => [
@@ -2198,7 +2203,7 @@ class MoneyTrackingService
             $businessAccount->id,
             $packageAdjustmentAmount,
             'credit',
-            "Package adjustment money movement - {$transfer->description}",
+            $transfer->description,
             'MoneyTransfer',
             $transfer->id,
             [
@@ -2805,9 +2810,8 @@ class MoneyTrackingService
             // For package sales revenue, we should use 'package' type to avoid double crediting
             // The actual money transfer already happened in the package adjustment money movement
             
-            // Build description with package names and tracking numbers
+            // Build simplified description with package names and tracking numbers
             $packageDescriptions = [];
-            $packageTrackingNumbers = [];
             
             foreach ($packageSales as $sale) {
                 $packageTracking = \App\Models\PackageTracking::find($sale['package_tracking_id']);
@@ -2815,12 +2819,15 @@ class MoneyTrackingService
                     $packageName = $packageTracking->packageItem->display_name ?? 'Unknown Package';
                     $trackingNumber = $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}";
                     $packageDescriptions[] = "{$packageName} (Ref: {$trackingNumber})";
-                    $packageTrackingNumbers[] = $trackingNumber;
                 }
             }
             
-            $packageDescription = implode(', ', $packageDescriptions);
-            $trackingNumbersRef = implode(', ', array_unique($packageTrackingNumbers));
+            // Use first package for main description, add "and X more" if multiple packages
+            if (count($packageDescriptions) == 1) {
+                $packageDescription = $packageDescriptions[0];
+            } else {
+                $packageDescription = $packageDescriptions[0] . " and " . (count($packageDescriptions) - 1) . " more";
+            }
             
             $businessBalanceHistory = \App\Models\BusinessBalanceHistory::recordPackageTransaction(
                 $business->id,
