@@ -1082,7 +1082,6 @@
                     business_id: {{ auth()->user()->business_id }},
                     client_id: {{ $client->id }},
                     branch_id: {{ auth()->user()->currentBranch->id ?? 'null' }},
-                    service_point_id: {{ $servicePoint->id }},
                     created_by: {{ auth()->id() }},
                     client_name: '{{ $client->name }}',
                     client_phone: '{{ $client->phone_number }}',
