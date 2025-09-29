@@ -176,17 +176,49 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Section 4: Client Details (Patrick Dorgu) -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Client Details</h3>
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="text-lg font-semibold text-gray-900">{{ $client->name }}</h4>
+                                <p class="text-sm text-gray-600">Client ID: {{ $client->client_id }} | Visit ID: {{ $client->visit_id }}</p>
+                            </div>
+                            <div class="text-right">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                    Active
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             
             {{-- Unified Make a Request/Order Component --}}
             <x-pos.make-request-order :items="$items" />
             
             {{-- Unified Ordered Items Component --}}
             <x-pos.ordered-items 
-                :pendingItems="collect()" 
-                :partiallyDoneItems="collect()" 
+                :pendingItems="$pendingItems" 
+                :partiallyDoneItems="$partiallyDoneItems" 
                 :completedItems="collect()" 
-                :correctTotalAmount="0" 
+                :correctTotalAmount="$correctTotalAmount ?? 0" 
             />
+
+            <!-- Save and Exit Button -->
+            <div class="flex justify-end space-x-4 mt-6">
+                <a href="{{ route('clients.index') }}" 
+                   class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
+                    Cancel
+                </a>
+                <button onclick="saveAndExit()" 
+                        class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors">
+                    Save and Exit
+                </button>
+            </div>
         </div>
     </div>
     
@@ -526,31 +558,37 @@
         }
         
         function updateRequestOrderSummaryDisplay() {
-            const requestOrderSummaryContainer = document.getElementById('request-order-summary-items');
-            const totalItemsSpan = document.getElementById('total-items');
+            const selectedItemsContainer = document.getElementById('selected-items-container');
+            const uniqueItemsCountSpan = document.getElementById('unique-items-count');
             const totalQuantitySpan = document.getElementById('total-quantity');
             const totalAmountSpan = document.getElementById('total-amount');
             
+            // Check if elements exist before trying to update them
+            if (!selectedItemsContainer || !uniqueItemsCountSpan || !totalQuantitySpan || !totalAmountSpan) {
+                console.log('Some elements not found, skipping update');
+                return;
+            }
+            
             if (cart.length === 0) {
-                requestOrderSummaryContainer.innerHTML = '<div class="px-4 py-8"><p class="text-sm text-gray-500 text-center">No items selected</p></div>';
-                totalItemsSpan.textContent = '0';
+                selectedItemsContainer.innerHTML = '<div class="px-4 py-8"><p class="text-sm text-gray-500 text-center">No items selected</p></div>';
+                uniqueItemsCountSpan.textContent = '0';
                 totalQuantitySpan.textContent = '0';
                 totalAmountSpan.textContent = 'UGX 0.00';
                 return;
             }
             
-            let requestOrderSummaryHTML = '';
-            let totalItems = 0;
+            let selectedItemsHTML = '';
+            let uniqueItems = 0;
             let totalQuantity = 0;
             let totalAmount = 0;
             
             cart.forEach((item, index) => {
                 const itemTotal = parseFloat(item.price || 0) * parseInt(item.quantity || 0);
-                totalItems += 1; // Count unique items
+                uniqueItems += 1; // Count unique items
                 totalQuantity += parseInt(item.quantity || 0); // Sum of all quantities
                 totalAmount += itemTotal;
                 
-                requestOrderSummaryHTML += `
+                selectedItemsHTML += `
                     <div class="px-4 py-3">
                         <div class="grid grid-cols-4 gap-4 items-center">
                             <div>
@@ -573,9 +611,9 @@
                 `;
             });
             
-            requestOrderSummaryContainer.innerHTML = requestOrderSummaryHTML;
-            totalItemsSpan.textContent = totalItems; // This now shows total quantity of all items
-            totalQuantitySpan.textContent = totalQuantity; // This now shows total quantity of all items
+            selectedItemsContainer.innerHTML = selectedItemsHTML;
+            uniqueItemsCountSpan.textContent = uniqueItems;
+            totalQuantitySpan.textContent = totalQuantity;
             totalAmountSpan.textContent = `UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         }
         
@@ -1612,6 +1650,55 @@
         }
         
         // Export package tracking numbers to CSV
+        
+        function saveAndExit() {
+            // Log the save and exit action
+            console.log('=== POS ITEM SELECTION - SAVE AND EXIT TRIGGERED ===', {
+                client_id: {{ $client->id }},
+                client_name: '{{ $client->name }}',
+                page: 'POS Item Selection',
+                action: 'Save and Exit',
+                unified_component_used: true,
+                timestamp: new Date().toISOString()
+            });
+
+            // Show confirmation dialog
+            Swal.fire({
+                title: 'Save Changes?',
+                text: 'Are you sure you want to save the selected statuses?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3b82f6',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, save changes!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    console.log('=== POS ITEM SELECTION - SAVE CONFIRMED ===', {
+                        client_id: {{ $client->id }},
+                        action: 'Save Confirmed',
+                        redirect_to: 'clients.index',
+                        timestamp: new Date().toISOString()
+                    });
+
+                    Swal.fire({
+                        title: 'Saved Successfully!',
+                        text: 'Changes have been saved successfully.',
+                        icon: 'success',
+                        confirmButtonColor: '#10b981'
+                    }).then(() => {
+                        // Redirect back to clients list
+                        window.location.href = '{{ route("clients.index") }}';
+                    });
+                } else {
+                    console.log('=== POS ITEM SELECTION - SAVE CANCELLED ===', {
+                        client_id: {{ $client->id }},
+                        action: 'Save Cancelled',
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            });
+        }
     </script>
     
     <!-- Payment Methods Modal -->

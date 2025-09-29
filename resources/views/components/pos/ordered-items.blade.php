@@ -150,10 +150,7 @@
             @if((isset($pendingItems) && $pendingItems->count() > 0) || 
                 (isset($partiallyDoneItems) && $partiallyDoneItems->count() > 0) || 
                 (isset($completedItems) && $completedItems->count() > 0))
-                <div class="mt-4 flex justify-end space-x-4">
-                    <button type="button" onclick="resetForm()" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                        Reset Changes
-                    </button>
+                <div class="mt-4 flex justify-end">
                     <button type="submit" class="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                         Update Status
                     </button>

@@ -101,6 +101,58 @@ class TransactionController extends Controller
             $item->final_price = $branchPrices[$item->id] ?? $item->default_price;
         });
 
-        return view('pos.item-selection', compact('client', 'items'));
+        // Get ordered items for this client (same logic as service point client details)
+        \Illuminate\Support\Facades\Log::info("=== POS ITEM SELECTION - FETCHING ORDERED ITEMS ===", [
+            'client_id' => $client->id,
+            'client_name' => $client->name,
+            'business_id' => $client->business_id,
+            'timestamp' => now()->toDateTimeString()
+        ]);
+
+        $clientItems = \App\Models\ServiceDeliveryQueue::where('client_id', $client->id)
+            ->with(['item', 'invoice', 'startedByUser'])
+            ->get();
+
+        \Illuminate\Support\Facades\Log::info("=== POS ITEM SELECTION - ORDERED ITEMS FETCHED ===", [
+            'client_id' => $client->id,
+            'total_items_found' => $clientItems->count(),
+            'items_by_status' => $clientItems->groupBy('status')->map->count(),
+            'timestamp' => now()->toDateTimeString()
+        ]);
+
+        // Group items by status (ignore completed items)
+        $pendingItems = $clientItems->where('status', 'pending');
+        $partiallyDoneItems = $clientItems->where('status', 'partially_done');
+        // Note: We ignore completed items, same as client details page
+
+        // Calculate correct total amount (only pending and partially done)
+        $correctTotalAmount = $pendingItems->sum(function ($item) {
+            return $item->price * $item->quantity;
+        }) + $partiallyDoneItems->sum(function ($item) {
+            return $item->price * $item->quantity;
+        });
+
+        \Illuminate\Support\Facades\Log::info("=== POS ITEM SELECTION - CALCULATIONS COMPLETE ===", [
+            'client_id' => $client->id,
+            'pending_items_count' => $pendingItems->count(),
+            'partially_done_items_count' => $partiallyDoneItems->count(),
+            'completed_items_ignored' => $clientItems->where('status', 'completed')->count(),
+            'correct_total_amount' => $correctTotalAmount,
+            'unified_component_data' => [
+                'pending_items' => $pendingItems->count(),
+                'partially_done_items' => $partiallyDoneItems->count(),
+                'completed_items' => 0, // Always 0 - ignored
+                'total_amount' => $correctTotalAmount
+            ],
+            'timestamp' => now()->toDateTimeString()
+        ]);
+
+        return view('pos.item-selection', compact(
+            'client', 
+            'items', 
+            'pendingItems', 
+            'partiallyDoneItems', 
+            'correctTotalAmount'
+        ));
     }
 }
