@@ -887,7 +887,7 @@
 
         async function calculatePackageAdjustment() {
             try {
-                const response = await fetch('/invoices/calculate-package-adjustment', {
+                const response = await fetch('/invoices/package-adjustment', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -946,7 +946,7 @@
 
         async function calculateBalanceAdjustment(amount) {
             try {
-                const response = await fetch('/invoices/calculate-balance-adjustment', {
+                const response = await fetch('/invoices/balance-adjustment', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

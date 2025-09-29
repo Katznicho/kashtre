@@ -256,6 +256,13 @@
                             <span>Total Amount:</span>
                             <span id="invoice-total">UGX 0.00</span>
                         </div>
+                        <div class="text-xs text-gray-500 text-right italic" id="service-charge-note">
+                            No charges for this amount range
+                        </div>
+                        <div class="flex justify-between text-lg font-bold border-t pt-2">
+                            <span>Total:</span>
+                            <span id="invoice-final-total">UGX 0.00</span>
+                        </div>
                     </div>
                 </div>
 
