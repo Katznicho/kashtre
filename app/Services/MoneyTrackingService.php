@@ -2792,7 +2792,13 @@ class MoneyTrackingService
                 'package_sales_breakdown' => $packageSales,
                 'description_format' => 'Package name + ref (PKG tracking number)',
                 'note' => 'Business statement uses sum of item amounts (actual revenue), not package price',
-                'timestamp' => now()->toDateTimeString()
+                'timestamp' => now()->toDateTimeString(),
+                'fixes_applied' => [
+                    'removed_plus_sign_from_package_amounts' => true,
+                    'simplified_package_descriptions' => true,
+                    'updated_description_format' => 'Package name + ref (PKG tracking number)',
+                    'removed_verbose_prefixes' => true
+                ]
             ]);
 
             // Create BusinessBalanceHistory record for business statement (type: package)
@@ -2854,6 +2860,12 @@ class MoneyTrackingService
                 'business_balance_history_id' => $businessBalanceHistory->id,
                 'total_amount' => $totalAmount,
                 'transaction_type' => 'package',
+                'description_used' => "{$packageDescription} from invoice {$invoice->invoice_number}",
+                'business_statement_fixes' => [
+                    'no_plus_sign_on_package_amounts' => true,
+                    'simplified_descriptions' => true,
+                    'timestamp_format_tracking_numbers' => true
+                ],
                 'description' => "Package sales revenue: {$packageDescription} from invoice {$invoice->invoice_number}",
                 'description_format' => 'Package name + ref (PKG tracking number)',
                 'reference_type' => 'package_sales',

@@ -114,8 +114,10 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 <span class="@if($history->type === 'credit') text-green-600 @elseif($history->type === 'package') text-blue-600 @else text-red-600 @endif font-semibold">
                                                     @if($history->type === 'package')
+                                                        {{-- Package entries: no + or - prefix, just amount --}}
                                                         {{ number_format($history->amount, 0) }} UGX
                                                     @else
+                                                        {{-- Credit/Debit entries: show + or - prefix --}}
                                                         {{ $history->type === 'credit' ? '+' : '-' }}{{ number_format($history->amount, 0) }} UGX
                                                     @endif
                                                 </span>

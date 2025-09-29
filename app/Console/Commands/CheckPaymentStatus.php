@@ -1026,7 +1026,13 @@ class CheckPaymentStatus extends Command
                 'package_count' => count($packageDetails),
                 'client_description' => $clientDescription,
                 'business_description' => $businessDescription,
-                'package_details' => $packageDetails
+                'package_details' => $packageDetails,
+                'tracking_number_format' => 'PKG-{id}-{timestamp}',
+                'description_simplification' => [
+                    'removed_verbose_prefixes' => true,
+                    'package_name_and_ref_only' => true,
+                    'timestamp_format_tracking_numbers' => true
+                ]
             ]);
 
             return [
