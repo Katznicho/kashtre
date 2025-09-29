@@ -1,4 +1,9 @@
-{{-- Unified Ordered Items (Requests/Orders) Component --}}
+{{-- 
+    Unified Ordered Items (Requests/Orders) Component
+    This component serves as a single source of truth for displaying ordered items
+    across both POS item selection and Service Point client details pages.
+    It handles pending, partially done, and completed items with consistent styling.
+--}}
 {{-- This component serves as the single source of truth for displaying ordered items --}}
 
 <!-- Section 5: Ordered Items (Requests/Orders) -->
