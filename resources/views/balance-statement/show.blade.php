@@ -106,9 +106,6 @@
                                                     }
                                                 @endphp
                                                 {{ $description }}
-                                                @if($history->notes)
-                                                    <p class="text-xs text-gray-500 mt-1">{{ $history->notes }}</p>
-                                                @endif
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <span class="@if($history->transaction_type === 'package') text-blue-600 @elseif($history->change_amount > 0) text-green-600 @else text-red-600 @endif">

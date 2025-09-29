@@ -790,13 +790,16 @@ class CheckPaymentStatus extends Command
                 'business_account_balance' => $businessAccount->balance
             ]);
 
+            // Build proper package purchase description with package names and tracking numbers
+            $packageDescriptions = $this->buildPackagePurchaseDescriptions($invoice);
+            
             // Create business balance history entry for package purchase (credit type - money actually moved)
             $businessBalanceHistory = \App\Models\BusinessBalanceHistory::recordChange(
                 $business->id,
                 $businessAccount->id,
                 $totalPackageAmount,
                 'credit',
-                "Package purchase from invoice {$invoice->invoice_number}",
+                $packageDescriptions['business_description'],
                 'package_purchase',
                 $invoice->id,
                 [
@@ -864,13 +867,16 @@ class CheckPaymentStatus extends Command
                 'client_id' => $client->id
             ]);
 
+            // Build proper package purchase description with package names and tracking numbers
+            $packageDescriptions = $this->buildPackagePurchaseDescriptions($invoice);
+            
             // Create client balance history entry for package purchase
             $balanceHistory = \App\Models\BalanceHistory::recordPackageUsage(
                 $client,
                 $totalPackageAmount,
-                "Package purchase from invoice {$invoice->invoice_number}",
+                $packageDescriptions['client_description'],
                 $invoice->invoice_number,
-                "Package purchased: {$packageCount} package(s) for future use",
+                $packageDescriptions['client_notes'],
                 'package_purchase'
             );
 
@@ -953,6 +959,94 @@ class CheckPaymentStatus extends Command
             ]);
             // Default to false to prevent creating package purchase entries when uncertain
             return false;
+        }
+    }
+
+    /**
+     * Build proper package purchase descriptions with package names and tracking numbers
+     */
+    private function buildPackagePurchaseDescriptions($invoice)
+    {
+        try {
+            Log::info("=== BUILDING PACKAGE PURCHASE DESCRIPTIONS ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number
+            ]);
+
+            $packageDetails = [];
+            
+            // Get all package items from the invoice
+            foreach ($invoice->items as $item) {
+                $itemModel = \App\Models\Item::find($item['id'] ?? $item['item_id'] ?? null);
+                if ($itemModel && $itemModel->type === 'package') {
+                    $quantity = $item['quantity'] ?? 1;
+                    
+                    // Get package tracking records for this package
+                    $packageTracking = \App\Models\PackageTracking::where('invoice_id', $invoice->id)
+                        ->where('package_item_id', $itemModel->id)
+                        ->first();
+                    
+                    $trackingNumber = $packageTracking ? ($packageTracking->tracking_number ?? "PKG-{$packageTracking->id}") : "PKG-N/A";
+                    $packageName = $itemModel->display_name ?? $itemModel->name;
+                    
+                    $packageDetails[] = [
+                        'name' => $packageName,
+                        'quantity' => $quantity,
+                        'tracking_number' => $trackingNumber
+                    ];
+                }
+            }
+
+            // Build descriptions
+            if (empty($packageDetails)) {
+                // Fallback to generic description if no package details found
+                return [
+                    'client_description' => "Package purchase from invoice {$invoice->invoice_number}",
+                    'client_notes' => "Package purchased: {$packageCount} package(s) for future use",
+                    'business_description' => "Package purchase from invoice {$invoice->invoice_number}"
+                ];
+            }
+
+            // Build client description with package names and tracking numbers
+            $clientPackageNames = [];
+            foreach ($packageDetails as $package) {
+                $clientPackageNames[] = "{$package['name']} (Ref: {$package['tracking_number']})";
+            }
+            $clientDescription = implode(', ', $clientPackageNames);
+            $clientNotes = "Package purchased: " . implode(', ', array_map(function($p) {
+                return "{$p['name']} (Ref: {$p['tracking_number']})";
+            }, $packageDetails));
+
+            // Build business description with package names and tracking numbers
+            $businessDescription = "Package: " . implode(', ', $clientPackageNames) . " from invoice {$invoice->invoice_number}";
+
+            Log::info("Package purchase descriptions built", [
+                'invoice_id' => $invoice->id,
+                'package_count' => count($packageDetails),
+                'client_description' => $clientDescription,
+                'business_description' => $businessDescription,
+                'package_details' => $packageDetails
+            ]);
+
+            return [
+                'client_description' => $clientDescription,
+                'client_notes' => $clientNotes,
+                'business_description' => $businessDescription
+            ];
+
+        } catch (\Exception $e) {
+            Log::error("Error building package purchase descriptions", [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Fallback to generic description on error
+            return [
+                'client_description' => "Package purchase from invoice {$invoice->invoice_number}",
+                'client_notes' => "Package purchased for future use",
+                'business_description' => "Package purchase from invoice {$invoice->invoice_number}"
+            ];
         }
     }
 }
