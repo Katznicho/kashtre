@@ -97,8 +97,33 @@ class TransactionController extends Controller
         }
 
         // Add branch price or default price to each item
-        $items->each(function ($item) use ($branchPrices) {
-            $item->final_price = $branchPrices[$item->id] ?? $item->default_price;
+        $items->each(function ($item) use ($branchPrices, $currentBranch, $user) {
+            // Ensure we have a valid default price
+            $defaultPrice = $item->default_price ?? 0;
+            
+            // Get branch price if available
+            $branchPrice = $branchPrices[$item->id] ?? null;
+            
+            // Set final price - prefer branch price, fallback to default price
+            $item->final_price = $branchPrice ?? $defaultPrice;
+            
+            // Ensure final_price is never null or empty
+            if (empty($item->final_price) || $item->final_price === null) {
+                $item->final_price = 0;
+            }
+            
+            // Debug logging for pricing issues
+            \Illuminate\Support\Facades\Log::info("=== POS ITEM PRICING DEBUG ===", [
+                'item_id' => $item->id,
+                'item_name' => $item->name,
+                'default_price' => $defaultPrice,
+                'branch_price' => $branchPrice,
+                'final_price' => $item->final_price,
+                'branch_id' => $currentBranch ? $currentBranch->id : 'null',
+                'branch_name' => $currentBranch ? $currentBranch->name : 'null',
+                'has_branch_price' => isset($branchPrices[$item->id]),
+                'business_id' => $user->business_id
+            ]);
         });
 
         // Get ordered items for this client (same logic as service point client details)

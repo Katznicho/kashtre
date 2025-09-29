@@ -619,7 +619,19 @@
                     const itemType = this.dataset.itemType || 'N/A';
                     
                     // Debug logging
-                    console.log('Item:', itemName, 'Raw Price:', rawPrice, 'Parsed Price:', itemPrice, 'Quantity:', quantity, 'Type:', itemType);
+                    console.log('=== PRICING DEBUG ===');
+                    console.log('Item:', itemName);
+                    console.log('Raw Price (data-item-price):', rawPrice);
+                    console.log('Raw Price Type:', typeof rawPrice);
+                    console.log('Parsed Price:', itemPrice);
+                    console.log('Parsed Price Type:', typeof itemPrice);
+                    console.log('Quantity:', quantity);
+                    console.log('Type:', itemType);
+                    console.log('Data attributes:', {
+                        itemId: this.dataset.itemId,
+                        itemPrice: this.dataset.itemPrice,
+                        itemName: this.dataset.itemName
+                    });
                     
                     if (quantity > 0) {
                         addToCart(itemId, itemName, itemPrice, quantity, itemType, itemDisplayName);
