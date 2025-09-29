@@ -1235,7 +1235,56 @@
                 };
             }
         }
-    </script>
+        
+        function closeClientConfirmation() {
+            document.getElementById('client-confirmation-modal').classList.add('hidden');
+        }
+        
+        function printClientDetails() {
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Client Details - {{ $client->name }}</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 20px; }
+                            .header { text-align: center; margin-bottom: 30px; }
+                            .client-info { margin-bottom: 20px; }
+                            .qr-code { text-align: center; margin: 20px 0; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                            <h1>{{ auth()->user()->business->name ?? 'Medical Centre' }}</h1>
+                        </div>
+                        <div class="client-info">
+                            <h2>Client Details</h2>
+                            <p><strong>Name:</strong> {{ $client->name }}</p>
+                            <p><strong>Client ID:</strong> {{ $client->client_id }}</p>
+                            <p><strong>Visit ID:</strong> {{ $client->visit_id }}</p>
+                            <p><strong>Branch:</strong> {{ auth()->user()->currentBranch->name ?? 'N/A' }}</p>
+                        </div>
+                        <div class="qr-code">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=128x128&data={{ urlencode($client->client_id . '|' . $client->name) }}" alt="QR Code">
+                        </div>
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+        
+        function saveAndExit() {
+            // Log the save and exit action
+            console.log('=== POS ITEM SELECTION - SAVE AND EXIT TRIGGERED ===', {
+                client_id: {{ $client->id }},
+                client_name: '{{ $client->name }}',
+                page: 'POS Item Selection',
+                action: 'Save and Exit',
+                unified_component_used: true,
+                timestamp: new Date().toISOString()
+            });
+
             // Show confirmation dialog
             Swal.fire({
                 title: 'Save Changes?',
@@ -1273,8 +1322,6 @@
                 }
             });
         }
-        
-        // Export package tracking numbers to CSV
     </script>
     
     <!-- Payment Methods Modal -->
