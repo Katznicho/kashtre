@@ -177,237 +177,8 @@
                 </div>
             </div>
             
-            <!-- Section 4: Make a Request/Order - Professional Two Column Layout -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
-                <div class="p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Make a Request/Order</h3>
-                    
-                    <!-- Main POS Interface - Two Column Layout -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        
-                        <!-- Left Column: Item Selection -->
-                        <div>
-                            <h4 class="text-md font-medium text-gray-900 mb-4">Select Item</h4>
-                            
-                            <!-- Search Bar -->
-                            <div class="mb-4">
-                                <div class="relative">
-                                    <input type="text" id="search-input" placeholder="Search items..." 
-                                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                    <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                    </svg>
-                                </div>
-                            </div>
-                            
-                            <!-- Simple Options -->
-                            <div class="flex items-center space-x-4 mb-4">
-                                <label class="flex items-center space-x-2">
-                                    <input type="checkbox" id="show-prices" class="rounded border-gray-300">
-                                    <span class="text-sm text-gray-700">Show Prices</span>
-                                </label>
-                                
-                                <label class="flex items-center space-x-2">
-                                    <input type="checkbox" id="show-descriptions" class="rounded border-gray-300">
-                                    <span class="text-sm text-gray-700">Show Descriptions</span>
-                                </label>
-                            </div>
-                            
-                            <!-- Items Table -->
-                            <div class="border border-gray-200 rounded-lg overflow-hidden">
-                                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div class="flex items-center">
-                                            <span class="text-sm font-medium text-gray-700">Item</span>
-                                            <svg class="ml-1 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <span class="text-sm font-medium text-gray-700">Quantity To Sell</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div id="items-container" class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                                    @forelse($items as $item)
-                                    <div class="item-row px-4 py-3 hover:bg-gray-50" data-item-name="{{ strtolower($item->name) }}" data-item-display-name="{{ $item->display_name }}" data-item-other-names="{{ strtolower($item->other_names ?? '') }}" data-item-type="{{ $item->type ?? 'N/A' }}">
-                                        <div class="grid grid-cols-2 gap-4 items-center">
-                                            <div>
-                                                <span class="text-sm text-gray-900">{{ $item->display_name }}</span>
-                                                @php
-                                                    // Generate dynamic description based on item properties
-                                                    $description = '';
-                                                    if ($item->description && !empty(trim($item->description))) {
-                                                        $description = $item->description;
-                                                    } else {
-                                                        // Generate dynamic description based on item type and properties
-                                                        $descriptionParts = [];
-                                                        
-                                                        // Add type-specific description based on item name and type
-                                                        $itemName = strtolower($item->display_name ?? $item->name);
-                                                        
-                                                        // Generate intelligent descriptions based on item name patterns
-                                                        if (str_contains($itemName, 'amoxicillin')) {
-                                                            $descriptionParts[] = 'Antibiotic medication for bacterial infections';
-                                                        } elseif (str_contains($itemName, 'paracetamol') || str_contains($itemName, 'acetaminophen')) {
-                                                            $descriptionParts[] = 'Pain relief and fever reducer';
-                                                        } elseif (str_contains($itemName, 'ibuprofen')) {
-                                                            $descriptionParts[] = 'Anti-inflammatory pain relief';
-                                                        } elseif (str_contains($itemName, 'vitamin') || str_contains($itemName, 'supplement')) {
-                                                            $descriptionParts[] = 'Nutritional supplement';
-                                                        } elseif (str_contains($itemName, 'hair') || str_contains($itemName, 'shampoo') || str_contains($itemName, 'conditioner')) {
-                                                            $descriptionParts[] = 'Hair care product';
-                                                        } elseif (str_contains($itemName, 'treatment') || str_contains($itemName, 'therapy')) {
-                                                            $descriptionParts[] = 'Therapeutic treatment service';
-                                                        } else {
-                                                            // Fallback to type-based description
-                                                            switch ($item->type) {
-                                                                case 'bulk':
-                                                                    $descriptionParts[] = 'Bulk package containing multiple items';
-                                                                    break;
-                                                                case 'package':
-                                                                    $descriptionParts[] = 'Service package with included items';
-                                                                    break;
-                                                                case 'service':
-                                                                    $descriptionParts[] = 'Professional service';
-                                                                    break;
-                                                                case 'good':
-                                                                default:
-                                                                    $descriptionParts[] = 'Product item';
-                                                                    break;
-                                                            }
-                                                        }
-                                                        
-                                                        // Add item variation info if present in name
-                                                        if (str_contains($itemName, 'advanced') || str_contains($itemName, 'premium') || str_contains($itemName, 'deluxe') || str_contains($itemName, 'professional') || str_contains($itemName, 'enhanced')) {
-                                                            $descriptionParts[] = 'Premium quality variant';
-                                                        } elseif (str_contains($itemName, 'basic') || str_contains($itemName, 'standard')) {
-                                                            $descriptionParts[] = 'Standard quality variant';
-                                                        }
-                                                        
-                                                        // Add category if available
-                                                        if ($item->category && !empty(trim($item->category))) {
-                                                            $descriptionParts[] = "Category: {$item->category}";
-                                                        }
-                                                        
-                                                        // Add other names if available
-                                                        if ($item->other_names && !empty(trim($item->other_names))) {
-                                                            $descriptionParts[] = "Also known as: {$item->other_names}";
-                                                        }
-                                                        
-                                                        // Add unit information if available
-                                                        if ($item->unit && !empty(trim($item->unit))) {
-                                                            $descriptionParts[] = "Unit: {$item->unit}";
-                                                        }
-                                                        
-                                                        $description = implode(' • ', $descriptionParts);
-                                                    }
-                                                @endphp
-                                                @if($description)
-                                                <p class="text-xs text-gray-500 mt-1 description-display">{{ $description }}</p>
-                                                @endif
-                                                <p class="text-xs text-blue-600 mt-1 price-display" style="display: none;">
-                                                    Price: UGX {{ number_format($item->final_price ?? 0, 2) }}
-                                                    @if(isset($item->final_price) && $item->final_price != $item->default_price)
-                                                        <span class="text-green-600">(Branch Price)</span>
-                                                    @else
-                                                        <span class="text-gray-500">(Default Price)</span>
-                                                    @endif
-                                                    @if($item->vat_rate && $item->vat_rate > 0)
-                                                        <span class="text-orange-600">(VAT: {{ $item->vat_rate }}%)</span>
-                                                    @endif
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <input type="number" min="0" value="0" 
-                                                       class="quantity-input w-20 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                       data-item-id="{{ $item->id }}" 
-                                                       data-item-price="{{ $item->final_price ?? 0 }}"
-                                                       data-item-name="{{ $item->name }}"
-                                                       data-item-display-name="{{ $item->display_name }}"
-                                                       data-item-other-names="{{ $item->other_names ?? '' }}"
-                                                       data-item-type="{{ $item->type ?? 'N/A' }}">
-                                            </div>
-                                        </div>
-                                    </div>
-                                    @empty
-                                    <div class="px-4 py-8">
-                                        <p class="text-sm text-gray-500 text-center">No items available for this hospital</p>
-                                    </div>
-                                    @endforelse
-                                </div>
-                            </div>
-                            
-                            <!-- Pagination -->
-                            <div class="mt-4 flex items-center justify-between text-sm text-gray-500">
-                                <span>Showing 1 to {{ min(5, count($items)) }} of {{ count($items) }} results</span>
-                                <div class="flex items-center space-x-2">
-                                    <select class="px-2 py-1 border border-gray-300 rounded-md">
-                                        <option value="5">5</option>
-                                        <option value="10">10</option>
-                                        <option value="25">25</option>
-                                    </select>
-                                    <span>Per page</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Right Column: Request/Order Summary -->
-                        <div>
-                            <h4 class="text-md font-medium text-gray-900 mb-4">Request/Order Summary</h4>
-                            
-                            <!-- Request/Order Summary Table -->
-                            <div class="border border-gray-200 rounded-lg overflow-hidden">
-                                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                                    <div class="grid grid-cols-5 gap-4">
-                                        <div>
-                                            <span class="text-sm font-medium text-gray-700">Item</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-sm font-medium text-gray-700">Type</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-sm font-medium text-gray-700">Quantity</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-sm font-medium text-gray-700">Price</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-sm font-medium text-gray-700">Action</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div id="request-order-summary-items" class="divide-y divide-gray-200 min-h-32">
-                                    <div class="px-4 py-8">
-                                        <p class="text-sm text-gray-500 text-center">No items selected</p>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Request/Order Summary -->
-                            <div class="mt-4 bg-gray-50 p-4 rounded-lg">
-                                <div class="flex justify-between items-center mb-2">
-                                    <span class="text-sm text-gray-600">Unique Items:</span>
-                                    <span id="total-items" class="text-sm font-medium text-gray-900">0</span>
-                                </div>
-                                <div class="flex justify-between items-center mb-2">
-                                    <span class="text-sm text-gray-600">Total Quantity:</span>
-                                    <span id="total-quantity" class="text-sm font-medium text-gray-900">0</span>
-                                </div>
-                                <div class="flex justify-between items-center mb-4">
-                                    <span class="text-sm text-gray-600">Total Amount:</span>
-                                    <span id="total-amount" class="text-lg font-bold text-gray-900">UGX 0.00</span>
-                                </div>
-                                <button class="w-full bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors" onclick="showInvoicePreview()">
-                                    Preview Proforma Invoice
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            {{-- Unified Make a Request/Order Component --}}
+            <x-pos.make-request-order :items="$items" />
             
             <!-- Section 5: Ordered Items (Requests/Orders) -->
             <x-pos.ordered-items 
@@ -597,324 +368,243 @@
     </div>
     
     <script>
-        let cart = [];
-        
-        // Add event listeners to quantity inputs
+        // POS Functionality
+        let selectedItems = [];
+        let showPrices = false;
+        let showDescriptions = false;
+
+        // Initialize POS functionality
         document.addEventListener('DOMContentLoaded', function() {
-            // Check initial payment methods for mobile money
-            const initialPaymentMethods = @json($client->payment_methods ?? []);
-            if (initialPaymentMethods.includes('mobile_money')) {
-                document.getElementById('payment-phone-section').style.display = 'block';
-            }
-            
-            const quantityInputs = document.querySelectorAll('.quantity-input');
-            quantityInputs.forEach(input => {
-                input.addEventListener('change', function() {
-                    const itemId = this.dataset.itemId;
-                    const itemName = this.dataset.itemName;
-                    const itemDisplayName = this.dataset.itemDisplayName;
-                    const rawPrice = this.dataset.itemPrice;
-                    const itemPrice = parseFloat(rawPrice) || 0;
-                    const quantity = parseInt(this.value) || 0;
-                    const itemType = this.dataset.itemType || 'N/A';
-                    
-                    // Debug logging
-                    console.log('Item:', itemName, 'Raw Price:', rawPrice, 'Parsed Price:', itemPrice, 'Quantity:', quantity, 'Type:', itemType);
-                    
-                    if (quantity > 0) {
-                        addToCart(itemId, itemName, itemPrice, quantity, itemType, itemDisplayName);
-                        // Don't reset the input value - keep the state
-                    } else if (quantity === 0) {
-                        // Remove item from cart if quantity is 0
-                        removeFromCartByItemId(itemId);
-                    }
-                });
-            });
-            
-            // Add search functionality
+            initializePOS();
+        });
+
+        function initializePOS() {
+            // Search functionality
             const searchInput = document.getElementById('search-input');
-            searchInput.addEventListener('input', function() {
-                const searchTerm = this.value.toLowerCase();
-                const itemRows = document.querySelectorAll('.item-row');
-                
-                itemRows.forEach(row => {
-                    const itemName = row.dataset.itemName;
-                    const itemOtherNames = row.dataset.itemOtherNames;
-                    
-                    // Search in both item name and other names
-                    if (itemName.includes(searchTerm) || itemOtherNames.includes(searchTerm)) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    filterItems(this.value);
                 });
-            });
-            
-            // Add price and description display toggle functionality
-            const showPricesCheckbox = document.getElementById('show-prices');
-            const showDescriptionsCheckbox = document.getElementById('show-descriptions');
-            const priceElements = document.querySelectorAll('.price-display');
-            const descriptionElements = document.querySelectorAll('.description-display');
-            
-            // Handle prices checkbox
-            if (showPricesCheckbox) {
-            showPricesCheckbox.addEventListener('change', function() {
-                    console.log('Show prices checkbox changed:', this.checked);
-                priceElements.forEach(element => {
-                    element.style.display = this.checked ? 'block' : 'none';
-                });
-            });
-            
-                // Initialize price display state
-                priceElements.forEach(element => {
-                    element.style.display = showPricesCheckbox.checked ? 'block' : 'none';
-                });
-            } else {
-                console.error('Show prices checkbox not found!');
             }
-            
-            // Handle descriptions checkbox
+
+            // Show Prices checkbox
+            const showPricesCheckbox = document.getElementById('show-prices');
+            if (showPricesCheckbox) {
+                showPricesCheckbox.addEventListener('change', function() {
+                    showPrices = this.checked;
+                    togglePriceDisplay();
+                });
+            }
+
+            // Show Descriptions checkbox
+            const showDescriptionsCheckbox = document.getElementById('show-descriptions');
             if (showDescriptionsCheckbox) {
                 showDescriptionsCheckbox.addEventListener('change', function() {
-                    console.log('Show descriptions checkbox changed:', this.checked);
-                    descriptionElements.forEach(element => {
-                        element.style.display = this.checked ? 'block' : 'none';
-                    });
+                    showDescriptions = this.checked;
+                    toggleDescriptionDisplay();
                 });
+            }
+
+            // Quantity input changes
+            document.addEventListener('input', function(e) {
+                if (e.target.classList.contains('quantity-input')) {
+                    handleQuantityChange(e.target);
+                }
+            });
+        }
+
+        function filterItems(searchTerm) {
+            const items = document.querySelectorAll('.item-row');
+            const term = searchTerm.toLowerCase();
+            
+            items.forEach(item => {
+                const itemName = item.dataset.itemName || '';
+                const itemDisplayName = item.dataset.itemDisplayName || '';
+                const itemOtherNames = item.dataset.itemOtherNames || '';
                 
-                // Initialize description display state (hidden by default)
-                descriptionElements.forEach(element => {
-                    element.style.display = showDescriptionsCheckbox.checked ? 'block' : 'none';
-                });
+                const matches = itemName.includes(term) || 
+                               itemDisplayName.toLowerCase().includes(term) || 
+                               itemOtherNames.includes(term);
+                
+                item.style.display = matches ? 'block' : 'none';
+            });
+        }
+
+        function togglePriceDisplay() {
+            const priceElements = document.querySelectorAll('.price-display');
+            priceElements.forEach(element => {
+                element.style.display = showPrices ? 'block' : 'none';
+            });
+        }
+
+        function toggleDescriptionDisplay() {
+            const descriptionElements = document.querySelectorAll('.description-display');
+            descriptionElements.forEach(element => {
+                element.style.display = showDescriptions ? 'block' : 'none';
+            });
+        }
+
+        function handleQuantityChange(input) {
+            const itemId = input.dataset.itemId;
+            const itemName = input.dataset.itemName;
+            const itemType = input.dataset.itemType;
+            const itemPrice = parseFloat(input.dataset.itemPrice);
+            const quantity = parseInt(input.value) || 0;
+
+            console.log('Quantity changed:', { itemId, itemName, itemType, itemPrice, quantity });
+
+            if (quantity > 0) {
+                addItemToOrder(itemId, itemName, itemType, itemPrice, quantity);
             } else {
-                console.error('Show descriptions checkbox not found!');
+                removeItemFromOrder(itemId);
             }
             
-        });
-        
-        // Show client confirmation modal on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            showClientConfirmation();
-        });
-        
-        function showClientConfirmation() {
-            document.getElementById('client-confirmation-modal').classList.remove('hidden');
+            updateOrderSummary();
+            console.log('Current selectedItems:', selectedItems);
         }
-        
-        function closeClientConfirmation() {
-            document.getElementById('client-confirmation-modal').classList.add('hidden');
-        }
-        
-        function printClientDetails() {
-            // Create a print-friendly version of client details
-            const printWindow = window.open('', '_blank');
-            const modalContent = document.querySelector('#client-confirmation-modal .relative').cloneNode(true);
+
+        function addItemToOrder(itemId, itemName, itemType, itemPrice, quantity) {
+            // Ensure itemId is a string for consistent comparison
+            const stringItemId = String(itemId);
+            const existingItemIndex = selectedItems.findIndex(item => String(item.id) === stringItemId);
             
-            // Remove action buttons from print version
-            const actionButtons = modalContent.querySelector('.bg-gray-100');
-            if (actionButtons) {
-                actionButtons.remove();
-            }
-            
-            // Add print-specific styling
-            const printStyle = document.createElement('style');
-            printStyle.textContent = `
-                body { font-family: Arial, sans-serif; }
-                .bg-blue-600 { background-color: #2563eb !important; color: white !important; }
-                .text-blue-600 { color: #2563eb !important; }
-                .border { border: 1px solid #d1d5db !important; }
-                .p-4 { padding: 1rem !important; }
-                .mb-4 { margin-bottom: 1rem !important; }
-                .text-center { text-align: center !important; }
-                .font-bold { font-weight: bold !important; }
-                .text-sm { font-size: 0.875rem !important; }
-                .text-gray-600 { color: #4b5563 !important; }
-            `;
-            
-            printWindow.document.head.appendChild(printStyle);
-            printWindow.document.body.appendChild(modalContent);
-            
-            printWindow.document.title = 'Client Details - Aziz';
-            printWindow.print();
-        }
-        
-        function addToCart(itemId, itemName, itemPrice, quantity, itemType, displayName) {
-            // Ensure proper number types
-            const price = parseFloat(itemPrice) || 0;
-            const qty = parseInt(quantity) || 0;
-            
-            // Check if item already exists in cart
-            const existingItem = cart.find(item => item.id === itemId);
-            if (existingItem) {
-                existingItem.quantity = qty; // Update quantity instead of adding
+            if (existingItemIndex !== -1) {
+                selectedItems[existingItemIndex].quantity = quantity;
+                selectedItems[existingItemIndex].totalAmount = itemPrice * quantity;
             } else {
-                cart.push({
-                    id: itemId,
+                selectedItems.push({
+                    id: stringItemId,
                     name: itemName,
-                    displayName: displayName,
-                    price: price,
-                    quantity: qty,
-                    type: itemType || 'N/A'
+                    type: itemType,
+                    price: itemPrice,
+                    quantity: quantity,
+                    totalAmount: itemPrice * quantity
                 });
             }
-            
-            updateRequestOrderSummaryDisplay();
         }
-        
-        function removeFromCartByItemId(itemId) {
-            cart = cart.filter(item => item.id !== itemId);
-            updateRequestOrderSummaryDisplay();
+
+        function removeItemFromOrder(itemId) {
+            const stringItemId = String(itemId);
+            selectedItems = selectedItems.filter(item => String(item.id) !== stringItemId);
         }
-        
-        function updateRequestOrderSummaryDisplay() {
-            const requestOrderSummaryContainer = document.getElementById('request-order-summary-items');
-            const totalItemsSpan = document.getElementById('total-items');
+
+        function updateOrderSummary() {
+            const container = document.getElementById('selected-items-container');
+            const uniqueItemsSpan = document.getElementById('unique-items-count');
             const totalQuantitySpan = document.getElementById('total-quantity');
             const totalAmountSpan = document.getElementById('total-amount');
-            
-            if (cart.length === 0) {
-                requestOrderSummaryContainer.innerHTML = '<div class="px-4 py-8"><p class="text-sm text-gray-500 text-center">No items selected</p></div>';
-                totalItemsSpan.textContent = '0';
+
+            if (selectedItems.length === 0) {
+                container.innerHTML = '<div class="px-4 py-8 text-center text-gray-500">No items selected</div>';
+                uniqueItemsSpan.textContent = '0';
                 totalQuantitySpan.textContent = '0';
                 totalAmountSpan.textContent = 'UGX 0.00';
                 return;
             }
-            
-            let requestOrderSummaryHTML = '';
-            let totalItems = 0;
+
+            let html = '';
             let totalQuantity = 0;
             let totalAmount = 0;
-            
-            cart.forEach((item, index) => {
-                const itemTotal = parseFloat(item.price || 0) * parseInt(item.quantity || 0);
-                totalItems += 1; // Count unique items
-                totalQuantity += parseInt(item.quantity || 0); // Sum of all quantities
-                totalAmount += itemTotal;
+
+            selectedItems.forEach(item => {
+                totalQuantity += item.quantity;
+                totalAmount += item.totalAmount;
                 
-                requestOrderSummaryHTML += `
-                    <div class="px-4 py-3">
-                        <div class="grid grid-cols-4 gap-4 items-center">
-                            <div>
-                                <span class="text-sm text-gray-900 font-medium">${item.displayName || item.name}</span>
-                            </div>
-                            <div>
-                                <span class="text-sm text-gray-600">${item.type || 'N/A'}</span>
-                            </div>
-                            <div>
-                                <span class="text-sm text-gray-900">${item.quantity}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-blue-600">UGX ${(item.price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                                <button class="text-red-500 hover:text-red-700 text-sm ml-2" onclick="removeFromCart(${index})">
-                                    Remove
-                                </button>
-                            </div>
+                html += `
+                    <div class="px-4 py-3 grid grid-cols-5 gap-4 items-center">
+                        <div class="text-sm text-gray-900">${item.name}</div>
+                        <div class="text-sm text-gray-600">${item.type}</div>
+                        <div class="text-sm text-gray-900">${item.quantity}</div>
+                        <div class="text-sm text-gray-900">UGX ${item.price.toLocaleString()}</div>
+                        <div>
+                            <button onclick="removeItem('${item.id}')" class="text-red-600 hover:text-red-800 text-sm underline">
+                                Remove
+                            </button>
                         </div>
                     </div>
                 `;
             });
-            
-            requestOrderSummaryContainer.innerHTML = requestOrderSummaryHTML;
-            totalItemsSpan.textContent = totalItems; // This now shows total quantity of all items
-            totalQuantitySpan.textContent = totalQuantity; // This now shows total quantity of all items
-            totalAmountSpan.textContent = `UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-        }
-        
-        function removeFromCart(index) {
-            const removedItem = cart[index];
-            cart.splice(index, 1);
-            
-            // Reset the corresponding quantity input to 0
-            const quantityInput = document.querySelector(`input[data-item-id="${removedItem.id}"]`);
-            if (quantityInput) {
-                quantityInput.value = 0;
-            }
-            
-            updateRequestOrderSummaryDisplay();
-        }
-        
-        // Client confirmation functions - defined globally
-        function showClientConfirmation() {
-            document.getElementById('client-confirmation-modal').classList.remove('hidden');
-        }
-        
-        function closeClientConfirmation() {
-            document.getElementById('client-confirmation-modal').classList.add('hidden');
-        }
-        
-        function printClientDetails() {
-            // Create a print-friendly version of client details
-            const printWindow = window.open('', '_blank');
-            const modalContent = document.querySelector('#client-confirmation-modal .relative').cloneNode(true);
-            
-            // Remove action buttons from print version
-            const actionButtons = modalContent.querySelector('.bg-gray-50.px-6.py-4.rounded-b-lg');
-            if (actionButtons) {
-                actionButtons.remove();
-            }
-            
-            // Add print styles
-            const printStyles = `
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 20px; }
-                    .bg-gray-50 { background-color: #f9fafb; }
-                    .text-gray-800 { color: #1f2937; }
-                    .text-gray-600 { color: #4b5563; }
-                    .text-sm { font-size: 14px; }
-                    .text-lg { font-size: 18px; }
-                    .font-semibold { font-weight: 600; }
-                    .text-center { text-align: center; }
-                    .grid { display: grid; }
-                    .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
-                    .gap-4 { gap: 16px; }
-                    .space-y-2 > * + * { margin-top: 8px; }
-                    .px-6 { padding-left: 24px; padding-right: 24px; }
-                    .py-4 { padding-top: 16px; padding-bottom: 16px; }
-                    .mb-4 { margin-bottom: 16px; }
-                    .rounded-lg { border-radius: 8px; }
-                    .border-b { border-bottom: 1px solid #e5e7eb; }
-                    .w-16 { width: 64px; }
-                    .h-16 { height: 64px; }
-                    .bg-gray-200 { background-color: #e5e7eb; }
-                    .border { border: 1px solid #d1d5db; }
-                    .flex { display: flex; }
-                    .justify-end { justify-content: flex-end; }
-                    .items-center { align-items: center; }
-                    .justify-center { justify-content: center; }
-                    .text-xs { font-size: 12px; }
-                    .text-gray-500 { color: #6b7280; }
-                    @media print {
-                        body { margin: 0; }
-                        .no-print { display: none; }
-                    }
-                </style>
-            `;
-            
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Client Details - ${new Date().toLocaleDateString()}</title>
-                ${printStyles}
-                </head>
-                <body>
-                    ${modalContent.outerHTML}
-                </body>
-                </html>
-            `);
-            
-            printWindow.document.close();
-            printWindow.focus();
-            
-            // Wait for content to load then print
-            setTimeout(() => {
-                printWindow.print();
-                printWindow.close();
-            }, 500);
+
+            container.innerHTML = html;
+            uniqueItemsSpan.textContent = selectedItems.length;
+            totalQuantitySpan.textContent = totalQuantity;
+            totalAmountSpan.textContent = `UGX ${totalAmount.toLocaleString()}`;
         }
 
+        function removeItem(itemId) {
+            console.log('Removing item with ID:', itemId);
+            
+            // Reset the quantity input to 0
+            const input = document.querySelector(`input[data-item-id="${itemId}"]`);
+            if (input) {
+                input.value = '0';
+                console.log('Reset input for item:', itemId);
+            } else {
+                console.log('Input not found for item:', itemId);
+            }
+            
+            // Remove from selected items array
+            const initialLength = selectedItems.length;
+            const stringItemId = String(itemId);
+            selectedItems = selectedItems.filter(item => String(item.id) !== stringItemId);
+            console.log(`Removed item. Array length: ${initialLength} -> ${selectedItems.length}`);
+            
+            // Update the order summary
+            updateOrderSummary();
+            
+            // Show success message
+            Swal.fire({
+                icon: 'success',
+                title: 'Item Removed',
+                text: 'Item has been removed from your order.',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        }
+
+        // Initialize package tracking numbers storage
+        window.packageTrackingNumbers = new Map();
+        
+        // Generate package tracking number
+        function generatePackageTrackingNumber(packageId, packageName) {
+            if (window.packageTrackingNumbers.has(packageId)) {
+                return window.packageTrackingNumbers.get(packageId);
+            }
+            
+            // Generate a unique tracking number
+            const timestamp = Date.now().toString().slice(-6);
+            const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
+            const packagePrefix = packageName ? packageName.substring(0, 3).toUpperCase() : 'PKG';
+            const trackingNumber = `${packagePrefix}-${timestamp}-${randomSuffix}`;
+            
+            // Store the tracking number
+            window.packageTrackingNumbers.set(packageId, trackingNumber);
+            
+            return trackingNumber;
+        }
+
+        // Preview Proforma Invoice functionality - Full POS functionality
+        document.addEventListener('click', function(e) {
+            if (e.target.textContent === 'Preview Proforma Invoice') {
+                if (selectedItems.length === 0) {
+                    Swal.fire({
+                        title: 'No Items Selected',
+                        text: 'Please select at least one item before previewing the invoice.',
+                        icon: 'warning',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                    return;
+                }
+
+                showInvoicePreview();
+            }
+        });
+
         async function showInvoicePreview() {
-            if (cart.length === 0) {
+            console.log('showInvoicePreview called');
+            console.log('selectedItems:', selectedItems);
+            
+            if (selectedItems.length === 0) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'Empty Cart',
@@ -953,24 +643,23 @@
             let tableHTML = '';
             let subtotal = 0;
             
-            cart.forEach(item => {
+            selectedItems.forEach(item => {
                 const itemTotal = (item.price || 0) * (item.quantity || 0);
                 subtotal += itemTotal;
                 
                 // Generate tracking number for packages
                 let trackingNumber = 'N/A';
                 if (item.type === 'package') {
-                    trackingNumber = generatePackageTrackingNumber(item.id, item.displayName || item.name);
+                    trackingNumber = generatePackageTrackingNumber(item.id, item.name);
                 }
                 
                 tableHTML += `
                     <tr class="bg-white">
-                        <td class="border border-gray-300 px-4 py-2">${item.displayName || item.name}</td>
+                        <td class="border border-gray-300 px-4 py-2">${item.name}</td>
                         <td class="border border-gray-300 px-4 py-2 text-center">${item.type || 'N/A'}</td>
                         <td class="border border-gray-300 px-4 py-2 text-center">${item.quantity}</td>
                         <td class="border border-gray-300 px-4 py-2 text-right">UGX ${(item.price || 0).toLocaleString()}</td>
                         <td class="border border-gray-300 px-4 py-2 text-right">UGX ${itemTotal.toLocaleString()}</td>
-
                     </tr>
                 `;
             });
@@ -979,7 +668,7 @@
             
             // Calculate package adjustment
             const packageAdjustmentData = await calculatePackageAdjustment();
-            const packageAdjustment = packageAdjustmentData.total_adjustment;
+            const packageAdjustment = parseFloat(packageAdjustmentData.total_adjustment) || 0;
             
             // Show package adjustment details if any adjustments were made
             if (packageAdjustmentData.details && packageAdjustmentData.details.length > 0) {
@@ -1013,18 +702,18 @@
             }
             
             // Show package tracking summary if there are packages in the cart
-            const packagesInCart = cart.filter(item => item.type === 'package');
+            const packagesInCart = selectedItems.filter(item => item.type === 'package');
             if (packagesInCart.length > 0) {
                 const trackingSummaryContainer = document.getElementById('package-tracking-summary');
                 const trackingList = document.getElementById('package-tracking-list');
                 
                 let trackingHTML = '';
                 packagesInCart.forEach(package => {
-                    const trackingNumber = window.packageTrackingNumbers.get(package.id) || generatePackageTrackingNumber(package.id, package.displayName || package.name);
+                    const trackingNumber = window.packageTrackingNumbers.get(package.id) || generatePackageTrackingNumber(package.id, package.name);
                     trackingHTML += `
                         <div class="flex justify-between items-center text-sm">
                             <div>
-                                <span class="font-medium text-gray-800">${package.displayName || package.name}</span>
+                                <span class="font-medium text-gray-800">${package.name}</span>
                                 <span class="text-gray-600"> (Qty: ${package.quantity})</span>
                             </div>
                             <div class="text-right">
@@ -1036,14 +725,13 @@
                 
                 trackingList.innerHTML = trackingHTML;
                 trackingSummaryContainer.classList.remove('hidden');
-                
             } else {
                 document.getElementById('package-tracking-summary').classList.add('hidden');
             }
             
             // Calculate balance adjustment first (needed for service charge calculation)
             const balanceAdjustmentData = await calculateBalanceAdjustment(subtotal);
-            const balanceAdjustment = balanceAdjustmentData.balance_adjustment;
+            const balanceAdjustment = parseFloat(balanceAdjustmentData.balance_adjustment) || 0;
             
             // Calculate totals according to correct formula:
             // Subtotal 1 = Sum of all items (already calculated as 'subtotal')
@@ -1052,26 +740,24 @@
             // Service Charge is calculated based on Subtotal 2
             
             const subtotal1 = parseFloat(subtotal);
-            let subtotal2 = subtotal1 - parseFloat(packageAdjustment) - parseFloat(balanceAdjustment);
+            let subtotal2 = subtotal1 - packageAdjustment - balanceAdjustment;
             
             // Ensure subtotal2 never goes below 0
             if (subtotal2 < 0) {
                 subtotal2 = 0;
             }
             
+            console.log('Service charge calculation - subtotal2:', subtotal2);
             const serviceChargeData = await calculateServiceCharge(subtotal2);
             const serviceCharge = serviceChargeData.amount;
-            let finalTotal = subtotal2 + parseFloat(serviceCharge);
+            console.log('Service charge result:', serviceCharge);
             
-            // Ensure final total never goes below 0
-            if (finalTotal < 0) {
-                finalTotal = 0;
-            }
+            const finalTotal = subtotal2 + parseFloat(serviceCharge);
             
-            // Update invoice summary
+            // Update financial summary
             document.getElementById('invoice-subtotal').textContent = `UGX ${subtotal1.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('package-adjustment-display').textContent = `UGX ${parseFloat(packageAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('balance-adjustment-display').textContent = `UGX ${parseFloat(balanceAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('package-adjustment-display').textContent = `UGX ${packageAdjustment.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('balance-adjustment-display').textContent = `UGX ${balanceAdjustment.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('invoice-subtotal-2').textContent = `UGX ${subtotal2.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
             // Display service charge and handle note visibility
@@ -1095,7 +781,7 @@
             // Show modal
             document.getElementById('invoice-modal').classList.remove('hidden');
         }
-        
+
         function closeInvoicePreview() {
             document.getElementById('invoice-modal').classList.add('hidden');
             
@@ -1111,12 +797,94 @@
             if (window.packageTrackingNumbers) {
                 window.packageTrackingNumbers.clear();
             }
-            
-
         }
-        
+
+        async function calculatePackageAdjustment() {
+            try {
+                const response = await fetch('/invoices/package-adjustment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        items: selectedItems,
+                        client_id: {{ $client->id }},
+                        business_id: {{ auth()->user()->business_id }},
+                        branch_id: {{ auth()->user()->currentBranch->id ?? 'null' }}
+                    })
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error calculating package adjustment:', error);
+                return { total_adjustment: 0, details: [] };
+            }
+        }
+
+        async function calculateServiceCharge(subtotal) {
+            console.log('calculateServiceCharge called with subtotal:', subtotal);
+            try {
+                const response = await fetch('/invoices/service-charge', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        subtotal: subtotal,
+                        business_id: {{ auth()->user()->business_id }},
+                        branch_id: {{ auth()->user()->currentBranch->id ?? 'null' }}
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('Service charge API response:', data);
+                if (data.success) {
+                    const serviceCharge = parseFloat(data.service_charge) || 0;
+                    const hasServiceChargeRanges = data.has_service_charge_ranges || false;
+                    return {
+                        amount: serviceCharge,
+                        hasRanges: hasServiceChargeRanges
+                    };
+                } else {
+                    console.error('Service charge calculation failed:', data.message);
+                    return { amount: 0, hasRanges: false };
+                }
+            } catch (error) {
+                console.error('Error calculating service charge:', error);
+                return { amount: 0, hasRanges: false };
+            }
+        }
+
+        async function calculateBalanceAdjustment(amount) {
+            try {
+                const response = await fetch('/invoices/balance-adjustment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        total_amount: amount,
+                        client_id: {{ $client->id }}
+                    })
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error calculating balance adjustment:', error);
+                return { balance_adjustment: 0 };
+            }
+        }
+
         async function confirmAndSaveInvoice() {
-            if (cart.length === 0) {
+            if (selectedItems.length === 0) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'Empty Cart',
@@ -1143,27 +911,9 @@
                 noteDisplay: serviceChargeNote ? serviceChargeNote.style.display : 'note not found',
                 serviceChargeElement: serviceChargeElement ? 'found' : 'not found',
                 serviceChargeNote: serviceChargeNote ? 'found' : 'not found',
-                willBlock: (isServiceChargeNotConfigured || serviceChargeValue === 0),
+                willBlock: isServiceChargeNotConfigured,
                 timestamp: new Date().toISOString()
             });
-            
-            // Additional element inspection
-            if (serviceChargeElement) {
-                console.log('Service charge element details:', {
-                    textContent: serviceChargeElement.textContent,
-                    innerHTML: serviceChargeElement.innerHTML,
-                    style: serviceChargeElement.style.cssText
-                });
-            }
-            
-            if (serviceChargeNote) {
-                console.log('Service charge note details:', {
-                    textContent: serviceChargeNote.textContent,
-                    innerHTML: serviceChargeNote.innerHTML,
-                    style: serviceChargeNote.style.cssText,
-                    computedStyle: window.getComputedStyle(serviceChargeNote).display
-                });
-            }
             
             // Check if this is a package invoice (has package adjustment)
             const packageAdjustmentElement = document.getElementById('package-adjustment-display');
@@ -1171,15 +921,14 @@
             const packageAdjustmentValue = parseFloat(packageAdjustmentText.replace(/[^0-9.-]/g, '')) || 0;
             const isPackageInvoice = packageAdjustmentValue > 0;
             
-            // Block if service charges are not configured OR if it's a non-package invoice with no service charge
+            // Only block if service charges are not configured at all
+            // OR if it's a non-package invoice with no service charge
             if (isServiceChargeNotConfigured || (!isPackageInvoice && serviceChargeValue <= 0)) {
                 const errorTitle = isServiceChargeNotConfigured ? 'Service Charges Not Configured' : 'Service Charge Required';
                 const errorMessage = isServiceChargeNotConfigured 
                     ? 'Service charges not configured. Please contact support.'
                     : 'Service charge not configured. Please contact support.';
                 
-                console.log('=== BLOCKING SAVE - SERVICE CHARGE VALIDATION IF NOT PACKAGE INVOICE ===');
-                console.log('Showing error modal:', { errorTitle, errorMessage, isPackageInvoice, serviceChargeValue });
                 Swal.fire({
                     icon: 'error',
                     title: errorTitle,
@@ -1187,9 +936,6 @@
                     confirmButtonText: 'OK'
                 });
                 return;
-            } else {
-                console.log('=== VALIDATION PASSED - PROCEEDING WITH SAVE ===');
-                console.log('Service charge validation passed, continuing with save process');
             }
             
             // Confirm with SweetAlert2
@@ -1217,46 +963,39 @@
             try {
                 // Calculate totals
                 let subtotal = 0;
-                cart.forEach(item => {
+                selectedItems.forEach(item => {
                     subtotal += parseFloat(item.price || 0) * parseInt(item.quantity || 0);
                 });
                 
                 const packageAdjustmentData = await calculatePackageAdjustment();
                 const packageAdjustment = parseFloat(packageAdjustmentData.total_adjustment) || 0;
-                let adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
                 
-                // Ensure adjustedSubtotal never goes below 0
-                if (adjustedSubtotal < 0) {
-                    adjustedSubtotal = 0;
+                // Calculate balance adjustment first (needed for service charge calculation)
+                const balanceAdjustmentData = await calculateBalanceAdjustment(subtotal);
+                const balanceAdjustment = parseFloat(balanceAdjustmentData.balance_adjustment) || 0;
+                
+                // Calculate totals according to correct formula:
+                // Subtotal 1 = Sum of all items (already calculated as 'subtotal')
+                // Subtotal 2 = Subtotal 1 - Package Adjustment - Account Balance Adjustment
+                // Total = Subtotal 2 + Service Charge
+                // Service Charge is calculated based on Subtotal 2
+                
+                const subtotal1 = parseFloat(subtotal);
+                let subtotal2 = subtotal1 - packageAdjustment - balanceAdjustment;
+                
+                // Ensure subtotal2 never goes below 0
+                if (subtotal2 < 0) {
+                    subtotal2 = 0;
                 }
                 
-                const serviceChargeData = await calculateServiceCharge(adjustedSubtotal);
+                const serviceChargeData = await calculateServiceCharge(subtotal2);
                 const serviceCharge = serviceChargeData.amount;
-                
-                const subtotalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
-                
-                // Calculate balance adjustment
-                const balanceAdjustmentData = await calculateBalanceAdjustment(subtotalWithServiceCharge);
-                const balanceAdjustment = parseFloat(balanceAdjustmentData.balance_adjustment) || 0;
-                let totalAmount = parseFloat(subtotalWithServiceCharge) - parseFloat(balanceAdjustment);
+                let totalAmount = subtotal2 + parseFloat(serviceCharge);
                 
                 // Ensure totalAmount never goes below 0
                 if (totalAmount < 0) {
                     totalAmount = 0;
                 }
-                
-                console.log('Calculated values:', {
-                    subtotal: subtotal,
-                    packageAdjustment: packageAdjustment,
-                    serviceCharge: serviceCharge,
-                    serviceChargeDisplay: parseFloat(serviceCharge) > 0 ? `UGX ${parseFloat(serviceCharge).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : 'UGX 0.00 (No charges for this amount range)',
-                    adjustedSubtotal: adjustedSubtotal,
-                    subtotalWithServiceCharge: subtotalWithServiceCharge,
-                    balanceAdjustment: balanceAdjustment,
-                    totalAmount: totalAmount,
-                    totalAmountType: typeof totalAmount,
-                    isNaN: isNaN(totalAmount)
-                });
                 
                 // Get payment phone and methods
                 const paymentPhone = document.getElementById('payment-phone-edit')?.value || '';
@@ -1311,8 +1050,7 @@
                                     <p class="text-sm text-gray-500">Paid via Mobile Money</p>
                                 </div>
                             `,
-                            timer: 3000,
-                            showConfirmButton: false
+                            confirmButtonText: 'Great!'
                         });
                     } else {
                         Swal.fire({
@@ -1332,31 +1070,19 @@
                     });
                 }
                 
-                // Prepare cart items with total_amount for each item
-                const itemsWithTotals = cart.map(item => ({
+                // Prepare items with totals
+                const itemsWithTotals = selectedItems.map(item => ({
                     ...item,
                     total_amount: parseFloat(item.price || 0) * parseInt(item.quantity || 0)
                 }));
                 
-                // Get the invoice number from the display
-                const invoiceNumber = document.getElementById('invoice-number-display').textContent;
-                
-                // Validate invoice number
-                if (!invoiceNumber || invoiceNumber === 'Generating...' || invoiceNumber === 'Error generating invoice number') {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Invalid Proforma Invoice Number',
-                        text: 'Please wait for the proforma invoice number to be generated before saving.'
-                    });
-                    return;
-                }
-                
-                // Prepare invoice data with all required fields
+                // Create invoice data
                 const invoiceData = {
-                    invoice_number: invoiceNumber,
-                    client_id: {{ $client->id }},
+                    invoice_number: document.getElementById('invoice-number-display').textContent,
                     business_id: {{ auth()->user()->business_id }},
+                    client_id: {{ $client->id }},
                     branch_id: {{ auth()->user()->currentBranch->id ?? 'null' }},
+                    service_point_id: {{ $servicePoint->id }},
                     created_by: {{ auth()->id() }},
                     client_name: '{{ $client->name }}',
                     client_phone: '{{ $client->phone_number }}',
@@ -1365,8 +1091,8 @@
                     items: itemsWithTotals,
                     subtotal: parseFloat(subtotal),
                     package_adjustment: parseFloat(packageAdjustment),
-                    account_balance_adjustment: parseFloat(balanceAdjustment),
                     service_charge: parseFloat(serviceCharge),
+                    balance_adjustment: parseFloat(balanceAdjustment),
                     total_amount: parseFloat(totalAmount),
                     amount_paid: parseFloat(amountPaid),
                     balance_due: parseFloat(totalAmount - amountPaid),
@@ -1376,9 +1102,7 @@
                     notes: ''
                 };
                 
-                console.log('Proforma Invoice data being sent:', invoiceData);
-                
-                // Save invoice
+                // Send invoice data to backend
                 const response = await fetch('/invoices', {
                     method: 'POST',
                     headers: {
@@ -1389,14 +1113,14 @@
                     body: JSON.stringify(invoiceData)
                 });
                 
-                const data = await response.json();
+                const result = await response.json();
                 
-                if (data.success) {
-                    // Clear cart
-                    cart = [];
-                    updateRequestOrderSummaryDisplay();
+                if (result.success) {
+                    const invoiceNumber = result.invoice.invoice_number;
                     
-                    // Close order/request summary
+                    // Clear the cart and close modal
+                    selectedItems = [];
+                    updateOrderSummary();
                     closeInvoicePreview();
                     
                     // Show success with options
@@ -1443,19 +1167,16 @@
                     // If "Stay Here" is clicked, do nothing
                     
                 } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error!',
-                        text: 'Error saving invoice: ' + (data.message || 'Unknown error')
-                    });
+                    throw new Error(result.message || 'Failed to save invoice');
                 }
                 
             } catch (error) {
                 console.error('Error saving invoice:', error);
                 Swal.fire({
                     icon: 'error',
-                    title: 'Error!',
-                    text: 'Error saving invoice. Please try again.'
+                    title: 'Error',
+                    text: 'Failed to save invoice: ' + error.message,
+                    confirmButtonText: 'OK'
                 });
             } finally {
                 // Restore button state
@@ -1463,92 +1184,7 @@
                 button.disabled = false;
             }
         }
-        
 
-        
-        // Payment Methods Modal Functions
-        function openPaymentMethodsModal() {
-            document.getElementById('payment-methods-modal').classList.remove('hidden');
-        }
-        
-        function closePaymentMethodsModal() {
-            document.getElementById('payment-methods-modal').classList.add('hidden');
-        }
-        
-        function savePaymentMethods() {
-            const selectedMethods = [];
-            const checkboxes = document.querySelectorAll('input[name="payment_methods[]"]:checked');
-            
-            checkboxes.forEach(checkbox => {
-                selectedMethods.push(checkbox.value);
-            });
-            
-            // Send AJAX request to update payment methods
-            fetch(`/clients/{{ $client->id }}/update-payment-methods`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify({
-                    payment_methods: selectedMethods
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Update the display
-                    updatePaymentMethodsDisplay(selectedMethods);
-                    closePaymentMethodsModal();
-                    
-                    // Show success message
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success!',
-                        text: 'Payment methods updated successfully!',
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error!',
-                        text: 'Error updating payment methods: ' + data.message
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error!',
-                    text: 'Error updating payment methods'
-                });
-            });
-        }
-        
-        function updatePaymentMethodsDisplay(methods) {
-            const container = document.querySelector('.payment-methods-display');
-            if (methods.length > 0) {
-                container.innerHTML = methods.map((method, index) => 
-                    `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        ${index + 1}. ${method.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </span>`
-                ).join('');
-            } else {
-                container.innerHTML = '<span class="text-sm text-gray-500">No payment methods specified</span>';
-            }
-            
-            // Show/hide payment phone section based on mobile money selection
-            const paymentPhoneSection = document.getElementById('payment-phone-section');
-            if (methods.includes('mobile_money')) {
-                paymentPhoneSection.style.display = 'block';
-            } else {
-                paymentPhoneSection.style.display = 'none';
-            }
-        }
-        
         async function processMobileMoneyPayment(amount, phoneNumber) {
             try {
                 // Prepare payment data
@@ -1557,7 +1193,7 @@
                     phone_number: phoneNumber,
                     client_id: {{ $client->id }},
                     business_id: {{ auth()->user()->business_id }},
-                    items: cart,
+                    items: selectedItems,
                     invoice_number: document.getElementById('invoice-number-display').textContent
                 };
                 
@@ -1600,269 +1236,7 @@
                 };
             }
         }
-        
-        async function calculateServiceCharge(subtotal) {
-            console.log('=== CALCULATE SERVICE CHARGE START ===');
-            console.log('calculateServiceCharge called with subtotal:', subtotal);
-            try {
-                const response = await fetch('/invoices/service-charge', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        subtotal: subtotal,
-                        business_id: {{ auth()->user()->business_id }},
-                        branch_id: {{ auth()->user()->currentBranch->id ?? 'null' }}
-                    })
-                });
-                
-                const data = await response.json();
-                console.log('Service charge API response:', data);
-                if (data.success) {
-                    const serviceCharge = parseFloat(data.service_charge) || 0;
-                    const hasServiceChargeRanges = data.has_service_charge_ranges || false;
-                    console.log('Service charge calculated:', serviceCharge, 'Has ranges:', hasServiceChargeRanges);
-                    return {
-                        amount: serviceCharge,
-                        hasRanges: hasServiceChargeRanges
-                    };
-                } else {
-                    console.error('Service charge calculation error:', data.message);
-                    return { amount: 0, hasRanges: false };
-                }
-            } catch (error) {
-                console.error('Error calculating service charge:', error);
-                return { amount: 0, hasRanges: false };
-            }
-        }
-        
-        async function calculatePackageAdjustment() {
-            try {
-                console.log('Cart data being sent to package adjustment:', cart);
-                const response = await fetch('/invoices/package-adjustment', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        client_id: {{ $client->id }},
-                        business_id: {{ auth()->user()->business_id }},
-                        branch_id: {{ $client->branch_id }},
-                        items: cart
-                    })
-                });
-                
-                const data = await response.json();
-                if (data.success) {
-                    return {
-                        total_adjustment: parseFloat(data.total_adjustment) || 0,
-                        details: data.details || []
-                    };
-                } else {
-                    console.error('Package adjustment calculation error:', data.message);
-                    return { total_adjustment: 0, details: [] };
-                }
-            } catch (error) {
-                console.error('Error calculating package adjustment:', error);
-                return { total_adjustment: 0, details: [] };
-            }
-        }
-        
-        async function calculateBalanceAdjustment(totalAmount) {
-            try {
-                const response = await fetch('/invoices/balance-adjustment', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        client_id: {{ $client->id }},
-                        total_amount: totalAmount
-                    })
-                });
-                
-                const data = await response.json();
-                if (data.success) {
-                    return {
-                        balance_adjustment: parseFloat(data.balance_adjustment) || 0,
-                        client_balance: parseFloat(data.client_balance) || 0,
-                        remaining_balance: parseFloat(data.remaining_balance) || 0
-                    };
-                } else {
-                    console.error('Balance adjustment calculation error:', data.message);
-                    return { balance_adjustment: 0, client_balance: 0, remaining_balance: 0 };
-                }
-            } catch (error) {
-                console.error('Error calculating balance adjustment:', error);
-                return { balance_adjustment: 0, client_balance: 0, remaining_balance: 0 };
-            }
-        }
-        
-        async function refreshClientBalance() {
-            try {
-                const response = await fetch('/invoices/balance-adjustment', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        client_id: {{ $client->id }},
-                        total_amount: 0 // Just to get current balance
-                    })
-                });
-                
-                const data = await response.json();
-                if (data.success) {
-                    const balanceDisplay = document.getElementById('client-balance-display');
-                    const totalBalanceDisplay = document.getElementById('client-total-balance');
-                    
-                    const availableBalance = parseFloat(data.available_balance || data.client_balance || 0);
-                    const totalBalance = parseFloat(data.total_balance || data.client_balance || 0);
-                    const suspenseBalance = parseFloat(data.suspense_balance || 0);
-                    
-                    const formattedAvailableBalance = `Available: UGX ${availableBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                    const formattedTotalBalance = `Total: UGX ${totalBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                    
-                    balanceDisplay.innerHTML = `<span class="text-blue-600">Available:</span> UGX ${availableBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                    
-                    let totalBalanceText = `<span class="text-gray-600">Total:</span> UGX ${totalBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                    if (suspenseBalance > 0) {
-                        totalBalanceText += ` <span class="text-orange-600">(${suspenseBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} in suspense)</span>`;
-                    }
-                    totalBalanceDisplay.innerHTML = totalBalanceText;
-                    
-                    // Update balance in invoice preview if it's open
-                    const invoicePreviewBalance = document.querySelector('#invoice-preview-modal .text-blue-600.font-semibold');
-                    if (invoicePreviewBalance) {
-                        invoicePreviewBalance.textContent = `UGX ${availableBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                    }
-                    
-                    // Show success message
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Balance Updated',
-                        text: `Current balance: ${formattedBalance}`,
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                } else {
-                    console.error('Error refreshing balance:', data.message);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'Failed to refresh balance'
-                    });
-                }
-            } catch (error) {
-                console.error('Error refreshing client balance:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Failed to refresh balance'
-                });
-            }
-        }
-        
-        function savePaymentPhone() {
-            const phoneInput = document.getElementById('payment-phone-edit');
-            const phoneNumber = phoneInput.value.trim();
-            const button = event.target;
-            const originalText = button.textContent;
-            
-            // Show loading state
-            button.textContent = 'Saving...';
-            button.disabled = true;
-            
-            fetch(`/clients/{{ $client->id }}/update-payment-phone`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify({
-                    payment_phone_number: phoneNumber
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success!',
-                        text: 'Payment phone number updated successfully!',
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error!',
-                        text: 'Error updating payment phone number: ' + data.message
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error!',
-                    text: 'Error updating payment phone number'
-                });
-            })
-            .finally(() => {
-                // Restore button state
-                button.textContent = originalText;
-                button.disabled = false;
-            });
-        }
-        
-        // Generate unique package tracking numbers
-        function generatePackageTrackingNumber(itemId, itemName) {
-            // Create a timestamp-based tracking number
-            const timestamp = Date.now();
-            const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-            
-            // Format: PKG-YYYYMMDD-HHMMSS-RRR (Package-YearMonthDay-HourMinuteSecond-Random)
-            const date = new Date(timestamp);
-            const year = date.getFullYear();
-            const month = (date.getMonth() + 1).toString().padStart(2, '0');
-            const day = date.getDate().toString().padStart(2, '0');
-            const hours = date.getHours().toString().padStart(2, '0');
-            const minutes = date.getMinutes().toString().padStart(2, '0');
-            const seconds = date.getSeconds().toString().padStart(2, '0');
-            
-            const trackingNumber = `PKG-${year}${month}${day}-${hours}${minutes}${seconds}-${randomSuffix}`;
-            
-            // Store the tracking number for this package (for later use if needed)
-            if (!window.packageTrackingNumbers) {
-                window.packageTrackingNumbers = new Map();
-            }
-            window.packageTrackingNumbers.set(itemId, trackingNumber);
-            
-            return trackingNumber;
-        }
-        
-        function saveAndExit() {
-            // Log the save and exit action
-            console.log('=== POS ITEM SELECTION - SAVE AND EXIT TRIGGERED ===', {
-                client_id: {{ $client->id }},
-                client_name: '{{ $client->name }}',
-                page: 'POS Item Selection',
-                action: 'Save and Exit',
-                unified_component_used: true,
-                timestamp: new Date().toISOString()
-            });
-
+    </script>
             // Show confirmation dialog
             Swal.fire({
                 title: 'Save Changes?',
