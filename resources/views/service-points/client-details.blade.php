@@ -187,7 +187,7 @@
                 </div>
             </div>
 
-            {{-- Make a Request/Order Section - Same as POS page --}}
+            <!-- Section 4: Make a Request/Order - Professional Two Column Layout -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Make a Request/Order</h3>
@@ -289,24 +289,24 @@
                                                             }
                                                         }
                                                         
-                                                        // Add item variation info if present in name
+                                                        // Add variation descriptions
                                                         if (str_contains($itemName, 'advanced') || str_contains($itemName, 'premium') || str_contains($itemName, 'deluxe') || str_contains($itemName, 'professional') || str_contains($itemName, 'enhanced')) {
                                                             $descriptionParts[] = 'Premium quality variant';
-                                                        } elseif (str_contains($itemName, 'basic') || str_contains($itemName, 'standard')) {
+                                                        } elseif (str_contains($itemName, 'basic') || str_contains($itemName, 'standard') || str_contains($itemName, 'regular')) {
                                                             $descriptionParts[] = 'Standard quality variant';
+                                                        } elseif (str_contains($itemName, 'economy') || str_contains($itemName, 'budget') || str_contains($itemName, 'value')) {
+                                                            $descriptionParts[] = 'Economy quality variant';
                                                         }
                                                         
-                                                        // Add category if available
+                                                        // Add additional properties
                                                         if ($item->category && !empty(trim($item->category))) {
                                                             $descriptionParts[] = "Category: {$item->category}";
                                                         }
                                                         
-                                                        // Add other names if available
                                                         if ($item->other_names && !empty(trim($item->other_names))) {
                                                             $descriptionParts[] = "Also known as: {$item->other_names}";
                                                         }
                                                         
-                                                        // Add unit information if available
                                                         if ($item->unit && !empty(trim($item->unit))) {
                                                             $descriptionParts[] = "Unit: {$item->unit}";
                                                         }
@@ -317,48 +317,27 @@
                                                 @if($description)
                                                 <p class="text-xs text-gray-500 mt-1 description-display">{{ $description }}</p>
                                                 @endif
-                                                <p class="text-xs text-blue-600 mt-1 price-display" style="display: none;">
-                                                    Price: UGX {{ number_format($item->final_price ?? 0, 2) }}
-                                                    @if(isset($item->final_price) && $item->final_price != $item->default_price)
-                                                        <span class="text-green-600">(Branch Price)</span>
-                                                    @else
-                                                        <span class="text-gray-500">(Default Price)</span>
-                                                    @endif
-                                                    @if($item->vat_rate && $item->vat_rate > 0)
-                                                        <span class="text-orange-600">(VAT: {{ $item->vat_rate }}%)</span>
-                                                    @endif
-                                                </p>
+                                                <p class="text-xs text-gray-400 mt-1 price-display">UGX {{ number_format($item->default_price ?? 0, 0) }}</p>
                                             </div>
                                             <div>
-                                                <input type="number" min="0" value="0" 
-                                                       class="quantity-input w-20 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                       data-item-id="{{ $item->id }}" 
-                                                       data-item-price="{{ $item->final_price ?? 0 }}"
-                                                       data-item-name="{{ $item->name }}"
-                                                       data-item-display-name="{{ $item->display_name }}"
-                                                       data-item-other-names="{{ $item->other_names ?? '' }}"
-                                                       data-item-type="{{ $item->type ?? 'N/A' }}">
+                                                <input type="number" 
+                                                       min="0" 
+                                                       step="1"
+                                                       value="0"
+                                                       data-item-id="{{ $item->id }}"
+                                                       data-item-name="{{ $item->display_name }}"
+                                                       data-item-type="{{ $item->type ?? 'good' }}"
+                                                       data-item-price="{{ $item->default_price ?? 0 }}"
+                                                       class="quantity-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                                       placeholder="0">
                                             </div>
                                         </div>
                                     </div>
                                     @empty
-                                    <div class="px-4 py-8">
-                                        <p class="text-sm text-gray-500 text-center">No items available for this hospital</p>
+                                    <div class="px-4 py-8 text-center text-gray-500">
+                                        <p>No items available for this business.</p>
                                     </div>
                                     @endforelse
-                                </div>
-                            </div>
-                            
-                            <!-- Pagination -->
-                            <div class="mt-4 flex items-center justify-between text-sm text-gray-500">
-                                <span>Showing 1 to {{ min(5, count($items)) }} of {{ count($items) }} results</span>
-                                <div class="flex items-center space-x-2">
-                                    <select class="px-2 py-1 border border-gray-300 rounded-md">
-                                        <option value="5">5</option>
-                                        <option value="10">10</option>
-                                        <option value="25">25</option>
-                                    </select>
-                                    <span>Per page</span>
                                 </div>
                             </div>
                         </div>
@@ -367,65 +346,163 @@
                         <div>
                             <h4 class="text-md font-medium text-gray-900 mb-4">Request/Order Summary</h4>
                             
-                            <!-- Request/Order Summary Table -->
-                            <div class="border border-gray-200 rounded-lg overflow-hidden">
+                            <!-- Selected Items Table -->
+                            <div class="border border-gray-200 rounded-lg overflow-hidden mb-4">
                                 <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                                    <div class="grid grid-cols-5 gap-4">
-                                        <div>
-                                            <span class="text-sm font-medium text-gray-700">Item</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-sm font-medium text-gray-700">Type</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-sm font-medium text-gray-700">Quantity</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-sm font-medium text-gray-700">Price</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-sm font-medium text-gray-700">Action</span>
-                                        </div>
+                                    <div class="grid grid-cols-5 gap-4 text-sm font-medium text-gray-700">
+                                        <div>Item</div>
+                                        <div>Type</div>
+                                        <div>Quantity</div>
+                                        <div>Price</div>
+                                        <div>Action</div>
                                     </div>
                                 </div>
                                 
-                                <div id="request-order-summary-items" class="divide-y divide-gray-200 min-h-32">
-                                    <div class="px-4 py-8">
-                                        <p class="text-sm text-gray-500 text-center">No items selected</p>
+                                <div id="selected-items-container" class="divide-y divide-gray-200 min-h-48">
+                                    <div class="px-4 py-8 text-center text-gray-500">
+                                        No items selected
                                     </div>
                                 </div>
                             </div>
                             
-                            <!-- Request/Order Summary -->
-                            <div class="mt-4 bg-gray-50 p-4 rounded-lg">
-                                <div class="flex justify-between items-center mb-2">
-                                    <span class="text-sm text-gray-600">Unique Items:</span>
-                                    <span id="total-items" class="text-sm font-medium text-gray-900">0</span>
+                            <!-- Order Totals -->
+                            <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                                <div class="space-y-2">
+                                    <div class="flex justify-between">
+                                        <span class="text-sm text-gray-600">Unique Items:</span>
+                                        <span class="text-sm font-medium text-gray-900" id="unique-items-count">0</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-sm text-gray-600">Total Quantity:</span>
+                                        <span class="text-sm font-medium text-gray-900" id="total-quantity">0</span>
+                                    </div>
+                                    <div class="flex justify-between border-t border-gray-200 pt-2">
+                                        <span class="text-sm font-medium text-gray-900">Total Amount:</span>
+                                        <span class="text-sm font-medium text-gray-900" id="total-amount">UGX 0.00</span>
+                                    </div>
                                 </div>
-                                <div class="flex justify-between items-center mb-2">
-                                    <span class="text-sm text-gray-600">Total Quantity:</span>
-                                    <span id="total-quantity" class="text-sm font-medium text-gray-900">0</span>
-                                </div>
-                                <div class="flex justify-between items-center mb-4">
-                                    <span class="text-sm text-gray-600">Total Amount:</span>
-                                    <span id="total-amount" class="text-lg font-bold text-gray-900">UGX 0.00</span>
-                                </div>
-                                <button class="w-full bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors" onclick="showInvoicePreview()">
-                                    Preview Proforma Invoice
-                                </button>
                             </div>
+                            
+                            <!-- Preview Proforma Invoice Button -->
+                            <button onclick="showInvoicePreview()" class="w-full bg-gray-900 text-white py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors font-medium">
+                                Preview Proforma Invoice
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {{-- Unified Ordered Items Component --}}
-            <x-pos.ordered-items 
-                :pendingItems="$pendingItems" 
-                :partiallyDoneItems="$partiallyDoneItems" 
-                :completedItems="collect()" 
-                :correctTotalAmount="$correctTotalAmount ?? 0" 
-            />
+            <!-- Section 5: Ordered Items (Requests/Orders) -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium text-gray-900">Ordered Items (Requests/Orders)</h3>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-600">Total Amount</div>
+                            <div class="text-lg font-bold text-blue-600">
+                                {{ number_format($correctTotalAmount ?? 0, 0) }} UGX
+                            </div>
+                        </div>
+                    </div>
+                    <form id="itemStatusForm">
+                        @csrf
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full bg-white border border-gray-200 rounded-lg text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Item Name</th>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Proforma Invoice</th>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Price</th>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Qty</th>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Total Amount</th>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Current Status</th>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Status Update</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    @if($pendingItems->count() > 0)
+                                        @foreach($pendingItems as $item)
+                                            <tr class="hover:bg-gray-50">
+                                                <td class="px-4 py-3 text-gray-900 font-medium">
+                                                    {{ $item->item->name ?? $item->item_name }}
+                                                </td>
+                                                <td class="px-4 py-3 text-gray-600">{{ $item->invoice->invoice_number ?? 'N/A' }}</td>
+                                                <td class="px-4 py-3 text-gray-600 font-semibold">{{ number_format($item->price, 0) }} UGX</td>
+                                                <td class="px-4 py-3 text-gray-600 text-center">{{ $item->quantity }}</td>
+                                                <td class="px-4 py-3 text-gray-600 font-semibold text-green-600">
+                                                    {{ number_format($item->price * $item->quantity, 0) }} UGX
+                                                </td>
+                                                <td class="px-4 py-3">
+                                                    <span class="status-badge status-pending">Pending</span>
+                                                </td>
+                                                <td class="px-4 py-3">
+                                                    <div class="flex flex-col space-y-2">
+                                                        <label class="flex items-center">
+                                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="pending" class="mr-2">
+                                                            <span class="text-sm">Not Done</span>
+                                                        </label>
+                                                        <label class="flex items-center">
+                                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2">
+                                                            <span class="text-sm">Partially Done</span>
+                                                        </label>
+                                                        <label class="flex items-center">
+                                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2">
+                                                            <span class="text-sm">Completed (Done)</span>
+                                                        </label>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    @endif
+                                    
+                                    @if($partiallyDoneItems->count() > 0)
+                                        @foreach($partiallyDoneItems as $item)
+                                            <tr class="hover:bg-gray-50">
+                                                <td class="px-4 py-3 text-gray-900 font-medium">
+                                                    {{ $item->item->name ?? $item->item_name }}
+                                                </td>
+                                                <td class="px-4 py-3 text-gray-600">{{ $item->invoice->invoice_number ?? 'N/A' }}</td>
+                                                <td class="px-4 py-3 text-gray-600 font-semibold">{{ number_format($item->price, 0) }} UGX</td>
+                                                <td class="px-4 py-3 text-gray-600 text-center">{{ $item->quantity }}</td>
+                                                <td class="px-4 py-3 text-gray-600 font-semibold text-green-600">
+                                                    {{ number_format($item->price * $item->quantity, 0) }} UGX
+                                                </td>
+                                                <td class="px-4 py-3">
+                                                    <span class="status-badge status-partially-done">In Progress</span>
+                                                </td>
+                                                <td class="px-4 py-3">
+                                                    <div class="flex flex-col space-y-2">
+                                                        <label class="flex items-center">
+                                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="pending" class="mr-2">
+                                                            <span class="text-sm">Not Done</span>
+                                                        </label>
+                                                        <label class="flex items-center">
+                                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2">
+                                                            <span class="text-sm">Partially Done</span>
+                                                        </label>
+                                                        <label class="flex items-center">
+                                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2">
+                                                            <span class="text-sm">Completed (Done)</span>
+                                                        </label>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    @endif
+                                    
+
+                                    
+                                    @if($pendingItems->count() == 0 && $partiallyDoneItems->count() == 0)
+                                        <tr>
+                                            <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                                                No items found for this client at this service point.
+                                            </td>
+                                        </tr>
+                                    @endif
+                                </tbody>
+                            </table>
+                        </div>
+                    </form>
 
             <!-- Save and Exit Button -->
             <div class="flex justify-end space-x-4 mt-6">
@@ -720,7 +797,7 @@
             
             // Add search functionality
             const searchInput = document.getElementById('search-input');
-            searchInput.addEventListener('input', function() {
+                searchInput.addEventListener('input', function() {
                 const searchTerm = this.value.toLowerCase();
                 const itemRows = document.querySelectorAll('.item-row');
                 
@@ -739,16 +816,16 @@
             
             // Add show prices functionality
             const showPricesCheckbox = document.getElementById('show-prices');
-            showPricesCheckbox.addEventListener('change', function() {
+                showPricesCheckbox.addEventListener('change', function() {
                 const priceElements = document.querySelectorAll('.price-display');
                 priceElements.forEach(element => {
                     element.style.display = this.checked ? 'block' : 'none';
                 });
             });
-            
+
             // Add show descriptions functionality
             const showDescriptionsCheckbox = document.getElementById('show-descriptions');
-            showDescriptionsCheckbox.addEventListener('change', function() {
+                showDescriptionsCheckbox.addEventListener('change', function() {
                 const descriptionElements = document.querySelectorAll('.description-display');
                 descriptionElements.forEach(element => {
                     element.style.display = this.checked ? 'block' : 'none';
@@ -870,7 +947,7 @@
                 const data = await response.json();
                 if (data.invoice_number) {
                     document.getElementById('invoice-number-display').textContent = data.invoice_number;
-                } else {
+            } else {
                     document.getElementById('invoice-number-display').textContent = 'Error generating invoice number';
                 }
             } catch (error) {
@@ -910,261 +987,216 @@
         
         function closeInvoicePreview() {
             document.getElementById('invoice-preview-modal').classList.add('hidden');
-        }
-        
-        function closeClientConfirmation() {
-            document.getElementById('client-confirmation-modal').classList.add('hidden');
-        }
-        
-        function printClientDetails() {
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(`
-                <html>
-                    <head>
-                        <title>Client Details - {{ $client->name }}</title>
-                        <style>
-                            body { font-family: Arial, sans-serif; margin: 20px; }
-                            .header { text-align: center; margin-bottom: 30px; }
-                            .client-info { margin-bottom: 20px; }
-                            .qr-code { text-align: center; margin: 20px 0; }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="header">
-                            <h1>{{ auth()->user()->business->name ?? 'Medical Centre' }}</h1>
-                        </div>
-                        <div class="client-info">
-                            <h2>Client Details</h2>
-                            <p><strong>Name:</strong> {{ $client->name }}</p>
-                            <p><strong>Client ID:</strong> {{ $client->client_id }}</p>
-                            <p><strong>Visit ID:</strong> {{ $client->visit_id }}</p>
-                            <p><strong>Branch:</strong> {{ auth()->user()->currentBranch->name ?? 'N/A' }}</p>
-                        </div>
-                        <div class="qr-code">
-                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=128x128&data={{ urlencode($client->client_id . '|' . $client->name) }}" alt="QR Code">
-                        </div>
-                    </body>
-                </html>
-            `);
-            printWindow.document.close();
-            printWindow.print();
-        }
-        
-        function saveAndExit() {
-            // Log the save and exit action
-            console.log('=== SERVICE POINTS CLIENT DETAILS - SAVE AND EXIT TRIGGERED ===', {
-                client_id: {{ $client->id }},
-                client_name: '{{ $client->name }}',
-                page: 'Service Points Client Details',
-                action: 'Save and Exit',
-                timestamp: new Date().toISOString()
-            });
+            }
 
-            // Show confirmation dialog
-            Swal.fire({
-                title: 'Save Changes?',
-                text: 'Are you sure you want to save the selected statuses?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#3b82f6',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, save changes!',
-                cancelButtonText: 'Cancel'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    console.log('=== SERVICE POINTS CLIENT DETAILS - SAVE CONFIRMED ===', {
-                        client_id: {{ $client->id }},
-                        action: 'Save Confirmed',
-                        redirect_to: 'service-points.show',
-                        timestamp: new Date().toISOString()
-                    });
-
-                    Swal.fire({
-                        title: 'Saved Successfully!',
-                        text: 'Changes have been saved successfully.',
-                        icon: 'success',
-                        confirmButtonColor: '#10b981'
-                    }).then(() => {
-                        // Redirect back to service point
-                        window.location.href = '{{ route("service-points.show", $servicePoint) }}';
-                    });
-                } else {
-                    console.log('=== SERVICE POINTS CLIENT DETAILS - SAVE CANCELLED ===', {
-                        client_id: {{ $client->id }},
-                        action: 'Save Cancelled',
-                        timestamp: new Date().toISOString()
-                    });
-                }
-            });
-        }
-    </script>
-
-    <!-- Payment Methods Modal -->
-    <div id="payment-methods-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
-            <div class="mt-3">
-                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-                    <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                </div>
-                <div class="mt-3 text-center sm:mt-5">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900">Select Payment Methods</h3>
-                    <div class="mt-2">
-                        <p class="text-sm text-gray-500">Choose how the client will pay for this order.</p>
+            selectedItems.forEach(item => {
+                totalQuantity += item.quantity;
+                totalAmount += item.totalAmount;
+                
+                html += `
+                    <div class="px-4 py-3 grid grid-cols-5 gap-4 items-center">
+                        <div class="text-sm text-gray-900">${item.name}</div>
+                        <div class="text-sm text-gray-600">${item.type}</div>
+                        <div class="text-sm text-gray-900">${item.quantity}</div>
+                        <div class="text-sm text-gray-900">UGX ${item.price.toLocaleString()}</div>
+                        <div>
+                            <button onclick="removeItem('${item.id}')" class="text-red-600 hover:text-red-800 text-sm underline">
+                                Remove
+                            </button>
+                        </div>
                     </div>
-                </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            uniqueItemsSpan.textContent = selectedItems.length;
+            totalQuantitySpan.textContent = totalQuantity;
+            totalAmountSpan.textContent = `UGX ${totalAmount.toLocaleString()}`;
+        }
+
+        function removeItem(itemId) {
+            console.log('Removing item with ID:', itemId);
+            
+            // Reset the quantity input to 0
+            const input = document.querySelector(`input[data-item-id="${itemId}"]`);
+            if (input) {
+                input.value = '0';
+                console.log('Reset input for item:', itemId);
+            } else {
+                console.log('Input not found for item:', itemId);
+            }
+            
+            // Remove from selected items array
+            const initialLength = selectedItems.length;
+            const stringItemId = String(itemId);
+            selectedItems = selectedItems.filter(item => String(item.id) !== stringItemId);
+            console.log(`Removed item. Array length: ${initialLength} -> ${selectedItems.length}`);
+            
+            // Update the order summary
+            updateOrderSummary();
+            
+            // Show success message
+            Swal.fire({
+                icon: 'success',
+                title: 'Item Removed',
+                text: 'Item has been removed from your order.',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        }
+
+        // Initialize package tracking numbers storage
+        window.packageTrackingNumbers = new Map();
+        
+        // Generate package tracking number
+        function generatePackageTrackingNumber(packageId, packageName) {
+            if (window.packageTrackingNumbers.has(packageId)) {
+                return window.packageTrackingNumbers.get(packageId);
+            }
+            
+            // Generate a unique tracking number
+            const timestamp = Date.now().toString().slice(-6);
+            const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
+            const packagePrefix = packageName ? packageName.substring(0, 3).toUpperCase() : 'PKG';
+            const trackingNumber = `${packagePrefix}-${timestamp}-${randomSuffix}`;
+            
+            // Store the tracking number
+            window.packageTrackingNumbers.set(packageId, trackingNumber);
+            
+            return trackingNumber;
+        }
+
+        // Preview Proforma Invoice functionality - Full POS functionality
+        document.addEventListener('click', function(e) {
+            if (e.target.textContent === 'Preview Proforma Invoice') {
+                if (selectedItems.length === 0) {
+                    Swal.fire({
+                        title: 'No Items Selected',
+                        text: 'Please select at least one item before previewing the invoice.',
+                        icon: 'warning',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                    return;
+                }
+
+                showInvoicePreview();
+            }
+        });
+
+        async function showInvoicePreview() {
+            console.log('showInvoicePreview called');
+            console.log('selectedItems:', selectedItems);
+            
+            if (selectedItems.length === 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Empty Cart',
+                    text: 'Please add items to cart before previewing invoice'
+                });
+                return;
+            }
+            
+            // Generate invoice number
+            try {
+                const response = await fetch('/invoices/generate-invoice-number', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        business_id: {{ auth()->user()->business->id }}
+                    })
+                });
                 
-                <!-- Payment Method Options -->
-                <div class="mt-5 sm:mt-6 space-y-3">
-                    <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                        <input type="checkbox" name="payment_methods[]" value="cash" class="mr-3 rounded border-gray-300">
-                        <span class="text-sm font-medium text-gray-700">Cash Payment</span>
-                    </label>
+                const data = await response.json();
+                if (data.invoice_number) {
+                    document.getElementById('invoice-number-display').textContent = data.invoice_number;
+                } else {
+                    document.getElementById('invoice-number-display').textContent = 'Error generating invoice number';
+                }
+            } catch (error) {
+                console.error('Error generating invoice number:', error);
+                document.getElementById('invoice-number-display').textContent = 'Error generating invoice number';
+            }
+            
+            // Populate invoice items table
+            const invoiceTable = document.getElementById('invoice-items-table');
+            let tableHTML = '';
+            let subtotal = 0;
+            
+            selectedItems.forEach(item => {
+                const itemTotal = (item.price || 0) * (item.quantity || 0);
+                subtotal += itemTotal;
+                
+                // Generate tracking number for packages
+                let trackingNumber = 'N/A';
+                if (item.type === 'package') {
+                    trackingNumber = generatePackageTrackingNumber(item.id, item.name);
+                }
+                
+                tableHTML += `
+                    <tr class="bg-white">
+                        <td class="border border-gray-300 px-4 py-2">${item.name}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-center">${item.type || 'N/A'}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-center">${item.quantity}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-right">UGX ${(item.price || 0).toLocaleString()}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-right">UGX ${itemTotal.toLocaleString()}</td>
+                    </tr>
+                `;
+            });
+            
+            invoiceTable.innerHTML = tableHTML;
+            
+            // Calculate package adjustment
+            const packageAdjustmentData = await calculatePackageAdjustment();
+            const packageAdjustment = parseFloat(packageAdjustmentData.total_adjustment) || 0;
+            
+            // Show package adjustment details if any adjustments were made
+            if (packageAdjustmentData.details && packageAdjustmentData.details.length > 0) {
+                const adjustmentDetailsContainer = document.getElementById('package-adjustment-details');
+                const adjustmentList = document.getElementById('package-adjustment-list');
+                
+                let detailsHTML = '';
+                packageAdjustmentData.details.forEach(detail => {
+                    // Generate tracking number for package adjustments
+                    const packageTrackingNumber = generatePackageTrackingNumber(detail.package_id || 'adj_' + Date.now(), detail.package_name);
                     
-                    <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                        <input type="checkbox" name="payment_methods[]" value="mobile_money" class="mr-3 rounded border-gray-300">
-                        <span class="text-sm font-medium text-gray-700">Mobile Money</span>
-                    </label>
-                </div>
+                    detailsHTML += `
+                        <div class="flex justify-between items-center text-sm">
+                            <div>
+                                <span class="font-medium text-gray-800">${detail.item_name}</span>
+                                <span class="text-gray-600"> (${detail.quantity_adjusted} × UGX ${(detail.adjustment_amount / detail.quantity_adjusted).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})})</span>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-medium text-green-800">-UGX ${detail.adjustment_amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                <div class="text-xs text-gray-500">From: ${detail.package_name}</div>
+                                <div class="text-xs text-blue-600 font-mono">${packageTrackingNumber}</div>
+                            </div>
+                        </div>
+                    `;
+                });
                 
-                <!-- Action Buttons -->
-                <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
-                    <button type="button" onclick="confirmAndSaveInvoice()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:col-start-2 sm:text-sm">
-                        Confirm Order
-                    </button>
-                    <button type="button" onclick="closePaymentMethodsModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Order/Request Summary Modal -->
-    <div id="invoice-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-medium text-gray-900">Order Summary</h3>
-                <button onclick="closeInvoicePreview()" class="text-gray-400 hover:text-gray-600">
-                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
+                adjustmentList.innerHTML = detailsHTML;
+                adjustmentDetailsContainer.classList.remove('hidden');
+            } else {
+                document.getElementById('package-adjustment-details').classList.add('hidden');
+            }
             
-            <!-- Proforma Invoice Header -->
-            <div class="bg-gray-50 p-4 rounded-lg mb-6">
-                <h2 class="text-2xl font-bold text-gray-800 mb-2">Proforma Invoice</h2>
-                <div class="bg-blue-600 text-white py-2 px-4 rounded-lg mb-2">
-                    <span class="text-lg font-semibold">Proforma Invoice</span>
-                </div>
-                <div class="bg-gray-100 py-2 px-4 rounded-lg border">
-                    <span class="text-sm text-gray-600">Proforma Invoice Number:</span>
-                    <span id="invoice-number-display" class="text-lg font-bold text-gray-800 ml-2">Generating...</span>
-                </div>
-            </div>
-            
-            <!-- Invoice Items Table -->
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody id="invoice-items-table" class="bg-white divide-y divide-gray-200">
-                        <!-- Invoice items will be populated by JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-            
-            <!-- Invoice Totals -->
-            <div class="mt-6 bg-gray-50 p-4 rounded-lg">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-sm text-gray-600">Subtotal:</span>
-                    <span id="invoice-subtotal" class="text-sm font-medium text-gray-900">UGX 0.00</span>
-                </div>
-                <div class="flex justify-between items-center mb-4">
-                    <span class="text-lg font-semibold text-gray-900">Total Amount:</span>
-                    <span id="invoice-total" class="text-lg font-bold text-gray-900">UGX 0.00</span>
-                </div>
-            </div>
-            
-            <!-- Action Buttons -->
-            <div class="mt-6 flex justify-end space-x-3">
-                <button onclick="closeInvoicePreview()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors">
-                    Close
-                </button>
-                <button onclick="openPaymentMethodsModal()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
-                    Proceed to Payment
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Payment Methods Modal -->
-    <div id="payment-methods-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
-            <div class="mt-3">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium text-gray-900">Edit Payment Methods</h3>
-                    <button onclick="closePaymentMethodsModal()" class="text-gray-400 hover:text-gray-600">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
+            // Show package tracking summary if there are packages in the cart
+            const packagesInCart = selectedItems.filter(item => item.type === 'package');
+            if (packagesInCart.length > 0) {
+                const trackingSummaryContainer = document.getElementById('package-tracking-summary');
+                const trackingList = document.getElementById('package-tracking-list');
                 
-                <div class="mb-4">
-                    <div class="space-y-3">
-                        <label class="flex items-center">
-                            <input type="checkbox" name="payment_methods[]" value="insurance" 
-                                   {{ in_array('insurance', $client->payment_methods ?? []) ? 'checked' : '' }}
-                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
-                            <span class="ml-3 text-sm font-medium text-gray-700">🏥 Insurance</span>
-                        </label>
-                        
-                        <label class="flex items-center">
-                            <input type="checkbox" name="payment_methods[]" value="credit_arrangement_institutions" 
-                                   {{ in_array('credit_arrangement_institutions', $client->payment_methods ?? []) ? 'checked' : '' }}
-                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
-                            <span class="ml-3 text-sm font-medium text-gray-700">🏦 Credit Arrangement Institutions</span>
-                        </label>
-                        
-                        <label class="flex items-center">
-                            <input type="checkbox" name="payment_methods[]" value="mobile_money" 
-                                   {{ in_array('mobile_money', $client->payment_methods ?? []) ? 'checked' : '' }}
-                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
-                            <span class="ml-3 text-sm font-medium text-gray-700">📱 Mobile Money</span>
-                        </label>
-                        
-                        <label class="flex items-center">
-                            <input type="checkbox" name="payment_methods[]" value="v_card" 
-                                   {{ in_array('v_card', $client->payment_methods ?? []) ? 'checked' : '' }}
-                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
-                            <span class="ml-3 text-sm font-medium text-gray-700">💳 V Card (Virtual Card)</span>
-                        </label>
-                        
-                        <label class="flex items-center">
-                            <input type="checkbox" name="payment_methods[]" value="p_card" 
-                                   {{ in_array('p_card', $client->payment_methods ?? []) ? 'checked' : '' }}
-                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
-                            <span class="ml-3 text-sm font-medium text-gray-700">💳 P Card (Physical Card)</span>
-                        </label>
-                        
-                        <label class="flex items-center">
-                            <input type="checkbox" name="payment_methods[]" value="bank_transfer" 
-                                   {{ in_array('bank_transfer', $client->payment_methods ?? []) ? 'checked' : '' }}
-                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
-                            <span class="ml-3 text-sm font-medium text-gray-700">🏦 Bank Transfer</span>
-                        </label>
-                        
-                        <label class="flex items-center">
+                let trackingHTML = '';
+                packagesInCart.forEach(package => {
+                    const trackingNumber = window.packageTrackingNumbers.get(package.id) || generatePackageTrackingNumber(package.id, package.name);
+                    trackingHTML += `
+                        <div class="flex justify-between items-center text-sm">
+                            <div>
+                                <span class="font-medium text-gray-800">${package.name}</span>
                                 <span class="text-gray-600"> (Qty: ${package.quantity})</span>
                             </div>
                             <div class="text-right">
@@ -1252,7 +1284,7 @@
 
         async function calculatePackageAdjustment() {
             try {
-                const response = await fetch('/invoices/package-adjustment', {
+                const response = await fetch('/invoices/calculate-package-adjustment', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1261,9 +1293,7 @@
                     },
                     body: JSON.stringify({
                         items: selectedItems,
-                        client_id: {{ $client->id }},
-                        business_id: {{ auth()->user()->business_id }},
-                        branch_id: {{ auth()->user()->currentBranch->id ?? 'null' }}
+                        business_id: {{ auth()->user()->business_id }}
                     })
                 });
                 
@@ -1313,7 +1343,7 @@
 
         async function calculateBalanceAdjustment(amount) {
             try {
-                const response = await fetch('/invoices/balance-adjustment', {
+                const response = await fetch('/invoices/calculate-balance-adjustment', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1321,7 +1351,8 @@
                         'Accept': 'application/json',
                     },
                     body: JSON.stringify({
-                        total_amount: amount,
+                        amount: amount,
+                        business_id: {{ auth()->user()->business_id }},
                         client_id: {{ $client->id }}
                     })
                 });
@@ -1377,8 +1408,8 @@
             if (isServiceChargeNotConfigured || (!isPackageInvoice && serviceChargeValue <= 0)) {
                 const errorTitle = isServiceChargeNotConfigured ? 'Service Charges Not Configured' : 'Service Charge Required';
                 const errorMessage = isServiceChargeNotConfigured 
-                    ? 'Service charges not configured. Please contact support.'
-                    : 'Service charge not configured. Please contact support.';
+                    ? 'Service charges are not configured for this business. Please configure service charges before creating invoices.'
+                    : 'Service charge must be applied for non-package invoices. Please ensure a service charge is configured and applied.';
                 
                 Swal.fire({
                     icon: 'error',
@@ -1738,6 +1769,46 @@
                     </table>
                 </div>
                 
+                <!-- Package Adjustment Details -->
+                <div id="package-adjustment-details" class="mb-6 hidden">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Package Adjustments Applied</h3>
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div id="package-adjustment-list" class="space-y-2">
+                            <!-- Package adjustment details will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Financial Summary -->
+                <div class="text-right space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span>Subtotal 1:</span>
+                        <span id="invoice-subtotal">UGX 0.00</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Package Adjustment:</span>
+                        <span id="package-adjustment-display">UGX 0.00</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Account Balance(A/c) Adjustment:</span>
+                        <span id="balance-adjustment-display">UGX 0.00</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Subtotal 2:</span>
+                        <span id="invoice-subtotal-2">UGX 0.00</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Service Charge:</span>
+                        <span id="service-charge-display">UGX 0.00</span>
+                    </div>
+                    <div class="text-xs text-gray-500 text-right italic" id="service-charge-note">
+                        No charges for this amount range
+                    </div>
+                    <div class="flex justify-between text-lg font-bold border-t pt-2">
+                        <span>Total:</span>
+                        <span id="invoice-final-total">UGX 0.00</span>
+                    </div>
+                </div>
                 
                 <!-- Package Tracking Numbers Summary -->
                 <div id="package-tracking-summary" class="mb-6 hidden">
