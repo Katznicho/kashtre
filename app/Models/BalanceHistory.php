@@ -96,6 +96,12 @@ class BalanceHistory extends Model
     public function getFormattedChangeAmount()
     {
         $amount = abs($this->change_amount);
+        
+        // Package entries should not have + or - prefix
+        if ($this->transaction_type === 'package') {
+            return 'UGX ' . number_format($amount, 2);
+        }
+        
         $prefix = $this->isCredit() ? '+' : '-';
         return $prefix . 'UGX ' . number_format($amount, 2);
     }

@@ -339,8 +339,7 @@ class ServicePointController extends Controller
                 'client_suspense_balance_before' => $client->suspense_balance ?? 0
             ]);
 
-            // CRITICAL FIX: Ensure client has a credit record in BalanceHistory before processing debits
-            $this->ensureClientCreditRecordExists($client, $moneyTrackingService);
+            // Note: Client credit records are handled by the MoneyTrackingService automatically
 
             // Process service charge ONCE per invoice (not per item)
             $invoice = null;
@@ -676,28 +675,4 @@ class ServicePointController extends Controller
         ]);
     }
 
-    /**
-     * Ensure a client has a credit record in BalanceHistory before processing debits.
-     * This is crucial for the suspense balance calculation to work correctly.
-     */
-    private function ensureClientCreditRecordExists($client, $moneyTrackingService)
-    {
-        // Check if the client already has a credit record for today
-        $today = now()->toDateString();
-        $existingCredit = \App\Models\BalanceHistory::where('client_id', $client->id)
-            ->where('transaction_type', 'credit')
-            ->whereDate('created_at', $today)
-            ->first();
-
-        if (!$existingCredit) {
-            // Create a credit record for the client for today
-            \App\Models\BalanceHistory::recordCredit(
-                $client,
-                0, // Initial credit amount
-                "Initial credit for suspense balance calculation",
-                "Suspense Balance",
-                "Suspense Balance"
-            );
-        }
-    }
 }
