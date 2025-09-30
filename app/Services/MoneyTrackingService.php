@@ -2052,10 +2052,12 @@ class MoneyTrackingService
             $packageTrackingNumbers = [];
             
             foreach ($validPackages as $packageTracking) {
-                $packageName = $packageTracking->packageItem->display_name ?? 'Unknown Package';
-                $trackingNumber = $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}";
-                $packageDescriptions[] = "{$packageName} (Ref: {$trackingNumber})";
-                $packageTrackingNumbers[] = $trackingNumber;
+                if ($packageTracking->tracking_number) {
+                    $packageName = $packageTracking->packageItem->display_name ?? 'Unknown Package';
+                    $trackingNumber = $packageTracking->tracking_number; // Use the actual tracking number from database (format: PKG-X-YmdHis)
+                    $packageDescriptions[] = "{$packageName} (Ref: {$trackingNumber})";
+                    $packageTrackingNumbers[] = $trackingNumber;
+                }
             }
             
             // Simplify description - use first package, add "and X more" if multiple
@@ -2613,7 +2615,7 @@ class MoneyTrackingService
                                 $packageSaleData = [
                                     'name' => $packageTracking->client->name ?? 'Unknown Client',
                                     'invoice_number' => $invoice->invoice_number,
-                                    'pkn' => $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}-{$packageTracking->created_at->format('YmdHis')}",
+                                    'pkn' => $packageTracking->tracking_number, // Use the actual tracking number from database (format: PKG-X-YmdHis)
                                     'date' => now()->toDateString(),
                                     'qty' => $quantityToUse,
                                     'item_name' => $itemModel->name ?? 'Unknown Item',
@@ -2722,8 +2724,8 @@ class MoneyTrackingService
             
             foreach ($packageSales as $sale) {
                 $packageTracking = \App\Models\PackageTracking::find($sale['package_tracking_id']);
-                if ($packageTracking) {
-                    $trackingNumber = $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}";
+                if ($packageTracking && $packageTracking->tracking_number) {
+                    $trackingNumber = $packageTracking->tracking_number; // Use the actual tracking number from database (format: PKG-X-YmdHis)
                     $constituentItems[] = "{$sale['item_name']} ({$sale['quantity']}) (Ref: {$trackingNumber})";
                     $packageTrackingNumbers[] = $trackingNumber;
                 }
@@ -2818,15 +2820,20 @@ class MoneyTrackingService
             
             // Build simplified description with package names and tracking numbers
             $packageDescriptions = [];
+            $trackingNumbers = [];
             
             foreach ($packageSales as $sale) {
                 $packageTracking = \App\Models\PackageTracking::find($sale['package_tracking_id']);
-                if ($packageTracking) {
+                if ($packageTracking && $packageTracking->tracking_number) {
                     $packageName = $packageTracking->packageItem->display_name ?? 'Unknown Package';
-                    $trackingNumber = $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}";
+                    $trackingNumber = $packageTracking->tracking_number; // Use the actual tracking number from database (format: PKG-X-YmdHis)
                     $packageDescriptions[] = "{$packageName} (Ref: {$trackingNumber})";
+                    $trackingNumbers[] = $trackingNumber;
                 }
             }
+            
+            // Create tracking numbers reference string
+            $trackingNumbersRef = implode(', ', $trackingNumbers);
             
             // Use first package for main description, add "and X more" if multiple packages
             if (count($packageDescriptions) == 1) {

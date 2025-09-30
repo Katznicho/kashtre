@@ -1,5 +1,9 @@
-{{-- Unified Make a Request/Order Component --}}
-{{-- This component serves as the single source of truth for both service points and POS --}}
+{{-- 
+    Unified Make a Request/Order Component
+    This component serves as a single source of truth for the Make a Request/Order section
+    across both POS item selection and Service Point client details pages.
+    It includes all package adjustment functionality and cart management.
+--}}
 
 <!-- Section 4: Make a Request/Order - Professional Two Column Layout -->
 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
@@ -103,24 +107,24 @@
                                                 }
                                             }
                                             
-                                            // Add variation descriptions
+                                            // Add item variation info if present in name
                                             if (str_contains($itemName, 'advanced') || str_contains($itemName, 'premium') || str_contains($itemName, 'deluxe') || str_contains($itemName, 'professional') || str_contains($itemName, 'enhanced')) {
                                                 $descriptionParts[] = 'Premium quality variant';
-                                            } elseif (str_contains($itemName, 'basic') || str_contains($itemName, 'standard') || str_contains($itemName, 'regular')) {
+                                            } elseif (str_contains($itemName, 'basic') || str_contains($itemName, 'standard')) {
                                                 $descriptionParts[] = 'Standard quality variant';
-                                            } elseif (str_contains($itemName, 'economy') || str_contains($itemName, 'budget') || str_contains($itemName, 'value')) {
-                                                $descriptionParts[] = 'Economy quality variant';
                                             }
                                             
-                                            // Add additional properties
+                                            // Add category if available
                                             if ($item->category && !empty(trim($item->category))) {
                                                 $descriptionParts[] = "Category: {$item->category}";
                                             }
                                             
+                                            // Add other names if available
                                             if ($item->other_names && !empty(trim($item->other_names))) {
                                                 $descriptionParts[] = "Also known as: {$item->other_names}";
                                             }
                                             
+                                            // Add unit information if available
                                             if ($item->unit && !empty(trim($item->unit))) {
                                                 $descriptionParts[] = "Unit: {$item->unit}";
                                             }
@@ -131,11 +135,12 @@
                                     @if($description)
                                     <p class="text-xs text-gray-500 mt-1 description-display">{{ $description }}</p>
                                     @endif
-                                    <p class="text-xs text-gray-400 mt-1 price-display">
+                                    <p class="text-xs text-blue-600 mt-1 price-display" style="display: none;">
+                                        Price: UGX {{ number_format($item->final_price ?? 0, 2) }}
                                         @if(isset($item->final_price) && $item->final_price != $item->default_price)
-                                            UGX {{ number_format($item->final_price ?? 0, 2) }} <span class="text-green-600">(Branch Price)</span>
+                                            <span class="text-green-600">(Branch Price)</span>
                                         @else
-                                            UGX {{ number_format($item->default_price ?? 0, 0) }} <span class="text-gray-500">(Default Price)</span>
+                                            <span class="text-gray-500">(Default Price)</span>
                                         @endif
                                         @if($item->vat_rate && $item->vat_rate > 0)
                                             <span class="text-orange-600">(VAT: {{ $item->vat_rate }}%)</span>
@@ -143,22 +148,20 @@
                                     </p>
                                 </div>
                                 <div>
-                                    <input type="number" 
-                                           min="0" 
-                                           step="1"
-                                           value="0"
-                                           data-item-id="{{ $item->id }}"
-                                           data-item-name="{{ $item->display_name }}"
-                                           data-item-type="{{ $item->type ?? 'good' }}"
-                                           data-item-price="{{ $item->final_price ?? $item->default_price ?? 0 }}"
-                                           class="quantity-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                           placeholder="0">
+                                    <input type="number" min="0" value="0" 
+                                           class="quantity-input w-20 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                           data-item-id="{{ $item->id }}" 
+                                           data-item-price="{{ $item->final_price ?? 0 }}"
+                                           data-item-name="{{ $item->name }}"
+                                           data-item-display-name="{{ $item->display_name }}"
+                                           data-item-other-names="{{ $item->other_names ?? '' }}"
+                                           data-item-type="{{ $item->type ?? 'N/A' }}">
                                 </div>
                             </div>
                         </div>
                         @empty
-                        <div class="px-4 py-8 text-center text-gray-500">
-                            <p>No items available for this business.</p>
+                        <div class="px-4 py-8">
+                            <p class="text-sm text-gray-500 text-center">No items available for this hospital</p>
                         </div>
                         @endforelse
                     </div>
@@ -182,94 +185,53 @@
             <div>
                 <h4 class="text-md font-medium text-gray-900 mb-4">Request/Order Summary</h4>
                 
-                <!-- Selected Items Table -->
-                <div class="border border-gray-200 rounded-lg overflow-hidden mb-4">
+                <!-- Request/Order Summary Table -->
+                <div class="border border-gray-200 rounded-lg overflow-hidden">
                     <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                        <div class="grid grid-cols-5 gap-4 text-sm font-medium text-gray-700">
-                            <div>Item</div>
-                            <div>Type</div>
-                            <div>Quantity</div>
-                            <div>Price</div>
-                            <div>Action</div>
+                        <div class="grid grid-cols-5 gap-4">
+                            <div>
+                                <span class="text-sm font-medium text-gray-700">Item</span>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-700">Type</span>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-700">Quantity</span>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-700">Price</span>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-700">Action</span>
+                            </div>
                         </div>
                     </div>
                     
-                    <div id="selected-items-container" class="divide-y divide-gray-200 min-h-48">
-                        <div class="px-4 py-8 text-center text-gray-500">
-                            No items selected
+                    <div id="request-order-summary-items" class="divide-y divide-gray-200 min-h-32">
+                        <div class="px-4 py-8">
+                            <p class="text-sm text-gray-500 text-center">No items selected</p>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Order Totals -->
-                <div class="bg-gray-50 p-4 rounded-lg mb-4">
-                    <div class="space-y-2">
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Unique Items:</span>
-                            <span class="text-sm font-medium text-gray-900" id="unique-items-count">0</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Total Quantity:</span>
-                            <span class="text-sm font-medium text-gray-900" id="total-quantity">0</span>
-                        </div>
-                        <div class="flex justify-between border-t border-gray-200 pt-2">
-                            <span class="text-sm font-medium text-gray-900">Total Amount:</span>
-                            <span class="text-sm font-medium text-gray-900" id="total-amount">UGX 0.00</span>
-                        </div>
+                <!-- Request/Order Summary -->
+                <div class="mt-4 bg-gray-50 p-4 rounded-lg">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm text-gray-600">Unique Items:</span>
+                        <span id="total-items" class="text-sm font-medium text-gray-900">0</span>
                     </div>
-                </div>
-                
-                <!-- Package Adjustment Details -->
-                <div id="package-adjustment-details" class="mb-4 hidden">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Package Adjustments Applied</h3>
-                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <div id="package-adjustment-list" class="space-y-2">
-                            <!-- Package adjustment details will be populated by JavaScript -->
-                        </div>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm text-gray-600">Total Quantity:</span>
+                        <span id="total-quantity" class="text-sm font-medium text-gray-900">0</span>
                     </div>
-                </div>
-                
-                <!-- Financial Summary -->
-                <div class="bg-gray-50 p-4 rounded-lg mb-4">
-                    <div class="space-y-2 text-sm">
-                        <div class="flex justify-between">
-                            <span>Subtotal 1:</span>
-                            <span id="invoice-subtotal">UGX 0.00</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span>Package Adjustment:</span>
-                            <span id="package-adjustment-display">UGX 0.00</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span>Account Balance(A/c) Adjustment:</span>
-                            <span id="balance-adjustment-display">UGX 0.00</span>
-                        </div>
-                        <div class="flex justify-between border-t border-gray-200 pt-2">
-                            <span class="font-medium">Subtotal 2:</span>
-                            <span id="invoice-subtotal-2" class="font-medium">UGX 0.00</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span>Service Charge:</span>
-                            <span id="service-charge-display">UGX 0.00</span>
-                        </div>
-                        <div class="flex justify-between border-t border-gray-200 pt-2 font-semibold text-lg">
-                            <span>Total Amount:</span>
-                            <span id="invoice-total">UGX 0.00</span>
-                        </div>
-                        <div class="text-xs text-gray-500 text-right italic" id="service-charge-note">
-                            No charges for this amount range
-                        </div>
-                        <div class="flex justify-between text-lg font-bold border-t pt-2">
-                            <span>Total:</span>
-                            <span id="invoice-final-total">UGX 0.00</span>
-                        </div>
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="text-sm text-gray-600">Total Amount:</span>
+                        <span id="total-amount" class="text-lg font-bold text-gray-900">UGX 0.00</span>
                     </div>
+                    <button class="w-full bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors" onclick="showInvoicePreview()">
+                        Preview Proforma Invoice
+                    </button>
                 </div>
-
-                <!-- Preview Proforma Invoice Button -->
-                <button onclick="showInvoicePreview()" class="w-full bg-gray-900 text-white py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors font-medium">
-                    Preview Proforma Invoice
-                </button>
             </div>
         </div>
     </div>
