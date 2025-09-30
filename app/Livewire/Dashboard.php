@@ -47,10 +47,10 @@ class Dashboard extends Component
             // For Kashtre (business_id = 1), show kashtre_account balance
             // For other businesses, show business_account balance
             // Calculate balance from business_balance_histories (source of truth)
-            // Package type should be treated as credit (revenue from package sales)
+            // Match the exact calculation from business-balance-statement/index.blade.php
             $businessBalanceHistories = BusinessBalanceHistory::where('business_id', $this->business->id)->get();
             
-            $credits = $businessBalanceHistories->whereIn('type', ['credit', 'package'])->sum('amount');
+            $credits = $businessBalanceHistories->where('type', 'credit')->sum('amount');
             $debits = $businessBalanceHistories->where('type', 'debit')->sum('amount');
             
             $this->balance = $credits - $debits;
