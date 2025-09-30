@@ -1126,8 +1126,25 @@ class InvoiceController extends Controller
                 'formatted_phone' => $phone,
                 'amount' => $validated['amount'],
                 'description' => $description,
+                'description_length' => strlen($description),
                 'client_id' => $validated['client_id'],
-                'business_id' => $validated['business_id']
+                'business_id' => $validated['business_id'],
+                'yo_username' => config('payments.yo_username') ? 'SET' : 'NOT SET',
+                'yo_password' => config('payments.yo_password') ? 'SET' : 'NOT SET'
+            ]);
+            
+            // Log exact parameters being sent to YoAPI
+            Log::info('=== YOAPI REQUEST PARAMETERS ===', [
+                'phone' => $phone,
+                'amount' => $validated['amount'],
+                'narrative' => $description,
+                'narrative_length' => strlen($description),
+                'webhook_url' => 'https://webhook.site/396126eb-cc9b-4c57-a7a9-58f43d2b7935',
+                'external_reference' => 'will_be_generated',
+                'credentials_configured' => [
+                    'username' => config('payments.yo_username') ? substr(config('payments.yo_username'), 0, 3) . '***' : 'MISSING',
+                    'password' => config('payments.yo_password') ? '***SET***' : 'MISSING'
+                ]
             ]);
             
             // Process payment through YoAPI

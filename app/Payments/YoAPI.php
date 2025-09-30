@@ -549,10 +549,27 @@ class YoAPI
         $xml .= '</Request>';
         $xml .= '</AutoCreate>';
 
-        // Log the XML request
-        // $this->log_message("XML Request: " . $xml);
+        // Log the XML request for debugging
+        Log::info('=== YOAPI XML REQUEST ===', [
+            'method' => 'ac_deposit_funds',
+            'phone' => $msisdn,
+            'amount' => $amount,
+            'narrative' => $narrative,
+            'narrative_length' => strlen($narrative),
+            'username' => substr($this->username, 0, 3) . '***',
+            'has_password' => !empty($this->password),
+            'external_reference' => $this->external_reference,
+            'instant_notification_url' => $this->instant_notification_url,
+            'xml_length' => strlen($xml)
+        ]);
 
         $xml_response = $this->get_xml_response($xml);
+        
+        // Log the XML response for debugging
+        Log::info('=== YOAPI XML RESPONSE ===', [
+            'response_length' => strlen($xml_response),
+            'response_preview' => substr($xml_response, 0, 500)
+        ]);
 
         $simpleXMLObject = new SimpleXMLElement($xml_response);
         $response = $simpleXMLObject->Response;
