@@ -2612,10 +2612,14 @@ class MoneyTrackingService
                                 ]);
 
                                 // Create PackageSales record
+                                // Use tracking_number from database, or generate if null (for backwards compatibility)
+                                $trackingNumber = $packageTracking->tracking_number 
+                                    ?? "PKG-{$packageTracking->id}-{$packageTracking->created_at->format('YmdHis')}";
+                                
                                 $packageSaleData = [
                                     'name' => $packageTracking->client->name ?? 'Unknown Client',
                                     'invoice_number' => $invoice->invoice_number,
-                                    'pkn' => $packageTracking->tracking_number, // Use the actual tracking number from database (format: PKG-X-YmdHis)
+                                    'pkn' => $trackingNumber,
                                     'date' => now()->toDateString(),
                                     'qty' => $quantityToUse,
                                     'item_name' => $itemModel->name ?? 'Unknown Item',
