@@ -336,7 +336,7 @@ class MoneyTrackingService
                         'order_confirmed',
                         $invoice,
                         $item,
-                        $item->display_name ?? $item->name
+                        $item->name
                     );
 
                 } else {
@@ -452,8 +452,7 @@ class MoneyTrackingService
                 $totalAmount = $itemData['total_amount'] ?? ($item->default_price * $quantity);
 
                 // Create debit record for client balance statement
-                // Use display_name for packages (avoids showing other_names), fallback to name for regular items
-                $itemDisplayName = $item->display_name ?? $item->name;
+                $itemDisplayName = $item->name;
                 $debitRecord = BalanceHistory::recordDebit(
                     $client,
                     $totalAmount,
@@ -479,7 +478,7 @@ class MoneyTrackingService
                     'quantity' => $quantity,
                     'amount' => $totalAmount,
                     'balance_history_id' => $debitRecord->id ?? null,
-                    'note' => 'Using display_name to avoid showing other_names for packages'
+                    'note' => 'Using actual item name from database'
                 ]);
             }
 
@@ -2053,7 +2052,7 @@ class MoneyTrackingService
             
             foreach ($validPackages as $packageTracking) {
                 if ($packageTracking->tracking_number) {
-                    $packageName = $packageTracking->packageItem->display_name ?? 'Unknown Package';
+                    $packageName = $packageTracking->packageItem->name ?? 'Unknown Package';
                     $trackingNumber = $packageTracking->tracking_number; // Use the actual tracking number from database (format: PKG-X-YmdHis)
                     $packageDescriptions[] = "{$packageName} (Ref: {$trackingNumber})";
                     $packageTrackingNumbers[] = $trackingNumber;
@@ -2283,7 +2282,7 @@ class MoneyTrackingService
                 'package_details' => $validPackages->map(function($pkg) {
                     return [
                         'id' => $pkg->id,
-                        'package_name' => $pkg->packageItem->display_name,
+                        'package_name' => $pkg->packageItem->name,
                         'remaining_quantity' => $pkg->remaining_quantity,
                         'used_quantity' => $pkg->used_quantity,
                         'status' => $pkg->status,
@@ -2334,7 +2333,7 @@ class MoneyTrackingService
 
                     Log::info("Checking package for item match", [
                         'package_tracking_id' => $packageTracking->id,
-                        'package_name' => $packageTracking->packageItem->display_name,
+                        'package_name' => $packageTracking->packageItem->name,
                         'item_id' => $itemId,
                         'package_remaining_quantity' => $packageTracking->remaining_quantity
                     ]);
@@ -2403,7 +2402,7 @@ class MoneyTrackingService
                                 
                                 Log::info("Successfully updated package tracking for adjustment", [
                                     'package_tracking_id' => $packageTracking->id,
-                                    'package_name' => $packageTracking->packageItem->display_name,
+                                    'package_name' => $packageTracking->packageItem->name,
                                     'item_name' => $item['name'] ?? 'Unknown',
                                     'quantity_used' => $quantityToUse,
                                     'old_used_quantity' => $oldUsedQuantity,
@@ -2530,7 +2529,7 @@ class MoneyTrackingService
 
                     Log::info("Checking package for item match in package sales", [
                         'package_tracking_id' => $packageTracking->id,
-                        'package_name' => $packageTracking->packageItem->display_name,
+                        'package_name' => $packageTracking->packageItem->name,
                         'item_id' => $itemId,
                         'package_remaining_quantity' => $packageTracking->remaining_quantity,
                         'package_status' => $packageTracking->status
@@ -2831,7 +2830,7 @@ class MoneyTrackingService
             foreach ($packageSales as $sale) {
                 $packageTracking = \App\Models\PackageTracking::find($sale['package_tracking_id']);
                 if ($packageTracking) {
-                    $packageName = $packageTracking->packageItem->display_name ?? 'Unknown Package';
+                    $packageName = $packageTracking->packageItem->name ?? 'Unknown Package';
                     // Use tracking_number from database, or generate if null (for backwards compatibility)
                     $trackingNumber = $packageTracking->tracking_number 
                         ?? "PKG-{$packageTracking->id}-{$packageTracking->created_at->format('YmdHis')}";

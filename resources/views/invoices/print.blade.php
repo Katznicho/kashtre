@@ -305,7 +305,7 @@
                         @php
                             // Get the actual Item model to use display_name attribute
                             $itemModel = \App\Models\Item::find($item['id'] ?? $item['item_id'] ?? null);
-                            $displayName = $itemModel ? $itemModel->display_name : ($item['name'] ?? 'N/A');
+                            $displayName = $itemModel ? $itemModel->name : ($item['name'] ?? 'N/A');
                         @endphp
                         <tr>
                             <td class="item-name">{{ $displayName }}</td>

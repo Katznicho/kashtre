@@ -231,7 +231,7 @@
                                         <select name="package_items[0][included_item_id]" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                             <option value="">Select Item</option>
                                             @foreach($availableItems as $item)
-                                                <option value="{{ $item->id }}">{{ $item->display_name }} ({{ $item->code }})</option>
+                                                <option value="{{ $item->id }}">{{ $item->name }} ({{ $item->code }})</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -264,7 +264,7 @@
                                         <select name="bulk_items[0][included_item_id]" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                             <option value="">Select Item</option>
                                             @foreach($availableItems as $item)
-                                                <option value="{{ $item->id }}">{{ $item->display_name }} ({{ $item->code }})</option>
+                                                <option value="{{ $item->id }}">{{ $item->name }} ({{ $item->code }})</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -702,7 +702,7 @@
                             <select name="package_items[${packageItemIndex}][included_item_id]" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                 <option value="">Select Item</option>
                                 @foreach($availableItems as $item)
-                                    <option value="{{ $item->id }}">{{ $item->display_name }} ({{ $item->code }})</option>
+                                    <option value="{{ $item->id }}">{{ $item->name }} ({{ $item->code }})</option>
                                 @endforeach
                             </select>
                         </div>
@@ -734,7 +734,7 @@
                             <select name="bulk_items[${bulkItemIndex}][included_item_id]" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                 <option value="">Select Item</option>
                                 @foreach($availableItems as $item)
-                                    <option value="{{ $item->id }}">{{ $item->display_name }} ({{ $item->code }})</option>
+                                    <option value="{{ $item->id }}">{{ $item->name }} ({{ $item->code }})</option>
                                 @endforeach
                             </select>
                         </div>

@@ -988,7 +988,7 @@ class CheckPaymentStatus extends Command
                         ->first();
                     
                     $trackingNumber = $packageTracking ? ($packageTracking->tracking_number ?? "PKG-{$packageTracking->id}") : "PKG-N/A";
-                    $packageName = $itemModel->display_name ?? $itemModel->name;
+                    $packageName = $itemModel->name;
                     
                     $packageDetails[] = [
                         'name' => $packageName,

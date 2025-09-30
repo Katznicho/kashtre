@@ -101,7 +101,7 @@
                                         <div class="flex justify-between items-start">
                                             <div>
                                                 <p class="font-medium text-gray-900">{{ $package->client->name }}</p>
-                                                <p class="text-sm text-gray-600">{{ $package->packageItem->display_name }}</p>
+                                                <p class="text-sm text-gray-600">{{ $package->packageItem->name }}</p>
                                                 <p class="text-xs text-blue-600 font-mono">{{ $package->tracking_number ?? 'PKG-' . $package->id . '-' . $package->created_at->format('YmdHis') }}</p>
                                                 <p class="text-xs text-gray-500">{{ $package->remaining_quantity }}/{{ $package->total_quantity }} remaining • {{ $package->packageItem->packageItems->count() }} items</p>
                                             </div>
@@ -129,7 +129,7 @@
                                         <div class="flex justify-between items-start">
                                             <div>
                                                 <p class="font-medium text-gray-900">{{ $package->client->name }}</p>
-                                                <p class="text-sm text-gray-600">{{ $package->packageItem->display_name }}</p>
+                                                <p class="text-sm text-gray-600">{{ $package->packageItem->name }}</p>
                                                 <p class="text-xs text-blue-600 font-mono">{{ $package->tracking_number ?? 'PKG-' . $package->id . '-' . $package->created_at->format('YmdHis') }}</p>
                                                 <p class="text-xs text-red-600">Expires: {{ $package->valid_until->format('M d, Y') }} • {{ $package->packageItem->packageItems->count() }} items</p>
                                             </div>
@@ -172,7 +172,7 @@
                                                     <div class="text-sm font-medium text-gray-900">{{ $package->client->name }}</div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="text-sm text-gray-900">{{ $package->packageItem->display_name }}</div>
+                                                    <div class="text-sm text-gray-900">{{ $package->packageItem->name }}</div>
                                                     <div class="text-xs text-gray-500">{{ $package->packageItem->packageItems->count() }} items</div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
@@ -180,7 +180,7 @@
                                                     <div class="text-xs text-gray-500">Package ID</div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="text-sm text-gray-900">{{ $package->includedItem->display_name }}</div>
+                                                    <div class="text-sm text-gray-900">{{ $package->includedItem->name }}</div>
                                                     <div class="text-xs text-gray-500">
                                                         @if($package->packageItem->packageItems->count() > 1)
                                                             +{{ $package->packageItem->packageItems->count() - 1 }} more

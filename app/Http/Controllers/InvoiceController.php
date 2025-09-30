@@ -140,7 +140,7 @@ class InvoiceController extends Controller
                                     'item_name' => $item['name'] ?? 'Unknown',
                                     'quantity_adjusted' => $quantityToUse,
                                     'adjustment_amount' => $itemAdjustment,
-                                    'package_name' => $packageTracking->packageItem->display_name,
+                                    'package_name' => $packageTracking->packageItem->name,
                                     'package_tracking_id' => $packageTracking->id,
                                     'package_expiry' => $packageTracking->valid_until->format('Y-m-d'),
                                     'remaining_in_package' => $packageTracking->remaining_quantity - $quantityToUse,
@@ -217,7 +217,7 @@ class InvoiceController extends Controller
                 'package_details' => $validPackages->map(function($pkg) {
                     return [
                         'id' => $pkg->id,
-                        'package_name' => $pkg->packageItem->display_name,
+                        'package_name' => $pkg->packageItem->name,
                         'remaining_quantity' => $pkg->remaining_quantity,
                         'used_quantity' => $pkg->used_quantity,
                         'status' => $pkg->status,
@@ -268,7 +268,7 @@ class InvoiceController extends Controller
 
                     Log::info("Checking package for item match", [
                         'package_tracking_id' => $packageTracking->id,
-                        'package_name' => $packageTracking->packageItem->display_name,
+                        'package_name' => $packageTracking->packageItem->name,
                         'item_id' => $itemId,
                         'package_remaining_quantity' => $packageTracking->remaining_quantity
                     ]);
@@ -337,7 +337,7 @@ class InvoiceController extends Controller
                                 
                                 Log::info("Successfully updated package tracking for adjustment", [
                                     'package_tracking_id' => $packageTracking->id,
-                                    'package_name' => $packageTracking->packageItem->display_name,
+                                    'package_name' => $packageTracking->packageItem->name,
                                     'item_name' => $item['name'] ?? 'Unknown',
                                     'quantity_used' => $quantityToUse,
                                     'old_used_quantity' => $oldUsedQuantity,
@@ -749,9 +749,9 @@ class InvoiceController extends Controller
         
         $itemDescriptions = [];
         foreach ($items as $item) {
-            // Get the actual Item model to use display_name attribute
+            // Get the actual Item model to use name attribute
             $itemModel = \App\Models\Item::find($item['id'] ?? $item['item_id'] ?? null);
-            $name = $itemModel ? $itemModel->display_name : ($item['name'] ?? 'Unknown Item');
+            $name = $itemModel ? $itemModel->name : ($item['name'] ?? 'Unknown Item');
             $quantity = $item['quantity'] ?? 1;
             $type = $item['type'] ?? '';
             
