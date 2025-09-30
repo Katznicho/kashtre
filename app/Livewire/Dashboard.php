@@ -46,21 +46,14 @@ class Dashboard extends Component
             // Get the actual business account balance from MoneyAccount
             // For Kashtre (business_id = 1), show kashtre_account balance
             // For other businesses, show business_account balance
-            if ($this->business->id == 1) {
-                // Kashtre - calculate balance from business_balance_histories (source of truth)
-                $balanceHistory = BusinessBalanceHistory::where('business_id', $this->business->id)
-                    ->selectRaw('SUM(CASE WHEN type = "credit" THEN amount ELSE -amount END) as calculated_balance')
-                    ->first();
-                
-                $this->balance = $balanceHistory ? $balanceHistory->calculated_balance : 0;
-            } else {
-                // Other businesses - calculate balance from business_balance_histories (source of truth)
-                $balanceHistory = BusinessBalanceHistory::where('business_id', $this->business->id)
-                    ->selectRaw('SUM(CASE WHEN type = "credit" THEN amount ELSE -amount END) as calculated_balance')
-                    ->first();
-                
-                $this->balance = $balanceHistory ? $balanceHistory->calculated_balance : 0;
-            }
+            // Calculate balance from business_balance_histories (source of truth)
+            // Package type should be treated as credit (revenue from package sales)
+            $businessBalanceHistories = BusinessBalanceHistory::where('business_id', $this->business->id)->get();
+            
+            $credits = $businessBalanceHistories->whereIn('type', ['credit', 'package'])->sum('amount');
+            $debits = $businessBalanceHistories->where('type', 'debit')->sum('amount');
+            
+            $this->balance = $credits - $debits;
         }
 
         $this->lastUpdate = now()->format('H:i:s');

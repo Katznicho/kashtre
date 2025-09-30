@@ -26,7 +26,7 @@
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Account Balance</h3>
-                <span class="text-xs text-gray-400">Last Update: 2025-06-23 10:00 AM</span>
+                <span class="text-xs text-gray-400">Last Update: {{ now()->format('Y-m-d h:i A') }}</span>
             </div>
             <div class="flex items-baseline">
                 <span class="text-2xl font-bold text-[#011478] dark:text-white">
