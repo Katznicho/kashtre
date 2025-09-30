@@ -744,18 +744,18 @@ class InvoiceController extends Controller
      */
     private function buildItemsDescription($items, $client = null, $business = null, $invoiceNumber = null)
     {
-        // Keep it simple: Payment for Invoice {number}
+        // Keep it simple: Proforma Invoice {number}
         if ($invoiceNumber) {
-            return "Payment for Invoice {$invoiceNumber}";
+            return "Proforma Invoice {$invoiceNumber}";
         }
         
         // If no invoice number, use client name
         if ($client) {
-            return "Payment for {$client->name}";
+            return $client->name;
         }
         
         // Fallback
-        return 'Payment for services';
+        return 'Services';
     }
 
     /**
