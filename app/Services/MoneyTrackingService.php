@@ -2728,8 +2728,10 @@ class MoneyTrackingService
             
             foreach ($packageSales as $sale) {
                 $packageTracking = \App\Models\PackageTracking::find($sale['package_tracking_id']);
-                if ($packageTracking && $packageTracking->tracking_number) {
-                    $trackingNumber = $packageTracking->tracking_number; // Use the actual tracking number from database (format: PKG-X-YmdHis)
+                if ($packageTracking) {
+                    // Use tracking_number from database, or generate if null (for backwards compatibility)
+                    $trackingNumber = $packageTracking->tracking_number 
+                        ?? "PKG-{$packageTracking->id}-{$packageTracking->created_at->format('YmdHis')}";
                     $constituentItems[] = "{$sale['item_name']} ({$sale['quantity']}) (Ref: {$trackingNumber})";
                     $packageTrackingNumbers[] = $trackingNumber;
                 }
@@ -2828,9 +2830,11 @@ class MoneyTrackingService
             
             foreach ($packageSales as $sale) {
                 $packageTracking = \App\Models\PackageTracking::find($sale['package_tracking_id']);
-                if ($packageTracking && $packageTracking->tracking_number) {
+                if ($packageTracking) {
                     $packageName = $packageTracking->packageItem->display_name ?? 'Unknown Package';
-                    $trackingNumber = $packageTracking->tracking_number; // Use the actual tracking number from database (format: PKG-X-YmdHis)
+                    // Use tracking_number from database, or generate if null (for backwards compatibility)
+                    $trackingNumber = $packageTracking->tracking_number 
+                        ?? "PKG-{$packageTracking->id}-{$packageTracking->created_at->format('YmdHis')}";
                     $packageDescriptions[] = "{$packageName} (Ref: {$trackingNumber})";
                     $trackingNumbers[] = $trackingNumber;
                 }
@@ -2840,10 +2844,15 @@ class MoneyTrackingService
             $trackingNumbersRef = implode(', ', $trackingNumbers);
             
             // Use first package for main description, add "and X more" if multiple packages
-            if (count($packageDescriptions) == 1) {
-                $packageDescription = $packageDescriptions[0];
+            if (count($packageDescriptions) > 0) {
+                if (count($packageDescriptions) == 1) {
+                    $packageDescription = $packageDescriptions[0];
+                } else {
+                    $packageDescription = $packageDescriptions[0] . " and " . (count($packageDescriptions) - 1) . " more";
+                }
             } else {
-                $packageDescription = $packageDescriptions[0] . " and " . (count($packageDescriptions) - 1) . " more";
+                // Fallback if no package descriptions were created
+                $packageDescription = "Package items";
             }
             
             $businessBalanceHistory = \App\Models\BusinessBalanceHistory::recordPackageTransaction(
