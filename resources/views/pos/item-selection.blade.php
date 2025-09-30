@@ -231,10 +231,10 @@
                                 
                                 <div id="items-container" class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
                                     @forelse($items as $item)
-                                    <div class="item-row px-4 py-3 hover:bg-gray-50" data-item-name="{{ strtolower($item->name) }}" data-item-display-name="{{ $item->display_name }}" data-item-other-names="{{ strtolower($item->other_names ?? '') }}" data-item-type="{{ $item->type ?? 'N/A' }}">
+                                    <div class="item-row px-4 py-3 hover:bg-gray-50" data-item-name="{{ strtolower($item->name) }}" data-item-display-name="{{ $item->name }}" data-item-other-names="{{ strtolower($item->other_names ?? '') }}" data-item-type="{{ $item->type ?? 'N/A' }}">
                                         <div class="grid grid-cols-2 gap-4 items-center">
                                             <div>
-                                                <span class="text-sm text-gray-900">{{ $item->display_name }}</span>
+                                                <span class="text-sm text-gray-900">{{ $item->name }}</span>
                                                 @php
                                                     // Generate dynamic description based on item properties
                                                     $description = '';
@@ -245,7 +245,7 @@
                                                         $descriptionParts = [];
                                                         
                                                         // Add type-specific description based on item name and type
-                                                        $itemName = strtolower($item->display_name ?? $item->name);
+                                                        $itemName = strtolower($item->name);
                                                         
                                                         // Generate intelligent descriptions based on item name patterns
                                                         if (str_contains($itemName, 'amoxicillin')) {
@@ -260,23 +260,6 @@
                                                             $descriptionParts[] = 'Hair care product';
                                                         } elseif (str_contains($itemName, 'treatment') || str_contains($itemName, 'therapy')) {
                                                             $descriptionParts[] = 'Therapeutic treatment service';
-                                                        } else {
-                                                            // Fallback to type-based description
-                                                            switch ($item->type) {
-                                                                case 'bulk':
-                                                                    $descriptionParts[] = 'Bulk package containing multiple items';
-                                                                    break;
-                                                                case 'package':
-                                                                    $descriptionParts[] = 'Service package with included items';
-                                                                    break;
-                                                                case 'service':
-                                                                    $descriptionParts[] = 'Professional service';
-                                                                    break;
-                                                                case 'good':
-                                                                default:
-                                                                    $descriptionParts[] = 'Product item';
-                                                                    break;
-                                                            }
                                                         }
                                                         
                                                         // Add item variation info if present in name
@@ -325,7 +308,7 @@
                                                        data-item-id="{{ $item->id }}" 
                                                        data-item-price="{{ $item->final_price ?? 0 }}"
                                                        data-item-name="{{ $item->name }}"
-                                                       data-item-display-name="{{ $item->display_name }}"
+                                                       data-item-display-name="{{ $item->name }}"
                                                        data-item-other-names="{{ $item->other_names ?? '' }}"
                                                        data-item-type="{{ $item->type ?? 'N/A' }}">
                                             </div>
