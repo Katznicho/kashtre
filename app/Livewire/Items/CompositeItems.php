@@ -42,9 +42,9 @@ class CompositeItems extends Component implements HasForms, HasTable
                 ->label('Business')
                 ->sortable()
                 ->searchable(),
-                TextColumn::make('display_name')
+                TextColumn::make('name')
                     ->label('Name')
-                    ->searchable(['name']),
+                    ->searchable(),
                 TextColumn::make('code')
                     ->searchable(),
                 TextColumn::make('type')
