@@ -1899,7 +1899,13 @@
                         console.log(key + ': ' + value);
                     }
                     
-                    return fetch('{{ route("service-points.update-statuses-and-process-money", [$servicePoint, $client->id]) }}', {
+                    @if($servicePoint)
+                    const url = '{{ route("service-points.update-statuses-and-process-money", [$servicePoint, $client->id]) }}';
+                    @else
+                    const url = '{{ route("service-points.update-statuses-and-process-money", [0, $client->id]) }}'; // Use 0 as placeholder for null service point
+                    @endif
+                    
+                    return fetch(url, {
                         method: 'POST',
                         headers: {
                             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),

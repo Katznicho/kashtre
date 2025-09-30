@@ -206,12 +206,23 @@ class TransactionController extends Controller
             'timestamp' => now()->toDateTimeString()
         ]);
 
+        // Determine service point from the client's pending items
+        // Use the service_point_id from the first pending or partially done item
+        $firstItem = $clientItems->whereIn('status', ['pending', 'partially_done'])->first();
+        $servicePoint = $firstItem ? $firstItem->service_point_id : null;
+        
+        // If we still don't have a service point, use a default one or the user's first assigned service point
+        if (!$servicePoint && $user->service_points && is_array($user->service_points) && count($user->service_points) > 0) {
+            $servicePoint = $user->service_points[0];
+        }
+        
         return view('pos.item-selection', compact(
             'client', 
             'items', 
             'pendingItems', 
             'partiallyDoneItems', 
-            'correctTotalAmount'
+            'correctTotalAmount',
+            'servicePoint'
         ));
     }
 }

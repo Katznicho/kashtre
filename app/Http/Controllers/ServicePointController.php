@@ -289,10 +289,16 @@ class ServicePointController extends Controller
     /**
      * Update statuses and process money movements (Save & Exit)
      */
-    public function updateStatusesAndProcessMoneyMovements(Request $request, ServicePoint $servicePoint, $clientId)
+    public function updateStatusesAndProcessMoneyMovements(Request $request, $servicePointId, $clientId)
     {
+        // Handle service point - it might be 0 (null) or an actual ID
+        $servicePoint = null;
+        if ($servicePointId && $servicePointId != '0') {
+            $servicePoint = ServicePoint::find($servicePointId);
+        }
+        
         \Illuminate\Support\Facades\Log::info("=== SAVE AND EXIT REQUEST STARTED ===", [
-            'service_point_id' => $servicePoint->id,
+            'service_point_id' => $servicePoint ? $servicePoint->id : null,
             'client_id' => $clientId,
             'user_id' => auth()->id(),
             'user_name' => auth()->user()->name,
