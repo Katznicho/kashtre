@@ -23,10 +23,7 @@
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Name</label>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->display_name }}</p>
-                            @if($item->type === 'package' || $item->type === 'bulk')
-                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Original name: {{ $item->name }}</p>
-                            @endif
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->name }}</p>
                         </div>
 
                         <div>
@@ -146,7 +143,7 @@
                         <div class="border rounded-lg p-4 bg-purple-50 dark:bg-purple-900/20">
                             <div class="flex justify-between items-start mb-2">
                                 <div class="flex-1">
-                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $packageItem->includedItem->display_name ?? 'N/A' }}</h4>
+                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $packageItem->includedItem->name ?? 'N/A' }}</h4>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ $packageItem->includedItem->code ?? 'N/A' }}</p>
                                 </div>
                                 <span class="text-sm font-semibold text-purple-600 dark:text-purple-400">Max: {{ $packageItem->max_quantity }}</span>
@@ -172,7 +169,7 @@
                         <div class="border rounded-lg p-4 bg-orange-50 dark:bg-orange-900/20">
                             <div class="flex justify-between items-start mb-2">
                                 <div class="flex-1">
-                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $bulkItem->includedItem->display_name ?? 'N/A' }}</h4>
+                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $bulkItem->includedItem->name ?? 'N/A' }}</h4>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ $bulkItem->includedItem->code ?? 'N/A' }}</p>
                                 </div>
                                 <span class="text-sm font-semibold text-orange-600 dark:text-orange-400">Qty: {{ $bulkItem->fixed_quantity }}</span>
@@ -198,7 +195,7 @@
                         <div class="border rounded-lg p-4 bg-purple-50 dark:bg-purple-900/20">
                             <div class="flex justify-between items-start mb-2">
                                 <div class="flex-1">
-                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $packageInclusion->packageItem->display_name ?? 'N/A' }}</h4>
+                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $packageInclusion->packageItem->name ?? 'N/A' }}</h4>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ $packageInclusion->packageItem->code ?? 'N/A' }}</p>
                                 </div>
                                 <span class="text-sm font-semibold text-purple-600 dark:text-purple-400">Max: {{ $packageInclusion->max_quantity }}</span>
@@ -224,7 +221,7 @@
                         <div class="border rounded-lg p-4 bg-orange-50 dark:bg-orange-900/20">
                             <div class="flex justify-between items-start mb-2">
                                 <div class="flex-1">
-                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $bulkInclusion->bulkItem->display_name ?? 'N/A' }}</h4>
+                                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $bulkInclusion->bulkItem->name ?? 'N/A' }}</h4>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ $bulkInclusion->bulkItem->code ?? 'N/A' }}</p>
                                 </div>
                                 <span class="text-sm font-semibold text-orange-600 dark:text-orange-400">Qty: {{ $bulkInclusion->fixed_quantity }}</span>
