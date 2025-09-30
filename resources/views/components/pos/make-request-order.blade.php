@@ -88,23 +88,6 @@
                                                 $descriptionParts[] = 'Hair care product';
                                             } elseif (str_contains($itemName, 'treatment') || str_contains($itemName, 'therapy')) {
                                                 $descriptionParts[] = 'Therapeutic treatment service';
-                                            } else {
-                                                // Fallback to type-based description
-                                                switch ($item->type) {
-                                                    case 'bulk':
-                                                        $descriptionParts[] = 'Bulk package containing multiple items';
-                                                        break;
-                                                    case 'package':
-                                                        $descriptionParts[] = 'Service package with included items';
-                                                        break;
-                                                    case 'service':
-                                                        $descriptionParts[] = 'Professional service';
-                                                        break;
-                                                    case 'good':
-                                                    default:
-                                                        $descriptionParts[] = 'Product item';
-                                                        break;
-                                                }
                                             }
                                             
                                             // Add item variation info if present in name
