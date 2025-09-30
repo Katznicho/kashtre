@@ -740,71 +740,22 @@ class InvoiceController extends Controller
     
     /**
      * Build description with purchased items, client, and business information
+     * Simplified to avoid XML special characters that cause parse errors
      */
     private function buildItemsDescription($items, $client = null, $business = null, $invoiceNumber = null)
     {
-        if (empty($items)) {
-            return 'Services';
-        }
-        
-        $itemDescriptions = [];
-        foreach ($items as $item) {
-            // Get the actual Item model to use name attribute
-            $itemModel = \App\Models\Item::find($item['id'] ?? $item['item_id'] ?? null);
-            $name = $itemModel ? $itemModel->name : ($item['name'] ?? 'Unknown Item');
-            $quantity = $item['quantity'] ?? 1;
-            $type = $item['type'] ?? '';
-            
-            $description = $name;
-            if ($quantity > 1) {
-                $description .= " (x{$quantity})";
-            }
-            if (!empty($type)) {
-                $description .= " - {$type}";
-            }
-            
-            $itemDescriptions[] = $description;
-        }
-        
-        // Build comprehensive description
-        $itemsText = implode(', ', $itemDescriptions);
-        
-        // Add client information if available
-        $clientInfo = '';
-        if ($client) {
-            $clientInfo = " for {$client->name}";
-            if ($client->client_id) {
-                $clientInfo .= " (ID: {$client->client_id})";
-            }
-        }
-        
-        // Add business information if available
-        $businessInfo = '';
-        if ($business) {
-            $businessInfo = " at {$business->name}";
-        }
-        
-        // Add invoice number if available
-        $invoiceInfo = '';
+        // Keep it simple: Payment for Invoice {number}
         if ($invoiceNumber) {
-            $invoiceInfo = " - Invoice: {$invoiceNumber}";
+            return "Payment for Invoice {$invoiceNumber}";
         }
         
-        // Combine all information
-        $fullDescription = "{$itemsText}{$clientInfo}{$businessInfo}{$invoiceInfo}";
-        
-        // Limit description length to avoid database issues (mobile money APIs have character limits)
-        if (strlen($fullDescription) > 200) {
-            // Prioritize items and client info, truncate business/invoice info if needed
-            $truncatedItems = substr($itemsText, 0, 150);
-            $fullDescription = "Payment for: {$truncatedItems}{$clientInfo}";
-            
-            if (strlen($fullDescription) > 200) {
-                $fullDescription = substr($fullDescription, 0, 197) . '...';
-            }
+        // If no invoice number, use client name
+        if ($client) {
+            return "Payment for {$client->name}";
         }
         
-        return $fullDescription;
+        // Fallback
+        return 'Payment for services';
     }
 
     /**
