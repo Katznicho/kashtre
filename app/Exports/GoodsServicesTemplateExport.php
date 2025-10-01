@@ -89,7 +89,6 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         return [
             AfterSheet::class => function(AfterSheet $event) {
                 $this->addDataValidation($event);
-                $this->addWorksheetProtection($event);
             },
         ];
     }
@@ -129,37 +128,26 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         // Add data validation for Group Name column (E)
         if (!empty($groups)) {
             $this->addValidationToColumn($worksheet, 'E', $startRow, $endRow, implode(',', $groups), 'Group');
-        } else {
-            // Add placeholder validation to prevent Excel issues
-            $this->addValidationToColumn($worksheet, 'E', $startRow, $endRow, 'No groups available', 'Group');
         }
         
         // Add data validation for Subgroup Name column (F)
         if (!empty($groups)) {
             $this->addValidationToColumn($worksheet, 'F', $startRow, $endRow, implode(',', $groups), 'Subgroup');
-        } else {
-            $this->addValidationToColumn($worksheet, 'F', $startRow, $endRow, 'No subgroups available', 'Subgroup');
         }
         
         // Add data validation for Department Name column (G)
         if (!empty($departments)) {
             $this->addValidationToColumn($worksheet, 'G', $startRow, $endRow, implode(',', $departments), 'Department');
-        } else {
-            $this->addValidationToColumn($worksheet, 'G', $startRow, $endRow, 'No departments available', 'Department');
         }
         
         // Add data validation for Unit of Measure column (H)
         if (!empty($units)) {
             $this->addValidationToColumn($worksheet, 'H', $startRow, $endRow, implode(',', $units), 'Unit');
-        } else {
-            $this->addValidationToColumn($worksheet, 'H', $startRow, $endRow, 'No units available', 'Unit');
         }
         
         // Add data validation for Contractor column (L) - Required when hospital share < 100%
         if (!empty($contractors)) {
             $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, implode(',', $contractors), 'Contractor');
-        } else {
-            $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, 'No contractors available', 'Contractor');
         }
         
         // Add conditional validation for hospital share and contractor relationship
@@ -192,25 +180,20 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
     
     private function addValidationToColumn($worksheet, $column, $startRow, $endRow, $formula, $type, $allowBlank = true)
     {
-        // Apply validation to a range instead of individual cells for better performance
-        $range = $column . $startRow . ':' . $column . $endRow;
-        $validation = $worksheet->getCell($column . $startRow)->getDataValidation();
-        $validation->setType(DataValidation::TYPE_LIST);
-        $validation->setErrorStyle(DataValidation::STYLE_STOP);
-        $validation->setAllowBlank($allowBlank);
-        $validation->setShowInputMessage(true);
-        $validation->setShowErrorMessage(true);
-        $validation->setShowDropDown(true);
-        
-        // Escape the formula properly for Excel
-        $validation->setFormula1('"' . str_replace('"', '""', $formula) . '"');
-        $validation->setErrorTitle('Invalid ' . $type);
-        $validation->setError('Please select a valid ' . strtolower($type));
-        $validation->setPromptTitle('Select ' . $type);
-        $validation->setPrompt('Choose a ' . strtolower($type) . ' from the dropdown');
-        
-        // Apply the validation to the entire range
-        $worksheet->setDataValidation($range, $validation);
+        for ($row = $startRow; $row <= $endRow; $row++) {
+            $validation = $worksheet->getCell($column . $row)->getDataValidation();
+            $validation->setType(DataValidation::TYPE_LIST);
+            $validation->setErrorStyle(DataValidation::STYLE_STOP);
+            $validation->setAllowBlank($allowBlank);
+            $validation->setShowInputMessage(true);
+            $validation->setShowErrorMessage(true);
+            $validation->setShowDropDown(true);
+            $validation->setFormula1('"' . $formula . '"');
+            $validation->setErrorTitle('Invalid ' . $type);
+            $validation->setError('Please select a valid ' . strtolower($type));
+            $validation->setPromptTitle('Select ' . $type);
+            $validation->setPrompt('Choose a ' . strtolower($type) . ' from the dropdown');
+        }
     }
     
     private function getColumnLetter($columnIndex)
@@ -230,42 +213,34 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
      */
     private function addConditionalValidation($worksheet, $startRow, $endRow)
     {
-        // Add validation for hospital share column (K) - simpler approach
-        $hospitalShareRange = 'K' . $startRow . ':' . 'K' . $endRow;
-        $validation = $worksheet->getCell('K' . $startRow)->getDataValidation();
-        $validation->setType(DataValidation::TYPE_WHOLE);
-        $validation->setErrorStyle(DataValidation::STYLE_STOP);
-        $validation->setAllowBlank(false);
-        $validation->setShowInputMessage(true);
-        $validation->setShowErrorMessage(true);
-        $validation->setOperator(DataValidation::OPERATOR_BETWEEN);
-        $validation->setFormula1('0');
-        $validation->setFormula2('100');
-        $validation->setErrorTitle('Invalid Hospital Share');
-        $validation->setError('Hospital share must be between 0 and 100');
-        $validation->setPromptTitle('Hospital Share');
-        $validation->setPrompt('Enter a value between 0 and 100');
-        $worksheet->setDataValidation($hospitalShareRange, $validation);
+        // Add custom validation for hospital share column (K)
+        for ($row = $startRow; $row <= $endRow; $row++) {
+            $validation = $worksheet->getCell('K' . $row)->getDataValidation();
+            $validation->setType(DataValidation::TYPE_CUSTOM);
+            $validation->setErrorStyle(DataValidation::STYLE_STOP);
+            $validation->setAllowBlank(false);
+            $validation->setShowInputMessage(true);
+            $validation->setShowErrorMessage(true);
+            $validation->setFormula1('=AND(K' . $row . '>=0,K' . $row . '<=100)');
+            $validation->setErrorTitle('Invalid Hospital Share');
+            $validation->setError('Hospital share must be between 0 and 100');
+            $validation->setPromptTitle('Hospital Share');
+            $validation->setPrompt('Enter a value between 0 and 100');
+        }
         
-        // Remove complex conditional validation for contractor column to avoid Excel issues
-        // Instead, we'll rely on the import validation to check the business logic
-        // This prevents Excel from showing repair dialogs
-    }
-    
-    /**
-     * Add worksheet protection to prevent accidental modification of headers
-     */
-    private function addWorksheetProtection(AfterSheet $event)
-    {
-        $worksheet = $event->sheet->getDelegate();
-        
-        // Protect the header row (row 1)
-        $worksheet->getProtection()->setSheet(true);
-        $worksheet->getProtection()->setPassword('kashtre2024');
-        
-        // Allow editing of data rows but protect the header
-        $worksheet->getStyle('A1:' . $this->getColumnLetter(count($this->headings())) . '1')
-            ->getProtection()
-            ->setLocked(\PhpOffice\PhpSpreadsheet\Style\Protection::PROTECTION_PROTECTED);
+        // Add conditional validation for contractor column (L) - Required when hospital share < 100%
+        for ($row = $startRow; $row <= $endRow; $row++) {
+            $validation = $worksheet->getCell('L' . $row)->getDataValidation();
+            $validation->setType(DataValidation::TYPE_CUSTOM);
+            $validation->setErrorStyle(DataValidation::STYLE_STOP);
+            $validation->setAllowBlank(true); // Allow blank initially
+            $validation->setShowInputMessage(true);
+            $validation->setShowErrorMessage(true);
+            $validation->setFormula1('=OR(K' . $row . '=100,LEN(L' . $row . ')>0)');
+            $validation->setErrorTitle('Contractor Required');
+            $validation->setError('Contractor is required when hospital share is less than 100%. Please select a contractor or set hospital share to 100%.');
+            $validation->setPromptTitle('Contractor Selection');
+            $validation->setPrompt('Select a contractor when hospital share < 100%, or leave empty if share = 100%');
+        }
     }
 } 

@@ -12,8 +12,18 @@ class SubGroupController extends Controller
      */
     public function index()
     {
-        //
-        return view('sub-groups.index');
+        \Log::info('SubGroupController::index() called');
+        try {
+            \Log::info('About to return sub-groups.index view');
+            return view('sub-groups.index');
+        } catch (\Exception $e) {
+            \Log::error('Error in SubGroupController::index(): ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 
     /**

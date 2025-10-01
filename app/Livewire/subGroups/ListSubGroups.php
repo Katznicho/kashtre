@@ -28,12 +28,17 @@ class ListSubGroups extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
-        $query = SubGroup::query()->where('business_id', '!=', 1)->latest();
+        \Log::info('ListSubGroups::table() called');
+        try {
+            \Log::info('Creating SubGroup query');
+            $query = SubGroup::query()->where('business_id', '!=', 1)->latest();
 
         if (Auth::check() && Auth::user()->business_id !== 1) {
+            \Log::info('Filtering by user business_id: ' . Auth::user()->business_id);
             $query->where('business_id', Auth::user()->business_id);
         }
 
+        \Log::info('Building table configuration');
         return $table
             ->query($query)
             ->columns([
@@ -128,10 +133,29 @@ class ListSubGroups extends Component implements HasForms, HasTable
                             ->send();
                     }),
             ]);
+        } catch (\Exception $e) {
+            \Log::error('Error in ListSubGroups::table(): ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 
     public function render(): View
     {
-        return view('livewire.sub-groups.list-sub-groups');
+        \Log::info('ListSubGroups::render() called');
+        try {
+            \Log::info('About to return livewire.sub-groups.list-sub-groups view');
+            return view('livewire.sub-groups.list-sub-groups');
+        } catch (\Exception $e) {
+            \Log::error('Error in ListSubGroups::render(): ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 }
