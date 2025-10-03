@@ -157,11 +157,11 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         
         // Add data validation for Contractor column (L) - Required when hospital share < 100%
         if (!empty($contractors)) {
-            // Try using just account numbers for better Excel compatibility
+            // Use the same format as other working dropdowns - with quotes
             $contractorAccounts = array_map(function($contractor) {
                 return explode(' - ', $contractor)[0]; // Get just the account number
             }, $contractors);
-            $contractorList = implode(',', $contractorAccounts);
+            $contractorList = '"' . implode('","', $contractorAccounts) . '"';
             $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, $contractorList, 'Contractor');
         }
         
