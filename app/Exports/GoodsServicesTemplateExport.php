@@ -155,15 +155,15 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
             $this->addValidationToColumn($worksheet, 'H', $startRow, $endRow, $unitList, 'Unit');
         }
         
+        // Add conditional validation for hospital share and contractor relationship
+        $this->addConditionalValidation($worksheet, $startRow, $endRow);
+        
         // Add data validation for Contractor column (L) - Required when hospital share < 100%
         if (!empty($contractors)) {
             // Use the working format from commit 481ac78 - simple comma-separated values
             $contractorList = implode(',', $contractors);
             $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, $contractorList, 'Contractor');
         }
-        
-        // Add conditional validation for hospital share and contractor relationship
-        $this->addConditionalValidation($worksheet, $startRow, $endRow);
         
         // Add data validation for service point columns (dynamic) - filter by branch
         $headers = $this->headings();
