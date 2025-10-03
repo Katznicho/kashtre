@@ -175,6 +175,15 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         }
         \Log::info('=== END CONTRACTOR VALIDATION DEBUG ===');
         
+        // Add a test column to verify validation is working
+        \Log::info('=== TEST COLUMN VALIDATION DEBUG ===');
+        $testList = '"Test1","Test2","Test3"';
+        \Log::info('Test list for validation: ' . $testList);
+        \Log::info('About to call addValidationToColumn for column M (test column)');
+        $this->addValidationToColumn($worksheet, 'M', $startRow, $endRow, $testList, 'Test');
+        \Log::info('addValidationToColumn completed for column M (test column)');
+        \Log::info('=== END TEST COLUMN VALIDATION DEBUG ===');
+        
         // Add conditional validation for hospital share and contractor relationship
         $this->addConditionalValidation($worksheet, $startRow, $endRow);
         
