@@ -156,33 +156,11 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         }
         
         // Add data validation for Contractor column (L) - Required when hospital share < 100%
-        \Log::info('=== CONTRACTOR VALIDATION DEBUG ===');
-        \Log::info('Contractors array: ' . json_encode($contractors));
-        \Log::info('Contractors empty check: ' . (empty($contractors) ? 'YES' : 'NO'));
-        
         if (!empty($contractors)) {
-            // Try using the exact same format as the working Type dropdown
-            $contractorAccounts = array_map(function($contractor) {
-                return explode(' - ', $contractor)[0]; // Get just the account number
-            }, $contractors);
-            $contractorList = '"' . implode('","', $contractorAccounts) . '"';
-            \Log::info('Contractor list for validation (account numbers): ' . $contractorList);
-            \Log::info('About to call addValidationToColumn for column L');
+            // Use the working format from commit 481ac78 - simple comma-separated values
+            $contractorList = implode(',', $contractors);
             $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, $contractorList, 'Contractor');
-            \Log::info('addValidationToColumn completed for column L');
-        } else {
-            \Log::warning('No contractors found - skipping contractor validation');
         }
-        \Log::info('=== END CONTRACTOR VALIDATION DEBUG ===');
-        
-        // Add a test column to verify validation is working
-        \Log::info('=== TEST COLUMN VALIDATION DEBUG ===');
-        $testList = '"Test1","Test2","Test3"';
-        \Log::info('Test list for validation: ' . $testList);
-        \Log::info('About to call addValidationToColumn for column M (test column)');
-        $this->addValidationToColumn($worksheet, 'M', $startRow, $endRow, $testList, 'Test');
-        \Log::info('addValidationToColumn completed for column M (test column)');
-        \Log::info('=== END TEST COLUMN VALIDATION DEBUG ===');
         
         // Add conditional validation for hospital share and contractor relationship
         $this->addConditionalValidation($worksheet, $startRow, $endRow);
