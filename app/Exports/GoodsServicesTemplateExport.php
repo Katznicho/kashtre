@@ -167,8 +167,8 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
             
             \Log::info('Contractor Username column found at index: ' . $contractorColumnIndex . ', column letter: ' . $contractorColumn);
             
-            // Use the working format from commit 481ac78 - simple comma-separated values
-            $contractorList = implode(',', $contractors);
+            // Use the same format as other working dropdowns - with quotes
+            $contractorList = '"' . implode('","', $contractors) . '"';
             $this->addValidationToColumn($worksheet, $contractorColumn, $startRow, $endRow, $contractorList, 'Contractor');
         }
         
