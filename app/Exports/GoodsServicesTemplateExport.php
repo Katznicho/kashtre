@@ -18,6 +18,7 @@ use App\Models\ServicePoint;
 use App\Models\ContractorProfile;
 use App\Models\Branch;
 use App\Services\ContractorValidationService;
+use Illuminate\Support\Facades\Log;
 
 class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles, WithEvents
 {
@@ -97,8 +98,8 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
     {
         $worksheet = $event->sheet->getDelegate();
         
-        \Log::info('=== addDataValidation DEBUG ===');
-        \Log::info('Business ID: ' . $this->businessId);
+        Log::info('=== addDataValidation DEBUG ===');
+        Log::info('Business ID: ' . $this->businessId);
         
         // Get the data for dropdowns
         $groups = Group::where('business_id', $this->businessId)->pluck('name')->toArray();
@@ -108,8 +109,8 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         $contractors = ContractorValidationService::getAvailableContractors($this->businessId);
         $branches = Branch::where('business_id', $this->businessId)->orderBy('name')->get();
         
-        \Log::info('Contractors retrieved: ' . json_encode($contractors));
-        \Log::info('Contractors count: ' . count($contractors));
+        Log::info('Contractors retrieved: ' . json_encode($contractors));
+        Log::info('Contractors count: ' . count($contractors));
         
         // Set a default range for data validation (rows 2-1000)
         $startRow = 2;
@@ -129,29 +130,29 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         ];
         
         // Add data validation for Type column (C)
-        $this->addValidationToColumn($worksheet, 'C', $startRow, $endRow, '"service","good"', 'Type', false);
+        $this->addValidationToColumn($worksheet, 'C', $startRow, $endRow, 'service,good', 'Type', false);
         
         // Add data validation for Group Name column (E)
         if (!empty($groups)) {
-            $groupList = '"' . implode('","', $groups) . '"';
+            $groupList = implode(',', $groups);
             $this->addValidationToColumn($worksheet, 'E', $startRow, $endRow, $groupList, 'Group');
         }
         
         // Add data validation for Subgroup Name column (F)
         if (!empty($groups)) {
-            $subgroupList = '"' . implode('","', $groups) . '"';
+            $subgroupList = implode(',', $groups);
             $this->addValidationToColumn($worksheet, 'F', $startRow, $endRow, $subgroupList, 'Subgroup');
         }
         
         // Add data validation for Department Name column (G)
         if (!empty($departments)) {
-            $departmentList = '"' . implode('","', $departments) . '"';
+            $departmentList = implode(',', $departments);
             $this->addValidationToColumn($worksheet, 'G', $startRow, $endRow, $departmentList, 'Department');
         }
         
         // Add data validation for Unit of Measure column (H)
         if (!empty($units)) {
-            $unitList = '"' . implode('","', $units) . '"';
+            $unitList = implode(',', $units);
             $this->addValidationToColumn($worksheet, 'H', $startRow, $endRow, $unitList, 'Unit');
         }
         
@@ -165,10 +166,10 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
             $contractorColumnIndex = array_search('Contractor Username', $headers);
             $contractorColumn = $this->getColumnLetter($contractorColumnIndex + 1); // +1 because array is 0-indexed
             
-            \Log::info('Contractor Username column found at index: ' . $contractorColumnIndex . ', column letter: ' . $contractorColumn);
+            Log::info('Contractor Username column found at index: ' . $contractorColumnIndex . ', column letter: ' . $contractorColumn);
             
-            // Use the same format as other working dropdowns - with quotes
-            $contractorList = '"' . implode('","', $contractors) . '"';
+            // Use comma-separated format without quotes
+            $contractorList = implode(',', $contractors);
             $this->addValidationToColumn($worksheet, $contractorColumn, $startRow, $endRow, $contractorList, 'Contractor');
         }
         
@@ -190,7 +191,7 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
                     
                     if (!empty($branchServicePoints)) {
                         $columnLetter = $this->getColumnLetter($index + 1);
-                        $servicePointList = '"' . implode('","', $branchServicePoints) . '"';
+                        $servicePointList = implode(',', $branchServicePoints);
                         $this->addValidationToColumn($worksheet, $columnLetter, $startRow, $endRow, $servicePointList, 'Service Point');
                     }
                 }
@@ -200,10 +201,10 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
     
     private function addValidationToColumn($worksheet, $column, $startRow, $endRow, $formula, $type, $allowBlank = true)
     {
-        \Log::info("=== addValidationToColumn DEBUG ===");
-        \Log::info("Column: $column, StartRow: $startRow, EndRow: $endRow, Type: $type");
-        \Log::info("Formula: " . $formula);
-        \Log::info("Formula length: " . strlen($formula));
+        Log::info("=== addValidationToColumn DEBUG ===");
+        Log::info("Column: $column, StartRow: $startRow, EndRow: $endRow, Type: $type");
+        Log::info("Formula: " . $formula);
+        Log::info("Formula length: " . strlen($formula));
         
         for ($row = $startRow; $row <= $endRow; $row++) {
             $validation = $worksheet->getCell($column . $row)->getDataValidation();
@@ -220,10 +221,10 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
             $validation->setPrompt('Choose a ' . strtolower($type) . ' from the dropdown');
             
             if ($row == $startRow) {
-                \Log::info("Applied validation to cell $column$row with formula: " . $formula);
+                Log::info("Applied validation to cell $column$row with formula: " . $formula);
             }
         }
-        \Log::info("=== END addValidationToColumn DEBUG ===");
+        Log::info("=== END addValidationToColumn DEBUG ===");
     }
     
     private function getColumnLetter($columnIndex)
