@@ -156,14 +156,24 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         }
         
         // Add data validation for Contractor column (L) - Required when hospital share < 100%
+        \Log::info('=== CONTRACTOR VALIDATION DEBUG ===');
+        \Log::info('Contractors array: ' . json_encode($contractors));
+        \Log::info('Contractors empty check: ' . (empty($contractors) ? 'YES' : 'NO'));
+        
         if (!empty($contractors)) {
             // Use the same format as other working dropdowns - with quotes
             $contractorAccounts = array_map(function($contractor) {
                 return explode(' - ', $contractor)[0]; // Get just the account number
             }, $contractors);
             $contractorList = '"' . implode('","', $contractorAccounts) . '"';
+            \Log::info('Contractor list for validation: ' . $contractorList);
+            \Log::info('About to call addValidationToColumn for column L');
             $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, $contractorList, 'Contractor');
+            \Log::info('addValidationToColumn completed for column L');
+        } else {
+            \Log::warning('No contractors found - skipping contractor validation');
         }
+        \Log::info('=== END CONTRACTOR VALIDATION DEBUG ===');
         
         // Add conditional validation for hospital share and contractor relationship
         $this->addConditionalValidation($worksheet, $startRow, $endRow);
