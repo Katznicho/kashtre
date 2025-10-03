@@ -151,7 +151,10 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         
         // Add data validation for Contractor column (L) - Required when hospital share < 100%
         if (!empty($contractors)) {
-            $contractorList = '"' . implode('","', $contractors) . '"';
+            // Create a simple comma-separated list for Excel data validation
+            $contractorList = implode(',', array_map(function($contractor) {
+                return '"' . str_replace('"', '""', $contractor) . '"';
+            }, $contractors));
             $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, $contractorList, 'Contractor');
         }
         
