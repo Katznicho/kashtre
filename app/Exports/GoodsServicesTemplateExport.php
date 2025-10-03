@@ -123,31 +123,36 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         ];
         
         // Add data validation for Type column (C)
-        $this->addValidationToColumn($worksheet, 'C', $startRow, $endRow, 'service,good', 'Type', false);
+        $this->addValidationToColumn($worksheet, 'C', $startRow, $endRow, '"service","good"', 'Type', false);
         
         // Add data validation for Group Name column (E)
         if (!empty($groups)) {
-            $this->addValidationToColumn($worksheet, 'E', $startRow, $endRow, implode(',', $groups), 'Group');
+            $groupList = '"' . implode('","', $groups) . '"';
+            $this->addValidationToColumn($worksheet, 'E', $startRow, $endRow, $groupList, 'Group');
         }
         
         // Add data validation for Subgroup Name column (F)
         if (!empty($groups)) {
-            $this->addValidationToColumn($worksheet, 'F', $startRow, $endRow, implode(',', $groups), 'Subgroup');
+            $subgroupList = '"' . implode('","', $groups) . '"';
+            $this->addValidationToColumn($worksheet, 'F', $startRow, $endRow, $subgroupList, 'Subgroup');
         }
         
         // Add data validation for Department Name column (G)
         if (!empty($departments)) {
-            $this->addValidationToColumn($worksheet, 'G', $startRow, $endRow, implode(',', $departments), 'Department');
+            $departmentList = '"' . implode('","', $departments) . '"';
+            $this->addValidationToColumn($worksheet, 'G', $startRow, $endRow, $departmentList, 'Department');
         }
         
         // Add data validation for Unit of Measure column (H)
         if (!empty($units)) {
-            $this->addValidationToColumn($worksheet, 'H', $startRow, $endRow, implode(',', $units), 'Unit');
+            $unitList = '"' . implode('","', $units) . '"';
+            $this->addValidationToColumn($worksheet, 'H', $startRow, $endRow, $unitList, 'Unit');
         }
         
         // Add data validation for Contractor column (L) - Required when hospital share < 100%
         if (!empty($contractors)) {
-            $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, implode(',', $contractors), 'Contractor');
+            $contractorList = '"' . implode('","', $contractors) . '"';
+            $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, $contractorList, 'Contractor');
         }
         
         // Add conditional validation for hospital share and contractor relationship
@@ -171,7 +176,8 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
                     
                     if (!empty($branchServicePoints)) {
                         $columnLetter = $this->getColumnLetter($index + 1);
-                        $this->addValidationToColumn($worksheet, $columnLetter, $startRow, $endRow, implode(',', $branchServicePoints), 'Service Point');
+                        $servicePointList = '"' . implode('","', $branchServicePoints) . '"';
+                        $this->addValidationToColumn($worksheet, $columnLetter, $startRow, $endRow, $servicePointList, 'Service Point');
                     }
                 }
             }
@@ -188,7 +194,7 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
             $validation->setShowInputMessage(true);
             $validation->setShowErrorMessage(true);
             $validation->setShowDropDown(true);
-            $validation->setFormula1('"' . $formula . '"');
+            $validation->setFormula1($formula);
             $validation->setErrorTitle('Invalid ' . $type);
             $validation->setError('Please select a valid ' . strtolower($type));
             $validation->setPromptTitle('Select ' . $type);
