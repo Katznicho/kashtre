@@ -161,13 +161,12 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         \Log::info('Contractors empty check: ' . (empty($contractors) ? 'YES' : 'NO'));
         
         if (!empty($contractors)) {
-            // Try a completely different approach - use simple names without spaces
-            $contractorSimple = array_map(function($contractor) {
-                $parts = explode(' - ', $contractor);
-                return str_replace(' ', '', $parts[1]); // Remove spaces from names
+            // Try using the exact same format as the working Type dropdown
+            $contractorAccounts = array_map(function($contractor) {
+                return explode(' - ', $contractor)[0]; // Get just the account number
             }, $contractors);
-            $contractorList = '"' . implode('","', $contractorSimple) . '"';
-            \Log::info('Contractor list for validation (simple names): ' . $contractorList);
+            $contractorList = '"' . implode('","', $contractorAccounts) . '"';
+            \Log::info('Contractor list for validation (account numbers): ' . $contractorList);
             \Log::info('About to call addValidationToColumn for column L');
             $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, $contractorList, 'Contractor');
             \Log::info('addValidationToColumn completed for column L');
