@@ -129,8 +129,8 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
             'L' => 'Contractor',  // Contractor Username
         ];
         
-        // Add data validation for Type column (C)
-        $this->addValidationToColumn($worksheet, 'C', $startRow, $endRow, '"service","good"', 'Type', false);
+        // Add data validation for Type column (C) - without quotes to prevent Excel from adding quotes
+        $this->addValidationToColumn($worksheet, 'C', $startRow, $endRow, 'service,good', 'Type', false);
         
         // Add data validation for Group Name column (E)
         if (!empty($groups)) {
