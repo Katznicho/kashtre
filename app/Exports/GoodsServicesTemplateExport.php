@@ -158,11 +158,18 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         // Add conditional validation for hospital share and contractor relationship
         $this->addConditionalValidation($worksheet, $startRow, $endRow);
         
-        // Add data validation for Contractor column (L) - Required when hospital share < 100%
+        // Add data validation for Contractor column - Required when hospital share < 100%
         if (!empty($contractors)) {
+            // Calculate the correct column for Contractor Username
+            $headers = $this->headings();
+            $contractorColumnIndex = array_search('Contractor Username', $headers);
+            $contractorColumn = $this->getColumnLetter($contractorColumnIndex + 1); // +1 because array is 0-indexed
+            
+            \Log::info('Contractor Username column found at index: ' . $contractorColumnIndex . ', column letter: ' . $contractorColumn);
+            
             // Use the working format from commit 481ac78 - simple comma-separated values
             $contractorList = implode(',', $contractors);
-            $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, $contractorList, 'Contractor');
+            $this->addValidationToColumn($worksheet, $contractorColumn, $startRow, $endRow, $contractorList, 'Contractor');
         }
         
         // Add data validation for service point columns (dynamic) - filter by branch
