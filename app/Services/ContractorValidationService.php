@@ -12,14 +12,27 @@ class ContractorValidationService
      */
     public static function getAvailableContractors($businessId)
     {
-        return ContractorProfile::with('user')
+        \Log::info("=== ContractorValidationService::getAvailableContractors DEBUG ===");
+        \Log::info("Business ID: " . $businessId);
+        
+        $contractors = ContractorProfile::with('user')
             ->where('business_id', $businessId)
-            ->get()
-            ->map(function($contractor) {
-                return $contractor->kashtre_account_number . ' - ' . $contractor->user->name;
-            })
-            ->filter()
-            ->toArray();
+            ->get();
+            
+        \Log::info("Found " . $contractors->count() . " contractor profiles");
+        
+        $result = $contractors->map(function($contractor) {
+            $formatted = $contractor->kashtre_account_number . ' - ' . $contractor->user->name;
+            \Log::info("Contractor: " . $formatted);
+            return $formatted;
+        })
+        ->filter()
+        ->toArray();
+        
+        \Log::info("Final result: " . json_encode($result));
+        \Log::info("=== END ContractorValidationService DEBUG ===");
+        
+        return $result;
     }
 
     /**
