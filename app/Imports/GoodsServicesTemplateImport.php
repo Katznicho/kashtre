@@ -52,6 +52,14 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             // Find the type column - try different normalized variations
             $typeValue = $row['type_servicegood'] ?? $row['type'] ?? null;
             
+            // Clean the type value - remove quotes and trim whitespace
+            if (!empty($typeValue)) {
+                $typeValue = trim($typeValue, '"\'');
+                $typeValue = trim($typeValue);
+                $originalType = $row['type_servicegood'] ?? $row['type'] ?? 'null';
+                Log::info("Row {$rowNumber}: Cleaned type value: '{$typeValue}' (original: '{$originalType}')");
+            }
+            
             // Skip completely empty rows (no name, no type)
             if (empty($row['name']) && empty($typeValue)) {
                 Log::info("Row {$rowNumber}: Skipping empty row");
@@ -139,9 +147,12 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             $group = null;
             $groupName = $row['group_name'] ?? null;
             if (!empty($groupName)) {
+                // Clean the group name - remove quotes and trim whitespace
+                $groupName = trim($groupName, '"\'');
+                $groupName = trim($groupName);
                 Log::info("Row {$rowNumber}: Looking for group: '{$groupName}'");
                 $group = Group::where('business_id', $this->businessId)
-                    ->where('name', trim($groupName))
+                    ->where('name', $groupName)
                     ->first();
                 if ($group) {
                     Log::info("Row {$rowNumber}: Found group: {$group->name} (ID: {$group->id})");
@@ -153,9 +164,12 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             $subgroup = null;
             $subgroupName = $row['subgroup_name'] ?? null;
             if (!empty($subgroupName)) {
+                // Clean the subgroup name - remove quotes and trim whitespace
+                $subgroupName = trim($subgroupName, '"\'');
+                $subgroupName = trim($subgroupName);
                 Log::info("Row {$rowNumber}: Looking for subgroup: '{$subgroupName}'");
                 $subgroup = Group::where('business_id', $this->businessId)
-                    ->where('name', trim($subgroupName))
+                    ->where('name', $subgroupName)
                     ->first();
                 if ($subgroup) {
                     Log::info("Row {$rowNumber}: Found subgroup: {$subgroup->name} (ID: {$subgroup->id})");
@@ -167,9 +181,12 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             $department = null;
             $departmentName = $row['department_name'] ?? null;
             if (!empty($departmentName)) {
+                // Clean the department name - remove quotes and trim whitespace
+                $departmentName = trim($departmentName, '"\'');
+                $departmentName = trim($departmentName);
                 Log::info("Row {$rowNumber}: Looking for department: '{$departmentName}'");
                 $department = Department::where('business_id', $this->businessId)
-                    ->where('name', trim($departmentName))
+                    ->where('name', $departmentName)
                     ->first();
                 if ($department) {
                     Log::info("Row {$rowNumber}: Found department: {$department->name} (ID: {$department->id})");
@@ -181,9 +198,12 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             $itemUnit = null;
             $unitName = $row['unit_of_measure'] ?? null;
             if (!empty($unitName)) {
+                // Clean the unit name - remove quotes and trim whitespace
+                $unitName = trim($unitName, '"\'');
+                $unitName = trim($unitName);
                 Log::info("Row {$rowNumber}: Looking for unit: '{$unitName}'");
                 $itemUnit = ItemUnit::where('business_id', $this->businessId)
-                    ->where('name', trim($unitName))
+                    ->where('name', $unitName)
                     ->first();
                 if ($itemUnit) {
                     Log::info("Row {$rowNumber}: Found unit: {$itemUnit->name} (ID: {$itemUnit->id})");
@@ -194,6 +214,11 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
 
             // Validate hospital share and contractor relationship using the service
             $contractorUsername = $row['contractor_username'] ?? null;
+            if (!empty($contractorUsername)) {
+                // Clean the contractor username - remove quotes and trim whitespace
+                $contractorUsername = trim($contractorUsername, '"\'');
+                $contractorUsername = trim($contractorUsername);
+            }
             Log::info("Row {$rowNumber}: Validating contractor - Username: '{$contractorUsername}', Hospital Share: {$hospitalShare}%");
             
             $validationResult = ContractorValidationService::validateHospitalShareContractor(
@@ -366,9 +391,13 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             }
             
             if (!empty($servicePointValue)) {
+                // Clean the service point value - remove quotes and trim whitespace
+                $servicePointValue = trim($servicePointValue, '"\'');
+                $servicePointValue = trim($servicePointValue);
+                
                 // Find the service point by name (first try branch-specific, then any in business)
                 $servicePoint = ServicePoint::where('business_id', $this->businessId)
-                    ->where('name', trim($servicePointValue))
+                    ->where('name', $servicePointValue)
                     ->where(function($query) use ($branch) {
                         $query->where('branch_id', $branch->id)
                               ->orWhereNull('branch_id'); // Allow global service points
@@ -378,7 +407,7 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                 // If not found with branch filter, try without branch filter (fallback)
                 if (!$servicePoint) {
                     $servicePoint = ServicePoint::where('business_id', $this->businessId)
-                        ->where('name', trim($servicePointValue))
+                        ->where('name', $servicePointValue)
                         ->first();
                 }
                 
