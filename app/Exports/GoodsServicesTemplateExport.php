@@ -156,24 +156,14 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         }
         
         // Add data validation for Contractor column (L) - Required when hospital share < 100%
-        \Log::info('=== CONTRACTOR DROPDOWN DEBUG ===');
-        \Log::info('Business ID: ' . $this->businessId);
-        \Log::info('Contractors array: ' . json_encode($contractors));
-        \Log::info('Contractors count: ' . count($contractors));
-        \Log::info('Contractors empty check: ' . (empty($contractors) ? 'YES' : 'NO'));
-        
         if (!empty($contractors)) {
-            \Log::info('Generating contractor list for Excel validation for business ID: ' . $this->businessId);
-            // Try a simpler approach - just comma-separated values without quotes
-            $contractorList = implode(',', $contractors);
-            \Log::info('Contractor list for validation: ' . $contractorList);
-            \Log::info('About to call addValidationToColumn for column L');
+            // Try using just account numbers for better Excel compatibility
+            $contractorAccounts = array_map(function($contractor) {
+                return explode(' - ', $contractor)[0]; // Get just the account number
+            }, $contractors);
+            $contractorList = implode(',', $contractorAccounts);
             $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, $contractorList, 'Contractor');
-            \Log::info('addValidationToColumn called for Contractor column L');
-        } else {
-            \Log::warning('No contractors found for business ID: ' . $this->businessId);
         }
-        \Log::info('=== END CONTRACTOR DROPDOWN DEBUG ===');
         
         // Add conditional validation for hospital share and contractor relationship
         $this->addConditionalValidation($worksheet, $startRow, $endRow);
