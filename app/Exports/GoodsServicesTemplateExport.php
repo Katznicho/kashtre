@@ -97,6 +97,9 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
     {
         $worksheet = $event->sheet->getDelegate();
         
+        \Log::info('=== addDataValidation DEBUG ===');
+        \Log::info('Business ID: ' . $this->businessId);
+        
         // Get the data for dropdowns
         $groups = Group::where('business_id', $this->businessId)->pluck('name')->toArray();
         $departments = Department::where('business_id', $this->businessId)->pluck('name')->toArray();
@@ -104,6 +107,9 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         $servicePoints = ServicePoint::where('business_id', $this->businessId)->pluck('name')->toArray();
         $contractors = ContractorValidationService::getAvailableContractors($this->businessId);
         $branches = Branch::where('business_id', $this->businessId)->orderBy('name')->get();
+        
+        \Log::info('Contractors retrieved: ' . json_encode($contractors));
+        \Log::info('Contractors count: ' . count($contractors));
         
         // Set a default range for data validation (rows 2-1000)
         $startRow = 2;
