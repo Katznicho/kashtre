@@ -17,9 +17,7 @@
                     </div>
                 @endif
 
-                {{-- @livewire('service_points.list-service-points')
-                 --}}
-                 @livewire('service-points.list-service-points')
+                @livewire('service-points.list-service-points')
 
             </div>
         </div>
