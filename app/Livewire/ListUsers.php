@@ -129,16 +129,13 @@ class ListUsers extends Component implements HasForms, HasTable
                     ->icon('heroicon-o-pencil')
                     ->color('primary')
                     ->visible(fn (User $record): bool => Auth::user()->business_id === 1 || $record->business_id === Auth::user()->business_id),
-                Tables\Actions\Action::make('impersonate')
-                    ->label('Login As')
-                    ->url(fn (User $record): string => route('impersonate', $record->id))
-                    ->color('warning')
-                    ->icon('heroicon-o-user')
-                    ->visible(fn (User $record): bool => Auth::user()->business_id === 1 && Auth::user()->id !== $record->id)
-                    ->requiresConfirmation()
-                    ->modalHeading('Impersonate User')
-                    ->modalDescription('Are you sure you want to login as this user? You will be able to access their account and perform actions on their behalf.')
-                    ->modalSubmitActionLabel('Yes, Login As User'),
+                // Tables\Actions\Action::make('impersonate')
+                //     ->label('Impersonate')
+                //     ->url(fn (User $record): string => route('impersonate', $record->id))
+                //     ->color('warning')
+                //     ->icon('heroicon-o-user')
+                //     ->visible(fn (User $record): bool => Auth::user()->business_id === 1 && Auth::user()->id !== $record->id)
+                //     ->requiresConfirmation(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
