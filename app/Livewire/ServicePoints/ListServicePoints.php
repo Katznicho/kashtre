@@ -26,16 +26,6 @@ class ListServicePoints extends Component implements HasForms, HasTable
     use InteractsWithForms;
     use InteractsWithTable;
 
-    public function getServicePoints()
-    {
-        $query = ServicePoint::query()->where('business_id', '!=', 1)->latest();
-
-        if (Auth::check() && Auth::user()->business_id !== 1) {
-            $query->where('business_id', Auth::user()->business_id);
-        }
-
-        return $query->with(['business', 'branch'])->get();
-    }
 
     public function table(Table $table): Table
     {
@@ -69,17 +59,6 @@ class ListServicePoints extends Component implements HasForms, HasTable
                     ->wrap()
                     ->toggleable(),
 
-                Tables\Columns\TextColumn::make('pending_items_count')
-                    ->label('Pending Items')
-                    ->getStateUsing(function (ServicePoint $record) {
-                        return $record->pendingDeliveryQueues()->count();
-                    })
-                    ->badge()
-                    ->color(fn (string $state): string => match (true) {
-                        $state > 0 => 'warning',
-                        default => 'success',
-                    }),
-
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Created At')
                     ->dateTime()
@@ -109,35 +88,16 @@ class ListServicePoints extends Component implements HasForms, HasTable
                 ] : []),
             ])
             ->actions([
-                Tables\Actions\Action::make('view_queued_items')
-                    ->label('View Queued Items')
-                    ->icon('heroicon-o-eye')
-                    ->color('info')
-                    ->modalHeading(fn(ServicePoint $record) => 'Queued Items at ' . $record->name)
-                    ->modalContent(function (ServicePoint $record) {
-                        $queuedItems = $record->pendingDeliveryQueues()->with(['client', 'invoice'])->get();
-                        
-                        if ($queuedItems->isEmpty()) {
-                            return view('livewire.service_points.no-queued-items');
-                        }
-                        
-                        return view('livewire.service_points.queued-items-list', compact('queuedItems'));
-                    })
-                    ->modalWidth('4xl'),
-
                 EditAction::make()
-                    ->label('Edit Service Point')
-                
-                    ->modalHeading('Edit Service Point')
                     ->visible(fn() => in_array('Edit Service Points', Auth::user()->permissions))
+                    ->modalHeading('Edit Service Point')
                     ->form(fn(ServicePoint $record) => [
                         Forms\Components\Select::make('business_id')
                             ->label('Business')
                             ->placeholder('Select a business')
                             ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
                             ->required()
-                            ->disabled(fn() => Auth::user()->business_id !== 1)
-                            ->reactive(),
+                            ->disabled(fn() => Auth::user()->business_id !== 1),
 
                         Forms\Components\Select::make('branch_id')
                             ->label('Branch')
@@ -148,8 +108,7 @@ class ListServicePoints extends Component implements HasForms, HasTable
                                     ? \App\Models\Branch::where('business_id', $businessId)->pluck('name', 'id')
                                     : [];
                             })
-                            ->required()
-                            ->reactive(),
+                            ->required(),
 
                         TextInput::make('name')
                             ->label('Service Point Name')
@@ -164,8 +123,8 @@ class ListServicePoints extends Component implements HasForms, HasTable
                     ->successNotificationTitle('Service Point updated successfully.'),
 
                 DeleteAction::make()
-                    ->modalHeading('Delete Service Point')
                     ->visible(fn() => in_array('Delete Service Points', Auth::user()->permissions))
+                    ->modalHeading('Delete Service Point')
                     ->successNotificationTitle('Service Point deleted (soft) successfully.'),
             ])
             ->bulkActions([
@@ -176,7 +135,6 @@ class ListServicePoints extends Component implements HasForms, HasTable
                 ]),
             ])
             ->headerActions([
-                
                 CreateAction::make()
                     ->label('Create Service Point')
                     ->visible(fn() => in_array('Add Service Points', Auth::user()->permissions))
@@ -188,8 +146,7 @@ class ListServicePoints extends Component implements HasForms, HasTable
                             ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
                             ->required()
                             ->default(Auth::user()->business_id)
-                            ->disabled(fn() => Auth::user()->business_id !== 1)
-                            ->reactive(),
+                            ->disabled(fn() => Auth::user()->business_id !== 1),
 
                         Forms\Components\Select::make('branch_id')
                             ->label('Branch')
@@ -200,8 +157,7 @@ class ListServicePoints extends Component implements HasForms, HasTable
                                     ? \App\Models\Branch::where('business_id', $businessId)->pluck('name', 'id')
                                     : [];
                             })
-                            ->required()
-                            ->reactive(),
+                            ->required(),
 
                         TextInput::make('name')
                             ->label('Service Point Name')
