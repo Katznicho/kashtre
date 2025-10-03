@@ -150,11 +150,24 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         }
         
         // Add data validation for Contractor column (L) - Required when hospital share < 100%
+        \Log::info('=== CONTRACTOR DROPDOWN DEBUG ===');
+        \Log::info('Business ID: ' . $this->businessId);
+        \Log::info('Contractors array: ' . json_encode($contractors));
+        \Log::info('Contractors count: ' . count($contractors));
+        \Log::info('Contractors empty check: ' . (empty($contractors) ? 'YES' : 'NO'));
+        
         if (!empty($contractors)) {
+            \Log::info('Generating contractor list for Excel validation for business ID: ' . $this->businessId);
             // Try a simpler approach - just comma-separated values without quotes
             $contractorList = implode(',', $contractors);
+            \Log::info('Contractor list for validation: ' . $contractorList);
+            \Log::info('About to call addValidationToColumn for column L');
             $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, $contractorList, 'Contractor');
+            \Log::info('addValidationToColumn called for Contractor column L');
+        } else {
+            \Log::warning('No contractors found for business ID: ' . $this->businessId);
         }
+        \Log::info('=== END CONTRACTOR DROPDOWN DEBUG ===');
         
         // Add conditional validation for hospital share and contractor relationship
         $this->addConditionalValidation($worksheet, $startRow, $endRow);
@@ -187,6 +200,11 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
     
     private function addValidationToColumn($worksheet, $column, $startRow, $endRow, $formula, $type, $allowBlank = true)
     {
+        \Log::info("=== addValidationToColumn DEBUG ===");
+        \Log::info("Column: $column, StartRow: $startRow, EndRow: $endRow, Type: $type");
+        \Log::info("Formula: " . $formula);
+        \Log::info("Formula length: " . strlen($formula));
+        
         for ($row = $startRow; $row <= $endRow; $row++) {
             $validation = $worksheet->getCell($column . $row)->getDataValidation();
             $validation->setType(DataValidation::TYPE_LIST);
@@ -200,7 +218,12 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
             $validation->setError('Please select a valid ' . strtolower($type));
             $validation->setPromptTitle('Select ' . $type);
             $validation->setPrompt('Choose a ' . strtolower($type) . ' from the dropdown');
+            
+            if ($row == $startRow) {
+                \Log::info("Applied validation to cell $column$row with formula: " . $formula);
+            }
         }
+        \Log::info("=== END addValidationToColumn DEBUG ===");
     }
     
     private function getColumnLetter($columnIndex)
