@@ -67,6 +67,12 @@ class ItemBulkUploadController extends Controller
      */
     public function import(Request $request)
     {
+        Log::info("=== GOODS & SERVICES IMPORT REQUEST STARTED ===");
+        Log::info("User: " . (Auth::user()->name ?? 'Unknown') . " (ID: " . Auth::user()->id . ")");
+        Log::info("Business ID: " . $request->business_id);
+        Log::info("File: " . ($request->file('file') ? $request->file('file')->getClientOriginalName() : 'No file'));
+        Log::info("Timestamp: " . now()->toDateTimeString());
+        
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls|max:10240', // 10MB max
             'business_id' => 'required|exists:businesses,id',
@@ -74,38 +80,60 @@ class ItemBulkUploadController extends Controller
 
         // Validate business access
         if (Auth::user()->business_id != 1 && Auth::user()->business_id != $request->business_id) {
+            Log::error("Unauthorized access attempt - User business ID: " . Auth::user()->business_id . ", Requested business ID: " . $request->business_id);
             return redirect()->back()->with('error', 'Unauthorized access to business data');
         }
 
         try {
+            Log::info("Starting Excel import process...");
             $import = new GoodsServicesTemplateImport($request->business_id);
             
+            Log::info("Executing Excel::import()...");
             Excel::import($import, $request->file('file'));
+            Log::info("Excel import completed successfully");
 
-            // Create branch prices and service points after items are imported
+            Log::info("Creating branch prices...");
             $import->createBranchPrices();
+            Log::info("Branch prices creation completed");
+
+            Log::info("Creating branch service points...");
             $import->createBranchServicePoints();
+            Log::info("Branch service points creation completed");
 
             $successCount = $import->getSuccessCount();
             $errorCount = $import->getErrorCount();
             $errors = $import->getErrors();
 
+            Log::info("=== IMPORT SUMMARY ===");
+            Log::info("Successfully imported: {$successCount} items");
+            Log::info("Errors encountered: {$errorCount} items");
+            Log::info("Total errors: " . count($errors));
+
             $message = "Import completed. Successfully imported {$successCount} goods/services.";
             
             if ($errorCount > 0) {
                 $message .= " {$errorCount} records had errors.";
+                Log::warning("Import completed with errors: " . implode('; ', $errors));
             }
 
             if (!empty($errors)) {
+                Log::info("Redirecting back with errors");
                 return redirect()->back()
                     ->with('success', $message)
                     ->with('import_errors', $errors);
             }
 
+            Log::info("Redirecting to items index with success message");
             return redirect()->route('items.index')
                 ->with('success', $message);
 
         } catch (\Exception $e) {
+            Log::error("=== IMPORT FAILED ===");
+            Log::error("Error message: " . $e->getMessage());
+            Log::error("Error trace: " . $e->getTraceAsString());
+            Log::error("File: " . ($request->file('file') ? $request->file('file')->getClientOriginalName() : 'No file'));
+            Log::error("Business ID: " . $request->business_id);
+            
             return redirect()->back()
                 ->with('error', 'Import failed: ' . $e->getMessage());
         }

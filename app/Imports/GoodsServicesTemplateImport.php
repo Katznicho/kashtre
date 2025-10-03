@@ -31,50 +31,80 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
     public function __construct($businessId)
     {
         $this->businessId = $businessId;
+        
+        // Log import initialization
+        Log::info("=== GOODS & SERVICES IMPORT STARTED ===");
+        Log::info("Business ID: {$businessId}");
+        Log::info("Import initiated by user: " . (auth()->user()->name ?? 'Unknown'));
+        Log::info("Timestamp: " . now()->toDateTimeString());
+        Log::info("=====================================");
     }
 
     public function model(array $row)
     {
+        $rowNumber = $this->getRowNumber() + 1;
+        
         try {
+            // Log row processing start
+            Log::info("--- Processing Row {$rowNumber} ---");
+            Log::info("Row data: " . json_encode($row, JSON_PRETTY_PRINT));
+            
             // Find the type column - try different normalized variations
             $typeValue = $row['type_servicegood'] ?? $row['type'] ?? null;
             
             // Skip completely empty rows (no name, no type)
             if (empty($row['name']) && empty($typeValue)) {
+                Log::info("Row {$rowNumber}: Skipping empty row");
                 return null; // Skip silently without error
             }
             
             // Manual validation
+            Log::info("Row {$rowNumber}: Starting validation");
+            
             if (empty($row['name'])) {
-                $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": Name is required";
+                $error = "Row {$rowNumber}: Name is required";
+                Log::error($error);
+                $this->errors[] = $error;
                 $this->errorCount++;
                 return null;
             }
             
             if (empty($typeValue)) {
-                $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": Type is required";
+                $error = "Row {$rowNumber}: Type is required";
+                Log::error($error);
+                $this->errors[] = $error;
                 $this->errorCount++;
                 return null;
             }
             
             if (!in_array(strtolower($typeValue), ['service', 'good'])) {
-                $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": Type must be 'service' or 'good', got '{$typeValue}'";
+                $error = "Row {$rowNumber}: Type must be 'service' or 'good', got '{$typeValue}'";
+                Log::error($error);
+                $this->errors[] = $error;
                 $this->errorCount++;
                 return null;
             }
             
+            Log::info("Row {$rowNumber}: Basic validation passed - Name: '{$row['name']}', Type: '{$typeValue}'");
+            
             // Find default price column
             $defaultPrice = $row['default_price'] ?? null;
+            Log::info("Row {$rowNumber}: Default price value: '{$defaultPrice}'");
             if (empty($defaultPrice) || !is_numeric($defaultPrice)) {
-                $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": Default price is required and must be a number";
+                $error = "Row {$rowNumber}: Default price is required and must be a number";
+                Log::error($error);
+                $this->errors[] = $error;
                 $this->errorCount++;
                 return null;
             }
             
             // Find VAT rate column
             $vatRate = $row['vat_rate'] ?? null;
+            Log::info("Row {$rowNumber}: VAT rate value: '{$vatRate}'");
             if (!empty($vatRate) && (!is_numeric($vatRate) || $vatRate < 1 || $vatRate > 100)) {
-                $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": VAT rate must be a number between 1 and 100";
+                $error = "Row {$rowNumber}: VAT rate must be a number between 1 and 100";
+                Log::error($error);
+                $this->errors[] = $error;
                 $this->errorCount++;
                 return null;
             }
@@ -82,55 +112,90 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             
             // Find hospital share column - try different variations
             $hospitalShareValue = $row['hospital_share'] ?? $row['hospital_share_'] ?? null;
+            Log::info("Row {$rowNumber}: Hospital share value: '{$hospitalShareValue}'");
             
             if (empty($hospitalShareValue) || !is_numeric($hospitalShareValue)) {
-                $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": Hospital share is required and must be a number";
+                $error = "Row {$rowNumber}: Hospital share is required and must be a number";
+                Log::error($error);
+                $this->errors[] = $error;
                 $this->errorCount++;
                 return null;
             }
             
             $hospitalShare = (int) $hospitalShareValue;
             if ($hospitalShare < 0 || $hospitalShare > 100) {
-                $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": Hospital share must be between 0 and 100";
+                $error = "Row {$rowNumber}: Hospital share must be between 0 and 100";
+                Log::error($error);
+                $this->errors[] = $error;
                 $this->errorCount++;
                 return null;
             }
+            
+            Log::info("Row {$rowNumber}: Price and share validation passed - Default Price: {$defaultPrice}, VAT: {$vatRate}%, Hospital Share: {$hospitalShare}%");
 
             // Find related entities using flexible column access
+            Log::info("Row {$rowNumber}: Looking up related entities");
+            
             $group = null;
             $groupName = $row['group_name'] ?? null;
             if (!empty($groupName)) {
+                Log::info("Row {$rowNumber}: Looking for group: '{$groupName}'");
                 $group = Group::where('business_id', $this->businessId)
                     ->where('name', trim($groupName))
                     ->first();
+                if ($group) {
+                    Log::info("Row {$rowNumber}: Found group: {$group->name} (ID: {$group->id})");
+                } else {
+                    Log::warning("Row {$rowNumber}: Group '{$groupName}' not found for business {$this->businessId}");
+                }
             }
 
             $subgroup = null;
             $subgroupName = $row['subgroup_name'] ?? null;
             if (!empty($subgroupName)) {
+                Log::info("Row {$rowNumber}: Looking for subgroup: '{$subgroupName}'");
                 $subgroup = Group::where('business_id', $this->businessId)
                     ->where('name', trim($subgroupName))
                     ->first();
+                if ($subgroup) {
+                    Log::info("Row {$rowNumber}: Found subgroup: {$subgroup->name} (ID: {$subgroup->id})");
+                } else {
+                    Log::warning("Row {$rowNumber}: Subgroup '{$subgroupName}' not found for business {$this->businessId}");
+                }
             }
 
             $department = null;
             $departmentName = $row['department_name'] ?? null;
             if (!empty($departmentName)) {
+                Log::info("Row {$rowNumber}: Looking for department: '{$departmentName}'");
                 $department = Department::where('business_id', $this->businessId)
                     ->where('name', trim($departmentName))
                     ->first();
+                if ($department) {
+                    Log::info("Row {$rowNumber}: Found department: {$department->name} (ID: {$department->id})");
+                } else {
+                    Log::warning("Row {$rowNumber}: Department '{$departmentName}' not found for business {$this->businessId}");
+                }
             }
 
             $itemUnit = null;
             $unitName = $row['unit_of_measure'] ?? null;
             if (!empty($unitName)) {
+                Log::info("Row {$rowNumber}: Looking for unit: '{$unitName}'");
                 $itemUnit = ItemUnit::where('business_id', $this->businessId)
                     ->where('name', trim($unitName))
                     ->first();
+                if ($itemUnit) {
+                    Log::info("Row {$rowNumber}: Found unit: {$itemUnit->name} (ID: {$itemUnit->id})");
+                } else {
+                    Log::warning("Row {$rowNumber}: Unit '{$unitName}' not found for business {$this->businessId}");
+                }
             }
 
             // Validate hospital share and contractor relationship using the service
             $contractorUsername = $row['contractor_username'] ?? null;
+            Log::info("Row {$rowNumber}: Validating contractor - Username: '{$contractorUsername}', Hospital Share: {$hospitalShare}%");
+            
             $validationResult = ContractorValidationService::validateHospitalShareContractor(
                 $hospitalShare, 
                 $contractorUsername, 
@@ -139,7 +204,9 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             );
             
             if (!$validationResult['isValid']) {
+                Log::error("Row {$rowNumber}: Contractor validation failed");
                 foreach ($validationResult['errors'] as $error) {
+                    Log::error("Row {$rowNumber}: Validation error - {$error}");
                     $this->errors[] = $error;
                 }
                 $this->errorCount++;
@@ -147,12 +214,19 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             }
             
             $contractor = $validationResult['contractor'];
+            if ($contractor) {
+                Log::info("Row {$rowNumber}: Contractor validation passed - {$contractor->username} (ID: {$contractor->id})");
+            } else {
+                Log::info("Row {$rowNumber}: No contractor specified (hospital share: {$hospitalShare}%)");
+            }
 
             // Handle code - check for duplicates and auto-generate if needed
             $code = $row['code_auto_generated_if_empty'] ?? $row['code'] ?? null;
             if (!empty($code)) {
                 $code = trim($code);
             }
+            
+            Log::info("Row {$rowNumber}: Code validation - Provided code: '{$code}'");
             
             // If code is provided, check if it already exists
             if ($code) {
@@ -161,15 +235,35 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                     ->first();
                 
                 if ($existingItem) {
-                    $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": Code '{$code}' already exists for item '{$existingItem->name}'. Please use a different code or leave empty for auto-generation.";
+                    $error = "Row {$rowNumber}: Code '{$code}' already exists for item '{$existingItem->name}'. Please use a different code or leave empty for auto-generation.";
+                    Log::error($error);
+                    $this->errors[] = $error;
                     $this->errorCount++;
                     return null;
+                } else {
+                    Log::info("Row {$rowNumber}: Code '{$code}' is available");
                 }
+            } else {
+                Log::info("Row {$rowNumber}: No code provided, will auto-generate");
             }
             
             // Create the item with default pricing as fallback
             $description = $row['description'] ?? null;
             $otherNames = $row['other_names'] ?? null;
+            
+            Log::info("Row {$rowNumber}: Creating item with data:");
+            Log::info("  - Name: '{$row['name']}'");
+            Log::info("  - Code: '{$code}'");
+            Log::info("  - Type: '{$typeValue}'");
+            Log::info("  - Description: '{$description}'");
+            Log::info("  - Group ID: " . ($group ? $group->id : 'null'));
+            Log::info("  - Subgroup ID: " . ($subgroup ? $subgroup->id : 'null'));
+            Log::info("  - Department ID: " . ($department ? $department->id : 'null'));
+            Log::info("  - Unit ID: " . ($itemUnit ? $itemUnit->id : 'null'));
+            Log::info("  - Default Price: {$defaultPrice}");
+            Log::info("  - VAT Rate: {$vatRate}%");
+            Log::info("  - Hospital Share: {$hospitalShare}%");
+            Log::info("  - Contractor ID: " . ($contractor ? $contractor->id : 'null'));
             
             $item = new Item([
                 'name' => trim($row['name']),
@@ -190,17 +284,21 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             ]);
 
             $this->successCount++;
+            Log::info("Row {$rowNumber}: Item created successfully - Success count: {$this->successCount}");
             
             // Process dynamic branch columns for pricing and service points
+            Log::info("Row {$rowNumber}: Processing branch data for item '{$item->name}'");
             $this->processBranchData($row, $item);
             
-            // Debug logging
-            Log::info("Processed item '{$item->name}'. Current service points queue: " . count($this->branchServicePoints));
+            Log::info("Row {$rowNumber}: Completed processing item '{$item->name}'. Branch prices: " . count($this->branchPrices) . ", Branch service points: " . count($this->branchServicePoints));
             
             return $item;
 
         } catch (\Exception $e) {
-            $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": " . $e->getMessage();
+            $error = "Row {$rowNumber}: Exception occurred - " . $e->getMessage();
+            Log::error($error);
+            Log::error("Row {$rowNumber}: Exception trace: " . $e->getTraceAsString());
+            $this->errors[] = $error;
             $this->errorCount++;
             return null;
         }
@@ -430,9 +528,17 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
 
     public function createBranchPrices()
     {
+        Log::info("=== CREATING BRANCH PRICES ===");
+        Log::info("Total branch prices to create: " . count($this->branchPrices));
+        
+        $createdCount = 0;
+        $errorCount = 0;
+        
         // Create branch prices for imported items
-        foreach ($this->branchPrices as $branchPriceData) {
+        foreach ($this->branchPrices as $index => $branchPriceData) {
             try {
+                Log::info("Creating branch price " . ($index + 1) . "/" . count($this->branchPrices) . " for item: '{$branchPriceData['item_code']}', branch: {$branchPriceData['branch_id']}, price: {$branchPriceData['price']}");
+                
                 // Find the item by code or name
                 $item = Item::where('business_id', $this->businessId)
                     ->where(function($query) use ($branchPriceData) {
@@ -442,26 +548,44 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                     ->first();
                 
                 if ($item) {
+                    Log::info("Found item: {$item->name} (ID: {$item->id}) for branch price creation");
                     BranchItemPrice::create([
                         'business_id' => $this->businessId,
                         'item_id' => $item->id,
                         'branch_id' => $branchPriceData['branch_id'],
                         'price' => $branchPriceData['price']
                     ]);
+                    $createdCount++;
+                    Log::info("Successfully created branch price for item '{$item->name}' at branch {$branchPriceData['branch_id']} with price {$branchPriceData['price']}");
+                } else {
+                    Log::warning("Item not found for branch price: '{$branchPriceData['item_code']}'");
+                    $errorCount++;
                 }
             } catch (\Exception $e) {
-                Log::error('Error creating branch price: ' . $e->getMessage());
+                Log::error('Error creating branch price for item ' . $branchPriceData['item_code'] . ': ' . $e->getMessage());
+                Log::error('Branch price error trace: ' . $e->getTraceAsString());
+                $errorCount++;
             }
         }
         
-        Log::info('Created ' . count($this->branchPrices) . ' branch prices for imported items');
+        Log::info("=== BRANCH PRICES CREATION COMPLETED ===");
+        Log::info("Successfully created: {$createdCount} branch prices");
+        Log::info("Errors encountered: {$errorCount} branch prices");
     }
     
     public function createBranchServicePoints()
     {
+        Log::info("=== CREATING BRANCH SERVICE POINTS ===");
+        Log::info("Total branch service points to create: " . count($this->branchServicePoints));
+        
+        $createdCount = 0;
+        $errorCount = 0;
+        
         // Create branch service points for imported items
-        foreach ($this->branchServicePoints as $branchServicePointData) {
+        foreach ($this->branchServicePoints as $index => $branchServicePointData) {
             try {
+                Log::info("Creating branch service point " . ($index + 1) . "/" . count($this->branchServicePoints) . " for item: '{$branchServicePointData['item_code']}', branch: {$branchServicePointData['branch_id']}, service point: {$branchServicePointData['service_point_id']}");
+                
                 // Find the item by code or name
                 $item = Item::where('business_id', $this->businessId)
                     ->where(function($query) use ($branchServicePointData) {
@@ -471,19 +595,29 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                     ->first();
                 
                 if ($item) {
+                    Log::info("Found item: {$item->name} (ID: {$item->id}) for branch service point creation");
                     BranchServicePoint::create([
                         'business_id' => $this->businessId,
                         'item_id' => $item->id,
                         'branch_id' => $branchServicePointData['branch_id'],
                         'service_point_id' => $branchServicePointData['service_point_id']
                     ]);
+                    $createdCount++;
+                    Log::info("Successfully created branch service point for item '{$item->name}' at branch {$branchServicePointData['branch_id']} with service point {$branchServicePointData['service_point_id']}");
+                } else {
+                    Log::warning("Item not found for branch service point: '{$branchServicePointData['item_code']}'");
+                    $errorCount++;
                 }
             } catch (\Exception $e) {
-                Log::error('Error creating branch service point: ' . $e->getMessage());
+                Log::error('Error creating branch service point for item ' . $branchServicePointData['item_code'] . ': ' . $e->getMessage());
+                Log::error('Branch service point error trace: ' . $e->getTraceAsString());
+                $errorCount++;
             }
         }
         
-        Log::info('Created ' . count($this->branchServicePoints) . ' branch service points for imported items');
+        Log::info("=== BRANCH SERVICE POINTS CREATION COMPLETED ===");
+        Log::info("Successfully created: {$createdCount} branch service points");
+        Log::info("Errors encountered: {$errorCount} branch service points");
     }
 
     public function getSuccessCount()
