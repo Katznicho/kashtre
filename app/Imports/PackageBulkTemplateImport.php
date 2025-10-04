@@ -67,14 +67,8 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 return null;
             }
             
-            // Validate VAT rate
-            $vatRate = $row['vat_rate'] ?? null;
-            if (!empty($vatRate) && (!is_numeric($vatRate) || $vatRate < 0 || $vatRate > 100)) {
-                $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": VAT rate must be a number between 0 and 100";
-                $this->errorCount++;
-                return null;
-            }
-            $vatRate = !empty($vatRate) ? (float) $vatRate : 0.00;
+            // VAT rate is not applicable for packages/bulk items - set to 0
+            $vatRate = 0.00;
             
             // Validate validity period for packages
             if (strtolower($typeValue) === 'package') {
