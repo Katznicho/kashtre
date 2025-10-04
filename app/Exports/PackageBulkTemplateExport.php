@@ -17,6 +17,7 @@ use App\Models\Group;
 use App\Models\Department;
 use App\Models\ItemUnit;
 use App\Models\ServicePoint;
+use Illuminate\Support\Facades\Log;
 
 class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, WithEvents
 {
@@ -37,7 +38,6 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
             'Type (package/bulk)',
             'Description',
             'Default Price',
-            'VAT Rate (%)',
             'Validity Period (Days) - Required for packages',
             'Other Names',
         ];
@@ -123,11 +123,19 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
         
         // Add data validation for Constituent Items (simplified - 10 items, every 2nd column for names)
         // Calculate starting column dynamically (after core fields + branch prices)
-        $startColumnIndex = 7 + $branches->count(); // 7 core fields + number of branch price columns
+        $startColumnIndex = 6 + $branches->count(); // 6 core fields + number of branch price columns
+        
+        Log::info("=== PACKAGE/BULK TEMPLATE DEBUG ===");
+        Log::info("Branches count: " . $branches->count());
+        Log::info("Start column index: " . $startColumnIndex);
+        Log::info("Available items count: " . count($items));
+        
         $columnLetters = [];
         for ($i = 0; $i < 10; $i++) {
             $columnIndex = $startColumnIndex + ($i * 2); // Every 2nd column (name, quantity, name, quantity...)
-            $columnLetters[] = $this->getExcelColumnLetter($columnIndex);
+            $columnLetter = $this->getExcelColumnLetter($columnIndex);
+            $columnLetters[] = $columnLetter;
+            Log::info("Constituent Item " . ($i + 1) . " Name column: " . $columnLetter . " (index: " . $columnIndex . ")");
         }
         
         foreach ($columnLetters as $column) {
