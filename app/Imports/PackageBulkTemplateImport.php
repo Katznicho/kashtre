@@ -103,16 +103,17 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             // Handle code - check for duplicates and auto-generate if needed
             $code = !empty($row['code_auto_generated_if_empty']) ? trim($row['code_auto_generated_if_empty']) : null;
             
-            // If code is provided, check if it already exists
+            // If code is provided, check if it already exists and generate a new one if it does
             if ($code) {
-                $existingItem = Item::where('code', $code)
-                    ->where('business_id', $this->businessId)
-                    ->first();
+                $originalCode = $code;
+                $counter = 1;
+                while (Item::where('code', $code)->where('business_id', $this->businessId)->exists()) {
+                    $code = $originalCode . '_' . $counter;
+                    $counter++;
+                }
                 
-                if ($existingItem) {
-                    $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": Code '{$code}' already exists for item '{$existingItem->name}'. Please use a different code or leave empty for auto-generation.";
-                    $this->errorCount++;
-                    return null;
+                if ($code !== $originalCode) {
+                    Log::info("Row {$rowNumber}: Code '{$originalCode}' already exists, using '{$code}' instead");
                 }
             }
             
