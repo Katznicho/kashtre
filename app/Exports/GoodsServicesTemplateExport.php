@@ -12,6 +12,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use App\Models\Business;
 use App\Models\Group;
+use App\Models\SubGroup;
 use App\Models\Department;
 use App\Models\ItemUnit;
 use App\Models\ServicePoint;
@@ -103,12 +104,16 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         
         // Get the data for dropdowns
         $groups = Group::where('business_id', $this->businessId)->pluck('name')->toArray();
+        $subGroups = SubGroup::where('business_id', $this->businessId)->pluck('name')->toArray();
         $departments = Department::where('business_id', $this->businessId)->pluck('name')->toArray();
         $units = ItemUnit::where('business_id', $this->businessId)->pluck('name')->toArray();
         $servicePoints = ServicePoint::where('business_id', $this->businessId)->pluck('name')->toArray();
         $contractors = ContractorValidationService::getAvailableContractors($this->businessId);
         $branches = Branch::where('business_id', $this->businessId)->orderBy('name')->get();
         
+        Log::info('Groups count: ' . count($groups));
+        Log::info('SubGroups count: ' . count($subGroups));
+        Log::info('SubGroups: ' . json_encode($subGroups));
         Log::info('Contractors retrieved: ' . json_encode($contractors));
         Log::info('Contractors count: ' . count($contractors));
         
@@ -139,8 +144,8 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         }
         
         // Add data validation for Subgroup Name column (F)
-        if (!empty($groups)) {
-            $subgroupList = '"' . implode('","', $groups) . '"';
+        if (!empty($subGroups)) {
+            $subgroupList = '"' . implode('","', $subGroups) . '"';
             $this->addValidationToColumn($worksheet, 'F', $startRow, $endRow, $subgroupList, 'Subgroup');
         }
         
