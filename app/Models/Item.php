@@ -72,7 +72,7 @@ class Item extends Model
 
     public function subgroup()
     {
-        return $this->belongsTo(Group::class, 'subgroup_id');
+        return $this->belongsTo(SubGroup::class, 'subgroup_id');
     }
 
     public function department()
