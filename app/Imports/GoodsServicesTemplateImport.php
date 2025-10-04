@@ -5,6 +5,7 @@ namespace App\Imports;
 use App\Models\Item;
 use App\Models\Business;
 use App\Models\Group;
+use App\Models\SubGroup;
 use App\Models\Department;
 use App\Models\ItemUnit;
 use App\Models\ServicePoint;
@@ -168,7 +169,7 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                 $subgroupName = trim($subgroupName, '"\'');
                 $subgroupName = trim($subgroupName);
                 Log::info("Row {$rowNumber}: Looking for subgroup: '{$subgroupName}'");
-                $subgroup = Group::where('business_id', $this->businessId)
+                $subgroup = SubGroup::where('business_id', $this->businessId)
                     ->where('name', $subgroupName)
                     ->first();
                 if ($subgroup) {
