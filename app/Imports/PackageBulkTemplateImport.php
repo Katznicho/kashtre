@@ -162,6 +162,9 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 'contractor_account_id' => null,
             ]);
             
+            // Save the item to the database
+            $item->save();
+            
             $this->successCount++;
             if ($rowNumber <= 2) {
                 Log::info("✅ SUCCESSFULLY CREATED PACKAGE/BULK ITEM: " . $item->name . " (ID: " . $item->id . ")");
