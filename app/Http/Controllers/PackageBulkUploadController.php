@@ -78,7 +78,10 @@ class PackageBulkUploadController extends Controller
             Excel::import($import, $request->file('file'));
 
             // Create branch prices and included items after items are imported
+            Log::info("=== CALLING createBranchPrices() ===");
             $import->createBranchPrices();
+            
+            Log::info("=== CALLING createIncludedItems() ===");
             $import->createIncludedItems();
 
             $successCount = $import->getSuccessCount();
