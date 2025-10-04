@@ -443,19 +443,21 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                     }
                     
                     if ($includedItemData['type'] === 'package') {
-                        PackageItem::create([
+                        $packageItem = PackageItem::create([
                             'package_item_id' => $mainItem->id,
                             'included_item_id' => $includedItem->id,
                             'max_quantity' => $includedItemData['quantity'],
                             'business_id' => $this->businessId
                         ]);
+                        Log::info("✅ CREATED PACKAGE RELATIONSHIP: Package ID {$mainItem->id} -> Item ID {$includedItem->id} (Qty: {$includedItemData['quantity']})");
                     } else {
-                        BulkItem::create([
+                        $bulkItem = BulkItem::create([
                             'bulk_item_id' => $mainItem->id,
                             'included_item_id' => $includedItem->id,
                             'fixed_quantity' => $includedItemData['quantity'],
                             'business_id' => $this->businessId
                         ]);
+                        Log::info("✅ CREATED BULK RELATIONSHIP: Bulk ID {$mainItem->id} -> Item ID {$includedItem->id} (Qty: {$includedItemData['quantity']})");
                     }
                     
                     $this->includedItems[] = [
