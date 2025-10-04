@@ -296,6 +296,11 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         Log::info("=== CREATING INCLUDED ITEMS ===");
         Log::info("Pending included items count: " . count($this->pendingIncludedItems));
         
+        if (empty($this->pendingIncludedItems)) {
+            Log::warning("No pending included items to process");
+            return;
+        }
+        
         // Process pending included items data
         foreach ($this->pendingIncludedItems as $pendingData) {
             Log::info("Processing main item: " . $pendingData['main_item_name']);
