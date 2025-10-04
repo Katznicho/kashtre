@@ -110,6 +110,14 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             // Get other names if provided
             $otherNames = !empty($row['other_names']) ? trim($row['other_names']) : null;
             
+            // Validate that packages/bulk items have at least one constituent item
+            $hasConstituentItems = $this->validateConstituentItems($row);
+            if (!$hasConstituentItems) {
+                $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": Packages and bulk items must have at least one constituent item with quantity";
+                $this->errorCount++;
+                return null;
+            }
+            
             // Create the item (simplified for packages/bulk - no groups, departments, etc.)
             $item = new Item([
                 'name' => trim($row['name']),
@@ -187,6 +195,27 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 'included_items' => $includedItemsData
             ];
         }
+    }
+
+    /**
+     * Validate that packages/bulk items have at least one constituent item with quantity
+     */
+    private function validateConstituentItems($row)
+    {
+        // Check up to 10 constituent items
+        for ($i = 1; $i <= 10; $i++) {
+            $itemNameKey = $this->normalizeColumnName("constituent_item_{$i}_name");
+            $quantityKey = $this->normalizeColumnName("constituent_item_{$i}_quantity");
+            
+            // If we find at least one constituent item with both name and quantity, it's valid
+            if (!empty($row[$itemNameKey]) && !empty($row[$quantityKey])) {
+                Log::info("Found valid constituent item: " . trim($row[$itemNameKey]) . " (qty: " . (int) $row[$quantityKey] . ")");
+                return true;
+            }
+        }
+        
+        Log::warning("No constituent items found for package/bulk item");
+        return false;
     }
 
     /**
