@@ -73,16 +73,21 @@ class PackageBulkUploadController extends Controller
         }
 
         try {
+            Log::info("=== STARTING PACKAGE/BULK IMPORT ===");
             $import = new PackageBulkTemplateImport($request->business_id);
             
+            Log::info("=== CALLING Excel::import() ===");
             Excel::import($import, $request->file('file'));
+            Log::info("=== Excel::import() COMPLETED ===");
 
             // Create branch prices and included items after items are imported
             Log::info("=== CALLING createBranchPrices() ===");
             $import->createBranchPrices();
+            Log::info("=== createBranchPrices() COMPLETED ===");
             
             Log::info("=== CALLING createIncludedItems() ===");
             $import->createIncludedItems();
+            Log::info("=== createIncludedItems() COMPLETED ===");
 
             $successCount = $import->getSuccessCount();
             $errorCount = $import->getErrorCount();
@@ -104,6 +109,9 @@ class PackageBulkUploadController extends Controller
                 ->with('success', $message);
 
         } catch (\Exception $e) {
+            Log::error("=== PACKAGE/BULK IMPORT FAILED ===");
+            Log::error("Error: " . $e->getMessage());
+            Log::error("Stack trace: " . $e->getTraceAsString());
             return redirect()->back()
                 ->with('error', 'Import failed: ' . $e->getMessage());
         }
