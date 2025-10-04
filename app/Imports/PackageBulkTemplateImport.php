@@ -356,14 +356,33 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             // Process each included item
             foreach ($pendingData['included_items'] as $includedItemData) {
                 try {
+                    if ($rowNumber <= 2) { // Only log for first 2 items
+                        Log::info("=== LOOKING FOR CONSTITUENT ITEM ===");
+                        Log::info("Looking for: " . $includedItemData['included_item_name']);
+                        Log::info("Business ID: " . $this->businessId);
+                    }
+                    
                     // Find the included item by name
                     $includedItem = Item::where('business_id', $this->businessId)
                         ->where('name', $includedItemData['included_item_name'])
                         ->first();
                     
                     if (!$includedItem) {
-                        Log::error('Included item not found: ' . $includedItemData['included_item_name']);
+                        if ($rowNumber <= 2) { // Only log for first 2 items
+                            Log::error('❌ CONSTITUENT ITEM NOT FOUND: ' . $includedItemData['included_item_name']);
+                            Log::info("Available items in database:");
+                            $availableItems = Item::where('business_id', $this->businessId)->get(['id', 'name', 'type']);
+                            foreach ($availableItems as $item) {
+                                Log::info("- ID: {$item->id}, Name: '{$item->name}', Type: {$item->type}");
+                            }
+                            Log::error("❌ CRITICAL ISSUE: Constituent items must exist in database before creating packages/bulk items!");
+                            Log::error("❌ SOLUTION: Import constituent items first, then import packages/bulk items");
+                        }
                         continue;
+                    }
+                    
+                    if ($rowNumber <= 2) { // Only log for first 2 items
+                        Log::info("✅ FOUND CONSTITUENT ITEM: " . $includedItem->name . " (ID: " . $includedItem->id . ")");
                     }
                     
                     if ($includedItemData['type'] === 'package') {
