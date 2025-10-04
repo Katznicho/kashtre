@@ -442,22 +442,28 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                         Log::info("✅ FOUND EXISTING CONSTITUENT ITEM: " . $includedItem->name . " (ID: " . $includedItem->id . ")");
                     }
                     
-                    if ($includedItemData['type'] === 'package') {
-                        $packageItem = PackageItem::create([
-                            'package_item_id' => $mainItem->id,
-                            'included_item_id' => $includedItem->id,
-                            'max_quantity' => $includedItemData['quantity'],
-                            'business_id' => $this->businessId
-                        ]);
-                        Log::info("✅ CREATED PACKAGE RELATIONSHIP: Package ID {$mainItem->id} -> Item ID {$includedItem->id} (Qty: {$includedItemData['quantity']})");
-                    } else {
-                        $bulkItem = BulkItem::create([
-                            'bulk_item_id' => $mainItem->id,
-                            'included_item_id' => $includedItem->id,
-                            'fixed_quantity' => $includedItemData['quantity'],
-                            'business_id' => $this->businessId
-                        ]);
-                        Log::info("✅ CREATED BULK RELATIONSHIP: Bulk ID {$mainItem->id} -> Item ID {$includedItem->id} (Qty: {$includedItemData['quantity']})");
+                    try {
+                        if ($includedItemData['type'] === 'package') {
+                            $packageItem = PackageItem::create([
+                                'package_item_id' => $mainItem->id,
+                                'included_item_id' => $includedItem->id,
+                                'max_quantity' => $includedItemData['quantity'],
+                                'business_id' => $this->businessId
+                            ]);
+                            Log::info("✅ CREATED PACKAGE RELATIONSHIP: Package ID {$mainItem->id} -> Item ID {$includedItem->id} (Qty: {$includedItemData['quantity']}) - DB ID: {$packageItem->id}");
+                        } else {
+                            $bulkItem = BulkItem::create([
+                                'bulk_item_id' => $mainItem->id,
+                                'included_item_id' => $includedItem->id,
+                                'fixed_quantity' => $includedItemData['quantity'],
+                                'business_id' => $this->businessId
+                            ]);
+                            Log::info("✅ CREATED BULK RELATIONSHIP: Bulk ID {$mainItem->id} -> Item ID {$includedItem->id} (Qty: {$includedItemData['quantity']}) - DB ID: {$bulkItem->id}");
+                        }
+                    } catch (\Exception $e) {
+                        Log::error("❌ ERROR CREATING RELATIONSHIP: " . $e->getMessage());
+                        Log::error("❌ STACK TRACE: " . $e->getTraceAsString());
+                        continue;
                     }
                     
                     $this->includedItems[] = [
@@ -474,6 +480,48 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         }
         
         Log::info('Created ' . count($this->includedItems) . ' included items for packages/bulk items');
+        
+        // Verify relationships were actually saved to database
+        $this->verifyRelationshipsSaved();
+    }
+
+    /**
+     * Verify that relationships were actually saved to the database
+     */
+    private function verifyRelationshipsSaved()
+    {
+        Log::info("=== VERIFYING RELATIONSHIPS SAVED TO DATABASE ===");
+        
+        // Check package items
+        $packageItemsCount = PackageItem::where('business_id', $this->businessId)->count();
+        Log::info("Total package items in database: {$packageItemsCount}");
+        
+        // Check bulk items  
+        $bulkItemsCount = BulkItem::where('business_id', $this->businessId)->count();
+        Log::info("Total bulk items in database: {$bulkItemsCount}");
+        
+        // Show recent relationships
+        $recentPackages = PackageItem::where('business_id', $this->businessId)
+            ->with(['packageItem', 'includedItem'])
+            ->latest()
+            ->limit(5)
+            ->get();
+            
+        Log::info("Recent package relationships:");
+        foreach ($recentPackages as $pkg) {
+            Log::info("- Package: {$pkg->packageItem->name} (ID: {$pkg->package_item_id}) -> Item: {$pkg->includedItem->name} (ID: {$pkg->included_item_id}) - Qty: {$pkg->max_quantity}");
+        }
+        
+        $recentBulks = BulkItem::where('business_id', $this->businessId)
+            ->with(['bulkItem', 'includedItem'])
+            ->latest()
+            ->limit(5)
+            ->get();
+            
+        Log::info("Recent bulk relationships:");
+        foreach ($recentBulks as $bulk) {
+            Log::info("- Bulk: {$bulk->bulkItem->name} (ID: {$bulk->bulk_item_id}) -> Item: {$bulk->includedItem->name} (ID: {$bulk->included_item_id}) - Qty: {$bulk->fixed_quantity}");
+        }
     }
 
     public function getSuccessCount()
