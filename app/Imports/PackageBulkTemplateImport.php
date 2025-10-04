@@ -142,6 +142,22 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 Log::info("✅ CONSTITUENT ITEMS VALIDATION PASSED - Proceeding with item creation");
             }
             
+            // CRITICAL: Validate that all constituent items exist in database
+            $constituentItemsExist = $this->validateConstituentItemsExist($row);
+            if (!$constituentItemsExist) {
+                $errorMessage = "Row " . ($this->getRowNumber() + 1) . ": Constituent items must exist in database before creating package/bulk items. Import constituent items first using goods/services template.";
+                if ($rowNumber <= 2) {
+                    Log::error("❌ CRITICAL VALIDATION FAILED: " . $errorMessage);
+                }
+                $this->errors[] = $errorMessage;
+                $this->errorCount++;
+                return null;
+            }
+            
+            if ($rowNumber <= 2) {
+                Log::info("✅ ALL CONSTITUENT ITEMS EXIST IN DATABASE - Proceeding with package/bulk item creation");
+            }
+            
             // Create the item (simplified for packages/bulk - no groups, departments, etc.)
             $item = new Item([
                 'name' => trim($row['name']),
@@ -296,6 +312,53 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
     }
 
     /**
+     * Validate that all constituent items exist in the database
+     */
+    private function validateConstituentItemsExist($row)
+    {
+        $rowNumber = $this->getRowNumber() + 1;
+        $missingItems = [];
+        
+        for ($i = 1; $i <= 10; $i++) {
+            $itemNameKey = $this->normalizeColumnName("constituent_item_{$i}_name");
+            $quantityKey = $this->normalizeColumnName("constituent_item_{$i}_quantity");
+
+            if (!empty($row[$itemNameKey]) && !empty($row[$quantityKey])) {
+                $itemName = trim($row[$itemNameKey]);
+                
+                // Check if this constituent item exists in database
+                $existingItem = Item::where('business_id', $this->businessId)
+                    ->where('name', $itemName)
+                    ->first();
+                
+                if (!$existingItem) {
+                    $missingItems[] = $itemName;
+                    if ($rowNumber <= 2) {
+                        Log::error("❌ MISSING CONSTITUENT ITEM: " . $itemName);
+                    }
+                } else {
+                    if ($rowNumber <= 2) {
+                        Log::info("✅ CONSTITUENT ITEM EXISTS: " . $itemName . " (ID: " . $existingItem->id . ")");
+                    }
+                }
+            }
+        }
+        
+        if (!empty($missingItems)) {
+            if ($rowNumber <= 2) {
+                Log::error("❌ MISSING CONSTITUENT ITEMS: " . implode(', ', $missingItems));
+                Log::error("❌ SOLUTION: Import these items first using goods/services template");
+            }
+            return false;
+        }
+        
+        if ($rowNumber <= 2) {
+            Log::info("✅ ALL CONSTITUENT ITEMS EXIST IN DATABASE");
+        }
+        return true;
+    }
+
+    /**
      * Normalize column name to match Laravel Excel's header normalization
      */
     private function normalizeColumnName($columnName)
@@ -366,28 +429,15 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                         ->first();
                     
                     if (!$includedItem) {
-                        Log::info("🔧 CREATING MISSING CONSTITUENT ITEM: " . $includedItemData['included_item_name']);
-                        
-                        // Create the missing constituent item
-                        $includedItem = Item::create([
-                            'name' => $includedItemData['included_item_name'],
-                            'code' => '', // Will be auto-generated
-                            'type' => 'good', // Default to 'good' for constituent items
-                            'description' => 'Auto-created constituent item for ' . $pendingData['main_item_name'],
-                            'default_price' => 0.00, // Default price, can be updated later
-                            'vat_rate' => 0.00,
-                            'hospital_share' => 100,
-                            'business_id' => $this->businessId,
-                            'other_names' => '',
-                            // Set package/bulk specific fields to null
-                            'group_id' => null,
-                            'subgroup_id' => null,
-                            'department_id' => null,
-                            'uom_id' => null,
-                            'contractor_account_id' => null,
-                        ]);
-                        
-                        Log::info("✅ CREATED CONSTITUENT ITEM: " . $includedItem->name . " (ID: " . $includedItem->id . ")");
+                        Log::error("❌ CONSTITUENT ITEM NOT FOUND: " . $includedItemData['included_item_name']);
+                        Log::error("❌ CRITICAL ERROR: Cannot create package/bulk item without constituent items!");
+                        Log::error("❌ SOLUTION: Import constituent items first using goods/services template");
+                        Log::error("❌ AVAILABLE ITEMS:");
+                        $availableItems = Item::where('business_id', $this->businessId)->get(['id', 'name', 'type']);
+                        foreach ($availableItems as $item) {
+                            Log::error("- ID: {$item->id}, Name: '{$item->name}', Type: {$item->type}");
+                        }
+                        continue;
                     } else {
                         Log::info("✅ FOUND EXISTING CONSTITUENT ITEM: " . $includedItem->name . " (ID: " . $includedItem->id . ")");
                     }
