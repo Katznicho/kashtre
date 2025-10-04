@@ -324,6 +324,9 @@
             const validityDaysDiv = document.getElementById('validity_days_div');
             const addPackageItemBtn = document.getElementById('add_package_item');
             const addBulkItemBtn = document.getElementById('add_bulk_item');
+            
+            // Global variable to store available items
+            let availableItems = @json($availableItems);
 
             function toggleContractor() {
                 if (hospitalShare.value !== '100') {
@@ -466,6 +469,9 @@
                         
                         // Update branch pricing section
                         updateBranchPricing(data.branches);
+                        
+                        // Update available items for package and bulk selection
+                        updateAvailableItems(data.availableItems);
                     })
                     .catch(error => {
                         console.error('Error fetching filtered data:', error);
@@ -599,6 +605,54 @@
                 });
             }
 
+            function updateAvailableItems(newAvailableItems) {
+                console.log('=== UPDATING AVAILABLE ITEMS ===');
+                console.log('Available items count:', newAvailableItems.length);
+                console.log('Available items:', newAvailableItems);
+                
+                // Update global variable
+                availableItems = newAvailableItems;
+                
+                // Update all existing package and bulk item dropdowns
+                const packageItemSelects = document.querySelectorAll('select[name*="[included_item_id]"]');
+                console.log('Found package/bulk item selects:', packageItemSelects.length);
+                
+                packageItemSelects.forEach((select, index) => {
+                    console.log(`Updating select ${index + 1}:`, select.name);
+                    
+                    // Store current value
+                    const currentValue = select.value;
+                    
+                    // Clear existing options except the first one
+                    select.innerHTML = '<option value="">Select Item</option>';
+                    
+                    // Add new options
+                    availableItems.forEach(item => {
+                        const option = document.createElement('option');
+                        option.value = item.id;
+                        option.textContent = `${item.name} (${item.code})`;
+                        select.appendChild(option);
+                    });
+                    
+                    // Restore previous value if it still exists
+                    if (currentValue && Array.from(select.options).some(option => option.value === currentValue)) {
+                        select.value = currentValue;
+                    }
+                    
+                    console.log(`Select ${index + 1} updated with ${select.options.length - 1} items`);
+                });
+                
+                console.log('=== AVAILABLE ITEMS UPDATE COMPLETED ===');
+            }
+            
+            function generateItemOptions() {
+                let options = '<option value="">Select Item</option>';
+                availableItems.forEach(item => {
+                    options += `<option value="${item.id}">${item.name} (${item.code})</option>`;
+                });
+                return options;
+            }
+
             // Form validation
             const form = document.querySelector('form');
             form.addEventListener('submit', function(e) {
@@ -700,10 +754,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Item</label>
                             <select name="package_items[${packageItemIndex}][included_item_id]" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                <option value="">Select Item</option>
-                                @foreach($availableItems as $item)
-                                    <option value="{{ $item->id }}">{{ $item->name }} ({{ $item->code }})</option>
-                                @endforeach
+                                ${generateItemOptions()}
                             </select>
                         </div>
                         <div>
@@ -732,10 +783,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Item</label>
                             <select name="bulk_items[${bulkItemIndex}][included_item_id]" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                <option value="">Select Item</option>
-                                @foreach($availableItems as $item)
-                                    <option value="{{ $item->id }}">{{ $item->name }} ({{ $item->code }})</option>
-                                @endforeach
+                                ${generateItemOptions()}
                             </select>
                         </div>
                         <div>

@@ -17,6 +17,7 @@ use App\Models\BranchItemPrice;
 use App\Models\PackageItem;
 use App\Models\BulkItem;
 use App\Models\BranchServicePoint;
+use Illuminate\Support\Facades\Log;
 
 class ItemController extends Controller
 {
@@ -33,20 +34,28 @@ class ItemController extends Controller
      */
     public function create()
     {
+        Log::info("=== ITEM CREATE CONTROLLER STARTED ===");
+        Log::info("User: " . (Auth::user()->name ?? 'Unknown') . " (ID: " . Auth::user()->id . ")");
+        Log::info("User business_id: " . Auth::user()->business_id);
+        
         // Business logic: Only business_id == 1 can select business, others default to their business
         $canSelectBusiness = Auth::user()->business_id == 1;
+        Log::info("Can select business: " . ($canSelectBusiness ? 'true' : 'false'));
         
         if ($canSelectBusiness) {
             $businesses = Business::where('id', '!=', 1)->get();
             // For admin users, default to the first business to show data
             $selectedBusinessId = $businesses->first() ? $businesses->first()->id : null;
+            Log::info("Admin user - selected business ID: " . $selectedBusinessId);
         } else {
             $businesses = Business::where('id', Auth::user()->business_id)->get();
             $selectedBusinessId = Auth::user()->business_id;
+            Log::info("Regular user - selected business ID: " . $selectedBusinessId);
         }
 
         // Get data filtered by selected business (or all data for admin if no business selected)
         if ($selectedBusinessId) {
+            Log::info("Fetching data for business ID: " . $selectedBusinessId);
             $groups = Group::where('business_id', $selectedBusinessId)->get();
             $subGroups = SubGroup::where('business_id', $selectedBusinessId)->get();
             $departments = Department::where('business_id', $selectedBusinessId)->get();
@@ -59,7 +68,11 @@ class ItemController extends Controller
             $availableItems = Item::where('business_id', $selectedBusinessId)
                 ->whereNotIn('type', ['package', 'bulk'])
                 ->get();
+            
+            Log::info("Available items count: " . $availableItems->count());
+            Log::info("Available items: " . $availableItems->pluck('name', 'id')->toJson());
         } else {
+            Log::info("No business selected - fetching all data");
             // For admin users with no business selected, show all data
             $groups = Group::where('business_id', '!=', 1)->get();
             $subGroups = SubGroup::where('business_id', '!=', 1)->get();
@@ -71,6 +84,9 @@ class ItemController extends Controller
             $availableItems = Item::where('business_id', '!=', 1)
                 ->whereNotIn('type', ['package', 'bulk'])
                 ->get();
+            
+            Log::info("Available items count (all): " . $availableItems->count());
+            Log::info("Available items (all): " . $availableItems->pluck('name', 'id')->toJson());
         }
 
         return view('items.create', compact(
@@ -467,9 +483,15 @@ class ItemController extends Controller
      */
     public function getFilteredData(Request $request)
     {
+        Log::info("=== GET FILTERED DATA AJAX STARTED ===");
+        Log::info("User: " . (Auth::user()->name ?? 'Unknown') . " (ID: " . Auth::user()->id . ")");
+        Log::info("User business_id: " . Auth::user()->business_id);
+        
         $businessId = $request->input('business_id');
+        Log::info("Requested business_id: " . $businessId);
         
         if (!$businessId) {
+            Log::warning("No business_id provided in request");
             return response()->json([
                 'groups' => [],
                 'subGroups' => [],
@@ -477,38 +499,56 @@ class ItemController extends Controller
                 'itemUnits' => [],
                 'servicePoints' => [],
                 'contractors' => [],
-                'branches' => []
+                'branches' => [],
+                'availableItems' => []
             ]);
         }
 
         // Validate that the user has permission to access this business
         if (Auth::user()->business_id != 1 && Auth::user()->business_id != $businessId) {
+            Log::error("Unauthorized access attempt - User business_id: " . Auth::user()->business_id . ", Requested business_id: " . $businessId);
             return response()->json(['error' => 'Unauthorized access to business data'], 403);
         }
 
+        Log::info("Fetching filtered data for business ID: " . $businessId);
+
         // Get groups
         $groups = Group::where('business_id', $businessId)->get();
+        Log::info("Groups count: " . $groups->count());
 
         // Get subgroups
         $subGroups = SubGroup::where('business_id', $businessId)->get();
+        Log::info("SubGroups count: " . $subGroups->count());
 
         // Get departments
         $departments = Department::where('business_id', $businessId)->get();
+        Log::info("Departments count: " . $departments->count());
 
         // Get item units
         $itemUnits = ItemUnit::where('business_id', $businessId)->get();
+        Log::info("Item units count: " . $itemUnits->count());
 
         // Get service points grouped by branches
         $servicePoints = ServicePoint::where('business_id', $businessId)
             ->with('branch')
             ->get()
             ->groupBy('branch_id');
+        Log::info("Service points count: " . $servicePoints->count());
 
         // Get contractors
         $contractors = ContractorProfile::with(['business', 'user'])->where('business_id', $businessId)->get();
+        Log::info("Contractors count: " . $contractors->count());
 
         // Get branches
         $branches = Branch::where('business_id', $businessId)->get();
+        Log::info("Branches count: " . $branches->count());
+
+        // Get available items for package and bulk selection (exclude package and bulk types)
+        $availableItems = Item::where('business_id', $businessId)
+            ->whereNotIn('type', ['package', 'bulk'])
+            ->get();
+        Log::info("Available items count: " . $availableItems->count());
+        Log::info("Available items: " . $availableItems->pluck('name', 'id')->toJson());
 
         return response()->json([
             'groups' => $groups,
@@ -517,7 +557,8 @@ class ItemController extends Controller
             'itemUnits' => $itemUnits,
             'servicePoints' => $servicePoints,
             'contractors' => $contractors,
-            'branches' => $branches
+            'branches' => $branches,
+            'availableItems' => $availableItems
         ]);
     }
 
