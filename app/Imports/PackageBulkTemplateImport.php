@@ -34,9 +34,14 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
     public function model(array $row)
     {
         try {
-            Log::info("=== PROCESSING PACKAGE/BULK ROW ===");
-            Log::info("Row number: " . ($this->getRowNumber() + 1));
-            Log::info("Row data: " . json_encode($row));
+            $rowNumber = $this->getRowNumber() + 1;
+            
+            // Only log for first 2 items to reduce noise
+            if ($rowNumber <= 2) {
+                Log::info("=== PROCESSING PACKAGE/BULK ROW ===");
+                Log::info("Row number: " . $rowNumber);
+                Log::info("Row data: " . json_encode($row));
+            }
             
             // Find the type column - use the correct column name from Laravel Excel
             $typeValue = $row['type_packagebulk'] ?? null;
@@ -115,21 +120,27 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             $otherNames = !empty($row['other_names']) ? trim($row['other_names']) : null;
             
             // Validate that packages/bulk items have at least one constituent item
-            Log::info("=== STARTING CONSTITUENT ITEMS VALIDATION ===");
-            Log::info("Item name: " . trim($row['name']));
-            Log::info("Item type: " . strtolower($typeValue));
+            if ($rowNumber <= 2) {
+                Log::info("=== STARTING CONSTITUENT ITEMS VALIDATION ===");
+                Log::info("Item name: " . trim($row['name']));
+                Log::info("Item type: " . strtolower($typeValue));
+            }
             
             $hasConstituentItems = $this->validateConstituentItems($row);
             
             if (!$hasConstituentItems) {
                 $errorMessage = "Row " . ($this->getRowNumber() + 1) . ": Packages and bulk items must have at least one constituent item with quantity";
-                Log::error("❌ VALIDATION FAILED: " . $errorMessage);
+                if ($rowNumber <= 2) {
+                    Log::error("❌ VALIDATION FAILED: " . $errorMessage);
+                }
                 $this->errors[] = $errorMessage;
                 $this->errorCount++;
                 return null;
             }
             
-            Log::info("✅ CONSTITUENT ITEMS VALIDATION PASSED - Proceeding with item creation");
+            if ($rowNumber <= 2) {
+                Log::info("✅ CONSTITUENT ITEMS VALIDATION PASSED - Proceeding with item creation");
+            }
             
             // Create the item (simplified for packages/bulk - no groups, departments, etc.)
             $item = new Item([
@@ -152,7 +163,9 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             ]);
             
             $this->successCount++;
-            Log::info("✅ SUCCESSFULLY CREATED PACKAGE/BULK ITEM: " . $item->name . " (ID: " . $item->id . ")");
+            if ($rowNumber <= 2) {
+                Log::info("✅ SUCCESSFULLY CREATED PACKAGE/BULK ITEM: " . $item->name . " (ID: " . $item->id . ")");
+            }
             
             // Store branch prices data for later processing
             foreach ($branchPrices as $branchPrice) {
@@ -180,18 +193,23 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         // Store constituent items data for later processing (improved logic - up to 10 items)
         $includedItemsData = [];
         
-        Log::info("=== STORING INCLUDED ITEMS DATA ===");
-        Log::info("Main item: {$mainItemName}, Type: {$type}");
-        Log::info("Available row keys: " . implode(', ', array_keys($row)));
+        $rowNumber = $this->getRowNumber() + 1;
+        if ($rowNumber <= 2) {
+            Log::info("=== STORING INCLUDED ITEMS DATA ===");
+            Log::info("Main item: {$mainItemName}, Type: {$type}");
+            Log::info("Available row keys: " . implode(', ', array_keys($row)));
+        }
         
         // Process up to 10 constituent items (simplified - no code needed)
         for ($i = 1; $i <= 10; $i++) {
             $itemNameKey = $this->normalizeColumnName("constituent_item_{$i}_name");
             $quantityKey = $this->normalizeColumnName("constituent_item_{$i}_quantity");
             
-            Log::info("Looking for keys: '{$itemNameKey}' and '{$quantityKey}'");
-            Log::info("Item name value: " . ($row[$itemNameKey] ?? 'NOT FOUND'));
-            Log::info("Quantity value: " . ($row[$quantityKey] ?? 'NOT FOUND'));
+            if ($rowNumber <= 2) {
+                Log::info("Looking for keys: '{$itemNameKey}' and '{$quantityKey}'");
+                Log::info("Item name value: " . ($row[$itemNameKey] ?? 'NOT FOUND'));
+                Log::info("Quantity value: " . ($row[$quantityKey] ?? 'NOT FOUND'));
+            }
             
             if (!empty($row[$itemNameKey]) && !empty($row[$quantityKey])) {
                 $includedItemsData[] = [
@@ -199,7 +217,9 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                     'quantity' => (int) $row[$quantityKey],
                     'type' => $type
                 ];
-                Log::info("Added constituent item: " . trim($row[$itemNameKey]) . " (qty: " . (int) $row[$quantityKey] . ")");
+                if ($rowNumber <= 2) {
+                    Log::info("Added constituent item: " . trim($row[$itemNameKey]) . " (qty: " . (int) $row[$quantityKey] . ")");
+                }
             }
         }
         
@@ -216,9 +236,12 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
      */
     private function validateConstituentItems($row)
     {
-        Log::info("=== VALIDATING CONSTITUENT ITEMS ===");
-        Log::info("Row number: " . ($this->getRowNumber() + 1));
-        Log::info("Available row keys: " . implode(', ', array_keys($row)));
+        $rowNumber = $this->getRowNumber() + 1;
+        if ($rowNumber <= 2) {
+            Log::info("=== VALIDATING CONSTITUENT ITEMS ===");
+            Log::info("Row number: " . $rowNumber);
+            Log::info("Available row keys: " . implode(', ', array_keys($row)));
+        }
         
         $validConstituentItems = 0;
         $totalChecked = 0;
@@ -228,31 +251,43 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             $itemNameKey = $this->normalizeColumnName("constituent_item_{$i}_name");
             $quantityKey = $this->normalizeColumnName("constituent_item_{$i}_quantity");
             
-            Log::info("Checking constituent item {$i}:");
-            Log::info("- Looking for keys: '{$itemNameKey}' and '{$quantityKey}'");
-            Log::info("- Item name value: " . ($row[$itemNameKey] ?? 'NOT FOUND'));
-            Log::info("- Quantity value: " . ($row[$quantityKey] ?? 'NOT FOUND'));
+            if ($rowNumber <= 2) {
+                Log::info("Checking constituent item {$i}:");
+                Log::info("- Looking for keys: '{$itemNameKey}' and '{$quantityKey}'");
+                Log::info("- Item name value: " . ($row[$itemNameKey] ?? 'NOT FOUND'));
+                Log::info("- Quantity value: " . ($row[$quantityKey] ?? 'NOT FOUND'));
+            }
             
             $totalChecked++;
             
             // If we find at least one constituent item with both name and quantity, it's valid
             if (!empty($row[$itemNameKey]) && !empty($row[$quantityKey])) {
                 $validConstituentItems++;
-                Log::info("✓ Found valid constituent item {$i}: " . trim($row[$itemNameKey]) . " (qty: " . (int) $row[$quantityKey] . ")");
+                if ($rowNumber <= 2) {
+                    Log::info("✓ Found valid constituent item {$i}: " . trim($row[$itemNameKey]) . " (qty: " . (int) $row[$quantityKey] . ")");
+                }
             } else {
-                Log::info("✗ Constituent item {$i} is empty or missing");
+                if ($rowNumber <= 2) {
+                    Log::info("✗ Constituent item {$i} is empty or missing");
+                }
             }
         }
         
-        Log::info("=== CONSTITUENT ITEMS VALIDATION SUMMARY ===");
-        Log::info("Total constituent item slots checked: {$totalChecked}");
-        Log::info("Valid constituent items found: {$validConstituentItems}");
+        if ($rowNumber <= 2) {
+            Log::info("=== CONSTITUENT ITEMS VALIDATION SUMMARY ===");
+            Log::info("Total constituent item slots checked: {$totalChecked}");
+            Log::info("Valid constituent items found: {$validConstituentItems}");
+        }
         
         if ($validConstituentItems > 0) {
-            Log::info("✅ VALIDATION PASSED - Package/bulk item has {$validConstituentItems} constituent item(s)");
+            if ($rowNumber <= 2) {
+                Log::info("✅ VALIDATION PASSED - Package/bulk item has {$validConstituentItems} constituent item(s)");
+            }
             return true;
         } else {
-            Log::warning("❌ VALIDATION FAILED - No constituent items found for package/bulk item");
+            if ($rowNumber <= 2) {
+                Log::warning("❌ VALIDATION FAILED - No constituent items found for package/bulk item");
+            }
             return false;
         }
     }
