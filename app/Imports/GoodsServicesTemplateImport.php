@@ -36,9 +36,6 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
         // Log import initialization
         Log::info("=== GOODS & SERVICES IMPORT STARTED ===");
         Log::info("Business ID: {$businessId}");
-        Log::info("Import initiated by user: " . (auth()->user()->name ?? 'Unknown'));
-        Log::info("Timestamp: " . now()->toDateTimeString());
-        Log::info("=====================================");
     }
 
     public function model(array $row)
@@ -48,7 +45,6 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
         try {
             // Log row processing start
             Log::info("--- Processing Row {$rowNumber} ---");
-            Log::info("Row data: " . json_encode($row, JSON_PRETTY_PRINT));
             
             // Find the type column - try different normalized variations
             $typeValue = $row['type_servicegood'] ?? $row['type'] ?? null;
@@ -58,7 +54,6 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                 $typeValue = trim($typeValue, '"\'');
                 $typeValue = trim($typeValue);
                 $originalType = $row['type_servicegood'] ?? $row['type'] ?? 'null';
-                Log::info("Row {$rowNumber}: Cleaned type value: '{$typeValue}' (original: '{$originalType}')");
             }
             
             // Skip completely empty rows (no name, no type)
@@ -68,7 +63,6 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             }
             
             // Manual validation
-            Log::info("Row {$rowNumber}: Starting validation");
             
             if (empty($row['name'])) {
                 $error = "Row {$rowNumber}: Name is required";
@@ -94,11 +88,9 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                 return null;
             }
             
-            Log::info("Row {$rowNumber}: Basic validation passed - Name: '{$row['name']}', Type: '{$typeValue}'");
             
             // Find default price column
             $defaultPrice = $row['default_price'] ?? null;
-            Log::info("Row {$rowNumber}: Default price value: '{$defaultPrice}'");
             if (empty($defaultPrice) || !is_numeric($defaultPrice)) {
                 $error = "Row {$rowNumber}: Default price is required and must be a number";
                 Log::error($error);
@@ -109,7 +101,6 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             
             // Find VAT rate column
             $vatRate = $row['vat_rate'] ?? null;
-            Log::info("Row {$rowNumber}: VAT rate value: '{$vatRate}'");
             if (!empty($vatRate) && (!is_numeric($vatRate) || $vatRate < 1 || $vatRate > 100)) {
                 $error = "Row {$rowNumber}: VAT rate must be a number between 1 and 100";
                 Log::error($error);
@@ -121,7 +112,6 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             
             // Find hospital share column - try different variations
             $hospitalShareValue = $row['hospital_share'] ?? $row['hospital_share_'] ?? null;
-            Log::info("Row {$rowNumber}: Hospital share value: '{$hospitalShareValue}'");
             
             if (empty($hospitalShareValue) || !is_numeric($hospitalShareValue)) {
                 $error = "Row {$rowNumber}: Hospital share is required and must be a number";
@@ -140,10 +130,8 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                 return null;
             }
             
-            Log::info("Row {$rowNumber}: Price and share validation passed - Default Price: {$defaultPrice}, VAT: {$vatRate}%, Hospital Share: {$hospitalShare}%");
 
             // Find related entities using flexible column access
-            Log::info("Row {$rowNumber}: Looking up related entities");
             
             $group = null;
             $groupName = $row['group_name'] ?? null;
@@ -151,13 +139,10 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                 // Clean the group name - remove quotes and trim whitespace
                 $groupName = trim($groupName, '"\'');
                 $groupName = trim($groupName);
-                Log::info("Row {$rowNumber}: Looking for group: '{$groupName}'");
                 $group = Group::where('business_id', $this->businessId)
                     ->where('name', $groupName)
                     ->first();
-                if ($group) {
-                    Log::info("Row {$rowNumber}: Found group: {$group->name} (ID: {$group->id})");
-                } else {
+                if (!$group) {
                     Log::warning("Row {$rowNumber}: Group '{$groupName}' not found for business {$this->businessId}");
                 }
             }
@@ -185,13 +170,10 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                 // Clean the department name - remove quotes and trim whitespace
                 $departmentName = trim($departmentName, '"\'');
                 $departmentName = trim($departmentName);
-                Log::info("Row {$rowNumber}: Looking for department: '{$departmentName}'");
                 $department = Department::where('business_id', $this->businessId)
                     ->where('name', $departmentName)
                     ->first();
-                if ($department) {
-                    Log::info("Row {$rowNumber}: Found department: {$department->name} (ID: {$department->id})");
-                } else {
+                if (!$department) {
                     Log::warning("Row {$rowNumber}: Department '{$departmentName}' not found for business {$this->businessId}");
                 }
             }
@@ -202,13 +184,10 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                 // Clean the unit name - remove quotes and trim whitespace
                 $unitName = trim($unitName, '"\'');
                 $unitName = trim($unitName);
-                Log::info("Row {$rowNumber}: Looking for unit: '{$unitName}'");
                 $itemUnit = ItemUnit::where('business_id', $this->businessId)
                     ->where('name', $unitName)
                     ->first();
-                if ($itemUnit) {
-                    Log::info("Row {$rowNumber}: Found unit: {$itemUnit->name} (ID: {$itemUnit->id})");
-                } else {
+                if (!$itemUnit) {
                     Log::warning("Row {$rowNumber}: Unit '{$unitName}' not found for business {$this->businessId}");
                 }
             }
@@ -220,7 +199,6 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                 $contractorUsername = trim($contractorUsername, '"\'');
                 $contractorUsername = trim($contractorUsername);
             }
-            Log::info("Row {$rowNumber}: Validating contractor - Username: '{$contractorUsername}', Hospital Share: {$hospitalShare}%");
             
             $validationResult = ContractorValidationService::validateHospitalShareContractor(
                 $hospitalShare, 
@@ -240,11 +218,6 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             }
             
             $contractor = $validationResult['contractor'];
-            if ($contractor) {
-                Log::info("Row {$rowNumber}: Contractor validation passed - {$contractor->username} (ID: {$contractor->id})");
-            } else {
-                Log::info("Row {$rowNumber}: No contractor specified (hospital share: {$hospitalShare}%)");
-            }
 
             // Handle code - check for duplicates and auto-generate if needed
             $code = $row['code_auto_generated_if_empty'] ?? $row['code'] ?? null;
@@ -310,13 +283,16 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             ]);
 
             $this->successCount++;
-            Log::info("Row {$rowNumber}: Item created successfully - Success count: {$this->successCount}");
+            
+            // Log subgroup storage specifically
+            if ($subgroup) {
+                Log::info("Row {$rowNumber}: SUBGROUP STORED - Name: '{$subgroup->name}', ID: {$subgroup->id}");
+            } else {
+                Log::info("Row {$rowNumber}: No subgroup specified for this item");
+            }
             
             // Process dynamic branch columns for pricing and service points
-            Log::info("Row {$rowNumber}: Processing branch data for item '{$item->name}'");
             $this->processBranchData($row, $item);
-            
-            Log::info("Row {$rowNumber}: Completed processing item '{$item->name}'. Branch prices: " . count($this->branchPrices) . ", Branch service points: " . count($this->branchServicePoints));
             
             return $item;
 
