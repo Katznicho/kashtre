@@ -158,10 +158,18 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         // Store constituent items data for later processing (improved logic - up to 10 items)
         $includedItemsData = [];
         
+        Log::info("=== STORING INCLUDED ITEMS DATA ===");
+        Log::info("Main item: {$mainItemName}, Type: {$type}");
+        Log::info("Available row keys: " . implode(', ', array_keys($row)));
+        
         // Process up to 10 constituent items (simplified - no code needed)
         for ($i = 1; $i <= 10; $i++) {
             $itemNameKey = $this->normalizeColumnName("constituent_item_{$i}_name");
             $quantityKey = $this->normalizeColumnName("constituent_item_{$i}_quantity");
+            
+            Log::info("Looking for keys: '{$itemNameKey}' and '{$quantityKey}'");
+            Log::info("Item name value: " . ($row[$itemNameKey] ?? 'NOT FOUND'));
+            Log::info("Quantity value: " . ($row[$quantityKey] ?? 'NOT FOUND'));
             
             if (!empty($row[$itemNameKey]) && !empty($row[$quantityKey])) {
                 $includedItemsData[] = [
@@ -169,6 +177,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                     'quantity' => (int) $row[$quantityKey],
                     'type' => $type
                 ];
+                Log::info("Added constituent item: " . trim($row[$itemNameKey]) . " (qty: " . (int) $row[$quantityKey] . ")");
             }
         }
         
@@ -216,8 +225,13 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
 
     public function createIncludedItems()
     {
+        Log::info("=== CREATING INCLUDED ITEMS ===");
+        Log::info("Pending included items count: " . count($this->pendingIncludedItems));
+        
         // Process pending included items data
         foreach ($this->pendingIncludedItems as $pendingData) {
+            Log::info("Processing main item: " . $pendingData['main_item_name']);
+            Log::info("Included items count: " . count($pendingData['included_items']));
             // Find the main item by name
             $mainItem = Item::where('business_id', $this->businessId)
                 ->where('name', $pendingData['main_item_name'])
