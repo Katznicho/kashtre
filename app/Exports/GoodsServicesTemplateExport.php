@@ -135,29 +135,29 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
         ];
         
         // Add data validation for Type column (C)
-        $this->addValidationToColumn($worksheet, 'C', $startRow, $endRow, '"service","good"', 'Type', false);
+        $this->addValidationToColumn($worksheet, 'C', $startRow, $endRow, '"service,good"', 'Type', false);
         
         // Add data validation for Group Name column (E)
         if (!empty($groups)) {
-            $groupList = '"' . implode('","', $groups) . '"';
+            $groupList = '"' . implode(',', $groups) . '"';
             $this->addValidationToColumn($worksheet, 'E', $startRow, $endRow, $groupList, 'Group');
         }
         
         // Add data validation for Subgroup Name column (F)
         if (!empty($subGroups)) {
-            $subgroupList = '"' . implode('","', $subGroups) . '"';
+            $subgroupList = '"' . implode(',', $subGroups) . '"';
             $this->addValidationToColumn($worksheet, 'F', $startRow, $endRow, $subgroupList, 'Subgroup');
         }
         
         // Add data validation for Department Name column (G)
         if (!empty($departments)) {
-            $departmentList = '"' . implode('","', $departments) . '"';
+            $departmentList = '"' . implode(',', $departments) . '"';
             $this->addValidationToColumn($worksheet, 'G', $startRow, $endRow, $departmentList, 'Department');
         }
         
         // Add data validation for Unit of Measure column (H)
         if (!empty($units)) {
-            $unitList = '"' . implode('","', $units) . '"';
+            $unitList = '"' . implode(',', $units) . '"';
             $this->addValidationToColumn($worksheet, 'H', $startRow, $endRow, $unitList, 'Unit');
         }
         
@@ -173,8 +173,8 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
             
             Log::info('Contractor Username column found at index: ' . $contractorColumnIndex . ', column letter: ' . $contractorColumn);
             
-            // Use proper Excel data validation format with quotes
-            $contractorList = '"' . implode('","', $contractors) . '"';
+            // Use simple format like packages/bulk template
+            $contractorList = '"' . implode(',', $contractors) . '"';
             $this->addValidationToColumn($worksheet, $contractorColumn, $startRow, $endRow, $contractorList, 'Contractor');
         }
         
@@ -196,7 +196,7 @@ class GoodsServicesTemplateExport implements FromArray, WithHeadings, WithStyles
                     
                     if (!empty($branchServicePoints)) {
                         $columnLetter = $this->getColumnLetter($index + 1);
-                        $servicePointList = '"' . implode('","', $branchServicePoints) . '"';
+                        $servicePointList = '"' . implode(',', $branchServicePoints) . '"';
                         $this->addValidationToColumn($worksheet, $columnLetter, $startRow, $endRow, $servicePointList, 'Service Point');
                     }
                 }
