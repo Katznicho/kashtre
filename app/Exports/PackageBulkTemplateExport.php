@@ -123,12 +123,20 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
         
         // Add data validation for Constituent Items (simplified - 10 items, every 2nd column for names)
         // Calculate starting column dynamically (after core fields + branch prices)
-        $startColumnIndex = 6 + $branches->count(); // 6 core fields + number of branch price columns
+        $startColumnIndex = 7 + $branches->count(); // 7 core fields + number of branch price columns
         
         Log::info("=== PACKAGE/BULK TEMPLATE DEBUG ===");
         Log::info("Branches count: " . $branches->count());
         Log::info("Start column index: " . $startColumnIndex);
         Log::info("Available items count: " . count($items));
+        
+        // Log all headers to understand structure
+        $headers = $this->headings();
+        Log::info("Total headers: " . count($headers));
+        for ($i = 0; $i < count($headers); $i++) {
+            $columnLetter = $this->getExcelColumnLetter($i);
+            Log::info("Header " . $i . " (" . $columnLetter . "): " . $headers[$i]);
+        }
         
         $columnLetters = [];
         for ($i = 0; $i < 10; $i++) {
