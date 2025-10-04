@@ -356,14 +356,40 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             // Process each included item
             foreach ($pendingData['included_items'] as $includedItemData) {
                 try {
+                    Log::info("=== LOOKING FOR CONSTITUENT ITEM ===");
+                    Log::info("Looking for: " . $includedItemData['included_item_name']);
+                    Log::info("Business ID: " . $this->businessId);
+                    
                     // Find the included item by name
                     $includedItem = Item::where('business_id', $this->businessId)
                         ->where('name', $includedItemData['included_item_name'])
                         ->first();
                     
                     if (!$includedItem) {
-                        Log::error('Included item not found: ' . $includedItemData['included_item_name']);
-                        continue;
+                        Log::info("🔧 CREATING MISSING CONSTITUENT ITEM: " . $includedItemData['included_item_name']);
+                        
+                        // Create the missing constituent item
+                        $includedItem = Item::create([
+                            'name' => $includedItemData['included_item_name'],
+                            'code' => '', // Will be auto-generated
+                            'type' => 'good', // Default to 'good' for constituent items
+                            'description' => 'Auto-created constituent item for ' . $pendingData['main_item_name'],
+                            'default_price' => 0.00, // Default price, can be updated later
+                            'vat_rate' => 0.00,
+                            'hospital_share' => 100,
+                            'business_id' => $this->businessId,
+                            'other_names' => '',
+                            // Set package/bulk specific fields to null
+                            'group_id' => null,
+                            'subgroup_id' => null,
+                            'department_id' => null,
+                            'uom_id' => null,
+                            'contractor_account_id' => null,
+                        ]);
+                        
+                        Log::info("✅ CREATED CONSTITUENT ITEM: " . $includedItem->name . " (ID: " . $includedItem->id . ")");
+                    } else {
+                        Log::info("✅ FOUND EXISTING CONSTITUENT ITEM: " . $includedItem->name . " (ID: " . $includedItem->id . ")");
                     }
                     
                     if ($includedItemData['type'] === 'package') {
