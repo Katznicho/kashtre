@@ -32,8 +32,9 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
 
     public function headings(): array
     {
+        // Create a structured layout with clear sections
         $baseHeaders = [
-            'Name',
+            'Package/Bulk Item Name',
             'Code (Auto-generated if empty)',
             'Type (package/bulk)',
             'Description',
@@ -50,26 +51,72 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
             $baseHeaders[] = $branch->name . ' - Price';
         }
 
-        // Add constituent items columns with clear Item1, Item2, Item3 structure
-        for ($i = 1; $i <= 3; $i++) {
-            $baseHeaders[] = "Item{$i}";
-            $baseHeaders[] = "Qty{$i}";
-        }
+        // Add constituent items section headers
+        $baseHeaders[] = 'Item1';
+        $baseHeaders[] = 'Item2';
+        $baseHeaders[] = 'Item3';
+        $baseHeaders[] = 'Qty1';
+        $baseHeaders[] = 'Qty2';
+        $baseHeaders[] = 'Qty3';
 
         return $baseHeaders;
     }
 
     public function array(): array
     {
-        // Return empty array - clean template with no sample data
-        return [];
+        // Add sample data to show available constituent items
+        $sampleData = [];
+        
+        // Get available items for the constituents list
+        $availableItems = Item::where('business_id', $this->businessId)
+            ->whereIn('type', ['service', 'good'])
+            ->orderBy('name')
+            ->pluck('name')
+            ->toArray();
+        
+        // Add a sample row to show the structure
+        $sampleRow = [
+            'Sample Package', // Package/Bulk Item Name
+            '', // Code (auto-generated)
+            'package', // Type
+            'Sample package description', // Description
+            '1000', // Default Price
+            '30', // Validity Period
+            'Sample package', // Other Names
+        ];
+        
+        // Add branch prices (empty for sample)
+        $branches = Branch::where('business_id', $this->businessId)->orderBy('name')->get();
+        foreach ($branches as $branch) {
+            $sampleRow[] = ''; // Branch price
+        }
+        
+        // Add constituent items (empty for sample)
+        $sampleRow[] = ''; // Item1
+        $sampleRow[] = ''; // Item2
+        $sampleRow[] = ''; // Item3
+        $sampleRow[] = ''; // Qty1
+        $sampleRow[] = ''; // Qty2
+        $sampleRow[] = ''; // Qty3
+        
+        $sampleData[] = $sampleRow;
+        
+        // Add available items as reference
+        foreach ($availableItems as $item) {
+            $itemRow = array_fill(0, count($this->headings()), '');
+            $itemRow[0] = $item; // Show item name in first column
+            $sampleData[] = $itemRow;
+        }
+        
+        return $sampleData;
     }
 
 
 
     public function styles(Worksheet $sheet)
     {
-        return [
+        $styles = [
+            // Header row styling
             1 => [
                 'font' => ['bold' => true, 'size' => 12],
                 'fill' => [
@@ -79,6 +126,32 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
                 'font' => ['color' => ['rgb' => 'FFFFFF']]
             ],
         ];
+        
+        // Style the sample row differently
+        $styles[2] = [
+            'font' => ['bold' => true, 'size' => 11],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F3F4F6'] // Light gray for sample
+            ]
+        ];
+        
+        // Style the available items list
+        $availableItemsCount = Item::where('business_id', $this->businessId)
+            ->whereIn('type', ['service', 'good'])
+            ->count();
+            
+        for ($i = 3; $i <= 3 + $availableItemsCount; $i++) {
+            $styles[$i] = [
+                'font' => ['size' => 10],
+                'fill' => [
+                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => 'F8FAFC'] // Very light gray for reference items
+                ]
+            ];
+        }
+        
+        return $styles;
     }
 
     public function registerEvents(): array
@@ -121,7 +194,7 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
             $validation->setPrompt('Choose the item type');
         }
         
-        // Add data validation for Constituent Items (simplified - 3 items, every 2nd column for names)
+        // Add data validation for Constituent Items (Item1, Item2, Item3 columns)
         // Calculate starting column dynamically (after core fields + branch prices)
         $startColumnIndex = 7 + $branches->count(); // 7 core fields + number of branch price columns
         
@@ -140,7 +213,7 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
         
         $columnLetters = [];
         for ($i = 0; $i < 3; $i++) {
-            $columnIndex = $startColumnIndex + ($i * 2); // Every 2nd column (name, quantity, name, quantity...)
+            $columnIndex = $startColumnIndex + $i; // Item1, Item2, Item3 are consecutive
             $columnLetter = $this->getExcelColumnLetter($columnIndex);
             $columnLetters[] = $columnLetter;
             Log::info("Constituent Item " . ($i + 1) . " Name column: " . $columnLetter . " (index: " . $columnIndex . ")");
@@ -185,22 +258,33 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
      */
     private function addInstructions($worksheet)
     {
-        // Add instructions in row 1 (after headers)
+        // Add instructions in a separate section
         $instructions = [
-            'A1' => 'INSTRUCTIONS:',
-            'A2' => '1. Fill in Package/Bulk Item details (Name, Type, Description, Price, etc.)',
-            'A3' => '2. For constituent items:',
-            'A4' => '   - Use dropdowns in Item1, Item2, Item3 columns to select items',
-            'A5' => '   - Enter quantities in Qty1, Qty2, Qty3 columns',
-            'A6' => '   - At least one constituent item with quantity is required',
-            'A7' => '3. Leave Code empty for auto-generation',
-            'A8' => '4. For packages, specify validity period in days',
+            'A1' => '📋 PACKAGE/BULK ITEMS TEMPLATE INSTRUCTIONS:',
+            'A2' => '',
+            'A3' => '1️⃣ PACKAGE/BULK ITEM DETAILS:',
+            'A4' => '   • Fill in the main item details (Name, Type, Description, Price, etc.)',
+            'A5' => '   • Leave Code empty for auto-generation',
+            'A6' => '   • For packages, specify validity period in days',
+            'A7' => '',
+            'A8' => '2️⃣ CONSTITUENT ITEMS:',
+            'A9' => '   • Use dropdowns in Item1, Item2, Item3 columns to select items',
+            'A10' => '   • Enter quantities in Qty1, Qty2, Qty3 columns',
+            'A11' => '   • At least one constituent item with quantity is required',
+            'A12' => '   • Available items are listed below for reference',
+            'A13' => '',
+            'A14' => '3️⃣ BRANCH PRICING:',
+            'A15' => '   • Enter specific prices for each branch if different from default',
         ];
         
         foreach ($instructions as $cell => $text) {
             $worksheet->setCellValue($cell, $text);
-            $worksheet->getStyle($cell)->getFont()->setBold(true);
-            $worksheet->getStyle($cell)->getFont()->setSize(10);
+            if (strpos($text, '📋') !== false || strpos($text, '1️⃣') !== false || strpos($text, '2️⃣') !== false || strpos($text, '3️⃣') !== false) {
+                $worksheet->getStyle($cell)->getFont()->setBold(true);
+                $worksheet->getStyle($cell)->getFont()->setSize(11);
+            } else {
+                $worksheet->getStyle($cell)->getFont()->setSize(10);
+            }
         }
     }
 } 
