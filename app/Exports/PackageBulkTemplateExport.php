@@ -50,10 +50,10 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
             $baseHeaders[] = $branch->name . ' - Price';
         }
 
-        // Add constituent items columns (simplified - only name and quantity)
-        for ($i = 1; $i <= 10; $i++) {
-            $baseHeaders[] = "Constituent Item {$i} Name";
-            $baseHeaders[] = "Constituent Item {$i} Quantity";
+        // Add constituent items columns with clear Item1, Item2, Item3 structure
+        for ($i = 1; $i <= 3; $i++) {
+            $baseHeaders[] = "Item{$i}";
+            $baseHeaders[] = "Qty{$i}";
         }
 
         return $baseHeaders;
@@ -121,7 +121,7 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
             $validation->setPrompt('Choose the item type');
         }
         
-        // Add data validation for Constituent Items (simplified - 10 items, every 2nd column for names)
+        // Add data validation for Constituent Items (simplified - 3 items, every 2nd column for names)
         // Calculate starting column dynamically (after core fields + branch prices)
         $startColumnIndex = 7 + $branches->count(); // 7 core fields + number of branch price columns
         
@@ -139,7 +139,7 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
         }
         
         $columnLetters = [];
-        for ($i = 0; $i < 10; $i++) {
+        for ($i = 0; $i < 3; $i++) {
             $columnIndex = $startColumnIndex + ($i * 2); // Every 2nd column (name, quantity, name, quantity...)
             $columnLetter = $this->getExcelColumnLetter($columnIndex);
             $columnLetters[] = $columnLetter;
@@ -162,6 +162,9 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
                 $validation->setPrompt('Choose a constituent item from the dropdown');
             }
         }
+        
+        // Add helpful instructions
+        $this->addInstructions($worksheet);
     }
 
     /**
@@ -175,5 +178,29 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
             $columnIndex = intval($columnIndex / 26) - 1;
         }
         return $columnLetter;
+    }
+    
+    /**
+     * Add helpful instructions to the worksheet
+     */
+    private function addInstructions($worksheet)
+    {
+        // Add instructions in row 1 (after headers)
+        $instructions = [
+            'A1' => 'INSTRUCTIONS:',
+            'A2' => '1. Fill in Package/Bulk Item details (Name, Type, Description, Price, etc.)',
+            'A3' => '2. For constituent items:',
+            'A4' => '   - Use dropdowns in Item1, Item2, Item3 columns to select items',
+            'A5' => '   - Enter quantities in Qty1, Qty2, Qty3 columns',
+            'A6' => '   - At least one constituent item with quantity is required',
+            'A7' => '3. Leave Code empty for auto-generation',
+            'A8' => '4. For packages, specify validity period in days',
+        ];
+        
+        foreach ($instructions as $cell => $text) {
+            $worksheet->setCellValue($cell, $text);
+            $worksheet->getStyle($cell)->getFont()->setBold(true);
+            $worksheet->getStyle($cell)->getFont()->setSize(10);
+        }
     }
 } 

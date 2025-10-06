@@ -220,10 +220,10 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             Log::info("Available row keys: " . implode(', ', array_keys($row)));
         }
         
-        // Process up to 10 constituent items (simplified - no code needed)
-        for ($i = 1; $i <= 10; $i++) {
-            $itemNameKey = $this->normalizeColumnName("constituent_item_{$i}_name");
-            $quantityKey = $this->normalizeColumnName("constituent_item_{$i}_quantity");
+        // Process up to 3 constituent items (simplified structure)
+        for ($i = 1; $i <= 3; $i++) {
+            $itemNameKey = $this->normalizeColumnName("item{$i}");
+            $quantityKey = $this->normalizeColumnName("qty{$i}");
             
             if ($rowNumber <= 2) {
                 Log::info("Looking for keys: '{$itemNameKey}' and '{$quantityKey}'");
@@ -266,10 +266,10 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         $validConstituentItems = 0;
         $totalChecked = 0;
         
-        // Check up to 10 constituent items
-        for ($i = 1; $i <= 10; $i++) {
-            $itemNameKey = $this->normalizeColumnName("constituent_item_{$i}_name");
-            $quantityKey = $this->normalizeColumnName("constituent_item_{$i}_quantity");
+        // Check up to 3 constituent items
+        for ($i = 1; $i <= 3; $i++) {
+            $itemNameKey = $this->normalizeColumnName("item{$i}");
+            $quantityKey = $this->normalizeColumnName("qty{$i}");
             
             if ($rowNumber <= 2) {
                 Log::info("Checking constituent item {$i}:");
@@ -320,9 +320,9 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         $rowNumber = $this->getRowNumber() + 1;
         $missingItems = [];
         
-        for ($i = 1; $i <= 10; $i++) {
-            $itemNameKey = $this->normalizeColumnName("constituent_item_{$i}_name");
-            $quantityKey = $this->normalizeColumnName("constituent_item_{$i}_quantity");
+        for ($i = 1; $i <= 3; $i++) {
+            $itemNameKey = $this->normalizeColumnName("item{$i}");
+            $quantityKey = $this->normalizeColumnName("qty{$i}");
 
             if (!empty($row[$itemNameKey]) && !empty($row[$quantityKey])) {
                 $itemName = trim($row[$itemNameKey]);
