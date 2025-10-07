@@ -119,6 +119,12 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 Log::info("Skipping Item{$i}: Type is numeric (template artifact) - '{$itemType}'");
                 continue;
             }
+            
+            // Skip if name is numeric (template artifacts)
+            if (is_numeric($itemName)) {
+                Log::info("Skipping Item{$i}: Name is numeric (template artifact) - '{$itemName}'");
+                continue;
+            }
             $itemDescription = $data[$descriptionsRow][$i] ?? null;
             $itemValidity = $data[$validityRow][$i] ?? null;
             $itemOtherNames = $data[$otherNamesRow][$i] ?? null;
@@ -142,7 +148,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             // Validate required fields
             if (empty($name)) {
                 $this->errors[] = "Item{$itemNumber}: Name is required";
-                $this->errorCount++;
+                    $this->errorCount++;
                 return;
             }
             
@@ -276,7 +282,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                         'constituent_name' => $constituentItem->name
                     ];
                 } elseif ($item->type === 'bulk') {
-                    $this->pendingIncludedItems[] = [
+            $this->pendingIncludedItems[] = [
                         'type' => 'bulk',
                         'business_id' => $this->businessId,
                         'bulk_item_id' => $item->id,
@@ -350,7 +356,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         
         foreach ($this->pendingIncludedItems as $includedItemData) {
             try {
-                if ($includedItemData['type'] === 'package') {
+                    if ($includedItemData['type'] === 'package') {
                     // Only include fields that PackageItem model expects
                     $packageData = [
                         'business_id' => $includedItemData['business_id'],
