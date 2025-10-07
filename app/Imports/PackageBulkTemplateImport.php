@@ -97,6 +97,11 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             $itemType = $data[$typesRow][$i] ?? null;
             $itemPrice = $data[$pricesRow][$i] ?? null;
             
+            // Debug: Log the values we're checking
+            Log::info("DEBUG Item{$i}: Name='{$itemName}', Type='{$itemType}', Price='{$itemPrice}'");
+            Log::info("DEBUG Item{$i}: is_numeric(name)=" . (is_numeric($itemName) ? 'true' : 'false'));
+            Log::info("DEBUG Item{$i}: is_numeric(type)=" . (is_numeric($itemType) ? 'true' : 'false'));
+            
             // Skip if no name or if name looks like template instructions
             if (empty($itemName) || 
                 is_numeric($itemName) || 
