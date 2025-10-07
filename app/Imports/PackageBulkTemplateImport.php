@@ -48,6 +48,8 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 Log::info("Row data: " . json_encode($row));
                 Log::info("Available columns: " . implode(', ', array_keys($row)));
                 Log::info("Total columns found: " . count($row));
+                Log::info("Name value: " . ($row['name'] ?? 'NOT FOUND'));
+                Log::info("Type value: " . ($row['type_packagebulk'] ?? 'NOT FOUND'));
             }
             
             // Find the type column - use the correct column name from Laravel Excel

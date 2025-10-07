@@ -61,8 +61,33 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
     
     public function array(): array
     {
-        // Return empty array - template will be populated by user
-        return [];
+        // Return sample data to show template structure
+        return [
+            // Sample row 1 - Package Item
+            [
+                'name' => 'Sample Package Item',
+                'code_auto_generated_if_empty' => '',
+                'type_packagebulk' => 'package',
+                'description' => 'Sample package description',
+                'default_price' => 1000,
+                'validity_period_days_required_for_packages' => 30,
+                'other_names' => 'Sample Package',
+                // Branch prices will be added dynamically
+                // Constituent items will be added dynamically
+            ],
+            // Sample row 2 - Bulk Item
+            [
+                'name' => 'Sample Bulk Item',
+                'code_auto_generated_if_empty' => '',
+                'type_packagebulk' => 'bulk',
+                'description' => 'Sample bulk description',
+                'default_price' => 800,
+                'validity_period_days_required_for_packages' => '',
+                'other_names' => 'Sample Bulk',
+                // Branch prices will be added dynamically
+                // Constituent items will be added dynamically
+            ]
+        ];
     }
     
     /**
@@ -171,6 +196,7 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
         Log::info("Branches count: " . $branches->count());
         Log::info("Constituent columns: " . implode(', ', $constituentColumns));
         Log::info("Template supports up to 10 constituent items");
+        Log::info("Template headings: " . implode(', ', $this->headings()));
         
         // Add dropdowns to constituent item name columns
         foreach ($constituentColumns as $column) {
