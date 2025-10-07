@@ -350,10 +350,24 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         
         foreach ($this->pendingIncludedItems as $includedItemData) {
             try {
-                    if ($includedItemData['type'] === 'package') {
-                    PackageItem::create($includedItemData);
+                if ($includedItemData['type'] === 'package') {
+                    // Only include fields that PackageItem model expects
+                    $packageData = [
+                        'business_id' => $includedItemData['business_id'],
+                        'package_item_id' => $includedItemData['package_item_id'],
+                        'included_item_id' => $includedItemData['included_item_id'],
+                        'max_quantity' => $includedItemData['max_quantity']
+                    ];
+                    PackageItem::create($packageData);
                 } elseif ($includedItemData['type'] === 'bulk') {
-                    BulkItem::create($includedItemData);
+                    // Only include fields that BulkItem model expects
+                    $bulkData = [
+                        'business_id' => $includedItemData['business_id'],
+                        'bulk_item_id' => $includedItemData['bulk_item_id'],
+                        'included_item_id' => $includedItemData['included_item_id'],
+                        'fixed_quantity' => $includedItemData['fixed_quantity']
+                    ];
+                    BulkItem::create($bulkData);
                 }
                 $successCount++;
                 Log::info("Successfully created included item for {$includedItemData['type']} item '{$includedItemData['item_name']}'");
