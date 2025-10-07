@@ -35,7 +35,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         Log::info("Branches found: " . count($this->branches));
         Log::info("Template supports up to 25 constituent items (Item1-Item25)");
     }
-
+    
     public function model(array $row)
     {
         try {
@@ -52,11 +52,6 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             
             // Find the type column - use the correct column name from Laravel Excel
             $typeValue = $row['type_packagebulk'] ?? null;
-            
-            // Skip completely empty rows (no name, no type)
-            if (empty($row['name']) && empty($typeValue)) {
-                return null; // Skip silently without error
-            }
             
             // Manual validation
             if (empty($row['name'])) {

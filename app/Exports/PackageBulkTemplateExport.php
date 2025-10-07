@@ -32,68 +32,51 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
 
     public function headings(): array
     {
-        // Return empty array - we'll create a custom layout
-        return [];
-    }
-
-    public function array(): array
-    {
-        // Create horizontal layout with row headers (like in screenshot)
-        // Get branches for dynamic branch price rows
+        // Get branches for dynamic columns
         $branches = Branch::where('business_id', $this->businessId)->orderBy('name')->get();
         
-        // Get available items for the constituents list
-        $availableItems = Item::where('business_id', $this->businessId)
-            ->whereIn('type', ['service', 'good'])
-            ->orderBy('name')
-            ->pluck('name')
-            ->toArray();
-        
-        $templateData = [
-            // Row 1: Column headers (Item1 through Item15 - expandable to 25)
-            ['Package/Bulk Item Name', 'Item1', 'Item2', 'Item3', 'Item4', 'Item5', 'Item6', 'Item7', 'Item8', 'Item9', 'Item10', 'Item11', 'Item12', 'Item13', 'Item14', 'Item15'],
-            
-            // Row 2: Name
-            ['Name', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
-            
-            // Row 3: Code
-            ['Code (Auto-generated if empty)', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
-            
-            // Row 4: Type
-            ['Type (package/bulk)', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
-            
-            // Row 5: Description
-            ['Description', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
-            
-            // Row 6: Default Price
-            ['Default Price', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
-            
-            // Row 7: Validity Period
-            ['Validity Period (Days) - Required for packages', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
-            
-            // Row 8: Other Names
-            ['Other Names', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+        $headings = [
+            'name',
+            'code_auto_generated_if_empty',
+            'type_packagebulk',
+            'description',
+            'default_price',
+            'validity_period_days_required_for_packages',
+            'other_names'
         ];
         
-        // Add branch price rows dynamically (expand to 15 items)
+        // Add branch price columns
         foreach ($branches as $branch) {
-            $templateData[] = [$branch->name . ' - Price', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+            $headings[] = strtolower(str_replace(' ', '_', $branch->name)) . '_price';
         }
         
-        // Add empty row for spacing
-        $templateData[] = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
-        $templateData[] = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
-        
-        // Add constituents header row (expandable - start with 15, users can add more)
-        $templateData[] = ['Constituents(full items list where type is good/service)', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty'];
-        
-        // Add rows with dropdowns for constituent items (at least 30 rows for user selection)
-        // Users will select items from dropdown in column A
-        for ($i = 0; $i < 30; $i++) {
-            $templateData[] = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']; // Empty cells - dropdown will be added via validation
+        // Add constituent item columns (up to 10 items)
+        for ($i = 1; $i <= 10; $i++) {
+            $headings[] = "constituent_item_{$i}_name";
+            $headings[] = "constituent_item_{$i}_quantity";
         }
         
-        return $templateData;
+        return $headings;
+    }
+    
+    public function array(): array
+    {
+        // Return empty array - template will be populated by user
+        return [];
+    }
+    
+    /**
+     * Convert column index to Excel column letter (A, B, C, ..., AA, AB, etc.)
+     */
+    private function getColumnLetter($columnIndex)
+    {
+        $columnLetter = '';
+        while ($columnIndex > 0) {
+            $columnIndex--;
+            $columnLetter = chr(65 + ($columnIndex % 26)) . $columnLetter;
+            $columnIndex = intval($columnIndex / 26);
+        }
+        return $columnLetter;
     }
 
 
@@ -162,47 +145,36 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
         $startRow = 2;
         $endRow = 1000;
         
-        // Add data validation for Type row (row 4, columns B through Z for Item1-Item25)
-        // This automatically supports up to 25 items (B through Z)
-        $typeColumns = ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
-        foreach ($typeColumns as $column) {
-            $validation = $worksheet->getCell($column . '4')->getDataValidation();
-            $validation->setType(DataValidation::TYPE_LIST);
-            $validation->setErrorStyle(DataValidation::STYLE_STOP);
-            $validation->setAllowBlank(false);
-            $validation->setShowInputMessage(true);
-            $validation->setShowErrorMessage(true);
-            $validation->setShowDropDown(true);
-            $validation->setFormula1('"package,bulk"');
-            $validation->setErrorTitle('Invalid Type');
-            $validation->setError('Please select either "package" or "bulk"');
-            $validation->setPromptTitle('Select Type');
-            $validation->setPrompt('Choose the item type');
-        }
-        
-        // Calculate constituents header row
-        // 8 base rows + branches + 2 empty rows = the row where constituents header is
-        $constituentsHeaderRow = 8 + $branches->count() + 2;
+        // Add data validation for Type column (C)
+        $validation = $worksheet->getCell('C2')->getDataValidation();
+        $validation->setType(DataValidation::TYPE_LIST);
+        $validation->setErrorStyle(DataValidation::STYLE_STOP);
+        $validation->setAllowBlank(false);
+        $validation->setShowInputMessage(true);
+        $validation->setShowErrorMessage(true);
+        $validation->setShowDropDown(true);
+        $validation->setFormula1('"package,bulk"');
+        $validation->setErrorTitle('Invalid Type');
+        $validation->setError('Please select either "package" or "bulk"');
+        $validation->setPromptTitle('Select Type');
+        $validation->setPrompt('Choose the item type');
         
         // Add data validation for Constituent Items
-        // Add 30 rows with dropdowns for constituent item selection
-        $numberOfConstituentRows = 30;
+        // Add dropdowns to constituent item name columns
+        $constituentColumns = [];
+        for ($i = 1; $i <= 10; $i++) {
+            $constituentColumns[] = $this->getColumnLetter(7 + $branches->count() + ($i - 1) * 2);
+        }
         
         Log::info("=== PACKAGE/BULK TEMPLATE DEBUG ===");
         Log::info("Available items count: " . count($items));
         Log::info("Branches count: " . $branches->count());
-        Log::info("Constituents header row: " . $constituentsHeaderRow);
-        Log::info("Validation will start from row: " . ($constituentsHeaderRow + 1));
-        Log::info("Validation will end at row: " . ($constituentsHeaderRow + $numberOfConstituentRows));
-        Log::info("Template supports Item1-Item25 (columns B through Z)");
-        Log::info("Type dropdowns added to columns: " . implode(', ', array_slice($typeColumns, 0, 10)) . "...");
-        Log::info("Constituent dropdowns will be added to column A, rows " . ($constituentsHeaderRow + 1) . " to " . ($constituentsHeaderRow + $numberOfConstituentRows));
+        Log::info("Constituent columns: " . implode(', ', $constituentColumns));
+        Log::info("Template supports up to 10 constituent items");
         
-        // Add dropdown to COLUMN A (the item name column) for constituent items
-        // IMPORTANT: Start from $constituentsHeaderRow + 1 to SKIP the header row
-        // Users select which constituent item from the dropdown in column A
-        for ($row = $constituentsHeaderRow + 1; $row <= $constituentsHeaderRow + $numberOfConstituentRows; $row++) {
-            $validation = $worksheet->getCell('A' . $row)->getDataValidation();
+        // Add dropdowns to constituent item name columns
+        foreach ($constituentColumns as $column) {
+            $validation = $worksheet->getCell($column . '2')->getDataValidation();
             $validation->setType(DataValidation::TYPE_LIST);
             $validation->setErrorStyle(DataValidation::STYLE_STOP);
             $validation->setAllowBlank(true);
