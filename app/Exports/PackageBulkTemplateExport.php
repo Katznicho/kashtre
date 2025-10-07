@@ -84,13 +84,18 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
         $templateData[] = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
         $templateData[] = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
         
-        // Add constituents header row (expandable - start with 15, users can add more)
+        // Add constituents header row
         $templateData[] = ['Constituents(full items list where type is good/service)', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty'];
         
-        // Add rows with dropdowns for constituent items (at least 30 rows for user selection)
-        // Users will select items from dropdown in column A
-        for ($i = 0; $i < 30; $i++) {
-            $templateData[] = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']; // Empty cells - dropdown will be added via validation
+        // Add alphabetical list of available items with their codes
+        $availableItems = Item::where('business_id', $this->businessId)
+            ->whereIn('type', ['service', 'good'])
+            ->orderBy('name')
+            ->get(['name', 'code']);
+            
+        foreach ($availableItems as $item) {
+            $itemDisplay = $item->name . ' (' . $item->code . ')';
+            $templateData[] = [$itemDisplay, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']; // Empty quantity cells for user to fill
         }
         
         return $templateData;
@@ -145,7 +150,7 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
             
         for ($i = $constituentsHeaderRow + 1; $i <= $constituentsHeaderRow + $availableItemsCount; $i++) {
             $styles[$i] = [
-                'font' => ['size' => 10, 'color' => ['rgb' => '60A5FA']], // Blue text like in screenshot
+                'font' => ['size' => 10, 'color' => ['rgb' => '60A5FA']], // Blue text for item names and codes
             ];
         }
         
@@ -198,54 +203,30 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
         // 8 base rows + branches + 2 empty rows = the row where constituents header is
         $constituentsHeaderRow = 8 + $branches->count() + 2;
         
-        // Add data validation for Constituent Items
-        // Add 30 rows with dropdowns for constituent item selection
-        $numberOfConstituentRows = 30;
-        
         Log::info("=== PACKAGE/BULK TEMPLATE DEBUG ===");
         Log::info("Available items count: " . count($items));
         Log::info("Branches count: " . $branches->count());
         Log::info("Constituents header row: " . $constituentsHeaderRow);
-        Log::info("Validation will start from row: " . ($constituentsHeaderRow + 1));
-        Log::info("Validation will end at row: " . ($constituentsHeaderRow + $numberOfConstituentRows));
         Log::info("Template supports Item1-Item25 (columns B through Z)");
         Log::info("Type dropdowns added to columns: " . implode(', ', array_slice($typeColumns, 0, 10)) . "..."); // Example slice
-        Log::info("Constituent dropdowns will be added to column A, rows " . ($constituentsHeaderRow + 1) . " to " . ($constituentsHeaderRow + $numberOfConstituentRows));
+        Log::info("Constituents section now shows alphabetical list with item codes instead of dropdowns");
         
-        // Add dropdown to COLUMN A (the item name column) for constituent items
-        // IMPORTANT: Start from $constituentsHeaderRow + 1 to SKIP the header row
-        // Users select which constituent item from the dropdown in column A
-        for ($row = $constituentsHeaderRow + 1; $row <= $constituentsHeaderRow + $numberOfConstituentRows; $row++) {
-            $validation = $worksheet->getCell('A' . $row)->getDataValidation();
-            $validation->setType(DataValidation::TYPE_LIST);
-            $validation->setErrorStyle(DataValidation::STYLE_STOP);
-            $validation->setAllowBlank(true);
-            $validation->setShowInputMessage(true);
-            $validation->setShowErrorMessage(true);
-            $validation->setShowDropDown(true);
-            $validation->setFormula1('"' . implode(',', $items) . '"');
-            $validation->setErrorTitle('Invalid Constituent Item');
-            $validation->setError('Please select a valid constituent item (service or good)');
-            $validation->setPromptTitle('Select Constituent Item');
-            $validation->setPrompt('Choose a constituent item from the dropdown');
-        }
-        
-        // Add clear instructions for expanding template
-        $worksheet->setCellValue('P1', 'TEMPLATE SUPPORTS UP TO 25 ITEMS');
-        $worksheet->setCellValue('P2', 'Default: Item1-Item15 (columns B-P)');
-        $worksheet->setCellValue('P3', 'To add more:');
-        $worksheet->setCellValue('P4', '1. Add columns Q, R, S, T, U...');
-        $worksheet->setCellValue('P5', '2. Label as Item16, Item17, Item18...');
-        $worksheet->setCellValue('P6', '3. Type dropdowns auto-added');
-        $worksheet->setCellValue('P7', '4. Add Qty columns in constituents');
-        $worksheet->setCellValue('P8', '5. Copy pattern from Item1');
+        // Add clear instructions for the template in columns beyond the data range (starting at column R)
+        $worksheet->setCellValue('R1', 'PACKAGE/BULK TEMPLATE INSTRUCTIONS');
+        $worksheet->setCellValue('R2', '1. Fill in package/bulk details in rows 2-7');
+        $worksheet->setCellValue('R3', '2. Use Type dropdown to select package/bulk');
+        $worksheet->setCellValue('R4', '3. Constituents list shows all available items');
+        $worksheet->setCellValue('R5', '4. Items include name and code for easy reference');
+        $worksheet->setCellValue('R6', '5. Enter quantities in Qty columns (B, C, D...)');
+        $worksheet->setCellValue('R7', '6. Delete unused constituent rows if needed');
+        $worksheet->setCellValue('R8', '7. Template supports up to 25 items (B-Z)');
         
         // Style the instructions
-        $worksheet->getStyle('P1')->getFont()->setBold(true);
-        $worksheet->getStyle('P1')->getFont()->setSize(11);
-        $worksheet->getStyle('P1')->getFont()->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('0066CC'));
+        $worksheet->getStyle('R1')->getFont()->setBold(true);
+        $worksheet->getStyle('R1')->getFont()->setSize(11);
+        $worksheet->getStyle('R1')->getFont()->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('0066CC'));
         for ($i = 2; $i <= 8; $i++) {
-            $worksheet->getStyle('P' . $i)->getFont()->setSize(9);
+            $worksheet->getStyle('R' . $i)->getFont()->setSize(9);
         }
         
         // Instructions removed as per user request

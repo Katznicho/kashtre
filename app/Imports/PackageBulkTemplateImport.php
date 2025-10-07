@@ -107,7 +107,10 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 is_numeric($itemName) || 
                 strpos($itemName, 'Default:') !== false || 
                 strpos($itemName, 'Add columns') !== false ||
-                strpos($itemName, 'Type dropdowns') !== false) {
+                strpos($itemName, 'Type dropdowns') !== false ||
+                strpos($itemName, 'Fill in package') !== false ||
+                strpos($itemName, 'INSTRUCTIONS') !== false ||
+                strpos($itemName, 'TEMPLATE') !== false) {
                 Log::info("Skipping Item{$i}: Empty or template instruction - '{$itemName}'");
                 continue;
             }
@@ -260,11 +263,34 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 continue;
             }
             
+            // Extract item name and code from format "Item Name (Item Code)"
+            // This handles both old format (just name) and new format (name with code)
+            $itemName = $constituentName;
+            $itemCode = null;
+            
+            if (preg_match('/^(.+?)\s*\(([^)]+)\)$/', $constituentName, $matches)) {
+                $itemName = trim($matches[1]);
+                $itemCode = trim($matches[2]);
+            }
+            
             // Find the constituent item in the database
-            $constituentItem = Item::where('business_id', $this->businessId)
-                ->where('name', $constituentName)
-                ->whereIn('type', ['service', 'good'])
-                ->first();
+            // Try to match by code first (more precise), then by name
+            $constituentItem = null;
+            
+            if ($itemCode) {
+                $constituentItem = Item::where('business_id', $this->businessId)
+                    ->where('code', $itemCode)
+                    ->whereIn('type', ['service', 'good'])
+                    ->first();
+            }
+            
+            // If not found by code, try by name
+            if (!$constituentItem) {
+                $constituentItem = Item::where('business_id', $this->businessId)
+                    ->where('name', $itemName)
+                    ->whereIn('type', ['service', 'good'])
+                    ->first();
+            }
             
             if ($constituentItem) {
                 $constituentCount++;
@@ -291,9 +317,9 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                     ];
                 }
                 
-                Log::info("Found constituent: {$constituentName} (Qty: {$quantity})");
+                Log::info("Found constituent: {$constituentItem->name} (Code: {$constituentItem->code}, Qty: {$quantity})");
             } else {
-                Log::warning("Constituent item not found in database: {$constituentName}");
+                Log::warning("Constituent item not found in database: {$constituentName} (parsed as Name: '{$itemName}'" . ($itemCode ? ", Code: '{$itemCode}'" : "") . ")");
             }
         }
         
