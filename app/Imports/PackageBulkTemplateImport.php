@@ -61,6 +61,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         $descriptionsRow = null;
         $validityRow = null;
         $otherNamesRow = null;
+        $branchPriceRows = [];
         
         foreach ($data as $index => $row) {
             if (isset($row[0]) && $row[0] === 'Name') {
@@ -75,6 +76,12 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 $validityRow = $index;
             } elseif (isset($row[0]) && $row[0] === 'Other Names') {
                 $otherNamesRow = $index;
+            } elseif (isset($row[0]) && strpos($row[0], ' - Price') !== false) {
+                // This is a branch price row
+                $branchPriceRows[] = [
+                    'index' => $index,
+                    'branch_name' => str_replace(' - Price', '', $row[0])
+                ];
             }
         }
         
@@ -102,7 +109,12 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             Log::info("Processing Item{$i}: {$itemName} (Type: {$itemType}, Price: {$itemPrice})");
             
             // Create the item
-            $this->createPackageBulkItem($itemName, $itemType, $itemPrice, $itemDescription, $itemValidity, $itemOtherNames, $i);
+            $item = $this->createPackageBulkItem($itemName, $itemType, $itemPrice, $itemDescription, $itemValidity, $itemOtherNames, $i);
+            
+            // If item was created successfully, capture branch prices
+            if ($item) {
+                $this->captureBranchPrices($data, $branchPriceRows, $item, $i);
+            }
         }
     }
     
@@ -151,10 +163,49 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             Log::info("Successfully created item: {$name} (ID: {$item->id})");
             $this->successCount++;
             
+            return $item;
+            
         } catch (\Exception $e) {
             Log::error("Error creating item {$name}: " . $e->getMessage());
             $this->errors[] = "Item{$itemNumber}: Error creating item - " . $e->getMessage();
             $this->errorCount++;
+            return null;
+        }
+    }
+    
+    private function captureBranchPrices($data, $branchPriceRows, $item, $itemNumber)
+    {
+        Log::info("=== CAPTURING BRANCH PRICES FOR ITEM {$itemNumber} ===");
+        Log::info("Item: {$item->name} (ID: {$item->id})");
+        Log::info("Found " . count($branchPriceRows) . " branch price rows");
+        
+        foreach ($branchPriceRows as $branchPriceRow) {
+            $branchName = $branchPriceRow['branch_name'];
+            $rowIndex = $branchPriceRow['index'];
+            $columnIndex = $itemNumber; // Item1 = column 1, Item2 = column 2, etc.
+            
+            $branchPrice = $data[$rowIndex][$columnIndex] ?? null;
+            
+            if (!empty($branchPrice) && is_numeric($branchPrice)) {
+                // Find the branch by name
+                $branch = $this->branches->where('name', $branchName)->first();
+                
+                if ($branch) {
+                    $this->branchPrices[] = [
+                        'business_id' => $this->businessId,
+                        'item_id' => $item->id,
+                        'branch_id' => $branch->id,
+                        'price' => (float) $branchPrice,
+                        'item_code' => $item->code
+                    ];
+                    
+                    Log::info("Captured branch price for {$branchName}: {$branchPrice}");
+                } else {
+                    Log::warning("Branch not found: {$branchName}");
+                }
+            } else {
+                Log::info("No price found for {$branchName} in column {$columnIndex}");
+            }
         }
     }
     
