@@ -52,7 +52,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         Log::info("=== PROCESSING HORIZONTAL TEMPLATE ===");
         
         // Get all data from the sheet
-        $data = $sheet->toArray();
+        $data = $sheet->toArray(null, true, true, true);
         
         // Find the row with names (should be row 1, index 0)
         $namesRow = null;
