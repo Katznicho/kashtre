@@ -99,6 +99,9 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             
             // Debug: Log the values we're checking
             Log::info("DEBUG Item{$i}: Name='{$itemName}', Type='{$itemType}', Price='{$itemPrice}'");
+            Log::info("DEBUG Item{$i}: Name type=" . gettype($itemName) . ", Type type=" . gettype($itemType));
+            Log::info("DEBUG Item{$i}: Name length=" . strlen($itemName) . ", Type length=" . strlen($itemType));
+            Log::info("DEBUG Item{$i}: Name ord=" . ord($itemName) . ", Type ord=" . ord($itemType));
             Log::info("DEBUG Item{$i}: is_numeric(name)=" . (is_numeric($itemName) ? 'true' : 'false'));
             Log::info("DEBUG Item{$i}: is_numeric(type)=" . (is_numeric($itemType) ? 'true' : 'false'));
             
