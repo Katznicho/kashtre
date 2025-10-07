@@ -47,7 +47,10 @@ class PackageBulkUploadController extends Controller
             $filename = 'package_bulk_template_' . str_replace(' ', '_', $business->name) . '.xlsx';
             
             // Log for debugging
-            Log::info('Downloading package/bulk template for business: ' . $business->name);
+            Log::info('=== DOWNLOADING PACKAGE/BULK TEMPLATE ===');
+            Log::info('Business: ' . $business->name . ' (ID: ' . $business->id . ')');
+            Log::info('User: ' . Auth::user()->name . ' (ID: ' . Auth::user()->id . ')');
+            Log::info('Filename: ' . $filename);
             
             return Excel::download(new PackageBulkTemplateExport($request->business_id), $filename);
             
@@ -74,6 +77,11 @@ class PackageBulkUploadController extends Controller
 
         try {
             Log::info("=== STARTING PACKAGE/BULK IMPORT ===");
+            Log::info("Business ID: " . $request->business_id);
+            Log::info("User: " . Auth::user()->name . " (ID: " . Auth::user()->id . ")");
+            Log::info("File: " . $request->file('file')->getClientOriginalName());
+            Log::info("File size: " . $request->file('file')->getSize() . " bytes");
+            
             $import = new PackageBulkTemplateImport($request->business_id);
             
             Log::info("=== CALLING Excel::import() ===");

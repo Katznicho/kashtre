@@ -194,6 +194,9 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
         Log::info("Constituents header row: " . $constituentsHeaderRow);
         Log::info("Validation will start from row: " . ($constituentsHeaderRow + 1));
         Log::info("Validation will end at row: " . ($constituentsHeaderRow + $numberOfConstituentRows));
+        Log::info("Template supports Item1-Item25 (columns B through Z)");
+        Log::info("Type dropdowns added to columns: " . implode(', ', array_slice($typeColumns, 0, 10)) . "...");
+        Log::info("Constituent dropdowns will be added to column A, rows " . ($constituentsHeaderRow + 1) . " to " . ($constituentsHeaderRow + $numberOfConstituentRows));
         
         // Add dropdown to COLUMN A (the item name column) for constituent items
         // IMPORTANT: Start from $constituentsHeaderRow + 1 to SKIP the header row

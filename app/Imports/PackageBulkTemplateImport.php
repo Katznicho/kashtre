@@ -47,6 +47,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 Log::info("Row number: " . $rowNumber);
                 Log::info("Row data: " . json_encode($row));
                 Log::info("Available columns: " . implode(', ', array_keys($row)));
+                Log::info("Total columns found: " . count($row));
             }
             
             // Find the type column - use the correct column name from Laravel Excel
@@ -236,6 +237,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 Log::info("Looking for keys: '{$itemNameKey}' and '{$quantityKey}'");
                 Log::info("Item name value: " . ($row[$itemNameKey] ?? 'NOT FOUND'));
                 Log::info("Quantity value: " . ($row[$quantityKey] ?? 'NOT FOUND'));
+                Log::info("Key exists in row: " . (array_key_exists($itemNameKey, $row) ? 'YES' : 'NO'));
             }
             
             if (!empty($row[$itemNameKey]) && !empty($row[$quantityKey])) {
@@ -276,6 +278,8 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             Log::info("=== VALIDATING CONSTITUENT ITEMS ===");
             Log::info("Row number: " . $rowNumber);
             Log::info("Available row keys: " . implode(', ', array_keys($row)));
+            Log::info("Total keys available: " . count($row));
+            Log::info("Looking for constituent items in Item1-Item25 format");
         }
         
         $validConstituentItems = 0;
