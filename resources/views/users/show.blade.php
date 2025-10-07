@@ -104,9 +104,13 @@
                     <div>
                         <label>Service Points</label>
                         <ul class="list-disc ml-6">
-                            @foreach((array) $user->service_points as $sp)
-                                <li>{{ $sp }}</li>
-                            @endforeach
+                            @if(!empty($user->service_points))
+                                @foreach((array) $user->service_points as $spId)
+                                    <li>{{ optional(\App\Models\ServicePoint::find($spId))->name ?? 'N/A' }}</li>
+                                @endforeach
+                            @else
+                                <li>None assigned</li>
+                            @endif
                         </ul>
                     </div>
                     <div>

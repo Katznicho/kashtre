@@ -4,7 +4,6 @@ namespace App\Imports;
 
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Concerns\WithValidation;
 use App\Models\User;
 use App\Models\Business;
 use App\Models\Branch;
@@ -17,7 +16,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Log;
 
-class StaffTemplateImport implements ToModel, WithHeadingRow, WithValidation
+class StaffTemplateImport implements ToModel, WithHeadingRow
 {
     protected $businessId;
     protected $branchId;
@@ -30,7 +29,17 @@ class StaffTemplateImport implements ToModel, WithHeadingRow, WithValidation
 
     public function model(array $row)
     {
-        // Skip empty rows
+        // Skip completely empty rows
+        if (empty(array_filter($row))) {
+            return null;
+        }
+        
+        // Skip rows without required fields
+        if (empty($row['surname']) && empty($row['first_name']) && empty($row['email'])) {
+            return null;
+        }
+        
+        // Skip if surname, first_name or email is missing
         if (empty($row['surname']) || empty($row['first_name']) || empty($row['email'])) {
             return null;
         }
@@ -231,6 +240,8 @@ class StaffTemplateImport implements ToModel, WithHeadingRow, WithValidation
             'is contractor', 
             'contractor', 
             'iscontractor',
+            'Is Contractor (Yes/No)',
+            'is_contractor_yesno',
             'Is Contractor (Yes or No)',
             'is_contractor_(yes_or_no)',
             'is_contractor_yes_or_no',
@@ -248,6 +259,10 @@ class StaffTemplateImport implements ToModel, WithHeadingRow, WithValidation
         if ($contractorField) {
             $contractorValue = strtolower(trim($row[$contractorField] ?? ''));
         }
+        
+        Log::info("Contractor Field Name: " . ($contractorField ?? 'NOT FOUND'));
+        Log::info("Contractor Value: '{$contractorValue}'");
+        Log::info("Available columns: " . json_encode(array_keys($row)));
         
         $isContractor = $contractorValue === 'yes';
         
@@ -295,6 +310,16 @@ class StaffTemplateImport implements ToModel, WithHeadingRow, WithValidation
             $permissions = ['View Dashboard'];
         }
 
+        Log::info("=== CREATING STAFF USER ===");
+        Log::info("Name: {$name}");
+        Log::info("Email: {$email}");
+        Log::info("Is Contractor: " . ($isContractor ? 'Yes' : 'No'));
+        Log::info("Permissions: " . json_encode($permissions));
+        Log::info("Qualification ID: " . ($qualificationId ?? 'null'));
+        Log::info("Title ID: " . ($titleId ?? 'null'));
+        Log::info("Department ID: " . ($departmentId ?? 'null'));
+        Log::info("Section ID: " . ($sectionId ?? 'null'));
+
         $user = new User([
             'name' => $name,
             'email' => $email,
@@ -316,6 +341,12 @@ class StaffTemplateImport implements ToModel, WithHeadingRow, WithValidation
 
         // Save the user first
         $user->save();
+        
+        Log::info("User saved with ID: {$user->id}");
+        Log::info("Saved Qualification ID: " . ($user->qualification_id ?? 'null'));
+        Log::info("Saved Title ID: " . ($user->title_id ?? 'null'));
+        Log::info("Saved Department ID: " . ($user->department_id ?? 'null'));
+        Log::info("Saved Section ID: " . ($user->section_id ?? 'null'));
 
         // Create contractor profile if needed
         if ($isContractor) {
@@ -334,35 +365,4 @@ class StaffTemplateImport implements ToModel, WithHeadingRow, WithValidation
 
         return $user;
     }
-
-    public function rules(): array
-    {
-        return [
-            'surname' => 'required|string|max:255',
-            'first_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'phone' => 'nullable',
-            'nin' => 'nullable',
-            'gender' => 'nullable|in:male,female',
-            'is_contractor' => 'nullable|in:Yes,No,yes,no',
-            'bank_name' => 'nullable',
-            'account_name' => 'nullable',
-            'account_number' => 'nullable',
-        ];
-    }
-
-    public function customValidationMessages()
-    {
-        return [
-            'surname.required' => 'Surname is required.',
-            'first_name.required' => 'First name is required.',
-            'email.required' => 'Email is required.',
-            'email.email' => 'Email must be a valid email address.',
-            'email.unique' => 'Email already exists.',
-            'gender.in' => 'Gender must be male or female.',
-            'is_contractor.in' => 'Is Contractor must be Yes or No.',
-        ];
-    }
-
-
 } 

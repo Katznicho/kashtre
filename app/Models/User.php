@@ -101,6 +101,26 @@ class User extends Authenticatable
         return $this->belongsTo(Branch::class);
     }
 
+    public function qualification()
+    {
+        return $this->belongsTo(\App\Models\Qualification::class);
+    }
+
+    public function title()
+    {
+        return $this->belongsTo(\App\Models\Title::class);
+    }
+
+    public function department()
+    {
+        return $this->belongsTo(\App\Models\Department::class);
+    }
+
+    public function section()
+    {
+        return $this->belongsTo(\App\Models\Section::class);
+    }
+
     public function contractorProfile()
     {
         return $this->hasOne(ContractorProfile::class);

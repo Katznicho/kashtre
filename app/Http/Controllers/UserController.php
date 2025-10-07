@@ -298,7 +298,13 @@ class UserController extends Controller
                 return redirect()->back()->with('error', 'You can only access your own business.');
             }
             
-            $filename = 'staff_template_' . now()->format('Y_m_d_H_i_s') . '.xlsx';
+            $business = \App\Models\Business::find($businessId);
+            $branch = \App\Models\Branch::find($branchId);
+            
+            $businessName = str_replace(' ', '_', $business->name);
+            $branchName = str_replace(' ', '_', $branch->name);
+            
+            $filename = 'staff_template_' . $businessName . '_' . $branchName . '.xlsx';
             
             return Excel::download(
                 new StaffTemplateExport($businessId, $branchId),
