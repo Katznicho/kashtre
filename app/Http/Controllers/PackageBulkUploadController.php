@@ -101,6 +101,11 @@ class PackageBulkUploadController extends Controller
             $errorCount = $import->getErrorCount();
             $errors = $import->getErrors();
 
+            Log::info("=== IMPORT SUMMARY ===");
+            Log::info("Success count: {$successCount}");
+            Log::info("Error count: {$errorCount}");
+            Log::info("Errors: " . json_encode($errors));
+
             $message = "Import completed. Successfully imported {$successCount} packages/bulk items.";
             
             if ($errorCount > 0) {
@@ -108,12 +113,14 @@ class PackageBulkUploadController extends Controller
             }
 
             if (!empty($errors)) {
+                Log::info("Redirecting back with errors");
                 return redirect()->back()
                     ->with('success', $message)
                     ->with('import_errors', $errors);
             }
 
-            return redirect()->route('items.index')
+            Log::info("Redirecting back with success message");
+            return redirect()->back()
                 ->with('success', $message);
 
         } catch (\Exception $e) {
