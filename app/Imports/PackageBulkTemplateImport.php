@@ -94,6 +94,8 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         // Process each item column (Item1, Item2, Item3, etc.)
         for ($i = 1; $i <= 25; $i++) {
             $itemName = $data[$namesRow][$i] ?? null;
+            $itemType = $data[$typesRow][$i] ?? null;
+            $itemPrice = $data[$pricesRow][$i] ?? null;
             
             // Skip if no name or if name looks like template instructions
             if (empty($itemName) || 
@@ -105,24 +107,15 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 continue;
             }
             
-            // Also check if type and price are empty - if so, skip this item completely
-            $itemType = $data[$typesRow][$i] ?? null;
-            $itemPrice = $data[$pricesRow][$i] ?? null;
-            
-            if (empty($itemType) && empty($itemPrice)) {
-                Log::info("Skipping Item{$i}: No type or price data - '{$itemName}'");
-                continue;
-            }
-            
             // Skip if type is numeric (template artifacts)
             if (is_numeric($itemType)) {
                 Log::info("Skipping Item{$i}: Type is numeric (template artifact) - '{$itemType}'");
                 continue;
             }
             
-            // Skip if name is numeric (template artifacts)
-            if (is_numeric($itemName)) {
-                Log::info("Skipping Item{$i}: Name is numeric (template artifact) - '{$itemName}'");
+            // Skip if both type and price are empty
+            if (empty($itemType) && empty($itemPrice)) {
+                Log::info("Skipping Item{$i}: No type or price data - '{$itemName}'");
                 continue;
             }
             $itemDescription = $data[$descriptionsRow][$i] ?? null;
