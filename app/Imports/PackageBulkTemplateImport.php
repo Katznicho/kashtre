@@ -113,6 +113,12 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 Log::info("Skipping Item{$i}: No type or price data - '{$itemName}'");
                 continue;
             }
+            
+            // Skip if type is numeric (template artifacts)
+            if (is_numeric($itemType)) {
+                Log::info("Skipping Item{$i}: Type is numeric (template artifact) - '{$itemType}'");
+                continue;
+            }
             $itemDescription = $data[$descriptionsRow][$i] ?? null;
             $itemValidity = $data[$validityRow][$i] ?? null;
             $itemOtherNames = $data[$otherNamesRow][$i] ?? null;
@@ -262,6 +268,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 if ($item->type === 'package') {
                     $this->pendingIncludedItems[] = [
                         'type' => 'package',
+                        'business_id' => $this->businessId,
                         'package_item_id' => $item->id,
                         'included_item_id' => $constituentItem->id,
                         'max_quantity' => (int) $quantity,
@@ -271,6 +278,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 } elseif ($item->type === 'bulk') {
                     $this->pendingIncludedItems[] = [
                         'type' => 'bulk',
+                        'business_id' => $this->businessId,
                         'bulk_item_id' => $item->id,
                         'included_item_id' => $constituentItem->id,
                         'fixed_quantity' => (int) $quantity,
