@@ -62,6 +62,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         $validityRow = null;
         $otherNamesRow = null;
         $branchPriceRows = [];
+        $constituentsHeaderRow = null;
         
         foreach ($data as $index => $row) {
             if (isset($row[0]) && $row[0] === 'Name') {
@@ -82,6 +83,9 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                     'index' => $index,
                     'branch_name' => str_replace(' - Price', '', $row[0])
                 ];
+            } elseif (isset($row[0]) && strpos($row[0], 'Constituents') !== false) {
+                // This is the constituents header row
+                $constituentsHeaderRow = $index;
             }
         }
         
@@ -118,9 +122,10 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             // Create the item
             $item = $this->createPackageBulkItem($itemName, $itemType, $itemPrice, $itemDescription, $itemValidity, $itemOtherNames, $i);
             
-            // If item was created successfully, capture branch prices
+            // If item was created successfully, capture branch prices and constituent items
             if ($item) {
                 $this->captureBranchPrices($data, $branchPriceRows, $item, $i);
+                $this->captureConstituentItems($data, $constituentsHeaderRow, $item, $i);
             }
         }
     }
@@ -214,6 +219,73 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 Log::info("No price found for {$branchName} in column {$columnIndex}");
             }
         }
+    }
+    
+    private function captureConstituentItems($data, $constituentsHeaderRow, $item, $itemNumber)
+    {
+        if (!$constituentsHeaderRow) {
+            Log::info("No constituents header row found for Item{$itemNumber}");
+            return;
+        }
+        
+        Log::info("=== CAPTURING CONSTITUENT ITEMS FOR ITEM {$itemNumber} ===");
+        Log::info("Item: {$item->name} (ID: {$item->id}, Type: {$item->type})");
+        Log::info("Constituents header row: " . ($constituentsHeaderRow + 1));
+        
+        // Process constituent items starting from the row after the header
+        $constituentRow = $constituentsHeaderRow + 1;
+        $constituentCount = 0;
+        
+        // Look for constituent items in the next 30 rows
+        for ($row = $constituentRow; $row < $constituentRow + 30; $row++) {
+            if (!isset($data[$row]) || !isset($data[$row][0])) {
+                continue;
+            }
+            
+            $constituentName = $data[$row][0];
+            $quantity = $data[$row][$itemNumber] ?? null; // Get quantity from the item's column
+            
+            // Skip if no constituent name or quantity
+            if (empty($constituentName) || empty($quantity) || !is_numeric($quantity)) {
+                continue;
+            }
+            
+            // Find the constituent item in the database
+            $constituentItem = Item::where('business_id', $this->businessId)
+                ->where('name', $constituentName)
+                ->whereIn('type', ['service', 'good'])
+                ->first();
+            
+            if ($constituentItem) {
+                $constituentCount++;
+                
+                if ($item->type === 'package') {
+                    $this->pendingIncludedItems[] = [
+                        'type' => 'package',
+                        'package_item_id' => $item->id,
+                        'included_item_id' => $constituentItem->id,
+                        'max_quantity' => (int) $quantity,
+                        'item_name' => $item->name,
+                        'constituent_name' => $constituentItem->name
+                    ];
+                } elseif ($item->type === 'bulk') {
+                    $this->pendingIncludedItems[] = [
+                        'type' => 'bulk',
+                        'bulk_item_id' => $item->id,
+                        'included_item_id' => $constituentItem->id,
+                        'fixed_quantity' => (int) $quantity,
+                        'item_name' => $item->name,
+                        'constituent_name' => $constituentItem->name
+                    ];
+                }
+                
+                Log::info("Found constituent: {$constituentName} (Qty: {$quantity})");
+            } else {
+                Log::warning("Constituent item not found in database: {$constituentName}");
+            }
+        }
+        
+        Log::info("Captured {$constituentCount} constituent items for Item{$itemNumber}");
     }
     
     public function model(array $row)
