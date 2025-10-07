@@ -220,8 +220,8 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             Log::info("Available row keys: " . implode(', ', array_keys($row)));
         }
         
-        // Process up to 3 constituent items (simplified structure)
-        for ($i = 1; $i <= 3; $i++) {
+        // Process up to 25 constituent items (expandable structure)
+        for ($i = 1; $i <= 25; $i++) {
             $itemNameKey = $this->normalizeColumnName("item{$i}");
             $quantityKey = $this->normalizeColumnName("qty{$i}");
             
@@ -266,8 +266,8 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         $validConstituentItems = 0;
         $totalChecked = 0;
         
-        // Check up to 3 constituent items
-        for ($i = 1; $i <= 3; $i++) {
+        // Check up to 25 constituent items
+        for ($i = 1; $i <= 25; $i++) {
             $itemNameKey = $this->normalizeColumnName("item{$i}");
             $quantityKey = $this->normalizeColumnName("qty{$i}");
             
@@ -320,7 +320,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         $rowNumber = $this->getRowNumber() + 1;
         $missingItems = [];
         
-        for ($i = 1; $i <= 3; $i++) {
+        for ($i = 1; $i <= 25; $i++) {
             $itemNameKey = $this->normalizeColumnName("item{$i}");
             $quantityKey = $this->normalizeColumnName("qty{$i}");
 

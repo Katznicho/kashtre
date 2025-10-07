@@ -50,43 +50,47 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
             ->toArray();
         
         $templateData = [
-            // Row 1: Column headers (Item1, Item2, Item3)
-            ['Package/Bulk Item Name', 'Item1', 'Item2', 'Item3'],
+            // Row 1: Column headers (Item1 through Item15 - expandable to 25)
+            ['Package/Bulk Item Name', 'Item1', 'Item2', 'Item3', 'Item4', 'Item5', 'Item6', 'Item7', 'Item8', 'Item9', 'Item10', 'Item11', 'Item12', 'Item13', 'Item14', 'Item15'],
             
-            // Row 2: Code
-            ['Code (Auto-generated if empty)', '', '', ''],
+            // Row 2: Name
+            ['Name', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
             
-            // Row 3: Type
-            ['Type (package/bulk)', '', '', ''],
+            // Row 3: Code
+            ['Code (Auto-generated if empty)', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
             
-            // Row 4: Description
-            ['Description', '', '', ''],
+            // Row 4: Type
+            ['Type (package/bulk)', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
             
-            // Row 5: Default Price
-            ['Default Price', '', '', ''],
+            // Row 5: Description
+            ['Description', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
             
-            // Row 6: Validity Period
-            ['Validity Period (Days) - Required for packages', '', '', ''],
+            // Row 6: Default Price
+            ['Default Price', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
             
-            // Row 7: Other Names
-            ['Other Names', '', '', ''],
+            // Row 7: Validity Period
+            ['Validity Period (Days) - Required for packages', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+            
+            // Row 8: Other Names
+            ['Other Names', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
         ];
         
-        // Add branch price rows dynamically
+        // Add branch price rows dynamically (expand to 15 items)
         foreach ($branches as $branch) {
-            $templateData[] = [$branch->name . ' - Price', '', '', ''];
+            $templateData[] = [$branch->name . ' - Price', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
         }
         
         // Add empty row for spacing
-        $templateData[] = ['', '', '', ''];
-        $templateData[] = ['', '', '', ''];
+        $templateData[] = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+        $templateData[] = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
         
-        // Add constituents header row
-        $templateData[] = ['Constituents(full items list where type is good/service', 'Qty', 'Qty', 'Qty'];
+        // Add constituents header row (expandable - start with 15, users can add more)
+        $templateData[] = ['Constituents(full items list where type is good/service)', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty', 'Qty'];
         
-        // Add available items as reference
-        foreach ($availableItems as $item) {
-            $templateData[] = [$item, '', '', ''];
+        // Add rows with dropdowns for constituent items (at least 30 rows for user selection)
+        // Users will select items from dropdown in column A
+        for ($i = 0; $i < 30; $i++) {
+            $templateData[] = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']; // Empty cells - dropdown will be added via validation
         }
         
         return $templateData;
@@ -158,10 +162,11 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
         $startRow = 2;
         $endRow = 1000;
         
-        // Add data validation for Type row (row 3, columns B, C, D)
-        $typeColumns = ['B', 'C', 'D'];
+        // Add data validation for Type row (row 4, columns B through Z for Item1-Item25)
+        // This automatically supports up to 25 items (B through Z)
+        $typeColumns = ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
         foreach ($typeColumns as $column) {
-            $validation = $worksheet->getCell($column . '3')->getDataValidation();
+            $validation = $worksheet->getCell($column . '4')->getDataValidation();
             $validation->setType(DataValidation::TYPE_LIST);
             $validation->setErrorStyle(DataValidation::STYLE_STOP);
             $validation->setAllowBlank(false);
@@ -176,38 +181,54 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
         }
         
         // Calculate constituents header row
-        $constituentsHeaderRow = 7 + $branches->count() + 2;
+        // 8 base rows (header + name + code + type + description + price + validity + other names) + branches + 2 empty rows
+        $constituentsHeaderRow = 8 + $branches->count() + 2;
         
-        // Add data validation for Constituent Items (columns B, C, D for Item1, Item2, Item3)
-        // Start from the row after constituents header
-        $itemColumns = ['B', 'C', 'D']; // Item1, Item2, Item3 columns
-        $availableItemsCount = count($items);
+        // Add data validation for Constituent Items
+        // Add 30 rows with dropdowns for constituent item selection
+        $numberOfConstituentRows = 30;
         
         Log::info("=== PACKAGE/BULK TEMPLATE DEBUG ===");
-        Log::info("Available items count: " . $availableItemsCount);
+        Log::info("Available items count: " . count($items));
         Log::info("Constituents header row: " . $constituentsHeaderRow);
-        Log::info("Item columns: " . implode(', ', $itemColumns));
+        Log::info("Number of constituent rows: " . $numberOfConstituentRows);
         
-        foreach ($itemColumns as $column) {
-            // Add dropdown validation for all rows from constituents header + 1 to end of available items
-            for ($row = $constituentsHeaderRow + 1; $row <= $constituentsHeaderRow + $availableItemsCount; $row++) {
-                $validation = $worksheet->getCell($column . $row)->getDataValidation();
-                $validation->setType(DataValidation::TYPE_LIST);
-                $validation->setErrorStyle(DataValidation::STYLE_STOP);
-                $validation->setAllowBlank(true);
-                $validation->setShowInputMessage(true);
-                $validation->setShowErrorMessage(true);
-                $validation->setShowDropDown(true);
-                $validation->setFormula1('"' . implode(',', $items) . '"');
-                $validation->setErrorTitle('Invalid Constituent Item');
-                $validation->setError('Please select a valid constituent item (service or good)');
-                $validation->setPromptTitle('Select Constituent Item');
-                $validation->setPrompt('Choose a constituent item from the dropdown');
-            }
+        // Add dropdown to COLUMN A (the item name column) for constituent items
+        // Users select which constituent item from the dropdown in column A
+        for ($row = $constituentsHeaderRow + 1; $row <= $constituentsHeaderRow + $numberOfConstituentRows; $row++) {
+            $validation = $worksheet->getCell('A' . $row)->getDataValidation();
+            $validation->setType(DataValidation::TYPE_LIST);
+            $validation->setErrorStyle(DataValidation::STYLE_STOP);
+            $validation->setAllowBlank(true);
+            $validation->setShowInputMessage(true);
+            $validation->setShowErrorMessage(true);
+            $validation->setShowDropDown(true);
+            $validation->setFormula1('"' . implode(',', $items) . '"');
+            $validation->setErrorTitle('Invalid Constituent Item');
+            $validation->setError('Please select a valid constituent item (service or good)');
+            $validation->setPromptTitle('Select Constituent Item');
+            $validation->setPrompt('Choose a constituent item from the dropdown');
         }
         
-        // Add helpful instructions
-        $this->addInstructions($worksheet);
+        // Add clear instructions for expanding template
+        $worksheet->setCellValue('P1', 'TEMPLATE SUPPORTS UP TO 25 ITEMS');
+        $worksheet->setCellValue('P2', 'Default: Item1-Item15 (columns B-P)');
+        $worksheet->setCellValue('P3', 'To add more:');
+        $worksheet->setCellValue('P4', '1. Add columns Q, R, S, T, U...');
+        $worksheet->setCellValue('P5', '2. Label as Item16, Item17, Item18...');
+        $worksheet->setCellValue('P6', '3. Type dropdowns auto-added');
+        $worksheet->setCellValue('P7', '4. Add Qty columns in constituents');
+        $worksheet->setCellValue('P8', '5. Copy pattern from Item1');
+        
+        // Style the instructions
+        $worksheet->getStyle('P1')->getFont()->setBold(true);
+        $worksheet->getStyle('P1')->getFont()->setSize(11);
+        $worksheet->getStyle('P1')->getFont()->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('0066CC'));
+        for ($i = 2; $i <= 8; $i++) {
+            $worksheet->getStyle('P' . $i)->getFont()->setSize(9);
+        }
+        
+        // Instructions removed as per user request
     }
 
     /**
@@ -230,10 +251,11 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
     {
         // Add simple instructions at the top
         $worksheet->setCellValue('E1', 'INSTRUCTIONS:');
-        $worksheet->setCellValue('E2', '1. Fill package/bulk details in columns B, C, D');
-        $worksheet->setCellValue('E3', '2. Use Type dropdown (package/bulk)');
-        $worksheet->setCellValue('E4', '3. Select constituent items from dropdown list below');
-        $worksheet->setCellValue('E5', '4. Enter quantities for each constituent item');
+        $worksheet->setCellValue('E2', '1. Type package/bulk names in columns B, C, D');
+        $worksheet->setCellValue('E3', '2. Use Type dropdown to select package/bulk');
+        $worksheet->setCellValue('E4', '3. Scroll to Constituents section below');
+        $worksheet->setCellValue('E5', '4. Select constituent items from Column A dropdown');
+        $worksheet->setCellValue('E6', '5. Enter quantities in Qty columns (B, C, D)');
         
         $worksheet->getStyle('E1')->getFont()->setBold(true);
     }
