@@ -158,6 +158,13 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         return null;
     }
 
+    public function onError(\Throwable $e)
+    {
+        Log::error("Import error: " . $e->getMessage());
+        $this->errorCount++;
+        $this->errors[] = "Import error: " . $e->getMessage();
+    }
+
     public function createBranchPrices()
     {
         Log::info("=== CREATING BRANCH PRICES ===");
