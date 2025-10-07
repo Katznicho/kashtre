@@ -29,6 +29,11 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         $this->businessId = $businessId;
         // Load branches for this business
         $this->branches = Branch::where('business_id', $businessId)->orderBy('name')->get();
+        
+        Log::info("=== PACKAGE/BULK IMPORT INITIALIZED ===");
+        Log::info("Business ID: {$businessId}");
+        Log::info("Branches found: " . count($this->branches));
+        Log::info("Template supports up to 25 constituent items (Item1-Item25)");
     }
 
     public function model(array $row)
@@ -41,6 +46,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 Log::info("=== PROCESSING PACKAGE/BULK ROW ===");
                 Log::info("Row number: " . $rowNumber);
                 Log::info("Row data: " . json_encode($row));
+                Log::info("Available columns: " . implode(', ', array_keys($row)));
             }
             
             // Find the type column - use the correct column name from Laravel Excel
@@ -221,6 +227,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         }
         
         // Process up to 25 constituent items (expandable structure)
+        // Support for Item1-Item25 (columns B through Z in the template)
         for ($i = 1; $i <= 25; $i++) {
             $itemNameKey = $this->normalizeColumnName("item{$i}");
             $quantityKey = $this->normalizeColumnName("qty{$i}");
@@ -248,6 +255,14 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 'main_item_name' => $mainItemName,
                 'included_items' => $includedItemsData
             ];
+            
+            if ($rowNumber <= 2) {
+                Log::info("✅ FOUND " . count($includedItemsData) . " CONSTITUENT ITEMS for {$mainItemName}");
+            }
+        } else {
+            if ($rowNumber <= 2) {
+                Log::info("⚠️ NO CONSTITUENT ITEMS FOUND for {$mainItemName}");
+            }
         }
     }
 
@@ -266,7 +281,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         $validConstituentItems = 0;
         $totalChecked = 0;
         
-        // Check up to 25 constituent items
+        // Check up to 25 constituent items (Item1-Item25, columns B-Z)
         for ($i = 1; $i <= 25; $i++) {
             $itemNameKey = $this->normalizeColumnName("item{$i}");
             $quantityKey = $this->normalizeColumnName("qty{$i}");
@@ -320,6 +335,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         $rowNumber = $this->getRowNumber() + 1;
         $missingItems = [];
         
+        // Check up to 25 constituent items (Item1-Item25, columns B-Z)
         for ($i = 1; $i <= 25; $i++) {
             $itemNameKey = $this->normalizeColumnName("item{$i}");
             $quantityKey = $this->normalizeColumnName("qty{$i}");
