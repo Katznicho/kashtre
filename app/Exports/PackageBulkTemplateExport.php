@@ -181,7 +181,7 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
         }
         
         // Calculate constituents header row
-        // 8 base rows (header + name + code + type + description + price + validity + other names) + branches + 2 empty rows
+        // 8 base rows + branches + 2 empty rows = the row where constituents header is
         $constituentsHeaderRow = 8 + $branches->count() + 2;
         
         // Add data validation for Constituent Items
@@ -190,10 +190,13 @@ class PackageBulkTemplateExport implements FromArray, WithHeadings, WithStyles, 
         
         Log::info("=== PACKAGE/BULK TEMPLATE DEBUG ===");
         Log::info("Available items count: " . count($items));
+        Log::info("Branches count: " . $branches->count());
         Log::info("Constituents header row: " . $constituentsHeaderRow);
-        Log::info("Number of constituent rows: " . $numberOfConstituentRows);
+        Log::info("Validation will start from row: " . ($constituentsHeaderRow + 1));
+        Log::info("Validation will end at row: " . ($constituentsHeaderRow + $numberOfConstituentRows));
         
         // Add dropdown to COLUMN A (the item name column) for constituent items
+        // IMPORTANT: Start from $constituentsHeaderRow + 1 to SKIP the header row
         // Users select which constituent item from the dropdown in column A
         for ($row = $constituentsHeaderRow + 1; $row <= $constituentsHeaderRow + $numberOfConstituentRows; $row++) {
             $validation = $worksheet->getCell('A' . $row)->getDataValidation();
