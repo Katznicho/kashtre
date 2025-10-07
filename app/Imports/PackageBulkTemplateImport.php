@@ -52,11 +52,57 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 Log::info("Type value: " . ($row['type_packagebulk'] ?? 'NOT FOUND'));
             }
             
-            // Find the type column - use the correct column name from Laravel Excel
-            $typeValue = $row['type_packagebulk'] ?? null;
+            // For horizontal template, we need to process each item column
+            // The template structure is: Row 1=headers, Row 2=names, Row 3=codes, Row 4=types, etc.
+            // We need to extract data from each column (Item1, Item2, Item3, etc.)
+            
+            $itemData = [];
+            
+            // Process each item column (Item1, Item2, Item3, etc.)
+            for ($i = 1; $i <= 25; $i++) {
+                $itemNameKey = $this->normalizeColumnName("item{$i}");
+                
+                if (!empty($row[$itemNameKey])) {
+                    // Get the corresponding data from other rows
+                    $typeKey = $this->normalizeColumnName("type{$i}");
+                    $priceKey = $this->normalizeColumnName("price{$i}");
+                    $validityKey = $this->normalizeColumnName("validity{$i}");
+                    $descriptionKey = $this->normalizeColumnName("description{$i}");
+                    $otherNamesKey = $this->normalizeColumnName("other_names{$i}");
+                    
+                    $itemData[] = [
+                        'name' => $row[$itemNameKey],
+                        'type' => $row[$typeKey] ?? null,
+                        'price' => $row[$priceKey] ?? null,
+                        'validity' => $row[$validityKey] ?? null,
+                        'description' => $row[$descriptionKey] ?? null,
+                        'other_names' => $row[$otherNamesKey] ?? null,
+                        'item_number' => $i
+                    ];
+                }
+            }
+            
+            // If no items found, skip this row
+            if (empty($itemData)) {
+                if ($rowNumber <= 2) {
+                    Log::info("No items found in row, skipping");
+                }
+                return null;
+            }
+            
+            if ($rowNumber <= 2) {
+                Log::info("Found " . count($itemData) . " items in row");
+                foreach ($itemData as $item) {
+                    Log::info("Item: " . $item['name'] . " (Type: " . $item['type'] . ", Price: " . $item['price'] . ")");
+                }
+            }
+            
+            // Process the first item for now (we can extend this later)
+            $firstItem = $itemData[0];
+            $typeValue = $firstItem['type'];
             
             // Manual validation
-            if (empty($row['name'])) {
+            if (empty($firstItem['name'])) {
                 $this->errors[] = "Row " . ($this->getRowNumber() + 1) . ": Name is required";
                 $this->errorCount++;
                 return null;
