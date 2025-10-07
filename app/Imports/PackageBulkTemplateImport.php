@@ -97,11 +97,18 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                 strpos($itemName, 'Default:') !== false || 
                 strpos($itemName, 'Add columns') !== false ||
                 strpos($itemName, 'Type dropdowns') !== false) {
+                Log::info("Skipping Item{$i}: Empty or template instruction - '{$itemName}'");
                 continue;
             }
             
+            // Also check if type and price are empty - if so, skip this item completely
             $itemType = $data[$typesRow][$i] ?? null;
             $itemPrice = $data[$pricesRow][$i] ?? null;
+            
+            if (empty($itemType) && empty($itemPrice)) {
+                Log::info("Skipping Item{$i}: No type or price data - '{$itemName}'");
+                continue;
+            }
             $itemDescription = $data[$descriptionsRow][$i] ?? null;
             $itemValidity = $data[$validityRow][$i] ?? null;
             $itemOtherNames = $data[$otherNamesRow][$i] ?? null;
@@ -136,7 +143,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             
             if (!in_array(strtolower($type), ['package', 'bulk'])) {
                 $this->errors[] = "Item{$itemNumber}: Type must be 'package' or 'bulk', got '{$type}'";
-                $this->errorCount++;
+                    $this->errorCount++;
                 return;
             }
             
@@ -164,7 +171,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             $this->successCount++;
             
             return $item;
-            
+
         } catch (\Exception $e) {
             Log::error("Error creating item {$name}: " . $e->getMessage());
             $this->errors[] = "Item{$itemNumber}: Error creating item - " . $e->getMessage();
@@ -172,7 +179,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             return null;
         }
     }
-    
+
     private function captureBranchPrices($data, $branchPriceRows, $item, $itemNumber)
     {
         Log::info("=== CAPTURING BRANCH PRICES FOR ITEM {$itemNumber} ===");
@@ -263,7 +270,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         
         foreach ($this->pendingIncludedItems as $includedItemData) {
             try {
-                if ($includedItemData['type'] === 'package') {
+                    if ($includedItemData['type'] === 'package') {
                     PackageItem::create($includedItemData);
                 } elseif ($includedItemData['type'] === 'bulk') {
                     BulkItem::create($includedItemData);
@@ -314,4 +321,4 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
     {
         return strtolower(str_replace([' ', '-', '(', ')'], ['_', '_', '', ''], $name));
     }
-}
+} 
