@@ -84,18 +84,25 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         for ($i = 1; $i <= 25; $i++) {
             $itemName = $data[$namesRow][$i] ?? null;
             
-            if (!empty($itemName)) {
-                $itemType = $data[$typesRow][$i] ?? null;
-                $itemPrice = $data[$pricesRow][$i] ?? null;
-                $itemDescription = $data[$descriptionsRow][$i] ?? null;
-                $itemValidity = $data[$validityRow][$i] ?? null;
-                $itemOtherNames = $data[$otherNamesRow][$i] ?? null;
-                
-                Log::info("Processing Item{$i}: {$itemName} (Type: {$itemType}, Price: {$itemPrice})");
-                
-                // Create the item
-                $this->createPackageBulkItem($itemName, $itemType, $itemPrice, $itemDescription, $itemValidity, $itemOtherNames, $i);
+            // Skip if no name or if name looks like template instructions
+            if (empty($itemName) || 
+                is_numeric($itemName) || 
+                strpos($itemName, 'Default:') !== false || 
+                strpos($itemName, 'Add columns') !== false ||
+                strpos($itemName, 'Type dropdowns') !== false) {
+                continue;
             }
+            
+            $itemType = $data[$typesRow][$i] ?? null;
+            $itemPrice = $data[$pricesRow][$i] ?? null;
+            $itemDescription = $data[$descriptionsRow][$i] ?? null;
+            $itemValidity = $data[$validityRow][$i] ?? null;
+            $itemOtherNames = $data[$otherNamesRow][$i] ?? null;
+            
+            Log::info("Processing Item{$i}: {$itemName} (Type: {$itemType}, Price: {$itemPrice})");
+            
+            // Create the item
+            $this->createPackageBulkItem($itemName, $itemType, $itemPrice, $itemDescription, $itemValidity, $itemOtherNames, $i);
         }
     }
     
