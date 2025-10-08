@@ -49,15 +49,36 @@ class Item extends Model
     {
         $prefix = 'ITM';
         
-        // Use microtime to ensure uniqueness even in concurrent imports
-        $timestamp = microtime(true);
-        $microseconds = ($timestamp - floor($timestamp)) * 1000000;
-        $uniqueId = floor($timestamp) . str_pad($microseconds, 6, '0', STR_PAD_LEFT);
+        // Try up to 10 times to generate a unique code
+        $attempts = 0;
+        do {
+            // Use microtime + random to ensure uniqueness even in concurrent imports
+            $timestamp = microtime(true);
+            $microseconds = ($timestamp - floor($timestamp)) * 1000000;
+            $random = mt_rand(0, 99); // Add randomness
+            $uniqueId = floor($timestamp) . str_pad($microseconds, 6, '0', STR_PAD_LEFT) . $random;
+            
+            // Get the last 6 digits for the code
+            $codeNumber = substr($uniqueId, -6);
+            $code = $prefix . $codeNumber;
+            
+            // Check if code already exists
+            $exists = self::where('code', $code)->exists();
+            $attempts++;
+            
+            if (!$exists) {
+                return $code;
+            }
+            
+            // Small delay to ensure different microtime
+            usleep(100); // 0.1ms delay
+            
+        } while ($attempts < 10);
         
-        // Get the last 6 digits for the code
-        $codeNumber = substr($uniqueId, -6);
-        
-        return $prefix . $codeNumber;
+        // Fallback: use a simple incrementing number
+        $lastItem = self::orderBy('id', 'desc')->first();
+        $nextNumber = $lastItem ? ($lastItem->id + 1) : 1;
+        return $prefix . str_pad($nextNumber, 6, '0', STR_PAD_LEFT);
     }
 
     public function business()

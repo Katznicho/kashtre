@@ -440,6 +440,23 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         Log::info("=== INCLUDED ITEMS CREATION COMPLETED ===");
         Log::info("Successfully created: {$successCount} included items");
         Log::info("Errors encountered: {$errorCount} included items");
+        
+        // Verify and log constituent items count for each package/bulk
+        Log::info("=== VERIFICATION: CONSTITUENT ITEMS IN DATABASE ===");
+        $packageBulkItems = Item::whereIn('type', ['package', 'bulk'])
+            ->where('business_id', $this->businessId)
+            ->get();
+            
+        foreach ($packageBulkItems as $item) {
+            if ($item->type === 'package') {
+                $constituentCount = $item->packageItems()->count();
+                Log::info("✓ {$item->name} (package): {$constituentCount} constituent items in database");
+            } elseif ($item->type === 'bulk') {
+                $constituentCount = $item->bulkItems()->count();
+                Log::info("✓ {$item->name} (bulk): {$constituentCount} constituent items in database");
+            }
+        }
+        
         Log::info("Included items creation completed");
     }
 
