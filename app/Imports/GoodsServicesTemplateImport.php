@@ -229,9 +229,7 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             
             // If code is provided, check if it already exists
             if ($code) {
-                $existingItem = Item::where('code', $code)
-                    ->where('business_id', $this->businessId)
-                    ->first();
+                $existingItem = Item::where('code', $code)->first(); // Check globally, not just business
                 
                 if ($existingItem) {
                     $error = "Row {$rowNumber}: Code '{$code}' already exists for item '{$existingItem->name}'. Please use a different code or leave empty for auto-generation.";

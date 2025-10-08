@@ -1,0 +1,18 @@
+# ModSecurity Exception Rules for File Uploads
+# Add these to your .htaccess or Apache config if ModSecurity is blocking uploads
+
+<IfModule mod_security2.c>
+    # Disable ModSecurity for bulk upload routes
+    <LocationMatch "/items/bulk-upload/import">
+        SecRuleEngine Off
+    </LocationMatch>
+    
+    <LocationMatch "/package-bulk-upload/import">
+        SecRuleEngine Off
+    </LocationMatch>
+    
+    # OR disable specific rules instead of turning it completely off
+    # SecRuleRemoveById 981173
+    # SecRuleRemoveById 950901
+</IfModule>
+
