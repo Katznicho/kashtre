@@ -256,8 +256,11 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         $constituentRow = $constituentsHeaderRow + 1;
         $constituentCount = 0;
         
-        // Look for constituent items in the next 30 rows
-        for ($row = $constituentRow; $row < $constituentRow + 30; $row++) {
+        // Look for constituent items in ALL rows until end of data (no limit)
+        $maxRows = count($data);
+        Log::info("Will scan up to " . ($maxRows - $constituentRow) . " rows for constituent items");
+        
+        for ($row = $constituentRow; $row < $maxRows; $row++) {
             if (!isset($data[$row]) || !isset($data[$row][0])) {
                 continue;
             }
@@ -330,7 +333,13 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             }
         }
         
-        Log::info("Captured {$constituentCount} constituent items for Item{$itemNumber}");
+        Log::info("=== CONSTITUENT ITEMS CAPTURE SUMMARY ===");
+        Log::info("Item: {$item->name} ({$item->type})");
+        Log::info("Total constituent items found and captured: {$constituentCount}");
+        
+        if ($constituentCount === 0) {
+            Log::warning("WARNING: No constituent items were captured for this {$item->type} item!");
+        }
     }
     
     public function model(array $row)
@@ -374,12 +383,27 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
 
     public function createIncludedItems()
     {
-        Log::info("=== CREATING INCLUDED ITEMS ===");
-        Log::info("Pending included items count: " . count($this->pendingIncludedItems));
+        Log::info("=== CREATING INCLUDED ITEMS (PACKAGE/BULK CONSTITUENTS) ===");
+        Log::info("Total pending included items to save: " . count($this->pendingIncludedItems));
         
         if (empty($this->pendingIncludedItems)) {
             Log::warning("No pending included items to process");
             return;
+        }
+        
+        // Group by item to show summary
+        $itemGroups = [];
+        foreach ($this->pendingIncludedItems as $includedItemData) {
+            $itemName = $includedItemData['item_name'];
+            if (!isset($itemGroups[$itemName])) {
+                $itemGroups[$itemName] = 0;
+            }
+            $itemGroups[$itemName]++;
+        }
+        
+        Log::info("=== CONSTITUENT ITEMS BREAKDOWN ===");
+        foreach ($itemGroups as $itemName => $count) {
+            Log::info("  ► {$itemName}: {$count} constituent items");
         }
         
         $successCount = 0;
