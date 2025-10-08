@@ -35,7 +35,7 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         Log::info("=== PACKAGE/BULK IMPORT INITIALIZED ===");
         Log::info("Business ID: {$businessId}");
         Log::info("Branches found: " . count($this->branches));
-        Log::info("Template supports up to 25 constituent items (Item1-Item25)");
+        Log::info("Template supports unlimited constituent items (dynamically detected from Excel)");
     }
     
     public function registerEvents(): array
@@ -89,10 +89,17 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             }
         }
         
-        Log::info("Found rows - Names: " . ($namesRow + 1) . ", Types: " . ($typesRow + 1) . ", Prices: " . ($pricesRow + 1));
+        // Detect the maximum number of columns by checking the names row
+        $maxColumns = 0;
+        if ($namesRow !== null && isset($data[$namesRow])) {
+            $maxColumns = count($data[$namesRow]);
+        }
         
-        // Process each item column (Item1, Item2, Item3, etc.)
-        for ($i = 1; $i <= 25; $i++) {
+        Log::info("Found rows - Names: " . ($namesRow + 1) . ", Types: " . ($typesRow + 1) . ", Prices: " . ($pricesRow + 1));
+        Log::info("Maximum columns detected: " . $maxColumns . " (will process all items, no 25-item limit)");
+        
+        // Process each item column (Item1, Item2, Item3, etc.) - dynamically based on actual columns
+        for ($i = 1; $i < $maxColumns; $i++) {
             $itemName = $data[$namesRow][$i] ?? null;
             $itemType = $data[$typesRow][$i] ?? null;
             $itemPrice = $data[$pricesRow][$i] ?? null;
