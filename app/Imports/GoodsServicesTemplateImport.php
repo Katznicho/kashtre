@@ -232,16 +232,16 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
                 $existingItem = Item::where('code', $code)->first(); // Check globally, not just business
                 
                 if ($existingItem) {
-                    $error = "Row {$rowNumber}: Code '{$code}' already exists for item '{$existingItem->name}'. Please use a different code or leave empty for auto-generation.";
-                    Log::error($error);
-                    $this->errors[] = $error;
-                    $this->errorCount++;
-                    return null;
+                    // Code already exists, auto-generate a new one instead of failing
+                    Log::warning("Row {$rowNumber}: Code '{$code}' already exists for item '{$existingItem->name}'. Auto-generating new code.");
+                    $code = null; // Set to null to trigger auto-generation
                 } else {
                     Log::info("Row {$rowNumber}: Code '{$code}' is available");
                 }
-            } else {
-                Log::info("Row {$rowNumber}: No code provided, will auto-generate");
+            }
+            
+            if (!$code) {
+                Log::info("Row {$rowNumber}: No code provided or duplicate detected, will auto-generate");
             }
             
             // Create the item with default pricing as fallback
