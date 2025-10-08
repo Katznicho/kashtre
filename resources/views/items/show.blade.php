@@ -82,7 +82,7 @@
                         @if($item->contractor && $item->hospital_share < 100)
                         <div>
                             <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Contractor</label>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->contractor->account_name ?? 'N/A' }}</p>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->contractor->user->name ?? 'N/A' }}</p>
                         </div>
                         @endif
                     </div>
