@@ -77,9 +77,10 @@ class SimpleItems extends Component implements HasForms, HasTable
                     ->label('Company/Entity')
                     ->formatStateUsing(fn (string $state): string => $state . '%')
                     ->sortable(),
-                TextColumn::make('contractor.user.name')
+                TextColumn::make('contractor.account_name')
                     ->label('Contractor')
-                    ->sortable(),
+                    ->sortable()
+                    ->visible(fn ($record) => $record->hospital_share < 100),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
