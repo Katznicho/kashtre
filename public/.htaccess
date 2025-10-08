@@ -5,6 +5,13 @@
 
     RewriteEngine On
 
+    # Disable ModSecurity for file upload routes to prevent 403 errors
+    <IfModule mod_security2.c>
+        <LocationMatch "/(items|package-bulk-upload)/bulk-upload/import">
+            SecRuleEngine Off
+        </LocationMatch>
+    </IfModule>
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
