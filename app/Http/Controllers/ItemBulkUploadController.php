@@ -68,9 +68,13 @@ class ItemBulkUploadController extends Controller
     public function import(Request $request)
     {
         Log::info("=== GOODS & SERVICES IMPORT REQUEST STARTED ===");
-        Log::info("User: " . (Auth::user()->name ?? 'Unknown') . " (ID: " . Auth::user()->id . ")");
-        Log::info("Business ID: " . $request->business_id);
+        Log::info("User: " . (Auth::user()->name ?? 'Unknown') . " (ID: " . (Auth::user()->id ?? 'N/A') . ")");
+        Log::info("Business ID: " . ($request->business_id ?? 'Not provided'));
         Log::info("File: " . ($request->file('file') ? $request->file('file')->getClientOriginalName() : 'No file'));
+        Log::info("File Size: " . ($request->file('file') ? $request->file('file')->getSize() . ' bytes' : 'N/A'));
+        Log::info("File MIME: " . ($request->file('file') ? $request->file('file')->getMimeType() : 'N/A'));
+        Log::info("Request Method: " . $request->method());
+        Log::info("Request IP: " . $request->ip());
         Log::info("Timestamp: " . now()->toDateTimeString());
         
         $request->validate([
