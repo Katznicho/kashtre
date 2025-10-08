@@ -80,7 +80,7 @@ class SimpleItems extends Component implements HasForms, HasTable
                 TextColumn::make('contractor.user.name')
                     ->label('Contractor')
                     ->sortable()
-                    ->visible(fn ($record) => $record->hospital_share < 100),
+                    ->visible(fn ($record) => $record && $record->hospital_share < 100),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
