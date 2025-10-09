@@ -34,10 +34,12 @@ class Dashboard extends Component
             
             $this->balance = $balanceHistory ? $balanceHistory->calculated_balance : 0;
             
-            // Get assigned service points for this contractor
-            $this->assignedServicePoints = \App\Models\ServicePoint::whereHas('serviceDeliveryQueues', function($query) use ($user) {
-                $query->where('started_by_user_id', $user->id);
-            })->distinct()->get();
+            // Get assigned service points for this contractor from user's service_points field
+            if ($user->service_points && is_array($user->service_points) && count($user->service_points) > 0) {
+                $this->assignedServicePoints = \App\Models\ServicePoint::whereIn('id', $user->service_points)->get();
+            } else {
+                $this->assignedServicePoints = collect([]);
+            }
         } else {
             // Regular staff dashboard
             $this->business = $user->business;
