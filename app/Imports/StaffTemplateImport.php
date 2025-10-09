@@ -9,7 +9,6 @@ use App\Models\Business;
 use App\Models\Branch;
 use App\Models\Qualification;
 use App\Models\Department;
-use App\Models\Section;
 use App\Models\Title;
 use App\Models\ServicePoint;
 use Illuminate\Support\Facades\Hash;
@@ -181,22 +180,6 @@ class StaffTemplateImport implements ToModel, WithHeadingRow
             }
         }
         
-        // Section
-        $sectionId = null;
-        $sectionVariations = ['section_name', 'section name', 'Section Name'];
-        foreach ($sectionVariations as $field) {
-            if (isset($row[$field]) && !empty($row[$field])) {
-                $sectionName = is_string($row[$field]) ? $row[$field] : (string)$row[$field];
-                $section = Section::where('business_id', $this->businessId)
-                    ->where('name', $sectionName)
-                    ->first();
-                if ($section) {
-                    $sectionId = $section->id;
-                }
-                break;
-            }
-        }
-        
         // Service Point (single selection)
         $servicePoints = [];
         $servicePointVariations = ['service_point_name', 'service point name', 'Service Point Name'];
@@ -318,7 +301,6 @@ class StaffTemplateImport implements ToModel, WithHeadingRow
         Log::info("Qualification ID: " . ($qualificationId ?? 'null'));
         Log::info("Title ID: " . ($titleId ?? 'null'));
         Log::info("Department ID: " . ($departmentId ?? 'null'));
-        Log::info("Section ID: " . ($sectionId ?? 'null'));
 
         $user = new User([
             'name' => $name,
@@ -332,7 +314,6 @@ class StaffTemplateImport implements ToModel, WithHeadingRow
             'qualification_id' => $qualificationId,
             'title_id' => $titleId,
             'department_id' => $departmentId,
-            'section_id' => $sectionId,
             'service_points' => $servicePoints,
             'allowed_branches' => $allowedBranches,
             'permissions' => $permissions,
@@ -346,7 +327,6 @@ class StaffTemplateImport implements ToModel, WithHeadingRow
         Log::info("Saved Qualification ID: " . ($user->qualification_id ?? 'null'));
         Log::info("Saved Title ID: " . ($user->title_id ?? 'null'));
         Log::info("Saved Department ID: " . ($user->department_id ?? 'null'));
-        Log::info("Saved Section ID: " . ($user->section_id ?? 'null'));
 
         // Create contractor profile if needed
         if ($isContractor) {

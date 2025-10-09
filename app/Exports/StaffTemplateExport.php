@@ -13,7 +13,6 @@ use App\Models\Business;
 use App\Models\Branch;
 use App\Models\Qualification;
 use App\Models\Department;
-use App\Models\Section;
 use App\Models\Title;
 use App\Models\ServicePoint;
 
@@ -45,7 +44,6 @@ class StaffTemplateExport implements FromArray, WithHeadings, WithStyles, WithEv
             'Qualification Name',
             'Title Name',
             'Department Name',
-            'Section Name',
             'Status (active/inactive/suspended)',
             'Service Point Name',
             'Allowed Branch Name',
@@ -94,7 +92,6 @@ class StaffTemplateExport implements FromArray, WithHeadings, WithStyles, WithEv
         $qualifications = Qualification::where('business_id', $this->businessId)->pluck('name')->toArray();
         $titles = Title::where('business_id', $this->businessId)->pluck('name')->toArray();
         $departments = Department::where('business_id', $this->businessId)->pluck('name')->toArray();
-        $sections = Section::where('business_id', $this->businessId)->pluck('name')->toArray();
         $servicePoints = ServicePoint::where('business_id', $this->businessId)->pluck('name')->toArray();
         $branches = Branch::where('business_id', $this->businessId)->pluck('name')->toArray();
         
@@ -120,26 +117,21 @@ class StaffTemplateExport implements FromArray, WithHeadings, WithStyles, WithEv
             $this->addValidationToColumn($worksheet, 'J', $startRow, $endRow, '"' . implode(',', $departments) . '"', 'Department', false);
         }
         
-        // Column K - Section dropdown
-        if (!empty($sections)) {
-            $this->addValidationToColumn($worksheet, 'K', $startRow, $endRow, '"' . implode(',', $sections) . '"', 'Section', false);
-        }
+        // Column K - Status dropdown
+        $this->addValidationToColumn($worksheet, 'K', $startRow, $endRow, '"active,inactive,suspended"', 'Status', false);
         
-        // Column L - Status dropdown
-        $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, '"active,inactive,suspended"', 'Status', false);
-        
-        // Column M - Service Point dropdown
+        // Column L - Service Point dropdown
         if (!empty($servicePoints)) {
-            $this->addValidationToColumn($worksheet, 'M', $startRow, $endRow, '"' . implode(',', $servicePoints) . '"', 'Service Point', true);
+            $this->addValidationToColumn($worksheet, 'L', $startRow, $endRow, '"' . implode(',', $servicePoints) . '"', 'Service Point', true);
         }
         
-        // Column N - Allowed Branch dropdown
+        // Column M - Allowed Branch dropdown
         if (!empty($branches)) {
-            $this->addValidationToColumn($worksheet, 'N', $startRow, $endRow, '"' . implode(',', $branches) . '"', 'Allowed Branch', true);
+            $this->addValidationToColumn($worksheet, 'M', $startRow, $endRow, '"' . implode(',', $branches) . '"', 'Allowed Branch', true);
         }
         
-        // Column O - Is Contractor dropdown
-        $this->addValidationToColumn($worksheet, 'O', $startRow, $endRow, '"Yes,No"', 'Is Contractor', false);
+        // Column N - Is Contractor dropdown
+        $this->addValidationToColumn($worksheet, 'N', $startRow, $endRow, '"Yes,No"', 'Is Contractor', false);
     }
     
     private function addValidationToColumn($worksheet, $column, $startRow, $endRow, $formula, $type, $allowBlank = true)
