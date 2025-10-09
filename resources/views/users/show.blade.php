@@ -82,10 +82,6 @@
                             <label>Department</label>
                             <div class="form-input w-full bg-gray-100">{{ optional($user->department)->name }}</div>
                         </div>
-                        <div>
-                            <label>Section</label>
-                            <div class="form-input w-full bg-gray-100">{{ optional($user->section)->name }}</div>
-                        </div>
                     </div>
                     <div>
                         <label>Status</label>

@@ -2,7 +2,6 @@
 use App\Models\Business;
 use App\Models\Qualification;
 use App\Models\Department;
-use App\Models\Section;
 use App\Models\Title;
 use App\Models\ServicePoint;
 
@@ -22,7 +21,6 @@ return [
 
 $qualifications = Qualification::all();
 $departments = Department::all();
-$sections = Section::all();
 $titles = Title::all();
 // Group by business_id for Alpine.js
 $qualificationsByBusiness = $qualifications->groupBy('business_id')->map(function($items) {
@@ -31,11 +29,6 @@ return ['id' => $item->id, 'name' => $item->name];
 })->values();
 });
 $departmentsByBusiness = $departments->groupBy('business_id')->map(function($items) {
-return $items->map(function($item) {
-return ['id' => $item->id, 'name' => $item->name];
-})->values();
-});
-$sectionsByBusiness = $sections->groupBy('business_id')->map(function($items) {
 return $items->map(function($item) {
 return ['id' => $item->id, 'name' => $item->name];
 })->values();
@@ -146,7 +139,7 @@ return ['id' => $sp->id, 'name' => $sp->name];
                                     </template>
                                 </select>
                             </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label for="qualification_id">Qualification <span class="text-red-500">*</span></label>
                                     <select name="qualification_id" id="qualification_id" required class="form-select w-full">
@@ -171,15 +164,6 @@ return ['id' => $sp->id, 'name' => $sp->name];
                                         <option value="" disabled selected>Select Department</option>
                                         <template x-for="d in filteredDepartments" :key="d.id">
                                             <option :value="d.id" x-text="d.name"></option>
-                                        </template>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="section_id">Section <span class="text-red-500">*</span></label>
-                                    <select name="section_id" id="section_id" required class="form-select w-full">
-                                        <option value="" disabled selected>Select Section</option>
-                                        <template x-for="s in filteredSections" :key="s.id">
-                                            <option :value="s.id" x-text="s.name"></option>
                                         </template>
                                     </select>
                                 </div>
@@ -365,13 +349,11 @@ return ['id' => $sp->id, 'name' => $sp->name];
                 , allBranches: @json($businesses-> map->branches)
                 , qualificationsByBusiness: @json($qualificationsByBusiness)
                 , departmentsByBusiness: @json($departmentsByBusiness)
-                , sectionsByBusiness: @json($sectionsByBusiness)
                 , titlesByBusiness: @json($titlesByBusiness)
                 , filteredServicePoints: []
                 , filteredBranches: []
                 , filteredQualifications: []
                 , filteredDepartments: []
-                , filteredSections: []
                 , filteredTitles: []
                 , isContractorSelected: false
                 , init() {
@@ -411,8 +393,6 @@ return ['id' => $sp->id, 'name' => $sp->name];
                         this.qualificationsByBusiness[this.selectedBusinessId] : [];
                     this.filteredDepartments = this.selectedBusinessId && this.departmentsByBusiness[this.selectedBusinessId] ?
                         this.departmentsByBusiness[this.selectedBusinessId] : [];
-                    this.filteredSections = this.selectedBusinessId && this.sectionsByBusiness[this.selectedBusinessId] ?
-                        this.sectionsByBusiness[this.selectedBusinessId] : [];
                     this.filteredTitles = this.selectedBusinessId && this.titlesByBusiness[this.selectedBusinessId] ?
                         this.titlesByBusiness[this.selectedBusinessId] : [];
                 },
