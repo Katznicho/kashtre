@@ -53,7 +53,7 @@ trait AccessTrait
     ];
 
     public static $withdrawalSettings = [
-        "Withdrawal Settings" => ['View Withdrawal Settings', 'Edit Withdrawal Settings', 'Add Withdrawal Settings', 'Delete Withdrawal Settings'],
+        "Withdrawal Settings" => ['View Withdrawal Settings', 'Edit Withdrawal Settings', 'Add Withdrawal Settings'],
     ];
 
     public static $modules = [

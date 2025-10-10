@@ -159,24 +159,4 @@ class WithdrawalSettingController extends Controller
             ->with('success', 'Withdrawal setting updated successfully.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(WithdrawalSetting $withdrawalSetting)
-    {
-        // Check if user has permission to delete withdrawal settings
-        if (!in_array('Delete Withdrawal Settings', json_decode(Auth::user()->permissions ?? '[]'))) {
-            return redirect()->route('withdrawal-settings.index')->with('error', 'You do not have permission to delete withdrawal settings.');
-        }
-
-        // Check if the withdrawal setting belongs to the user's business
-        if ($withdrawalSetting->business_id !== Auth::user()->business_id) {
-            return redirect()->route('withdrawal-settings.index')->with('error', 'Access denied.');
-        }
-
-        $withdrawalSetting->delete();
-
-        return redirect()->route('withdrawal-settings.index')
-            ->with('success', 'Withdrawal setting deleted successfully.');
-    }
 }

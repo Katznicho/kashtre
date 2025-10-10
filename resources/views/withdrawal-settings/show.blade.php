@@ -131,22 +131,7 @@
                 </div>
 
                 <!-- Action Buttons -->
-                <div class="mt-8 flex items-center justify-between pt-6 border-t border-gray-200">
-                    @if(in_array('Delete Withdrawal Settings', (array) $permissions ?? []))
-                    <form action="{{ route('withdrawal-settings.destroy', $withdrawalSetting->uuid) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this withdrawal setting? This action cannot be undone.')">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-md hover:bg-red-700 transition duration-150">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                            </svg>
-                            Delete Setting
-                        </button>
-                    </form>
-                    @else
-                    <div></div>
-                    @endif
-
+                <div class="mt-8 flex items-center justify-end pt-6 border-t border-gray-200">
                     <div class="flex items-center space-x-3">
                         @if(in_array('Edit Withdrawal Settings', (array) $permissions ?? []))
                         <a href="{{ route('withdrawal-settings.edit', $withdrawalSetting->uuid) }}" class="inline-flex items-center px-4 py-2 bg-[#011478] text-white text-sm font-semibold rounded-md hover:bg-[#011478]/90 transition duration-150">
