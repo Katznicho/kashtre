@@ -47,6 +47,7 @@ use App\Http\Controllers\ServiceDeliveryQueueController;
 use App\Http\Controllers\TestingController;
 use App\Http\Controllers\MaturationPeriodController;
 use App\Http\Controllers\WithdrawalSettingController;
+use App\Http\Controllers\BusinessWithdrawalSettingController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -164,6 +165,7 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     
     // Withdrawal Settings
     Route::resource("withdrawal-settings", WithdrawalSettingController::class);
+    Route::resource("business-withdrawal-settings", BusinessWithdrawalSettingController::class);
     
     // Testing routes (Admin only) - Rate limited to prevent abuse
     Route::post('/testing/clear-data', [TestingController::class, 'clearData'])
