@@ -164,24 +164,4 @@ class BusinessWithdrawalSettingController extends Controller
             ->with('success', 'Business withdrawal setting updated successfully.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(BusinessWithdrawalSetting $businessWithdrawalSetting)
-    {
-        // Check if user has permission
-        if (!in_array('Delete Business Withdrawal Settings', Auth::user()->permissions ?? [])) {
-            return redirect()->route('business-withdrawal-settings.index')->with('error', 'You do not have permission to delete business withdrawal settings.');
-        }
-
-        // Check access
-        if (Auth::user()->business_id != 1 && $businessWithdrawalSetting->business_id !== Auth::user()->business_id) {
-            return redirect()->route('business-withdrawal-settings.index')->with('error', 'Access denied.');
-        }
-
-        $businessWithdrawalSetting->delete();
-
-        return redirect()->route('business-withdrawal-settings.index')
-            ->with('success', 'Business withdrawal setting deleted successfully.');
-    }
 }

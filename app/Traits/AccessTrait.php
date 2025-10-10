@@ -11,19 +11,19 @@ trait AccessTrait
     ];
 
     public static $entities = [
-        "Entities" => ['View Entities', 'Edit Entities', 'Add Entities', 'Delete Entities'],
+        "Entities" => ['View Entities', 'Edit Entities', 'Add Entities'],
     ];
 
     public static $departments = [
-        "Departments" => ['View Departments', 'Edit Departments', 'Add Departments', 'Delete Departments'],
+        "Departments" => ['View Departments', 'Edit Departments', 'Add Departments'],
     ];
 
     public static $staff = [
-        "Staff" => ['View Staff', 'Edit Staff', 'Add Staff', 'Delete Staff', 'Assign Roles'],
+        "Staff" => ['View Staff', 'Edit Staff', 'Add Staff', 'Assign Roles'],
     ];
 
     public static $reports = [
-        "Reports" => ['View Report', 'Edit Report', 'Add Report', 'Delete Report'],
+        "Reports" => ['View Report', 'Edit Report', 'Add Report'],
     ];
 
     public static $logs = [
@@ -37,11 +37,11 @@ trait AccessTrait
    
 
     public static $sales = [
-        "Sales" => ['View Sales', 'Edit Sales', 'Add Sales', 'Delete Sales'],
+        "Sales" => ['View Sales', 'Edit Sales', 'Add Sales'],
     ];
 
     public static $clients = [
-        "Clients" => ['View Clients', 'Edit Clients', 'Add Clients', 'Delete Clients'],
+        "Clients" => ['View Clients', 'Edit Clients', 'Add Clients'],
     ];
 
     public static $queues = [
@@ -49,59 +49,59 @@ trait AccessTrait
     ];
 
     public static $withdrawaal = [
-        "Withdrawals" => ['View Withdrawals', 'Edit Withdrawals', 'Add Withdrawals', 'Delete Withdrawals'],
+        "Withdrawals" => ['View Withdrawals', 'Edit Withdrawals', 'Add Withdrawals'],
     ];
 
     public static $withdrawalSettings = [
         "Withdrawal Settings" => ['View Withdrawal Settings', 'Edit Withdrawal Settings', 'Add Withdrawal Settings'],
-        "Business Withdrawal Settings" => ['View Business Withdrawal Settings', 'Edit Business Withdrawal Settings', 'Add Business Withdrawal Settings', 'Delete Business Withdrawal Settings'],
+        "Business Withdrawal Settings" => ['View Business Withdrawal Settings', 'Edit Business Withdrawal Settings', 'Add Business Withdrawal Settings'],
     ];
 
     public static $modules = [
-        "Modules" => ['View Modules', 'Edit Modules', 'Add Modules', 'Delete Modules'],
+        "Modules" => ['View Modules', 'Edit Modules', 'Add Modules'],
     ];
 
     public static $stock = [
-        "Stock" => ['View Stock', 'Edit Stock', 'Add Stock', 'Delete Stock'],
+        "Stock" => ['View Stock', 'Edit Stock', 'Add Stock'],
     ];
 
     public static $masters = [
-        "Service Points" => ['View Service Points', 'Edit Service Points', 'Add Service Points', 'Delete Service Points', 'Bulky Update Service Points'],
+        "Service Points" => ['View Service Points', 'Edit Service Points', 'Add Service Points', 'Bulky Update Service Points'],
         "Service Charges" => ['Manage Service Charges'],
         "Contractor Service Charges" => ['Manage Contractor Service Charges'],
-        "Departments" => ['View Departments', 'Edit Departments', 'Add Departments', 'Delete Departments', 'Bulky Update Departments'],
-        "Qualifications" => ['View Qualifications', 'Edit Qualifications', 'Add Qualifications', 'Delete Qualifications', 'Bulky Update Qualifications'],
-        "Titles" => ['View Titles', 'Edit Titles', 'Add Titles', 'Delete Titles', 'Bulky Update Titles'],
-        "Rooms" => ['View Rooms', 'Edit Rooms', 'Add Rooms', 'Delete Rooms', 'Bulky Update Rooms'],
-        "Sections" => ['View Sections', 'Edit Sections', 'Add Sections', 'Delete Sections', 'Bulky Update Sections'],
-        "Item Units" => ['View Item Units', 'Edit Item Units', 'Add Item Units', 'Delete Item Units', 'Bulky Update Item Units'],
-        "Groups" => ['View Groups', 'Edit Groups', 'Add Groups', 'Delete Groups', 'Bulky Update Groups'],
-        "Patient Categories" => ['View Patient Categories', 'Edit Patient Categories', 'Add Patient Categories', 'Delete Patient Categories', 'Bulky Update Patient Categories'],
-        "Suppliers" => ['View Suppliers', 'Edit Suppliers', 'Add Suppliers', 'Delete Suppliers', 'Bulky Update Suppliers'],
-        "Stores" => ['View Stores', 'Edit Stores', 'Add Stores', 'Delete Stores', 'Bulky Update Stores'],
-        "Insurance Companies" => ['View Insurance Companies', 'Edit Insurance Companies', 'Add Insurance Companies', 'Delete Insurance Companies', 'Bulky Update Insurance Companies'],
-        "Sub Groups" => ['View Sub Groups', 'Edit Sub Groups', 'Add Sub Groups', 'Delete Sub Groups', 'Bulky Update Sub Groups'],
-        "Maturation Periods" => ['View Maturation Periods', 'Edit Maturation Periods', 'Add Maturation Periods', 'Delete Maturation Periods', 'Manage Maturation Periods'],
+        "Departments" => ['View Departments', 'Edit Departments', 'Add Departments', 'Bulky Update Departments'],
+        "Qualifications" => ['View Qualifications', 'Edit Qualifications', 'Add Qualifications', 'Bulky Update Qualifications'],
+        "Titles" => ['View Titles', 'Edit Titles', 'Add Titles', 'Bulky Update Titles'],
+        "Rooms" => ['View Rooms', 'Edit Rooms', 'Add Rooms', 'Bulky Update Rooms'],
+        "Sections" => ['View Sections', 'Edit Sections', 'Add Sections', 'Bulky Update Sections'],
+        "Item Units" => ['View Item Units', 'Edit Item Units', 'Add Item Units', 'Bulky Update Item Units'],
+        "Groups" => ['View Groups', 'Edit Groups', 'Add Groups', 'Bulky Update Groups'],
+        "Patient Categories" => ['View Patient Categories', 'Edit Patient Categories', 'Add Patient Categories', 'Bulky Update Patient Categories'],
+        "Suppliers" => ['View Suppliers', 'Edit Suppliers', 'Add Suppliers', 'Bulky Update Suppliers'],
+        "Stores" => ['View Stores', 'Edit Stores', 'Add Stores', 'Bulky Update Stores'],
+        "Insurance Companies" => ['View Insurance Companies', 'Edit Insurance Companies', 'Add Insurance Companies', 'Bulky Update Insurance Companies'],
+        "Sub Groups" => ['View Sub Groups', 'Edit Sub Groups', 'Add Sub Groups', 'Bulky Update Sub Groups'],
+        "Maturation Periods" => ['View Maturation Periods', 'Edit Maturation Periods', 'Add Maturation Periods', 'Manage Maturation Periods'],
     ];
 
     public static $adminAccess = [
-        "Admin Users" => ['View Admin Users', 'Edit Admin Users', 'Add Admin Users', 'Delete Admin Users', 'Assign Roles', 'Bulk Admin Upload'],
+        "Admin Users" => ['View Admin Users', 'Edit Admin Users', 'Add Admin Users', 'Assign Roles', 'Bulk Admin Upload'],
         "Audit Logs" => ['View Audit Logs'],
         "System Settings" => ['View System Settings', 'Edit System Settings'],
     ];
 
     public static $businessAccess = [
-        "Business" => ['View Business', 'Edit Business', 'Add Business', 'Delete Business'],
-        "Branches" => ['View Branches', 'Edit Branches', 'Add Branches', 'Delete Branches'],
+        "Business" => ['View Business', 'Edit Business', 'Add Business'],
+        "Branches" => ['View Branches', 'Edit Branches', 'Add Branches'],
     ];
 
     public static $clientAccess = [
-        "Clients" => ['View Clients', 'Edit Clients', 'Add Clients', 'Delete Clients'],
+        "Clients" => ['View Clients', 'Edit Clients', 'Add Clients'],
     ];
 
     public static $staffAccess = [
         "Staff" => [
-            'View Staff', 'Edit Staff', 'Add Staff', 'Delete Staff', 'Assign Roles',
+            'View Staff', 'Edit Staff', 'Add Staff', 'Assign Roles',
             "Edit Contractor", "Add Contractor Profile", 'View Contractor Profile', 'Edit Contractor Profile'
     ],
     ];
@@ -115,7 +115,7 @@ trait AccessTrait
     ];
 
     public static $items = [
-        "Items" => ['View Items', 'Edit Items', 'Add Items', 'Delete Items', 'Bulk Upload Items'],
+        "Items" => ['View Items', 'Edit Items', 'Add Items', 'Bulk Upload Items'],
     ];
 
     public static $finance = [
@@ -123,11 +123,11 @@ trait AccessTrait
     ];
 
     public static $packageTracking = [
-        "Package Tracking" => ['View Package Tracking', 'Edit Package Tracking', 'Add Package Tracking', 'Delete Package Tracking', 'View Package History'],
+        "Package Tracking" => ['View Package Tracking', 'Edit Package Tracking', 'Add Package Tracking', 'View Package History'],
     ];
 
     public static $packageSales = [
-        "Package Sales" => ['View Package Sales', 'Edit Package Sales', 'Add Package Sales', 'Delete Package Sales', 'View Package Sales History', 'Export Package Sales'],
+        "Package Sales" => ['View Package Sales', 'Edit Package Sales', 'Add Package Sales', 'View Package Sales History', 'Export Package Sales'],
     ];
 
 

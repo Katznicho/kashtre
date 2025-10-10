@@ -126,33 +126,9 @@ class ListBusinessWithdrawalSettings extends Component implements HasForms, HasT
                 Tables\Actions\EditAction::make()
                     ->url(fn (BusinessWithdrawalSetting $record): string => route('business-withdrawal-settings.edit', $record))
                     ->visible(fn (): bool => in_array('Edit Business Withdrawal Settings', Auth::user()->permissions ?? [])),
-                
-                Tables\Actions\DeleteAction::make()
-                    ->visible(fn (): bool => in_array('Delete Business Withdrawal Settings', Auth::user()->permissions ?? []))
-                    ->requiresConfirmation()
-                    ->action(function (BusinessWithdrawalSetting $record) {
-                        if (Auth::user()->business_id == 1 || $record->business_id === Auth::user()->business_id) {
-                            $record->delete();
-                            Notification::make()
-                                ->title('Deleted Successfully')
-                                ->success()
-                                ->body('The withdrawal setting has been deleted.')
-                                ->send();
-                        } else {
-                            Notification::make()
-                                ->title('Access Denied')
-                                ->danger()
-                                ->body('You do not have permission to delete this setting.')
-                                ->send();
-                        }
-                    }),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make()
-                        ->visible(fn (): bool => in_array('Delete Business Withdrawal Settings', Auth::user()->permissions ?? []))
-                        ->requiresConfirmation(),
-                ]),
+                // No bulk actions
             ])
             ->headerActions([
                 Tables\Actions\Action::make('create')
