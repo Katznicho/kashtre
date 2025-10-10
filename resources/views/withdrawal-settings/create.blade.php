@@ -121,45 +121,47 @@
 
                     <!-- Business Approvers Selection -->
                     <div class="bg-gray-50 rounded-lg p-6">
-                        <label for="business_approvers" class="block text-sm font-medium text-gray-900 mb-2 flex items-center">
+                        <label class="block text-sm font-medium text-gray-900 mb-4 flex items-center">
                             <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
                             </svg>
                             Business Approvers <span class="text-red-500">*</span>
                             <span class="ml-2 text-xs text-gray-500">(Select at least <span id="min-business-display">3</span>)</span>
                         </label>
-                        <select name="business_approvers[]" id="business_approvers" multiple required disabled
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent bg-gray-100"
-                                style="min-height: 150px;">
-                            <option value="" disabled>Please select a business first</option>
-                        </select>
-                        <p class="mt-1 text-xs text-gray-500">Hold Ctrl/Cmd to select multiple approvers</p>
+                        <div id="business-approvers-container" class="space-y-3">
+                            <div class="text-gray-500 text-sm italic">Please select a business first</div>
+                        </div>
                         @error('business_approvers')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
 
                     <!-- Kashtre Approvers Selection -->
                     <div class="bg-gray-50 rounded-lg p-6">
-                        <label for="kashtre_approvers" class="block text-sm font-medium text-gray-900 mb-2 flex items-center">
+                        <label class="block text-sm font-medium text-gray-900 mb-4 flex items-center">
                             <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                             </svg>
                             Kashtre Approvers <span class="text-red-500">*</span>
                             <span class="ml-2 text-xs text-gray-500">(Select at least <span id="min-kashtre-display">3</span>)</span>
                         </label>
-                        <select name="kashtre_approvers[]" id="kashtre_approvers" multiple required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent"
-                                style="min-height: 150px;">
-                            <optgroup label="Users" id="kashtre-users-group">
-                                @foreach($users->where('business_id', 1) as $user)
-                                    <option value="user:{{ $user->id }}">{{ $user->name }} ({{ $user->email }})</option>
-                                @endforeach
-                            </optgroup>
-                        </select>
-                        <p class="mt-1 text-xs text-gray-500">Hold Ctrl/Cmd to select multiple approvers (Kashtre users only)</p>
+                        <div id="kashtre-approvers-container" class="space-y-3">
+                            <div class="text-sm font-medium text-gray-700 mb-2">Users</div>
+                            @foreach($users->where('business_id', 1) as $user)
+                                <div class="flex items-center space-x-3">
+                                    <input type="checkbox" 
+                                           name="kashtre_approvers[]" 
+                                           value="user:{{ $user->id }}"
+                                           id="kashtre_user_{{ $user->id }}"
+                                           class="h-4 w-4 text-[#011478] focus:ring-[#011478] border-gray-300 rounded">
+                                    <label for="kashtre_user_{{ $user->id }}" class="text-sm text-gray-900">
+                                        {{ $user->name }} <span class="text-gray-500">({{ $user->email }})</span>
+                                    </label>
+                                </div>
+                            @endforeach
+                        </div>
                         @error('kashtre_approvers')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
 
@@ -183,7 +185,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const businessSelect = document.getElementById('business_id');
-            const businessApproversSelect = document.getElementById('business_approvers');
+            const businessApproversContainer = document.getElementById('business-approvers-container');
             const minBusinessInput = document.getElementById('min_business_approvers');
             const minKashtreInput = document.getElementById('min_kashtre_approvers');
             const minBusinessDisplay = document.getElementById('min-business-display');
@@ -207,32 +209,38 @@
                 const selectedBusinessId = parseInt(this.value);
                 
                 if (!selectedBusinessId) {
-                    businessApproversSelect.disabled = true;
-                    businessApproversSelect.innerHTML = '<option value="" disabled>Please select a business first</option>';
-                    businessApproversSelect.classList.add('bg-gray-100');
+                    businessApproversContainer.innerHTML = '<div class="text-gray-500 text-sm italic">Please select a business first</div>';
                     return;
                 }
                 
-                // Clear current options
-                businessApproversSelect.innerHTML = '';
-                businessApproversSelect.disabled = false;
-                businessApproversSelect.classList.remove('bg-gray-100');
+                // Clear current content
+                businessApproversContainer.innerHTML = '';
                 
                 // Filter users by selected business
                 const businessUsers = allUsers.filter(user => user.business_id === selectedBusinessId);
                 
+                // Create users section
                 if (businessUsers.length > 0) {
-                    const userGroup = document.createElement('optgroup');
-                    userGroup.label = 'Users';
+                    const usersSection = document.createElement('div');
+                    usersSection.innerHTML = '<div class="text-sm font-medium text-gray-700 mb-2">Users</div>';
                     
                     businessUsers.forEach(user => {
-                        const option = document.createElement('option');
-                        option.value = `user:${user.id}`;
-                        option.textContent = `${user.name} (${user.email})`;
-                        userGroup.appendChild(option);
+                        const checkboxDiv = document.createElement('div');
+                        checkboxDiv.className = 'flex items-center space-x-3';
+                        checkboxDiv.innerHTML = `
+                            <input type="checkbox" 
+                                   name="business_approvers[]" 
+                                   value="user:${user.id}"
+                                   id="business_user_${user.id}"
+                                   class="h-4 w-4 text-[#011478] focus:ring-[#011478] border-gray-300 rounded">
+                            <label for="business_user_${user.id}" class="text-sm text-gray-900">
+                                ${user.name} <span class="text-gray-500">(${user.email})</span>
+                            </label>
+                        `;
+                        usersSection.appendChild(checkboxDiv);
                     });
                     
-                    businessApproversSelect.appendChild(userGroup);
+                    businessApproversContainer.appendChild(usersSection);
                 }
                 
                 // Add contractors only if NOT Kashtre business (business_id !== 1)
@@ -242,27 +250,32 @@
                     );
                     
                     if (businessContractors.length > 0) {
-                        const contractorGroup = document.createElement('optgroup');
-                        contractorGroup.label = 'Contractors';
+                        const contractorsSection = document.createElement('div');
+                        contractorsSection.innerHTML = '<div class="text-sm font-medium text-gray-700 mb-2 mt-4">Contractors</div>';
                         
                         businessContractors.forEach(contractor => {
-                            const option = document.createElement('option');
-                            option.value = `contractor:${contractor.id}`;
-                            option.textContent = `${contractor.user.name} (Contractor)`;
-                            contractorGroup.appendChild(option);
+                            const checkboxDiv = document.createElement('div');
+                            checkboxDiv.className = 'flex items-center space-x-3';
+                            checkboxDiv.innerHTML = `
+                                <input type="checkbox" 
+                                       name="business_approvers[]" 
+                                       value="contractor:${contractor.id}"
+                                       id="business_contractor_${contractor.id}"
+                                       class="h-4 w-4 text-[#011478] focus:ring-[#011478] border-gray-300 rounded">
+                                <label for="business_contractor_${contractor.id}" class="text-sm text-gray-900">
+                                    ${contractor.user.name} <span class="text-gray-500">(Contractor)</span>
+                                </label>
+                            `;
+                            contractorsSection.appendChild(checkboxDiv);
                         });
                         
-                        businessApproversSelect.appendChild(contractorGroup);
+                        businessApproversContainer.appendChild(contractorsSection);
                     }
                 }
                 
                 // If no approvers found
-                if (businessApproversSelect.options.length === 0) {
-                    const option = document.createElement('option');
-                    option.value = '';
-                    option.disabled = true;
-                    option.textContent = 'No approvers available for this business';
-                    businessApproversSelect.appendChild(option);
+                if (businessApproversContainer.children.length === 0) {
+                    businessApproversContainer.innerHTML = '<div class="text-gray-500 text-sm italic">No approvers available for this business</div>';
                 }
             });
         });
