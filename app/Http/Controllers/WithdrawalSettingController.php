@@ -46,9 +46,15 @@ class WithdrawalSettingController extends Controller
         $businesses = Business::all();
         $withdrawalTypes = Constants::WITHDRAWAL_TYPES;
         
-        // Get users and contractors for approver selection
-        $users = User::where('status', 'active')->get();
-        $contractors = ContractorProfile::with('user')->get();
+        // Get all users with their business info for dynamic filtering
+        $users = User::where('status', 'active')
+            ->select('id', 'name', 'email', 'business_id')
+            ->get();
+        
+        // Get all contractors with their business info
+        $contractors = ContractorProfile::with(['user' => function($query) {
+            $query->select('id', 'name', 'business_id');
+        }])->get();
 
         return view('withdrawal-settings.create', compact('businesses', 'withdrawalTypes', 'users', 'contractors'));
     }
@@ -131,9 +137,15 @@ class WithdrawalSettingController extends Controller
         $businesses = Business::all();
         $withdrawalTypes = Constants::WITHDRAWAL_TYPES;
         
-        // Get users and contractors for approver selection
-        $users = User::where('status', 'active')->get();
-        $contractors = ContractorProfile::with('user')->get();
+        // Get all users with their business info for dynamic filtering
+        $users = User::where('status', 'active')
+            ->select('id', 'name', 'email', 'business_id')
+            ->get();
+        
+        // Get all contractors with their business info
+        $contractors = ContractorProfile::with(['user' => function($query) {
+            $query->select('id', 'name', 'business_id');
+        }])->get();
 
         return view('withdrawal-settings.edit', compact('withdrawalSetting', 'businesses', 'withdrawalTypes', 'users', 'contractors'));
     }

@@ -128,21 +128,10 @@
                             Business Approvers <span class="text-red-500">*</span>
                             <span class="ml-2 text-xs text-gray-500">(Select at least <span id="min-business-display">3</span>)</span>
                         </label>
-                        <select name="business_approvers[]" id="business_approvers" multiple required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent"
+                        <select name="business_approvers[]" id="business_approvers" multiple required disabled
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent bg-gray-100"
                                 style="min-height: 150px;">
-                            <optgroup label="Users">
-                                @foreach($users as $user)
-                                    <option value="user:{{ $user->id }}">{{ $user->name }} ({{ $user->email }})</option>
-                                @endforeach
-                            </optgroup>
-                            @if(Auth::user()->business_id != 1)
-                                <optgroup label="Contractors">
-                                    @foreach($contractors as $contractor)
-                                        <option value="contractor:{{ $contractor->id }}">{{ $contractor->user->name ?? 'Unknown' }} (Contractor)</option>
-                                    @endforeach
-                                </optgroup>
-                            @endif
+                            <option value="" disabled>Please select a business first</option>
                         </select>
                         <p class="mt-1 text-xs text-gray-500">Hold Ctrl/Cmd to select multiple approvers</p>
                         @error('business_approvers')
@@ -162,20 +151,13 @@
                         <select name="kashtre_approvers[]" id="kashtre_approvers" multiple required
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent"
                                 style="min-height: 150px;">
-                            <optgroup label="Users">
-                                @foreach($users as $user)
+                            <optgroup label="Users" id="kashtre-users-group">
+                                @foreach($users->where('business_id', 1) as $user)
                                     <option value="user:{{ $user->id }}">{{ $user->name }} ({{ $user->email }})</option>
                                 @endforeach
                             </optgroup>
-                            @if(Auth::user()->business_id != 1)
-                                <optgroup label="Contractors">
-                                    @foreach($contractors as $contractor)
-                                        <option value="contractor:{{ $contractor->id }}">{{ $contractor->user->name ?? 'Unknown' }} (Contractor)</option>
-                                    @endforeach
-                                </optgroup>
-                            @endif
                         </select>
-                        <p class="mt-1 text-xs text-gray-500">Hold Ctrl/Cmd to select multiple approvers</p>
+                        <p class="mt-1 text-xs text-gray-500">Hold Ctrl/Cmd to select multiple approvers (Kashtre users only)</p>
                         @error('kashtre_approvers')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
@@ -197,13 +179,19 @@
         </div>
     </div>
 
-    <!-- JavaScript to update minimum display values -->
+    <!-- JavaScript to update minimum display values and filter approvers -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            const businessSelect = document.getElementById('business_id');
+            const businessApproversSelect = document.getElementById('business_approvers');
             const minBusinessInput = document.getElementById('min_business_approvers');
             const minKashtreInput = document.getElementById('min_kashtre_approvers');
             const minBusinessDisplay = document.getElementById('min-business-display');
             const minKashtreDisplay = document.getElementById('min-kashtre-display');
+            
+            // All users and contractors data
+            const allUsers = @json($users);
+            const allContractors = @json($contractors);
             
             // Update display when minimum values change
             minBusinessInput.addEventListener('input', function() {
@@ -212,6 +200,70 @@
             
             minKashtreInput.addEventListener('input', function() {
                 minKashtreDisplay.textContent = this.value || 3;
+            });
+            
+            // Filter business approvers when business is selected
+            businessSelect.addEventListener('change', function() {
+                const selectedBusinessId = parseInt(this.value);
+                
+                if (!selectedBusinessId) {
+                    businessApproversSelect.disabled = true;
+                    businessApproversSelect.innerHTML = '<option value="" disabled>Please select a business first</option>';
+                    businessApproversSelect.classList.add('bg-gray-100');
+                    return;
+                }
+                
+                // Clear current options
+                businessApproversSelect.innerHTML = '';
+                businessApproversSelect.disabled = false;
+                businessApproversSelect.classList.remove('bg-gray-100');
+                
+                // Filter users by selected business
+                const businessUsers = allUsers.filter(user => user.business_id === selectedBusinessId);
+                
+                if (businessUsers.length > 0) {
+                    const userGroup = document.createElement('optgroup');
+                    userGroup.label = 'Users';
+                    
+                    businessUsers.forEach(user => {
+                        const option = document.createElement('option');
+                        option.value = `user:${user.id}`;
+                        option.textContent = `${user.name} (${user.email})`;
+                        userGroup.appendChild(option);
+                    });
+                    
+                    businessApproversSelect.appendChild(userGroup);
+                }
+                
+                // Add contractors only if NOT Kashtre business (business_id !== 1)
+                if (selectedBusinessId !== 1) {
+                    const businessContractors = allContractors.filter(contractor => 
+                        contractor.user && contractor.user.business_id === selectedBusinessId
+                    );
+                    
+                    if (businessContractors.length > 0) {
+                        const contractorGroup = document.createElement('optgroup');
+                        contractorGroup.label = 'Contractors';
+                        
+                        businessContractors.forEach(contractor => {
+                            const option = document.createElement('option');
+                            option.value = `contractor:${contractor.id}`;
+                            option.textContent = `${contractor.user.name} (Contractor)`;
+                            contractorGroup.appendChild(option);
+                        });
+                        
+                        businessApproversSelect.appendChild(contractorGroup);
+                    }
+                }
+                
+                // If no approvers found
+                if (businessApproversSelect.options.length === 0) {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.disabled = true;
+                    option.textContent = 'No approvers available for this business';
+                    businessApproversSelect.appendChild(option);
+                }
             });
         });
     </script>
