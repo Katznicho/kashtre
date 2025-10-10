@@ -59,6 +59,12 @@ class Business extends Model
         return 'uuid';
     }
 
+    // a business has many withdrawal settings
+    public function withdrawalSettings()
+    {
+        return $this->hasMany(BusinessWithdrawalSetting::class);
+    }
+
     public function branches()
     {
         return $this->hasMany(Branch::class);
