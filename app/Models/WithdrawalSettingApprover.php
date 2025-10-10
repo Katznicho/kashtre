@@ -27,10 +27,26 @@ class WithdrawalSettingApprover extends Model
         return $this->belongsTo(WithdrawalSetting::class);
     }
 
-    // Polymorphic relationship to handle both users and contractors
-    public function approver()
+    // Relationship for users
+    public function user()
     {
-        return $this->morphTo('approver', 'approver_type', 'approver_id');
+        return $this->belongsTo(User::class, 'approver_id');
+    }
+    
+    // Relationship for contractors
+    public function contractor()
+    {
+        return $this->belongsTo(ContractorProfile::class, 'approver_id');
+    }
+    
+    // Get the actual approver model based on type
+    public function getApproverAttribute()
+    {
+        if ($this->approver_type === 'user') {
+            return $this->user;
+        }
+        
+        return $this->contractor;
     }
 
     // Helper methods
