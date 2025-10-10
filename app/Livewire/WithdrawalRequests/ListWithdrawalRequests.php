@@ -170,11 +170,7 @@ class ListWithdrawalRequests extends Component implements HasForms, HasTable
                 // No bulk actions
             ])
             ->headerActions([
-                Tables\Actions\Action::make('create')
-                    ->label('New Withdrawal Request')
-                    ->icon('heroicon-o-plus')
-                    ->url(route('withdrawal-requests.create'))
-                    ->visible(fn (): bool => in_array('View Withdrawal Requests', Auth::user()->permissions ?? [])),
+                // No header actions
             ])
             ->defaultSort('created_at', 'desc')
             ->emptyStateHeading('No withdrawal requests found')
