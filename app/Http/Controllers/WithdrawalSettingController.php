@@ -26,9 +26,15 @@ class WithdrawalSettingController extends Controller
             return redirect()->route('dashboard')->with('error', 'You do not have permission to view withdrawal settings.');
         }
 
-        $withdrawalSettings = WithdrawalSetting::with('business')
-            ->where('business_id', Auth::user()->business_id)
-            ->paginate(10);
+        // If user is from Kashtre (business_id = 1), show all withdrawal settings
+        // Otherwise, show only their business settings
+        if (Auth::user()->business_id == 1) {
+            $withdrawalSettings = WithdrawalSetting::with('business')->paginate(10);
+        } else {
+            $withdrawalSettings = WithdrawalSetting::with('business')
+                ->where('business_id', Auth::user()->business_id)
+                ->paginate(10);
+        }
 
         return view('withdrawal-settings.index', compact('withdrawalSettings'));
     }
@@ -72,11 +78,24 @@ class WithdrawalSettingController extends Controller
             'min_kashtre_approvers' => 'required|integer|min:1',
             'withdrawal_type' => 'required|in:regular,express',
             'is_active' => 'boolean',
-            'business_approvers' => 'required|array|min:1',
+            'business_approvers' => 'required|array',
             'business_approvers.*' => 'required|string',
-            'kashtre_approvers' => 'required|array|min:1',
+            'kashtre_approvers' => 'required|array',
             'kashtre_approvers.*' => 'required|string'
         ]);
+
+        // Validate that we have at least the minimum number of approvers
+        if (count($request->business_approvers) < $request->min_business_approvers) {
+            return back()->withErrors([
+                'business_approvers' => "You must select at least {$request->min_business_approvers} business approvers."
+            ])->withInput();
+        }
+
+        if (count($request->kashtre_approvers) < $request->min_kashtre_approvers) {
+            return back()->withErrors([
+                'kashtre_approvers' => "You must select at least {$request->min_kashtre_approvers} Kashtre approvers."
+            ])->withInput();
+        }
 
         $withdrawalSetting = WithdrawalSetting::create([
             'business_id' => $request->business_id,
@@ -105,8 +124,8 @@ class WithdrawalSettingController extends Controller
             return redirect()->route('dashboard')->with('error', 'You do not have permission to view withdrawal settings.');
         }
 
-        // Check if the withdrawal setting belongs to the user's business
-        if ($withdrawalSetting->business_id !== Auth::user()->business_id) {
+        // Check if the withdrawal setting belongs to the user's business (unless user is from Kashtre)
+        if (Auth::user()->business_id != 1 && $withdrawalSetting->business_id !== Auth::user()->business_id) {
             return redirect()->route('withdrawal-settings.index')->with('error', 'Access denied.');
         }
 
@@ -124,8 +143,8 @@ class WithdrawalSettingController extends Controller
             return redirect()->route('withdrawal-settings.index')->with('error', 'You do not have permission to edit withdrawal settings.');
         }
 
-        // Check if the withdrawal setting belongs to the user's business
-        if ($withdrawalSetting->business_id !== Auth::user()->business_id) {
+        // Check if the withdrawal setting belongs to the user's business (unless user is from Kashtre)
+        if (Auth::user()->business_id != 1 && $withdrawalSetting->business_id !== Auth::user()->business_id) {
             return redirect()->route('withdrawal-settings.index')->with('error', 'Access denied.');
         }
 
@@ -150,8 +169,8 @@ class WithdrawalSettingController extends Controller
             return redirect()->route('withdrawal-settings.index')->with('error', 'You do not have permission to edit withdrawal settings.');
         }
 
-        // Check if the withdrawal setting belongs to the user's business
-        if ($withdrawalSetting->business_id !== Auth::user()->business_id) {
+        // Check if the withdrawal setting belongs to the user's business (unless user is from Kashtre)
+        if (Auth::user()->business_id != 1 && $withdrawalSetting->business_id !== Auth::user()->business_id) {
             return redirect()->route('withdrawal-settings.index')->with('error', 'Access denied.');
         }
 
@@ -163,11 +182,24 @@ class WithdrawalSettingController extends Controller
             'min_kashtre_approvers' => 'required|integer|min:1',
             'withdrawal_type' => 'required|in:regular,express',
             'is_active' => 'boolean',
-            'business_approvers' => 'required|array|min:1',
+            'business_approvers' => 'required|array',
             'business_approvers.*' => 'required|string',
-            'kashtre_approvers' => 'required|array|min:1',
+            'kashtre_approvers' => 'required|array',
             'kashtre_approvers.*' => 'required|string'
         ]);
+
+        // Validate that we have at least the minimum number of approvers
+        if (count($request->business_approvers) < $request->min_business_approvers) {
+            return back()->withErrors([
+                'business_approvers' => "You must select at least {$request->min_business_approvers} business approvers."
+            ])->withInput();
+        }
+
+        if (count($request->kashtre_approvers) < $request->min_kashtre_approvers) {
+            return back()->withErrors([
+                'kashtre_approvers' => "You must select at least {$request->min_kashtre_approvers} Kashtre approvers."
+            ])->withInput();
+        }
 
         $withdrawalSetting->update([
             'business_id' => $request->business_id,
