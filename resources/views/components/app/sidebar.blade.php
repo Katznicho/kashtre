@@ -405,6 +405,9 @@
                             @if(in_array('Manage Contractor Service Charges', $permissions))
                             <li><a href="{{ route('contractor-service-charges.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Contractor Service Charges</a></li>
                             @endif
+                            @if(in_array('View Withdrawal Settings', $permissions))
+                            <li><a href="{{ route('withdrawal-settings.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Withdrawal Settings</a></li>
+                            @endif
                              @if(in_array('Bulk Validations Upload', $permissions)) 
                             <li><a href="{{ route('bulk.upload.form') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Bulk Upload</a></li>
                              @endif 

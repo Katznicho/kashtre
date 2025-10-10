@@ -52,6 +52,10 @@ trait AccessTrait
         "Withdrawals" => ['View Withdrawals', 'Edit Withdrawals', 'Add Withdrawals', 'Delete Withdrawals'],
     ];
 
+    public static $withdrawalSettings = [
+        "Withdrawal Settings" => ['View Withdrawal Settings', 'Edit Withdrawal Settings', 'Add Withdrawal Settings', 'Delete Withdrawal Settings'],
+    ];
+
     public static $modules = [
         "Modules" => ['View Modules', 'Edit Modules', 'Add Modules', 'Delete Modules'],
     ];
@@ -188,6 +192,7 @@ trait AccessTrait
         "Clients" => self::$clients,
         "Queues" => self::$queues,
         "Withdrawals" => self::$withdrawaal,
+        "Withdrawal Settings" => self::$withdrawalSettings,
         "Modules" => self::$modules,
         "Stock" => self::$stock,
         "Masters" => self::$masters,

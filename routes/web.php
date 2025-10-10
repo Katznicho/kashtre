@@ -46,6 +46,7 @@ use App\Http\Controllers\ServiceQueueController;
 use App\Http\Controllers\ServiceDeliveryQueueController;
 use App\Http\Controllers\TestingController;
 use App\Http\Controllers\MaturationPeriodController;
+use App\Http\Controllers\WithdrawalSettingController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -160,6 +161,9 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     // Maturation Periods Settings (Kashtre only)
     Route::resource("maturation-periods", MaturationPeriodController::class);
     Route::post("maturation-periods/{maturationPeriod}/toggle-status", [MaturationPeriodController::class, 'toggleStatus'])->name('maturation-periods.toggle-status');
+    
+    // Withdrawal Settings
+    Route::resource("withdrawal-settings", WithdrawalSettingController::class);
     
     // Testing routes (Admin only) - Rate limited to prevent abuse
     Route::post('/testing/clear-data', [TestingController::class, 'clearData'])

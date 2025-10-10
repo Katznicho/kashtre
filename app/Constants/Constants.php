@@ -152,4 +152,17 @@ class Constants {
         'AIRTEL' => 'AIRTEL',
         'WALLET' => 'WALLET',
     ];
+
+    // Withdrawal Types
+    const WITHDRAWAL_TYPES = [
+        'REGULAR' => 'regular',
+        'EXPRESS' => 'express',
+    ];
+
+    // Default Withdrawal Settings
+    const DEFAULT_MINIMUM_WITHDRAWAL_AMOUNT = 500;
+    const DEFAULT_FREE_WITHDRAWALS_PER_DAY = 1;
+    const DEFAULT_MIN_BUSINESS_APPROVERS = 3;
+    const DEFAULT_MIN_KASHTRE_APPROVERS = 3;
+    const DEFAULT_WITHDRAWAL_TYPE = 'regular';
 }
