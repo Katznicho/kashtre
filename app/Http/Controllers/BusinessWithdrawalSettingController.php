@@ -23,18 +23,7 @@ class BusinessWithdrawalSettingController extends Controller
             return redirect()->route('dashboard')->with('error', 'You do not have permission to view business withdrawal settings.');
         }
 
-        // If user is from Kashtre (business_id = 1), show all settings
-        // Otherwise, show only their business settings
-        if (Auth::user()->business_id == 1) {
-            $settings = BusinessWithdrawalSetting::with('business', 'creator')->latest()->paginate(15);
-        } else {
-            $settings = BusinessWithdrawalSetting::with('business', 'creator')
-                ->where('business_id', Auth::user()->business_id)
-                ->latest()
-                ->paginate(15);
-        }
-
-        return view('business-withdrawal-settings.index', compact('settings'));
+        return view('business-withdrawal-settings.index');
     }
 
     /**
