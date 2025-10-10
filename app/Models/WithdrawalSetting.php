@@ -36,6 +36,21 @@ class WithdrawalSetting extends Model
         return $this->belongsTo(Business::class);
     }
 
+    public function approvers()
+    {
+        return $this->hasMany(WithdrawalSettingApprover::class);
+    }
+
+    public function businessApprovers()
+    {
+        return $this->hasMany(WithdrawalSettingApprover::class)->where('approver_level', 'business');
+    }
+
+    public function kashtreApprovers()
+    {
+        return $this->hasMany(WithdrawalSettingApprover::class)->where('approver_level', 'kashtre');
+    }
+
     protected static function booted()
     {
         static::creating(function ($withdrawalSetting) {

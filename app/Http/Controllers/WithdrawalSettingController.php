@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\WithdrawalSetting;
 use App\Models\Business;
+use App\Models\User;
+use App\Models\ContractorProfile;
+use App\Models\WithdrawalSettingApprover;
 use App\Constants\Constants;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -42,8 +45,12 @@ class WithdrawalSettingController extends Controller
 
         $businesses = Business::all();
         $withdrawalTypes = Constants::WITHDRAWAL_TYPES;
+        
+        // Get users and contractors for approver selection
+        $users = User::where('status', 'active')->get();
+        $contractors = ContractorProfile::with('user')->get();
 
-        return view('withdrawal-settings.create', compact('businesses', 'withdrawalTypes'));
+        return view('withdrawal-settings.create', compact('businesses', 'withdrawalTypes', 'users', 'contractors'));
     }
 
     /**
@@ -63,10 +70,14 @@ class WithdrawalSettingController extends Controller
             'min_business_approvers' => 'required|integer|min:1',
             'min_kashtre_approvers' => 'required|integer|min:1',
             'withdrawal_type' => 'required|in:regular,express',
-            'is_active' => 'boolean'
+            'is_active' => 'boolean',
+            'business_approvers' => 'nullable|array',
+            'business_approvers.*' => 'nullable|string',
+            'kashtre_approvers' => 'nullable|array',
+            'kashtre_approvers.*' => 'nullable|string'
         ]);
 
-        WithdrawalSetting::create([
+        $withdrawalSetting = WithdrawalSetting::create([
             'business_id' => $request->business_id,
             'minimum_withdrawal_amount' => $request->minimum_withdrawal_amount,
             'number_of_free_withdrawals_per_day' => $request->number_of_free_withdrawals_per_day,
@@ -75,6 +86,9 @@ class WithdrawalSettingController extends Controller
             'withdrawal_type' => $request->withdrawal_type,
             'is_active' => $request->has('is_active')
         ]);
+
+        // Handle approver selection
+        $this->syncApprovers($withdrawalSetting, $request);
 
         return redirect()->route('withdrawal-settings.index')
             ->with('success', 'Withdrawal setting created successfully.');
@@ -116,8 +130,12 @@ class WithdrawalSettingController extends Controller
 
         $businesses = Business::all();
         $withdrawalTypes = Constants::WITHDRAWAL_TYPES;
+        
+        // Get users and contractors for approver selection
+        $users = User::where('status', 'active')->get();
+        $contractors = ContractorProfile::with('user')->get();
 
-        return view('withdrawal-settings.edit', compact('withdrawalSetting', 'businesses', 'withdrawalTypes'));
+        return view('withdrawal-settings.edit', compact('withdrawalSetting', 'businesses', 'withdrawalTypes', 'users', 'contractors'));
     }
 
     /**
@@ -142,7 +160,11 @@ class WithdrawalSettingController extends Controller
             'min_business_approvers' => 'required|integer|min:1',
             'min_kashtre_approvers' => 'required|integer|min:1',
             'withdrawal_type' => 'required|in:regular,express',
-            'is_active' => 'boolean'
+            'is_active' => 'boolean',
+            'business_approvers' => 'nullable|array',
+            'business_approvers.*' => 'nullable|string',
+            'kashtre_approvers' => 'nullable|array',
+            'kashtre_approvers.*' => 'nullable|string'
         ]);
 
         $withdrawalSetting->update([
@@ -155,8 +177,57 @@ class WithdrawalSettingController extends Controller
             'is_active' => $request->has('is_active')
         ]);
 
+        // Handle approver selection
+        $this->syncApprovers($withdrawalSetting, $request);
+
         return redirect()->route('withdrawal-settings.index')
             ->with('success', 'Withdrawal setting updated successfully.');
+    }
+
+    /**
+     * Sync approvers for a withdrawal setting
+     */
+    private function syncApprovers(WithdrawalSetting $withdrawalSetting, Request $request)
+    {
+        // Clear existing approvers
+        $withdrawalSetting->approvers()->delete();
+
+        // Add business approvers
+        if ($request->has('business_approvers')) {
+            foreach ($request->business_approvers as $approverData) {
+                if ($approverData) {
+                    $this->parseAndAddApprover($withdrawalSetting, $approverData, 'business');
+                }
+            }
+        }
+
+        // Add kashtre approvers
+        if ($request->has('kashtre_approvers')) {
+            foreach ($request->kashtre_approvers as $approverData) {
+                if ($approverData) {
+                    $this->parseAndAddApprover($withdrawalSetting, $approverData, 'kashtre');
+                }
+            }
+        }
+    }
+
+    /**
+     * Parse approver data and add to withdrawal setting
+     */
+    private function parseAndAddApprover(WithdrawalSetting $withdrawalSetting, string $approverData, string $level)
+    {
+        // Format: "type:id" (e.g., "user:123" or "contractor:456")
+        $parts = explode(':', $approverData);
+        if (count($parts) === 2) {
+            [$type, $id] = $parts;
+            
+            WithdrawalSettingApprover::create([
+                'withdrawal_setting_id' => $withdrawalSetting->id,
+                'approver_id' => $id,
+                'approver_type' => $type,
+                'approver_level' => $level
+            ]);
+        }
     }
 
 }
