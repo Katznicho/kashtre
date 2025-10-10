@@ -19,7 +19,7 @@ class WithdrawalSettingController extends Controller
     public function index()
     {
         // Check if user has permission to view withdrawal settings
-        if (!in_array('View Withdrawal Settings', json_decode(Auth::user()->permissions ?? '[]'))) {
+        if (!in_array('View Withdrawal Settings', Auth::user()->permissions ?? [])) {
             return redirect()->route('dashboard')->with('error', 'You do not have permission to view withdrawal settings.');
         }
 
@@ -36,7 +36,7 @@ class WithdrawalSettingController extends Controller
     public function create()
     {
         // Check if user has permission to add withdrawal settings
-        if (!in_array('Add Withdrawal Settings', json_decode(Auth::user()->permissions ?? '[]'))) {
+        if (!in_array('Add Withdrawal Settings', Auth::user()->permissions ?? [])) {
             return redirect()->route('withdrawal-settings.index')->with('error', 'You do not have permission to add withdrawal settings.');
         }
 
@@ -52,7 +52,7 @@ class WithdrawalSettingController extends Controller
     public function store(Request $request)
     {
         // Check if user has permission to add withdrawal settings
-        if (!in_array('Add Withdrawal Settings', json_decode(Auth::user()->permissions ?? '[]'))) {
+        if (!in_array('Add Withdrawal Settings', Auth::user()->permissions ?? [])) {
             return redirect()->route('withdrawal-settings.index')->with('error', 'You do not have permission to add withdrawal settings.');
         }
 
@@ -86,7 +86,7 @@ class WithdrawalSettingController extends Controller
     public function show(WithdrawalSetting $withdrawalSetting)
     {
         // Check if user has permission to view withdrawal settings
-        if (!in_array('View Withdrawal Settings', json_decode(Auth::user()->permissions ?? '[]'))) {
+        if (!in_array('View Withdrawal Settings', Auth::user()->permissions ?? [])) {
             return redirect()->route('dashboard')->with('error', 'You do not have permission to view withdrawal settings.');
         }
 
@@ -105,7 +105,7 @@ class WithdrawalSettingController extends Controller
     public function edit(WithdrawalSetting $withdrawalSetting)
     {
         // Check if user has permission to edit withdrawal settings
-        if (!in_array('Edit Withdrawal Settings', json_decode(Auth::user()->permissions ?? '[]'))) {
+        if (!in_array('Edit Withdrawal Settings', Auth::user()->permissions ?? [])) {
             return redirect()->route('withdrawal-settings.index')->with('error', 'You do not have permission to edit withdrawal settings.');
         }
 
@@ -126,7 +126,7 @@ class WithdrawalSettingController extends Controller
     public function update(Request $request, WithdrawalSetting $withdrawalSetting)
     {
         // Check if user has permission to edit withdrawal settings
-        if (!in_array('Edit Withdrawal Settings', json_decode(Auth::user()->permissions ?? '[]'))) {
+        if (!in_array('Edit Withdrawal Settings', Auth::user()->permissions ?? [])) {
             return redirect()->route('withdrawal-settings.index')->with('error', 'You do not have permission to edit withdrawal settings.');
         }
 
