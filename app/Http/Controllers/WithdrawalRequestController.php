@@ -12,7 +12,7 @@ class WithdrawalRequestController extends Controller
      */
     public function index()
     {
-        //
+        return view('withdrawal-requests.index');
     }
 
     /**
