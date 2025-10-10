@@ -408,6 +408,9 @@
                             @if(in_array('View Withdrawal Settings', $permissions))
                             <li><a href="{{ route('withdrawal-settings.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Withdrawal Settings</a></li>
                             @endif
+                            @if(in_array('View Business Withdrawal Settings', $permissions))
+                            <li><a href="{{ route('business-withdrawal-settings.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Business Withdrawal Settings</a></li>
+                            @endif
                              @if(in_array('Bulk Validations Upload', $permissions)) 
                             <li><a href="{{ route('bulk.upload.form') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Bulk Upload</a></li>
                              @endif 
