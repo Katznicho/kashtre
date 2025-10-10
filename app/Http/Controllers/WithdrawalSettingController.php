@@ -71,10 +71,10 @@ class WithdrawalSettingController extends Controller
             'min_kashtre_approvers' => 'required|integer|min:1',
             'withdrawal_type' => 'required|in:regular,express',
             'is_active' => 'boolean',
-            'business_approvers' => 'nullable|array',
-            'business_approvers.*' => 'nullable|string',
-            'kashtre_approvers' => 'nullable|array',
-            'kashtre_approvers.*' => 'nullable|string'
+            'business_approvers' => 'required|array|min:1',
+            'business_approvers.*' => 'required|string',
+            'kashtre_approvers' => 'required|array|min:1',
+            'kashtre_approvers.*' => 'required|string'
         ]);
 
         $withdrawalSetting = WithdrawalSetting::create([
@@ -161,10 +161,10 @@ class WithdrawalSettingController extends Controller
             'min_kashtre_approvers' => 'required|integer|min:1',
             'withdrawal_type' => 'required|in:regular,express',
             'is_active' => 'boolean',
-            'business_approvers' => 'nullable|array',
-            'business_approvers.*' => 'nullable|string',
-            'kashtre_approvers' => 'nullable|array',
-            'kashtre_approvers.*' => 'nullable|string'
+            'business_approvers' => 'required|array|min:1',
+            'business_approvers.*' => 'required|string',
+            'kashtre_approvers' => 'required|array|min:1',
+            'kashtre_approvers.*' => 'required|string'
         ]);
 
         $withdrawalSetting->update([

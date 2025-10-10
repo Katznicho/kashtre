@@ -119,6 +119,48 @@
                         </label>
                     </div>
 
+                    <!-- Business Approvers Selection -->
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+                            </svg>
+                            Business Approvers
+                        </h3>
+                        <div class="space-y-3">
+                            <div id="business-approvers-container">
+                                <!-- Business approvers will be added here dynamically -->
+                            </div>
+                            <button type="button" id="add-business-approver" class="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm font-semibold rounded-md hover:bg-green-700 transition duration-150">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                                Add Business Approver
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Kashtre Approvers Selection -->
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                            </svg>
+                            Kashtre Approvers
+                        </h3>
+                        <div class="space-y-3">
+                            <div id="kashtre-approvers-container">
+                                <!-- Kashtre approvers will be added here dynamically -->
+                            </div>
+                            <button type="button" id="add-kashtre-approver" class="inline-flex items-center px-3 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md hover:bg-blue-700 transition duration-150">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                                Add Kashtre Approver
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Form Actions -->
                     <div class="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
                         <a href="{{ route('withdrawal-settings.index') }}" 
@@ -134,4 +176,101 @@
             </div>
         </div>
     </div>
+
+    <!-- JavaScript for Approver Selection -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const businessApproversContainer = document.getElementById('business-approvers-container');
+            const kashtreApproversContainer = document.getElementById('kashtre-approvers-container');
+            const addBusinessApproverBtn = document.getElementById('add-business-approver');
+            const addKashtreApproverBtn = document.getElementById('add-kashtre-approver');
+            
+            let businessApproverCount = 0;
+            let kashtreApproverCount = 0;
+            
+            // Data for approvers
+            const users = @json($users);
+            const contractors = @json($contractors);
+            const currentBusinessId = {{ Auth::user()->business_id }};
+            
+            // Function to create approver selection dropdown
+            function createApproverSelect(container, level, index) {
+                const div = document.createElement('div');
+                div.className = 'flex items-center space-x-3 p-3 bg-white rounded-md border';
+                
+                const select = document.createElement('select');
+                select.name = `${level}_approvers[]`;
+                select.required = true;
+                select.className = 'flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent';
+                
+                // Add default option
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Select an approver...';
+                select.appendChild(defaultOption);
+                
+                // Add users
+                const userGroup = document.createElement('optgroup');
+                userGroup.label = 'Users';
+                users.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = `user:${user.id}`;
+                    option.textContent = `${user.name} (${user.email})`;
+                    userGroup.appendChild(option);
+                });
+                select.appendChild(userGroup);
+                
+                // Add contractors only if not Kashtre business
+                if (currentBusinessId !== 1) {
+                    const contractorGroup = document.createElement('optgroup');
+                    contractorGroup.label = 'Contractors';
+                    contractors.forEach(contractor => {
+                        const option = document.createElement('option');
+                        option.value = `contractor:${contractor.id}`;
+                        option.textContent = `${contractor.user ? contractor.user.name : 'Unknown'} (Contractor)`;
+                        contractorGroup.appendChild(option);
+                    });
+                    select.appendChild(contractorGroup);
+                }
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'px-3 py-2 bg-red-600 text-white text-sm font-semibold rounded-md hover:bg-red-700 transition duration-150';
+                removeBtn.innerHTML = 'Remove';
+                removeBtn.onclick = function() {
+                    div.remove();
+                    if (level === 'business') businessApproverCount--;
+                    if (level === 'kashtre') kashtreApproverCount--;
+                };
+                
+                div.appendChild(select);
+                div.appendChild(removeBtn);
+                container.appendChild(div);
+                
+                if (level === 'business') businessApproverCount++;
+                if (level === 'kashtre') kashtreApproverCount++;
+            }
+            
+            // Add event listeners
+            addBusinessApproverBtn.addEventListener('click', function() {
+                createApproverSelect(businessApproversContainer, 'business', businessApproverCount);
+            });
+            
+            addKashtreApproverBtn.addEventListener('click', function() {
+                createApproverSelect(kashtreApproversContainer, 'kashtre', kashtreApproverCount);
+            });
+            
+            // Add initial approvers based on minimum requirements
+            const minBusinessApprovers = document.getElementById('min_business_approvers').value || 3;
+            const minKashtreApprovers = document.getElementById('min_kashtre_approvers').value || 3;
+            
+            for (let i = 0; i < Math.max(1, minBusinessApprovers); i++) {
+                createApproverSelect(businessApproversContainer, 'business', i);
+            }
+            
+            for (let i = 0; i < Math.max(1, minKashtreApprovers); i++) {
+                createApproverSelect(kashtreApproversContainer, 'kashtre', i);
+            }
+        });
+    </script>
 </x-app-layout>
