@@ -145,24 +145,6 @@
                                 </div>
                             @endforeach
                             
-                            @if($withdrawalSetting->business_id != 1)
-                                <div class="text-sm font-medium text-gray-700 mb-2 mt-4">Contractors</div>
-                                @foreach($contractors as $contractor)
-                                    @if($contractor->user && $contractor->user->business_id == $withdrawalSetting->business_id)
-                                        <div class="flex items-center space-x-3">
-                                            <input type="checkbox" 
-                                                   name="business_approvers[]" 
-                                                   value="contractor:{{ $contractor->id }}"
-                                                   id="business_contractor_{{ $contractor->id }}"
-                                                   {{ $withdrawalSetting->businessApprovers->where('approver_type', 'contractor')->where('approver_id', $contractor->id)->count() > 0 ? 'checked' : '' }}
-                                                   class="h-4 w-4 text-[#011478] focus:ring-[#011478] border-gray-300 rounded">
-                                            <label for="business_contractor_{{ $contractor->id }}" class="text-sm text-gray-900">
-                                                {{ $contractor->user->name ?? 'Unknown' }} <span class="text-gray-500">(Contractor)</span>
-                                            </label>
-                                        </div>
-                                    @endif
-                                @endforeach
-                            @endif
                         </div>
                         @error('business_approvers')
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
@@ -225,9 +207,8 @@
             const minBusinessDisplay = document.getElementById('min-business-display');
             const minKashtreDisplay = document.getElementById('min-kashtre-display');
             
-            // All users and contractors data
+            // All users data
             const allUsers = @json($users);
-            const allContractors = @json($contractors);
             
             // Get currently selected approvers
             const currentSelectedApprovers = [];
@@ -286,37 +267,6 @@
                     businessApproversContainer.appendChild(usersSection);
                 }
                 
-                // Add contractors only if NOT Kashtre business (business_id !== 1)
-                if (selectedBusinessId !== 1) {
-                    const businessContractors = allContractors.filter(contractor => 
-                        contractor.user && contractor.user.business_id === selectedBusinessId
-                    );
-                    
-                    if (businessContractors.length > 0) {
-                        const contractorsSection = document.createElement('div');
-                        contractorsSection.innerHTML = '<div class="text-sm font-medium text-gray-700 mb-2 mt-4">Contractors</div>';
-                        
-                        businessContractors.forEach(contractor => {
-                            const checkboxDiv = document.createElement('div');
-                            checkboxDiv.className = 'flex items-center space-x-3';
-                            const isChecked = currentSelectedApprovers.includes(`contractor:${contractor.id}`) ? 'checked' : '';
-                            checkboxDiv.innerHTML = `
-                                <input type="checkbox" 
-                                       name="business_approvers[]" 
-                                       value="contractor:${contractor.id}"
-                                       id="business_contractor_${contractor.id}"
-                                       ${isChecked}
-                                       class="h-4 w-4 text-[#011478] focus:ring-[#011478] border-gray-300 rounded">
-                                <label for="business_contractor_${contractor.id}" class="text-sm text-gray-900">
-                                    ${contractor.user.name} <span class="text-gray-500">(Contractor)</span>
-                                </label>
-                            `;
-                            contractorsSection.appendChild(checkboxDiv);
-                        });
-                        
-                        businessApproversContainer.appendChild(contractorsSection);
-                    }
-                }
                 
                 // If no approvers found
                 if (businessApproversContainer.children.length === 0) {

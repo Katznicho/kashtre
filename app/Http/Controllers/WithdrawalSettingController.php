@@ -50,13 +50,8 @@ class WithdrawalSettingController extends Controller
         $users = User::where('status', 'active')
             ->select('id', 'name', 'email', 'business_id')
             ->get();
-        
-        // Get all contractors with their business info
-        $contractors = ContractorProfile::with(['user' => function($query) {
-            $query->select('id', 'name', 'business_id');
-        }])->get();
 
-        return view('withdrawal-settings.create', compact('businesses', 'withdrawalTypes', 'users', 'contractors'));
+        return view('withdrawal-settings.create', compact('businesses', 'withdrawalTypes', 'users'));
     }
 
     /**
@@ -141,13 +136,8 @@ class WithdrawalSettingController extends Controller
         $users = User::where('status', 'active')
             ->select('id', 'name', 'email', 'business_id')
             ->get();
-        
-        // Get all contractors with their business info
-        $contractors = ContractorProfile::with(['user' => function($query) {
-            $query->select('id', 'name', 'business_id');
-        }])->get();
 
-        return view('withdrawal-settings.edit', compact('withdrawalSetting', 'businesses', 'withdrawalTypes', 'users', 'contractors'));
+        return view('withdrawal-settings.edit', compact('withdrawalSetting', 'businesses', 'withdrawalTypes', 'users'));
     }
 
     /**
