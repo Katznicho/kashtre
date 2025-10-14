@@ -941,7 +941,7 @@ class MoneyTrackingService
                 'service_delivered',
                 $invoice,
                 $item,
-                "Service delivery payment for {$item->name}"
+                "Service delivery payment for {$item->name} ({$serviceDeliveryQueue->quantity})"
             );
             
             // Record business balance statement
@@ -950,7 +950,7 @@ class MoneyTrackingService
                 $businessAccount->id,
                 $itemAmount,
                 'credit',
-                "Service delivery payment for {$item->name}",
+                "Service delivery payment for {$item->name} ({$serviceDeliveryQueue->quantity})",
                 'service_delivery_queue',
                 $serviceDeliveryQueue->id,
                 [
@@ -1039,7 +1039,7 @@ class MoneyTrackingService
                         $businessAccount->id,
                         $contractorShare,
                         'debit',
-                        "Contractor share payment for {$item->name}",
+                        "Contractor share payment for {$item->name} ({$serviceDeliveryQueue->quantity})",
                         'service_delivery_queue',
                         $serviceDeliveryQueue->id,
                         [
@@ -1446,7 +1446,7 @@ class MoneyTrackingService
                     
                     // For bulk items, we process the entire bulk amount
                     // The included items will be handled separately for service point distribution
-                    $this->processBulkItem($item, $totalAmount, $clientSuspenseAccount, $business, $invoice, $transferRecords);
+                    $this->processBulkItem($item, $totalAmount, $clientSuspenseAccount, $business, $invoice, $transferRecords, $quantity);
                 } else {
                     // Handle regular items (good, service) as before
                     $this->processRegularItem($item, $totalAmount, $clientSuspenseAccount, $business, $invoice, $transferRecords, $quantity);
@@ -1664,7 +1664,7 @@ class MoneyTrackingService
     /**
      * Process a bulk item - move entire bulk amount when any included item is processed
      */
-    private function processBulkItem($bulkItem, $totalAmount, $clientSuspenseAccount, $business, $invoice, &$transferRecords)
+    private function processBulkItem($bulkItem, $totalAmount, $clientSuspenseAccount, $business, $invoice, &$transferRecords, $quantity)
     {
         Log::info("=== PROCESSING BULK ITEM ===", [
             'bulk_item_id' => $bulkItem->id,
@@ -1748,7 +1748,7 @@ class MoneyTrackingService
                 $destinationAccount->id,
                 $totalAmount,
                 'credit',
-                "{$bulkItem->name}",
+                "{$bulkItem->name} ({$quantity})",
                 'invoice',
                 $invoice->id,
                 [
@@ -1769,7 +1769,7 @@ class MoneyTrackingService
                 $destinationAccount->id,
                 $totalAmount,
                 'credit',
-                "{$bulkItem->name}",
+                "{$bulkItem->name} ({$quantity})",
                 'invoice',
                 $invoice->id,
                 [
@@ -1871,7 +1871,7 @@ class MoneyTrackingService
                 $destinationAccount->id,
                 $totalAmount,
                 'credit',
-                "{$item->name}",
+                "{$item->name} ({$quantity})",
                 'invoice',
                 $invoice->id,
                 [
@@ -1892,7 +1892,7 @@ class MoneyTrackingService
                 $destinationAccount->id,
                 $totalAmount,
                 'credit',
-                "{$item->name}",
+                "{$item->name} ({$quantity})",
                 'invoice',
                 $invoice->id,
                 [
@@ -2831,10 +2831,11 @@ class MoneyTrackingService
                 $packageTracking = \App\Models\PackageTracking::find($sale['package_tracking_id']);
                 if ($packageTracking) {
                     $packageName = $packageTracking->packageItem->name ?? 'Unknown Package';
+                    $quantity = $sale['quantity'] ?? 1;
                     // Use tracking_number from database, or generate if null (for backwards compatibility)
                     $trackingNumber = $packageTracking->tracking_number 
                         ?? "PKG-{$packageTracking->id}-{$packageTracking->created_at->format('YmdHis')}";
-                    $packageDescriptions[] = "{$packageName} (Ref: {$trackingNumber})";
+                    $packageDescriptions[] = "{$packageName} ({$quantity}) (Ref: {$trackingNumber})";
                     $trackingNumbers[] = $trackingNumber;
                 }
             }
