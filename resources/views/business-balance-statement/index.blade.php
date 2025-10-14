@@ -23,6 +23,27 @@
             </p>
         </div>
 
+        <!-- Action Button -->
+        @if(auth()->user()->business_id != 1 && $canUserCreateWithdrawal(auth()->user()))
+        <div class="mb-8">
+            <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Withdraw Funds</h3>
+                        <p class="text-gray-600">Create a new withdrawal request for your business</p>
+                    </div>
+                    <a href="{{ route('withdrawal-requests.create') }}" 
+                       class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Withdraw Funds
+                    </a>
+                </div>
+            </div>
+        </div>
+        @endif
+
         <!-- Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <!-- Available Balance -->

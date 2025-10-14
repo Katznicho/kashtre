@@ -84,29 +84,124 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Min Business Approvers -->
+                    <!-- 3-Level Approval Configuration -->
+                    <div class="bg-blue-50 rounded-lg p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">3-Level Approval Configuration</h3>
+                        
+                        <!-- Business Level Approvers -->
+                        <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+                            <div>
+                                <label for="min_business_initiators" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Min Business Initiators <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" name="min_business_initiators" id="min_business_initiators" 
+                                       value="{{ old('min_business_initiators', $withdrawalSetting->min_business_initiators ?? 1) }}" 
+                                       min="1" max="2" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
+                            <div>
+                                <label for="max_business_initiators" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Max Business Initiators <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" name="max_business_initiators" id="max_business_initiators" 
+                                       value="{{ old('max_business_initiators', $withdrawalSetting->max_business_initiators ?? 2) }}" 
+                                       min="1" max="2" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
+                            <div>
+                                <label for="min_business_authorizers" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Min Business Authorizers <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" name="min_business_authorizers" id="min_business_authorizers" 
+                                       value="{{ old('min_business_authorizers', $withdrawalSetting->min_business_authorizers ?? 1) }}" 
+                                       min="1" max="2" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
+                            <div>
+                                <label for="max_business_authorizers" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Max Business Authorizers <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" name="max_business_authorizers" id="max_business_authorizers" 
+                                       value="{{ old('max_business_authorizers', $withdrawalSetting->max_business_authorizers ?? 2) }}" 
+                                       min="1" max="2" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
                         <div>
                             <label for="min_business_approvers" class="block text-sm font-medium text-gray-700 mb-2">
-                                Minimum Business Approvers <span class="text-red-500">*</span>
+                                    Min Business Approvers <span class="text-red-500">*</span>
                             </label>
                             <input type="number" name="min_business_approvers" id="min_business_approvers" 
-                                   value="{{ old('min_business_approvers', $withdrawalSetting->min_business_approvers) }}" 
-                                   min="1" required
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent"
-                                   placeholder="Enter minimum business approvers">
+                                       value="{{ old('min_business_approvers', $withdrawalSetting->min_business_approvers ?? 1) }}" 
+                                       min="1" max="2" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
+                            <div>
+                                <label for="max_business_approvers" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Max Business Approvers <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" name="max_business_approvers" id="max_business_approvers" 
+                                       value="{{ old('max_business_approvers', $withdrawalSetting->max_business_approvers ?? 2) }}" 
+                                       min="1" max="2" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
                         </div>
 
-                        <!-- Min Kashtre Approvers -->
+                        <!-- Kashtre Level Approvers -->
+                        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+                            <div>
+                                <label for="min_kashtre_initiators" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Min Kashtre Initiators <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" name="min_kashtre_initiators" id="min_kashtre_initiators" 
+                                       value="{{ old('min_kashtre_initiators', $withdrawalSetting->min_kashtre_initiators ?? 1) }}" 
+                                       min="1" max="2" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
+                            <div>
+                                <label for="max_kashtre_initiators" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Max Kashtre Initiators <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" name="max_kashtre_initiators" id="max_kashtre_initiators" 
+                                       value="{{ old('max_kashtre_initiators', $withdrawalSetting->max_kashtre_initiators ?? 2) }}" 
+                                       min="1" max="2" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
+                            <div>
+                                <label for="min_kashtre_authorizers" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Min Kashtre Authorizers <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" name="min_kashtre_authorizers" id="min_kashtre_authorizers" 
+                                       value="{{ old('min_kashtre_authorizers', $withdrawalSetting->min_kashtre_authorizers ?? 1) }}" 
+                                       min="1" max="2" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
+                            <div>
+                                <label for="max_kashtre_authorizers" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Max Kashtre Authorizers <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" name="max_kashtre_authorizers" id="max_kashtre_authorizers" 
+                                       value="{{ old('max_kashtre_authorizers', $withdrawalSetting->max_kashtre_authorizers ?? 2) }}" 
+                                       min="1" max="2" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
                         <div>
                             <label for="min_kashtre_approvers" class="block text-sm font-medium text-gray-700 mb-2">
-                                Minimum Kashtre Approvers <span class="text-red-500">*</span>
+                                    Min Kashtre Approvers <span class="text-red-500">*</span>
                             </label>
                             <input type="number" name="min_kashtre_approvers" id="min_kashtre_approvers" 
-                                   value="{{ old('min_kashtre_approvers', $withdrawalSetting->min_kashtre_approvers) }}" 
-                                   min="1" required
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent"
-                                   placeholder="Enter minimum Kashtre approvers">
+                                       value="{{ old('min_kashtre_approvers', $withdrawalSetting->min_kashtre_approvers ?? 1) }}" 
+                                       min="1" max="2" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
+                            <div>
+                                <label for="max_kashtre_approvers" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Max Kashtre Approvers <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" name="max_kashtre_approvers" id="max_kashtre_approvers" 
+                                       value="{{ old('max_kashtre_approvers', $withdrawalSetting->max_kashtre_approvers ?? 2) }}" 
+                                       min="1" max="2" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
                         </div>
                     </div>
 
@@ -122,13 +217,60 @@
 
                     <!-- Business Approvers Selection -->
                     <div class="bg-gray-50 rounded-lg p-6">
-                        <label class="block text-sm font-medium text-gray-900 mb-4 flex items-center">
-                            <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
-                            </svg>
-                            Business Approvers <span class="text-red-500">*</span>
-                            <span class="ml-2 text-xs text-gray-500">(Select at least <span id="min-business-display">{{ $withdrawalSetting->min_business_approvers }}</span>)</span>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Business Approvers Selection</h3>
+                        <p class="text-sm text-gray-600 mb-4">Only business employees/staff are shown (contractors are excluded from business approval roles).</p>
+                        
+                        <!-- Level 1: Initiators -->
+                        <div class="mb-6">
+                            <h4 class="text-md font-medium text-gray-800 mb-3">Level 1: Initiators</h4>
+                            <div id="business-initiators-container" class="space-y-3">
+                                <div class="text-sm font-medium text-gray-700 mb-2">Users</div>
+                                @foreach($users->where('business_id', $withdrawalSetting->business_id) as $user)
+                                    <div class="flex items-center space-x-3">
+                                        <input type="checkbox" 
+                                               name="business_initiators[]" 
+                                               value="user:{{ $user->id }}"
+                                               id="business_initiator_{{ $user->id }}"
+                                               {{ $withdrawalSetting->businessInitiators->where('approver_type', 'user')->where('approver_id', $user->id)->count() > 0 ? 'checked' : '' }}
+                                               class="h-4 w-4 text-[#011478] focus:ring-[#011478] border-gray-300 rounded">
+                                        <label for="business_initiator_{{ $user->id }}" class="text-sm text-gray-900">
+                                            {{ $user->name }} <span class="text-gray-500">({{ $user->email }})</span>
+                                        </label>
+                                    </div>
+                                @endforeach
+                            </div>
+                            @error('business_initiators')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <!-- Level 2: Authorizers -->
+                        <div class="mb-6">
+                            <h4 class="text-md font-medium text-gray-800 mb-3">Level 2: Authorizers</h4>
+                            <div id="business-authorizers-container" class="space-y-3">
+                                <div class="text-sm font-medium text-gray-700 mb-2">Users</div>
+                                @foreach($users->where('business_id', $withdrawalSetting->business_id) as $user)
+                                    <div class="flex items-center space-x-3">
+                                        <input type="checkbox" 
+                                               name="business_authorizers[]" 
+                                               value="user:{{ $user->id }}"
+                                               id="business_authorizer_{{ $user->id }}"
+                                               {{ $withdrawalSetting->businessAuthorizers->where('approver_type', 'user')->where('approver_id', $user->id)->count() > 0 ? 'checked' : '' }}
+                                               class="h-4 w-4 text-[#011478] focus:ring-[#011478] border-gray-300 rounded">
+                                        <label for="business_authorizer_{{ $user->id }}" class="text-sm text-gray-900">
+                                            {{ $user->name }} <span class="text-gray-500">({{ $user->email }})</span>
                         </label>
+                                    </div>
+                                @endforeach
+                            </div>
+                            @error('business_authorizers')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <!-- Level 3: Approvers -->
+                        <div>
+                            <h4 class="text-md font-medium text-gray-800 mb-3">Level 3: Approvers</h4>
                         <div id="business-approvers-container" class="space-y-3">
                             <div class="text-sm font-medium text-gray-700 mb-2">Users</div>
                             @foreach($users->where('business_id', $withdrawalSetting->business_id) as $user)
@@ -136,49 +278,96 @@
                                     <input type="checkbox" 
                                            name="business_approvers[]" 
                                            value="user:{{ $user->id }}"
-                                           id="business_user_{{ $user->id }}"
+                                               id="business_approver_{{ $user->id }}"
                                            {{ $withdrawalSetting->businessApprovers->where('approver_type', 'user')->where('approver_id', $user->id)->count() > 0 ? 'checked' : '' }}
                                            class="h-4 w-4 text-[#011478] focus:ring-[#011478] border-gray-300 rounded">
-                                    <label for="business_user_{{ $user->id }}" class="text-sm text-gray-900">
+                                        <label for="business_approver_{{ $user->id }}" class="text-sm text-gray-900">
                                         {{ $user->name }} <span class="text-gray-500">({{ $user->email }})</span>
                                     </label>
                                 </div>
                             @endforeach
-                            
                         </div>
                         @error('business_approvers')
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
+                        </div>
                     </div>
 
                     <!-- Kashtre Approvers Selection -->
                     <div class="bg-gray-50 rounded-lg p-6">
-                        <label class="block text-sm font-medium text-gray-900 mb-4 flex items-center">
-                            <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                            </svg>
-                            Kashtre Approvers <span class="text-red-500">*</span>
-                            <span class="ml-2 text-xs text-gray-500">(Select at least <span id="min-kashtre-display">{{ $withdrawalSetting->min_kashtre_approvers }}</span>)</span>
-                        </label>
-                        <div id="kashtre-approvers-container" class="space-y-3">
-                            <div class="text-sm font-medium text-gray-700 mb-2">Users</div>
-                            @foreach($users->where('business_id', 1) as $user)
-                                <div class="flex items-center space-x-3">
-                                    <input type="checkbox" 
-                                           name="kashtre_approvers[]" 
-                                           value="user:{{ $user->id }}"
-                                           id="kashtre_user_{{ $user->id }}"
-                                           {{ $withdrawalSetting->kashtreApprovers->where('approver_type', 'user')->where('approver_id', $user->id)->count() > 0 ? 'checked' : '' }}
-                                           class="h-4 w-4 text-[#011478] focus:ring-[#011478] border-gray-300 rounded">
-                                    <label for="kashtre_user_{{ $user->id }}" class="text-sm text-gray-900">
-                                        {{ $user->name }} <span class="text-gray-500">({{ $user->email }})</span>
-                                    </label>
-                                </div>
-                            @endforeach
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Kashtre Approvers Selection</h3>
+                        
+                        <!-- Level 1: Initiators -->
+                        <div class="mb-6">
+                            <h4 class="text-md font-medium text-gray-800 mb-3">Level 1: Initiators</h4>
+                            <div id="kashtre-initiators-container" class="space-y-3">
+                                <div class="text-sm font-medium text-gray-700 mb-2">Users</div>
+                                @foreach($users->where('business_id', 1) as $user)
+                                    <div class="flex items-center space-x-3">
+                                        <input type="checkbox" 
+                                               name="kashtre_initiators[]" 
+                                               value="user:{{ $user->id }}"
+                                               id="kashtre_initiator_{{ $user->id }}"
+                                               {{ $withdrawalSetting->kashtreInitiators->where('approver_type', 'user')->where('approver_id', $user->id)->count() > 0 ? 'checked' : '' }}
+                                               class="h-4 w-4 text-[#011478] focus:ring-[#011478] border-gray-300 rounded">
+                                        <label for="kashtre_initiator_{{ $user->id }}" class="text-sm text-gray-900">
+                                            {{ $user->name }} <span class="text-gray-500">({{ $user->email }})</span>
+                                        </label>
+                                    </div>
+                                @endforeach
+                            </div>
+                            @error('kashtre_initiators')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
                         </div>
-                        @error('kashtre_approvers')
-                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
+
+                        <!-- Level 2: Authorizers -->
+                        <div class="mb-6">
+                            <h4 class="text-md font-medium text-gray-800 mb-3">Level 2: Authorizers</h4>
+                            <div id="kashtre-authorizers-container" class="space-y-3">
+                                <div class="text-sm font-medium text-gray-700 mb-2">Users</div>
+                                @foreach($users->where('business_id', 1) as $user)
+                                    <div class="flex items-center space-x-3">
+                                        <input type="checkbox" 
+                                               name="kashtre_authorizers[]" 
+                                               value="user:{{ $user->id }}"
+                                               id="kashtre_authorizer_{{ $user->id }}"
+                                               {{ $withdrawalSetting->kashtreAuthorizers->where('approver_type', 'user')->where('approver_id', $user->id)->count() > 0 ? 'checked' : '' }}
+                                               class="h-4 w-4 text-[#011478] focus:ring-[#011478] border-gray-300 rounded">
+                                        <label for="kashtre_authorizer_{{ $user->id }}" class="text-sm text-gray-900">
+                                            {{ $user->name }} <span class="text-gray-500">({{ $user->email }})</span>
+                                        </label>
+                                    </div>
+                                @endforeach
+                            </div>
+                            @error('kashtre_authorizers')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <!-- Level 3: Approvers -->
+                        <div>
+                            <h4 class="text-md font-medium text-gray-800 mb-3">Level 3: Approvers</h4>
+                            <div id="kashtre-approvers-container" class="space-y-3">
+                                <div class="text-sm font-medium text-gray-700 mb-2">Users</div>
+                                @foreach($users->where('business_id', 1) as $user)
+                                    <div class="flex items-center space-x-3">
+                                        <input type="checkbox" 
+                                               name="kashtre_approvers[]" 
+                                               value="user:{{ $user->id }}"
+                                               id="kashtre_approver_{{ $user->id }}"
+                                               {{ $withdrawalSetting->kashtreApprovers->where('approver_type', 'user')->where('approver_id', $user->id)->count() > 0 ? 'checked' : '' }}
+                                               class="h-4 w-4 text-[#011478] focus:ring-[#011478] border-gray-300 rounded">
+                                        <label for="kashtre_approver_{{ $user->id }}" class="text-sm text-gray-900">
+                                            {{ $user->name }} <span class="text-gray-500">({{ $user->email }})</span>
+                                        </label>
+                                    </div>
+                                @endforeach
+                            </div>
+                            @error('kashtre_approvers')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
                     </div>
 
                     <!-- Form Actions -->
@@ -201,77 +390,70 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const businessSelect = document.getElementById('business_id');
+            const businessInitiatorsContainer = document.getElementById('business-initiators-container');
+            const businessAuthorizersContainer = document.getElementById('business-authorizers-container');
             const businessApproversContainer = document.getElementById('business-approvers-container');
-            const minBusinessInput = document.getElementById('min_business_approvers');
-            const minKashtreInput = document.getElementById('min_kashtre_approvers');
-            const minBusinessDisplay = document.getElementById('min-business-display');
-            const minKashtreDisplay = document.getElementById('min-kashtre-display');
             
             // All users data
             const allUsers = @json($users);
             
-            // Get currently selected approvers
-            const currentSelectedApprovers = [];
-            const businessCheckboxes = document.querySelectorAll('input[name="business_approvers[]"]:checked');
-            businessCheckboxes.forEach(checkbox => {
-                currentSelectedApprovers.push(checkbox.value);
-            });
-            
-            // Update display when minimum values change
-            minBusinessInput.addEventListener('input', function() {
-                minBusinessDisplay.textContent = this.value || 3;
-            });
-            
-            minKashtreInput.addEventListener('input', function() {
-                minKashtreDisplay.textContent = this.value || 3;
-            });
+            // Get currently selected approvers for each level
+            const getCurrentSelectedApprovers = (level) => {
+                const checkboxes = document.querySelectorAll(`input[name="business_${level}[]"]:checked`);
+                return Array.from(checkboxes).map(checkbox => checkbox.value);
+            };
             
             // Filter business approvers when business is changed
             businessSelect.addEventListener('change', function() {
                 const selectedBusinessId = parseInt(this.value);
                 
                 if (!selectedBusinessId) {
-                    businessApproversContainer.innerHTML = '<div class="text-gray-500 text-sm italic">Please select a business first</div>';
+                    const noBusinessMessage = '<div class="text-gray-500 text-sm italic">Please select a business first</div>';
+                    businessInitiatorsContainer.innerHTML = noBusinessMessage;
+                    businessAuthorizersContainer.innerHTML = noBusinessMessage;
+                    businessApproversContainer.innerHTML = noBusinessMessage;
                     return;
                 }
-                
-                // Clear current content
-                businessApproversContainer.innerHTML = '';
                 
                 // Filter users by selected business
                 const businessUsers = allUsers.filter(user => user.business_id === selectedBusinessId);
                 
-                // Create users section
-                if (businessUsers.length > 0) {
-                    const usersSection = document.createElement('div');
-                    usersSection.innerHTML = '<div class="text-sm font-medium text-gray-700 mb-2">Users</div>';
+                // Function to create user checkboxes for a specific level
+                const createUserCheckboxes = (level, container) => {
+                    container.innerHTML = '';
                     
-                    businessUsers.forEach(user => {
-                        const checkboxDiv = document.createElement('div');
-                        checkboxDiv.className = 'flex items-center space-x-3';
-                        const isChecked = currentSelectedApprovers.includes(`user:${user.id}`) ? 'checked' : '';
-                        checkboxDiv.innerHTML = `
-                            <input type="checkbox" 
-                                   name="business_approvers[]" 
-                                   value="user:${user.id}"
-                                   id="business_user_${user.id}"
-                                   ${isChecked}
-                                   class="h-4 w-4 text-[#011478] focus:ring-[#011478] border-gray-300 rounded">
-                            <label for="business_user_${user.id}" class="text-sm text-gray-900">
-                                ${user.name} <span class="text-gray-500">(${user.email})</span>
-                            </label>
-                        `;
-                        usersSection.appendChild(checkboxDiv);
-                    });
-                    
-                    businessApproversContainer.appendChild(usersSection);
-                }
+                    if (businessUsers.length > 0) {
+                        const usersSection = document.createElement('div');
+                        usersSection.innerHTML = '<div class="text-sm font-medium text-gray-700 mb-2">Users</div>';
+                        
+                        businessUsers.forEach(user => {
+                            const checkboxDiv = document.createElement('div');
+                            checkboxDiv.className = 'flex items-center space-x-3';
+                            const isChecked = getCurrentSelectedApprovers(level).includes(`user:${user.id}`) ? 'checked' : '';
+                            checkboxDiv.innerHTML = `
+                                <input type="checkbox" 
+                                       name="business_${level}[]" 
+                                       value="user:${user.id}"
+                                       id="business_${level}_${user.id}"
+                                       ${isChecked}
+                                       class="h-4 w-4 text-[#011478] focus:ring-[#011478] border-gray-300 rounded">
+                                <label for="business_${level}_${user.id}" class="text-sm text-gray-900">
+                                    ${user.name} <span class="text-gray-500">(${user.email})</span>
+                                </label>
+                            `;
+                            usersSection.appendChild(checkboxDiv);
+                        });
+                        
+                        container.appendChild(usersSection);
+                    } else {
+                        container.innerHTML = '<div class="text-gray-500 text-sm italic">No users available for this business</div>';
+                    }
+                };
                 
-                
-                // If no approvers found
-                if (businessApproversContainer.children.length === 0) {
-                    businessApproversContainer.innerHTML = '<div class="text-gray-500 text-sm italic">No approvers available for this business</div>';
-                }
+                // Update all three levels
+                createUserCheckboxes('initiators', businessInitiatorsContainer);
+                createUserCheckboxes('authorizers', businessAuthorizersContainer);
+                createUserCheckboxes('approvers', businessApproversContainer);
             });
         });
     </script>

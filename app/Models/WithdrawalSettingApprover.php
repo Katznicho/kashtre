@@ -13,12 +13,14 @@ class WithdrawalSettingApprover extends Model
         'withdrawal_setting_id',
         'approver_id',
         'approver_type',
-        'approver_level'
+        'approver_level',
+        'approval_level'
     ];
 
     protected $casts = [
         'approver_type' => 'string',
-        'approver_level' => 'string'
+        'approver_level' => 'string',
+        'approval_level' => 'string'
     ];
 
     // Relationships
@@ -68,5 +70,21 @@ class WithdrawalSettingApprover extends Model
     public function isContractorApprover()
     {
         return $this->approver_type === 'contractor';
+    }
+
+    // Helper methods for approval levels
+    public function isInitiator()
+    {
+        return $this->approval_level === 'initiator';
+    }
+
+    public function isAuthorizer()
+    {
+        return $this->approval_level === 'authorizer';
+    }
+
+    public function isApprover()
+    {
+        return $this->approval_level === 'approver';
     }
 }

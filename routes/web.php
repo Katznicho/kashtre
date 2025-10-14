@@ -167,9 +167,9 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     // Withdrawal Settings
     Route::resource("withdrawal-settings", WithdrawalSettingController::class);
     Route::resource("business-withdrawal-settings", BusinessWithdrawalSettingController::class);
-    
-    // Withdrawal Requests
     Route::resource("withdrawal-requests", WithdrawalRequestController::class);
+    Route::post("withdrawal-requests/{withdrawalRequest}/approve", [WithdrawalRequestController::class, 'approve'])->name('withdrawal-requests.approve');
+    Route::post("withdrawal-requests/{withdrawalRequest}/reject", [WithdrawalRequestController::class, 'reject'])->name('withdrawal-requests.reject');
     
     // Testing routes (Admin only) - Rate limited to prevent abuse
     Route::post('/testing/clear-data', [TestingController::class, 'clearData'])

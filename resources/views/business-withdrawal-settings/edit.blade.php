@@ -2,7 +2,7 @@
 <div class="container mx-auto px-4 py-8">
     <div class="max-w-4xl mx-auto">
         <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-900">Edit Business Withdrawal Setting</h1>
+            <h1 class="text-3xl font-bold text-gray-900">Edit Business Withdrawal Charge</h1>
             <a href="{{ route('business-withdrawal-settings.index') }}" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
                 Back to List
             </a>
@@ -95,7 +95,7 @@
                     Cancel
                 </a>
                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                    Update Withdrawal Setting
+                    Update Withdrawal Charge
                 </button>
             </div>
         </form>

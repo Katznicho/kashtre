@@ -28,7 +28,10 @@ class BusinessBalanceHistoryController extends Controller
                 ->paginate(20);
         }
 
-        return view('business-balance-statement.index', compact('businessBalanceHistories', 'businesses'));
+        return view('business-balance-statement.index', compact('businessBalanceHistories', 'businesses'))
+            ->with('canUserCreateWithdrawal', function($user) {
+                return $this->canUserCreateWithdrawal($user);
+            });
     }
 
     public function show(Business $business)
@@ -83,6 +86,31 @@ class BusinessBalanceHistoryController extends Controller
             ->paginate(50);
 
         return view('kashtre-balance-statement.show', compact('kashtreBalanceHistories'));
+    }
+
+    /**
+     * Check if a user can create withdrawal requests
+     */
+    private function canUserCreateWithdrawal($user)
+    {
+        // Check if user has withdrawal settings configured for their business
+        $withdrawalSetting = \App\Models\WithdrawalSetting::where('business_id', $user->business_id)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$withdrawalSetting) {
+            return false;
+        }
+
+        // Check if user is an initiator for this business
+        $isInitiator = \App\Models\WithdrawalSettingApprover::where('withdrawal_setting_id', $withdrawalSetting->id)
+            ->where('approver_id', $user->id)
+            ->where('approver_type', 'user')
+            ->where('approver_level', 'business')
+            ->where('approval_level', 'initiator')
+            ->exists();
+
+        return $isInitiator;
     }
 }
 

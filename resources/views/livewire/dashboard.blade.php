@@ -40,11 +40,15 @@
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Clients</h3>
-                <span class="text-xs text-gray-400">{{ $currentBranch->name ?? 'All Branches' }}</span>
+                <span class="text-xs text-gray-400">{{ $business->id == 1 ? 'All Businesses' : ($currentBranch->name ?? 'All Branches') }}</span>
             </div>
             <div class="flex items-baseline">
                 <span class="text-2xl font-bold text-[#011478] dark:text-white">
-                    {{ \App\Models\Client::where('business_id', $business->id)->where('branch_id', $currentBranch->id)->count() }}
+                    @if($business->id == 1)
+                        {{ \App\Models\Client::count() }}
+                    @else
+                        {{ \App\Models\Client::where('business_id', $business->id)->where('branch_id', $currentBranch->id)->count() }}
+                    @endif
                 </span>
                 <span class="ml-2 text-sm text-gray-500">Clients</span>
             </div>
@@ -58,7 +62,11 @@
             </div>
             <div class="flex items-baseline">
                 <span class="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {{ \App\Models\Client::where('business_id', $business->id)->where('branch_id', $currentBranch->id)->whereDate('created_at', today())->count() }}
+                    @if($business->id == 1)
+                        {{ \App\Models\Client::whereDate('created_at', today())->count() }}
+                    @else
+                        {{ \App\Models\Client::where('business_id', $business->id)->where('branch_id', $currentBranch->id)->whereDate('created_at', today())->count() }}
+                    @endif
                 </span>
                 <span class="ml-2 text-sm text-gray-500">New</span>
             </div>
@@ -68,11 +76,15 @@
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Transactions</h3>
-                <span class="text-xs text-gray-400">All Time</span>
+                <span class="text-xs text-gray-400">{{ $business->id == 1 ? 'All Businesses' : 'All Time' }}</span>
             </div>
             <div class="flex items-baseline">
                 <span class="text-2xl font-bold text-[#011478] dark:text-white">
-                    {{ \App\Models\Transaction::where('business_id', $business->id)->count() }}
+                    @if($business->id == 1)
+                        {{ \App\Models\Transaction::count() }}
+                    @else
+                        {{ \App\Models\Transaction::where('business_id', $business->id)->count() }}
+                    @endif
                 </span>
                 <span class="ml-2 text-sm text-gray-500">Txns</span>
             </div>
@@ -86,7 +98,11 @@
             </div>
             <div class="flex items-baseline">
                 <span class="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {{ \App\Models\Transaction::where('business_id', $business->id)->whereDate('created_at', today())->count() }}
+                    @if($business->id == 1)
+                        {{ \App\Models\Transaction::whereDate('created_at', today())->count() }}
+                    @else
+                        {{ \App\Models\Transaction::where('business_id', $business->id)->whereDate('created_at', today())->count() }}
+                    @endif
                 </span>
                 <span class="ml-2 text-sm text-gray-500">Today</span>
             </div>
@@ -118,25 +134,41 @@
                     <button onclick="showTransactionTab('all')" id="tab-all" class="transaction-tab py-2 px-1 border-b-2 border-[#011478] font-medium text-sm text-[#011478]">
                         All
                         <span class="ml-2 bg-[#011478] text-white text-xs rounded-full px-2 py-1">
-                            {{ \App\Models\Transaction::withTrashed()->where('business_id', $business->id)->count() }}
+                            @if($business->id == 1)
+                                {{ \App\Models\Transaction::withTrashed()->count() }}
+                            @else
+                                {{ \App\Models\Transaction::withTrashed()->where('business_id', $business->id)->count() }}
+                            @endif
                         </span>
                     </button>
                     <button onclick="showTransactionTab('pending')" id="tab-pending" class="transaction-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
                         Pending
                         <span class="ml-2 bg-yellow-100 text-yellow-800 text-xs rounded-full px-2 py-1">
-                            {{ \App\Models\Transaction::withTrashed()->where('business_id', $business->id)->where('status', 'pending')->count() }}
+                            @if($business->id == 1)
+                                {{ \App\Models\Transaction::withTrashed()->where('status', 'pending')->count() }}
+                            @else
+                                {{ \App\Models\Transaction::withTrashed()->where('business_id', $business->id)->where('status', 'pending')->count() }}
+                            @endif
                         </span>
                     </button>
                     <button onclick="showTransactionTab('completed')" id="tab-completed" class="transaction-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
                         Completed
                         <span class="ml-2 bg-green-100 text-green-800 text-xs rounded-full px-2 py-1">
-                            {{ \App\Models\Transaction::withTrashed()->where('business_id', $business->id)->where('status', 'completed')->count() }}
+                            @if($business->id == 1)
+                                {{ \App\Models\Transaction::withTrashed()->where('status', 'completed')->count() }}
+                            @else
+                                {{ \App\Models\Transaction::withTrashed()->where('business_id', $business->id)->where('status', 'completed')->count() }}
+                            @endif
                         </span>
                     </button>
                     <button onclick="showTransactionTab('failed')" id="tab-failed" class="transaction-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
                         Failed
                         <span class="ml-2 bg-red-100 text-red-800 text-xs rounded-full px-2 py-1">
-                            {{ \App\Models\Transaction::withTrashed()->where('business_id', $business->id)->where('status', 'failed')->count() }}
+                            @if($business->id == 1)
+                                {{ \App\Models\Transaction::withTrashed()->where('status', 'failed')->count() }}
+                            @else
+                                {{ \App\Models\Transaction::withTrashed()->where('business_id', $business->id)->where('status', 'failed')->count() }}
+                            @endif
                         </span>
                     </button>
                 </nav>
@@ -151,15 +183,28 @@
                 'current_branch_id' => $currentBranch->id ?? null,
                 'current_branch_name' => $currentBranch->name ?? null,
                 'user_id' => auth()->user()->id,
+                'is_kashtre_user' => $business->id == 1,
                 'timestamp' => now()->toISOString()
             ]);
 
-            // Get all transactions for this business (including soft-deleted)
-            $allTransactions = \App\Models\Transaction::withTrashed()
-                ->where('business_id', $business->id)
-                ->orderBy('created_at', 'desc')
-                ->limit(10)
-                ->get();
+            // For Kashtre users (business_id == 1), show all transactions from all businesses
+            // For regular businesses, show only their own transactions
+            $transactionQuery = \App\Models\Transaction::withTrashed()->with(['business', 'client', 'branch']);
+            
+            if ($business->id == 1) {
+                // Kashtre user - show all transactions from all businesses
+                $allTransactions = $transactionQuery
+                    ->orderBy('created_at', 'desc')
+                    ->limit(20) // Show more for Kashtre since they see all businesses
+                    ->get();
+            } else {
+                // Regular business - show only their transactions
+                $allTransactions = $transactionQuery
+                    ->where('business_id', $business->id)
+                    ->orderBy('created_at', 'desc')
+                    ->limit(10)
+                    ->get();
+            }
             
             \Log::info("All transactions query result", [
                 'business_id' => $business->id,
@@ -182,12 +227,21 @@
             ]);
 
             // Get pending transactions (including soft-deleted)
-            $pendingTransactions = \App\Models\Transaction::withTrashed()
-                ->where('business_id', $business->id)
-                ->where('status', 'pending')
-                ->orderBy('created_at', 'desc')
-                ->limit(10)
-                ->get();
+            $pendingQuery = \App\Models\Transaction::withTrashed()->where('status', 'pending');
+            if ($business->id == 1) {
+                // Kashtre user - show all pending transactions from all businesses
+                $pendingTransactions = $pendingQuery
+                    ->orderBy('created_at', 'desc')
+                    ->limit(20)
+                    ->get();
+            } else {
+                // Regular business - show only their pending transactions
+                $pendingTransactions = $pendingQuery
+                    ->where('business_id', $business->id)
+                    ->orderBy('created_at', 'desc')
+                    ->limit(10)
+                    ->get();
+            }
             
             \Log::info("Pending transactions query result", [
                 'business_id' => $business->id,
@@ -203,12 +257,21 @@
             ]);
             
             // Get completed transactions (including soft-deleted)
-            $completedTransactions = \App\Models\Transaction::withTrashed()
-                ->where('business_id', $business->id)
-                ->where('status', 'completed')
-                ->orderBy('created_at', 'desc')
-                ->limit(10)
-                ->get();
+            $completedQuery = \App\Models\Transaction::withTrashed()->where('status', 'completed');
+            if ($business->id == 1) {
+                // Kashtre user - show all completed transactions from all businesses
+                $completedTransactions = $completedQuery
+                    ->orderBy('created_at', 'desc')
+                    ->limit(20)
+                    ->get();
+            } else {
+                // Regular business - show only their completed transactions
+                $completedTransactions = $completedQuery
+                    ->where('business_id', $business->id)
+                    ->orderBy('created_at', 'desc')
+                    ->limit(10)
+                    ->get();
+            }
             
             \Log::info("Completed transactions query result", [
                 'business_id' => $business->id,
@@ -224,12 +287,21 @@
             ]);
             
             // Get failed transactions (including soft-deleted)
-            $failedTransactions = \App\Models\Transaction::withTrashed()
-                ->where('business_id', $business->id)
-                ->where('status', 'failed')
-                ->orderBy('created_at', 'desc')
-                ->limit(10)
-                ->get();
+            $failedQuery = \App\Models\Transaction::withTrashed()->where('status', 'failed');
+            if ($business->id == 1) {
+                // Kashtre user - show all failed transactions from all businesses
+                $failedTransactions = $failedQuery
+                    ->orderBy('created_at', 'desc')
+                    ->limit(20)
+                    ->get();
+            } else {
+                // Regular business - show only their failed transactions
+                $failedTransactions = $failedQuery
+                    ->where('business_id', $business->id)
+                    ->orderBy('created_at', 'desc')
+                    ->limit(10)
+                    ->get();
+            }
             
             \Log::info("Failed transactions query result", [
                 'business_id' => $business->id,
@@ -287,6 +359,9 @@
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                            @if($business->id == 1)
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Business</th>
+                            @endif
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
@@ -300,6 +375,13 @@
                             <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                                 {{ $transaction->created_at->format('M d, H:i') }}
                             </td>
+                            @if($business->id == 1)
+                                <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                        {{ $transaction->business->name ?? 'Unknown Business' }}
+                                    </span>
+                                </td>
+                            @endif
                             <td class="px-3 py-2 whitespace-nowrap text-sm text-blue-600">
                                     @if($transaction->invoice_id)
                                         <a href="{{ route('invoices.show', $transaction->invoice_id) }}" class="hover:text-blue-800">
@@ -365,6 +447,9 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                                @if($business->id == 1)
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Business</th>
+                                @endif
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
@@ -378,6 +463,13 @@
                                 <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                                     {{ $transaction->created_at->format('M d, H:i') }}
                                 </td>
+                                @if($business->id == 1)
+                                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                            {{ $transaction->business->name ?? 'Unknown Business' }}
+                                        </span>
+                                    </td>
+                                @endif
                                 <td class="px-3 py-2 whitespace-nowrap text-sm text-blue-600">
                                     @if($transaction->invoice_id)
                                         <a href="{{ route('invoices.show', $transaction->invoice_id) }}" class="hover:text-blue-800">
@@ -429,6 +521,9 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                                @if($business->id == 1)
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Business</th>
+                                @endif
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
@@ -442,6 +537,13 @@
                                 <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                                     {{ $transaction->created_at->format('M d, H:i') }}
                                 </td>
+                                @if($business->id == 1)
+                                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                            {{ $transaction->business->name ?? 'Unknown Business' }}
+                                        </span>
+                                    </td>
+                                @endif
                                 <td class="px-3 py-2 whitespace-nowrap text-sm text-blue-600">
                                     @if($transaction->invoice_id)
                                         <a href="{{ route('invoices.show', $transaction->invoice_id) }}" class="hover:text-blue-800">
@@ -493,6 +595,9 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                                @if($business->id == 1)
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Business</th>
+                                @endif
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
@@ -506,6 +611,13 @@
                                 <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                                     {{ $transaction->created_at->format('M d, H:i') }}
                                 </td>
+                                @if($business->id == 1)
+                                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                            {{ $transaction->business->name ?? 'Unknown Business' }}
+                                        </span>
+                                    </td>
+                                @endif
                                 <td class="px-3 py-2 whitespace-nowrap text-sm text-blue-600">
                                     @if($transaction->invoice_id)
                                         <a href="{{ route('invoices.show', $transaction->invoice_id) }}" class="hover:text-blue-800">

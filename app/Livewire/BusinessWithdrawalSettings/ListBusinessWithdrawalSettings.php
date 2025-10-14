@@ -125,7 +125,7 @@ class ListBusinessWithdrawalSettings extends Component implements HasForms, HasT
                 
                 Tables\Actions\EditAction::make()
                     ->url(fn (BusinessWithdrawalSetting $record): string => route('business-withdrawal-settings.edit', $record))
-                    ->visible(fn (): bool => in_array('Edit Business Withdrawal Settings', Auth::user()->permissions ?? [])),
+                    ->visible(fn (): bool => in_array('Edit Business Withdrawal Charges', Auth::user()->permissions ?? [])),
             ])
             ->bulkActions([
                 // No bulk actions
@@ -135,11 +135,11 @@ class ListBusinessWithdrawalSettings extends Component implements HasForms, HasT
                     ->label('Create New')
                     ->icon('heroicon-o-plus')
                     ->url(route('business-withdrawal-settings.create'))
-                    ->visible(fn (): bool => in_array('Add Business Withdrawal Settings', Auth::user()->permissions ?? [])),
+                    ->visible(fn (): bool => in_array('Add Business Withdrawal Charges', Auth::user()->permissions ?? [])),
             ])
             ->defaultSort('created_at', 'desc')
-            ->emptyStateHeading('No withdrawal settings found')
-            ->emptyStateDescription('Create your first business withdrawal setting to get started.')
+            ->emptyStateHeading('No withdrawal charges found')
+            ->emptyStateDescription('Create your first business withdrawal charge to get started.')
             ->emptyStateIcon('heroicon-o-banknotes');
     }
 

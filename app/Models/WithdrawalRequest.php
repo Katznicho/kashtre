@@ -36,6 +36,9 @@ class WithdrawalRequest extends Model
         'rejected_at',
         'completed_at',
         'processed_by',
+        'transaction_reference',
+        'request_type',
+        'related_request_id',
     ];
 
     protected $casts = [
@@ -96,6 +99,19 @@ class WithdrawalRequest extends Model
     {
         return $this->hasMany(WithdrawalRequestApproval::class)
             ->where('approver_level', 'kashtre');
+    }
+
+    // Relationship to the related withdrawal request
+    public function relatedRequest()
+    {
+        return $this->belongsTo(WithdrawalRequest::class, 'related_request_id');
+    }
+
+    // Relationship to all requests with the same transaction reference
+    public function transactionRequests()
+    {
+        return $this->hasMany(WithdrawalRequest::class, 'transaction_reference', 'transaction_reference')
+            ->where('id', '!=', $this->id);
     }
 
     // Status Check Methods

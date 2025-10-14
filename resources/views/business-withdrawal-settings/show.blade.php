@@ -12,7 +12,7 @@
                                 </svg>
                             </div>
                             <div>
-                                <h1 class="text-3xl font-bold text-white">Withdrawal Charge Details</h1>
+                                <h1 class="text-3xl font-bold text-white">Business Withdrawal Charge Details</h1>
                                 <p class="text-blue-100 mt-1">{{ $businessWithdrawalSetting->business->name ?? 'Unknown Business' }}</p>
                             </div>
                         </div>
