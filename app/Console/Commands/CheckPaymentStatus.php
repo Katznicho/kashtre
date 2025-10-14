@@ -445,45 +445,18 @@ class CheckPaymentStatus extends Command
                 'service_point_id' => $branchServicePoint ? $branchServicePoint->service_point_id : null
             ]);
 
-            // Handle regular items with service points
-            if ($branchServicePoint && $branchServicePoint->service_point_id) {
-                Log::info("Creating service delivery queue for regular item", [
-                    'item_id' => $itemId,
-                    'service_point_id' => $branchServicePoint->service_point_id,
-                    'quantity' => $quantity
-                ]);
-
-                $queueRecord = \App\Models\ServiceDeliveryQueue::create([
-                    'business_id' => $invoice->business_id,
-                    'branch_id' => $invoice->branch_id,
-                    'service_point_id' => $branchServicePoint->service_point_id,
+            // Handle package items FIRST - packages use their own tracking system, not service point queuing
+            if ($itemModel->type === 'package') {
+                Log::info("Package item detected - using package tracking system instead of service point queuing", [
+                    'package_item_id' => $itemId,
+                    'package_name' => $itemModel->name,
                     'invoice_id' => $invoice->id,
-                    'client_id' => $invoice->client_id,
-                    'item_id' => $itemId,
-                    'item_name' => $item['name'] ?? $itemModel->name,
-                    'quantity' => $quantity,
-                    'price' => $item['price'] ?? $itemModel->default_price ?? 0,
-                    'status' => 'pending',
-                    'priority' => 'normal',
-                    'notes' => "Invoice: {$invoice->invoice_number}, Client: {$invoice->client_name}",
-                    'queued_at' => now(),
-                    'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
+                    'client_id' => $invoice->client_id
                 ]);
-
-                $queuedCount++;
-                Log::info("Service delivery queue created for regular item", [
-                    'queue_id' => $queueRecord->id,
-                    'item_id' => $itemId,
-                    'service_point_id' => $branchServicePoint->service_point_id
-                ]);
-            } else {
-                Log::info("Regular item has no service point for this business/branch, skipping queuing", [
-                    'item_id' => $itemId,
-                    'item_name' => $itemModel->name,
-                    'business_id' => $invoice->business_id,
-                    'branch_id' => $invoice->branch_id,
-                    'branch_service_point_found' => $branchServicePoint ? 'yes' : 'no'
-                ]);
+                
+                // Packages are handled by package tracking logic, not service point queuing
+                // No queuing action needed here
+                continue; // Skip to next item
             }
 
             // Handle bulk items - bulk items don't have service points, use service point from one of their included items
@@ -573,17 +546,45 @@ class CheckPaymentStatus extends Command
                 }
             }
 
-            // Handle package items - packages use their own tracking system, not service point queuing
-            if ($itemModel->type === 'package') {
-                Log::info("Package item detected - using package tracking system instead of service point queuing", [
-                    'package_item_id' => $itemId,
-                    'package_name' => $itemModel->name,
-                    'invoice_id' => $invoice->id,
-                    'client_id' => $invoice->client_id
+            // Handle regular items with service points (only for non-package, non-bulk items)
+            if ($branchServicePoint && $branchServicePoint->service_point_id) {
+                Log::info("Creating service delivery queue for regular item", [
+                    'item_id' => $itemId,
+                    'service_point_id' => $branchServicePoint->service_point_id,
+                    'quantity' => $quantity
                 ]);
-                
-                // Packages are handled by package tracking logic, not service point queuing
-                // No queuing action needed here
+
+                $queueRecord = \App\Models\ServiceDeliveryQueue::create([
+                    'business_id' => $invoice->business_id,
+                    'branch_id' => $invoice->branch_id,
+                    'service_point_id' => $branchServicePoint->service_point_id,
+                    'invoice_id' => $invoice->id,
+                    'client_id' => $invoice->client_id,
+                    'item_id' => $itemId,
+                    'item_name' => $item['name'] ?? $itemModel->name,
+                    'quantity' => $quantity,
+                    'price' => $item['price'] ?? $itemModel->default_price ?? 0,
+                    'status' => 'pending',
+                    'priority' => 'normal',
+                    'notes' => "Invoice: {$invoice->invoice_number}, Client: {$invoice->client_name}",
+                    'queued_at' => now(),
+                    'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
+                ]);
+
+                $queuedCount++;
+                Log::info("Service delivery queue created for regular item", [
+                    'queue_id' => $queueRecord->id,
+                    'item_id' => $itemId,
+                    'service_point_id' => $branchServicePoint->service_point_id
+                ]);
+            } else {
+                Log::info("Regular item has no service point for this business/branch, skipping queuing", [
+                    'item_id' => $itemId,
+                    'item_name' => $itemModel->name,
+                    'business_id' => $invoice->business_id,
+                    'branch_id' => $invoice->branch_id,
+                    'branch_service_point_found' => $branchServicePoint ? 'yes' : 'no'
+                ]);
             }
         }
 
@@ -1003,7 +1004,7 @@ class CheckPaymentStatus extends Command
                 // Fallback to generic description if no package details found
                 return [
                     'client_description' => "Package purchase from invoice {$invoice->invoice_number}",
-                    'client_notes' => "Package purchased: {$packageCount} package(s) for future use",
+                    'client_notes' => "Package purchased for future use",
                     'business_description' => "Package purchase from invoice {$invoice->invoice_number}"
                 ];
             }
