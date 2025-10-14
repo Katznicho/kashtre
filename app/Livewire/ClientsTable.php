@@ -43,13 +43,20 @@ class ClientsTable extends Component implements HasForms, HasTable
         $user = Auth::user();
         $business = $user->business;
         
+        // For Kashtre (business_id == 1), show all clients from all businesses
+        if ($business->id == 1) {
+            $query = Client::query()
+                ->where('business_id', '!=', 1)
+                ->with(['business', 'branch']);
+        } else {
+            $query = Client::query()
+                ->where('business_id', '!=', 1)
+                ->where('business_id', $business->id)
+                ->where('branch_id', $this->selectedBranchId);
+        }
+        
         return $table
-            ->query(
-                Client::query()
-                    ->where('business_id', '!=', 1)
-                    ->where('business_id', $business->id)
-                    ->where('branch_id', $this->selectedBranchId)
-            )
+            ->query($query)
             ->columns([
                 TextColumn::make('client_id')
                     ->label('Client ID')
@@ -67,6 +74,16 @@ class ClientsTable extends Component implements HasForms, HasTable
                     ->label('Phone')
                     ->searchable()
                     ->sortable(),
+                
+                // Show Business column only for Kashtre users
+                ...($business->id == 1 ? [
+                    TextColumn::make('business.name')
+                        ->label('Business')
+                        ->searchable()
+                        ->sortable()
+                        ->badge()
+                        ->color('purple'),
+                ] : []),
                 
                 TextColumn::make('nin')
                     ->label('NIN')

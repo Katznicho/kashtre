@@ -36,17 +36,30 @@ class ClientController extends Controller
         
         $selectedBranch = Branch::find($selectedBranchId) ?? $currentBranch;
         
-        // Get clients for the selected business and branch
-        $clients = Client::where('business_id', $business->id)
-            ->where('branch_id', $selectedBranch->id)
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
-            
-        // Get today's clients count for the selected branch
-        $todayClients = Client::where('business_id', $business->id)
-            ->where('branch_id', $selectedBranch->id)
-            ->whereDate('created_at', today())
-            ->count();
+        // For Kashtre (business_id == 1), show all clients from all businesses
+        if ($business->id == 1) {
+            $clients = Client::where('business_id', '!=', 1)
+                ->with(['business', 'branch'])
+                ->orderBy('created_at', 'desc')
+                ->paginate(15);
+                
+            // Get today's clients count for all businesses
+            $todayClients = Client::where('business_id', '!=', 1)
+                ->whereDate('created_at', today())
+                ->count();
+        } else {
+            // Get clients for the selected business and branch
+            $clients = Client::where('business_id', $business->id)
+                ->where('branch_id', $selectedBranch->id)
+                ->orderBy('created_at', 'desc')
+                ->paginate(15);
+                
+            // Get today's clients count for the selected branch
+            $todayClients = Client::where('business_id', $business->id)
+                ->where('branch_id', $selectedBranch->id)
+                ->whereDate('created_at', today())
+                ->count();
+        }
             
         // Get all branches the user has access to for the filter
         $availableBranches = Branch::whereIn('id', $allowedBranches)->get();

@@ -24,15 +24,24 @@ class RecentClientsTable extends Component implements HasForms, HasTable
         $business = $user->business;
         $currentBranch = $user->current_branch;
         
+        // For Kashtre (business_id == 1), show all clients from all businesses
+        if ($business->id == 1) {
+            $query = Client::query()
+                ->where('business_id', '!=', 1)
+                ->with(['business', 'branch'])
+                ->latest()
+                ->limit(20); // Show more for Kashtre
+        } else {
+            $query = Client::query()
+                ->where('business_id', '!=', 1)
+                ->where('business_id', $business->id)
+                ->where('branch_id', $currentBranch->id)
+                ->latest()
+                ->limit(5);
+        }
+        
         return $table
-            ->query(
-                Client::query()
-                    ->where('business_id', '!=', 1)
-                    ->where('business_id', $business->id)
-                    ->where('branch_id', $currentBranch->id)
-                    ->latest()
-                    ->limit(5)
-            )
+            ->query($query)
             ->columns([
                 TextColumn::make('client_id')
                     ->label('Client ID')
@@ -50,6 +59,17 @@ class RecentClientsTable extends Component implements HasForms, HasTable
                     ->label('Phone')
                     ->searchable()
                     ->size('sm'),
+                
+                // Show Business column only for Kashtre users
+                ...($business->id == 1 ? [
+                    TextColumn::make('business.name')
+                        ->label('Business')
+                        ->searchable()
+                        ->sortable()
+                        ->badge()
+                        ->color('purple')
+                        ->size('sm'),
+                ] : []),
                 
                 TextColumn::make('status')
                     ->label('Status')

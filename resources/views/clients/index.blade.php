@@ -5,8 +5,13 @@
                 <div class="flex justify-between items-center mb-6">
                     <div>
                         <h1 class="text-3xl font-bold text-gray-900">Clients Management</h1>
-                        <p class="text-gray-600 mt-2">{{ $business->name }} - {{ $currentBranch->name }}</p>
-                        <p class="text-sm text-blue-600 mt-1">Showing clients for: <strong>{{ $selectedBranch->name }}</strong></p>
+                        @if($business->id == 1)
+                            <p class="text-gray-600 mt-2">Kashtre - All Businesses</p>
+                            <p class="text-sm text-blue-600 mt-1">Showing clients from: <strong>All Businesses</strong></p>
+                        @else
+                            <p class="text-gray-600 mt-2">{{ $business->name }} - {{ $currentBranch->name }}</p>
+                            <p class="text-sm text-blue-600 mt-1">Showing clients for: <strong>{{ $selectedBranch->name }}</strong></p>
+                        @endif
                     </div>
                     <div class="text-right">
                         @if(in_array('Add Clients', auth()->user()->permissions ?? []))
@@ -50,8 +55,13 @@
                                 <i class="fas fa-building text-2xl"></i>
                             </div>
                             <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-600">Selected Branch</p>
-                                <p class="text-2xl font-bold text-gray-900">{{ $selectedBranch->name }}</p>
+                                @if($business->id == 1)
+                                    <p class="text-sm font-medium text-gray-600">All Businesses</p>
+                                    <p class="text-2xl font-bold text-gray-900">Kashtre</p>
+                                @else
+                                    <p class="text-sm font-medium text-gray-600">Selected Branch</p>
+                                    <p class="text-2xl font-bold text-gray-900">{{ $selectedBranch->name }}</p>
+                                @endif
                             </div>
                         </div>
                     </div>
