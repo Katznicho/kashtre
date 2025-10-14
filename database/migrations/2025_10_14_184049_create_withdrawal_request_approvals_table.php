@@ -11,7 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('withdrawal_request_approvals', function (Blueprint $table) {
+        if (!Schema::hasTable('withdrawal_request_approvals')) {
+            Schema::create('withdrawal_request_approvals', function (Blueprint $table) {
             $table->id();
             $table->foreignId('withdrawal_request_id')->constrained()->onDelete('cascade');
             $table->foreignId('approver_id')->constrained('users')->onDelete('cascade');
@@ -26,7 +27,8 @@ return new class extends Migration
             
             // Unique constraint to prevent duplicate approvals
             $table->unique(['withdrawal_request_id', 'approver_id'], 'unique_withdrawal_approval');
-        });
+            });
+        }
     }
 
     /**

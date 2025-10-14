@@ -11,7 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('withdrawal_requests', function (Blueprint $table) {
+        if (!Schema::hasTable('withdrawal_requests')) {
+            Schema::create('withdrawal_requests', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
             $table->foreignId('business_id')->constrained()->onDelete('cascade');
@@ -62,7 +63,8 @@ return new class extends Migration
             $table->index(['business_id', 'status']);
             $table->index(['requested_by', 'status']);
             $table->index(['status', 'created_at']);
-        });
+            });
+        }
     }
 
     /**
