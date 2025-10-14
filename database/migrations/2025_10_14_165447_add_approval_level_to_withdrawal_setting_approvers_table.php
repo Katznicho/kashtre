@@ -13,7 +13,9 @@ return new class extends Migration
     {
         Schema::table('withdrawal_setting_approvers', function (Blueprint $table) {
             // Add approval_level field to support 3-level approval system
-            $table->enum('approval_level', ['initiator', 'authorizer', 'approver'])->default('approver')->after('approver_level');
+            if (!Schema::hasColumn('withdrawal_setting_approvers', 'approval_level')) {
+                $table->enum('approval_level', ['initiator', 'authorizer', 'approver'])->default('approver')->after('approver_level');
+            }
         });
     }
 

@@ -13,9 +13,15 @@ return new class extends Migration
     {
         Schema::table('withdrawal_requests', function (Blueprint $table) {
             // Add fields to link related withdrawal requests
-            $table->string('transaction_reference')->nullable()->after('uuid'); // Common reference for both charge and amount requests
-            $table->enum('request_type', ['charge', 'amount'])->nullable()->after('transaction_reference'); // Type of request (charge or amount)
-            $table->foreignId('related_request_id')->nullable()->constrained('withdrawal_requests')->onDelete('set null')->after('request_type'); // Link to related request
+            if (!Schema::hasColumn('withdrawal_requests', 'transaction_reference')) {
+                $table->string('transaction_reference')->nullable()->after('uuid'); // Common reference for both charge and amount requests
+            }
+            if (!Schema::hasColumn('withdrawal_requests', 'request_type')) {
+                $table->enum('request_type', ['charge', 'amount'])->nullable()->after('transaction_reference'); // Type of request (charge or amount)
+            }
+            if (!Schema::hasColumn('withdrawal_requests', 'related_request_id')) {
+                $table->foreignId('related_request_id')->nullable()->constrained('withdrawal_requests')->onDelete('set null')->after('request_type'); // Link to related request
+            }
         });
     }
 

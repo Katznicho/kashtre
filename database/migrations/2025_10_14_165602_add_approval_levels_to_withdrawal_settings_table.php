@@ -14,20 +14,44 @@ return new class extends Migration
         Schema::table('withdrawal_settings', function (Blueprint $table) {
             // Add fields for 3-level approval system
             // Business level approvers (1-2 people)
-            $table->integer('min_business_initiators')->default(1)->after('min_kashtre_approvers');
-            $table->integer('max_business_initiators')->default(2)->after('min_business_initiators');
-            $table->integer('min_business_authorizers')->default(1)->after('max_business_initiators');
-            $table->integer('max_business_authorizers')->default(2)->after('min_business_authorizers');
-            $table->integer('min_business_approvers')->default(1)->after('max_business_authorizers');
-            $table->integer('max_business_approvers')->default(2)->after('min_business_approvers');
+            if (!Schema::hasColumn('withdrawal_settings', 'min_business_initiators')) {
+                $table->integer('min_business_initiators')->default(1)->after('min_kashtre_approvers');
+            }
+            if (!Schema::hasColumn('withdrawal_settings', 'max_business_initiators')) {
+                $table->integer('max_business_initiators')->default(2)->after('min_business_initiators');
+            }
+            if (!Schema::hasColumn('withdrawal_settings', 'min_business_authorizers')) {
+                $table->integer('min_business_authorizers')->default(1)->after('max_business_initiators');
+            }
+            if (!Schema::hasColumn('withdrawal_settings', 'max_business_authorizers')) {
+                $table->integer('max_business_authorizers')->default(2)->after('min_business_authorizers');
+            }
+            if (!Schema::hasColumn('withdrawal_settings', 'min_business_approvers')) {
+                $table->integer('min_business_approvers')->default(1)->after('max_business_authorizers');
+            }
+            if (!Schema::hasColumn('withdrawal_settings', 'max_business_approvers')) {
+                $table->integer('max_business_approvers')->default(2)->after('min_business_approvers');
+            }
             
             // Kashtre level approvers (1-2 people)
-            $table->integer('min_kashtre_initiators')->default(1)->after('max_business_approvers');
-            $table->integer('max_kashtre_initiators')->default(2)->after('min_kashtre_initiators');
-            $table->integer('min_kashtre_authorizers')->default(1)->after('max_kashtre_initiators');
-            $table->integer('max_kashtre_authorizers')->default(2)->after('min_kashtre_authorizers');
-            $table->integer('min_kashtre_approvers')->default(1)->after('max_kashtre_authorizers');
-            $table->integer('max_kashtre_approvers')->default(2)->after('min_kashtre_approvers');
+            if (!Schema::hasColumn('withdrawal_settings', 'min_kashtre_initiators')) {
+                $table->integer('min_kashtre_initiators')->default(1)->after('max_business_approvers');
+            }
+            if (!Schema::hasColumn('withdrawal_settings', 'max_kashtre_initiators')) {
+                $table->integer('max_kashtre_initiators')->default(2)->after('min_kashtre_initiators');
+            }
+            if (!Schema::hasColumn('withdrawal_settings', 'min_kashtre_authorizers')) {
+                $table->integer('min_kashtre_authorizers')->default(1)->after('max_kashtre_initiators');
+            }
+            if (!Schema::hasColumn('withdrawal_settings', 'max_kashtre_authorizers')) {
+                $table->integer('max_kashtre_authorizers')->default(2)->after('min_kashtre_authorizers');
+            }
+            if (!Schema::hasColumn('withdrawal_settings', 'min_kashtre_approvers')) {
+                $table->integer('min_kashtre_approvers')->default(1)->after('max_kashtre_authorizers');
+            }
+            if (!Schema::hasColumn('withdrawal_settings', 'max_kashtre_approvers')) {
+                $table->integer('max_kashtre_approvers')->default(2)->after('min_kashtre_approvers');
+            }
         });
     }
 

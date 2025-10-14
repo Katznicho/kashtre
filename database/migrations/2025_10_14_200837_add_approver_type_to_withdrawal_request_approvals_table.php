@@ -12,7 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('withdrawal_request_approvals', function (Blueprint $table) {
-            $table->string('approver_type')->default('user')->after('approver_id');
+            if (!Schema::hasColumn('withdrawal_request_approvals', 'approver_type')) {
+                $table->string('approver_type')->default('user')->after('approver_id');
+            }
         });
     }
 
