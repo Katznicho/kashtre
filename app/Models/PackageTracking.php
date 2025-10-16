@@ -18,7 +18,6 @@ class PackageTracking extends Model
         'client_id',
         'invoice_id',
         'package_item_id',
-        'included_item_id',
         'total_quantity',
         'used_quantity',
         'remaining_quantity',
@@ -26,7 +25,6 @@ class PackageTracking extends Model
         'valid_until',
         'status',
         'package_price',
-        'item_price',
         'notes',
         'tracking_number'
     ];
@@ -38,7 +36,6 @@ class PackageTracking extends Model
         'valid_from' => 'date',
         'valid_until' => 'date',
         'package_price' => 'decimal:2',
-        'item_price' => 'decimal:2',
     ];
 
     // Relationships
@@ -62,9 +59,9 @@ class PackageTracking extends Model
         return $this->belongsTo(Item::class, 'package_item_id');
     }
 
-    public function includedItem()
+    public function trackingItems()
     {
-        return $this->belongsTo(Item::class, 'included_item_id');
+        return $this->hasMany(PackageTrackingItem::class);
     }
 
     // Scopes
@@ -86,7 +83,9 @@ class PackageTracking extends Model
 
     public function scopeForItem($query, $itemId)
     {
-        return $query->where('included_item_id', $itemId);
+        return $query->whereHas('trackingItems', function($q) use ($itemId) {
+            $q->where('included_item_id', $itemId);
+        });
     }
 
     public function scopeForBusiness($query, $businessId)
@@ -133,6 +132,31 @@ class PackageTracking extends Model
             return round(($this->used_quantity / $this->total_quantity) * 100, 2);
         }
         return 0;
+    }
+
+    /**
+     * Update status if all tracking items are fully used
+     */
+    public function updateStatusIfFullyUsed()
+    {
+        $allItemsUsed = $this->trackingItems()
+            ->where('remaining_quantity', '>', 0)
+            ->count() === 0;
+            
+        if ($allItemsUsed) {
+            $this->update(['status' => 'fully_used']);
+        }
+    }
+
+    /**
+     * Get all valid tracking items for a specific included item
+     */
+    public function getValidTrackingItemsForItem($itemId)
+    {
+        return $this->trackingItems()
+            ->where('included_item_id', $itemId)
+            ->where('remaining_quantity', '>', 0)
+            ->get();
     }
 
     protected static function booted()

@@ -599,13 +599,14 @@ class CheckPaymentStatus extends Command
     }
 
     /**
-     * Create package tracking records for package items
+     * Create package tracking records for package items using new structure
      */
     private function createPackageTrackingRecords($invoice, $items)
     {
+        $packageTrackingService = new \App\Services\PackageTrackingService();
         $packageTrackingCount = 0;
         
-        Log::info("=== STARTING PACKAGE TRACKING CREATION ===", [
+        Log::info("=== STARTING PACKAGE TRACKING CREATION (NEW STRUCTURE) ===", [
             'invoice_id' => $invoice->id,
             'invoice_number' => $invoice->invoice_number,
             'total_items' => count($items ?? [])
@@ -619,89 +620,45 @@ class CheckPaymentStatus extends Command
             $itemModel = \App\Models\Item::find($itemId);
             if (!$itemModel || $itemModel->type !== 'package') continue;
 
-            Log::info("Processing package item for tracking", [
-                'package_item_id' => $itemId,
-                'package_name' => $itemModel->name,
-                'quantity' => $item['quantity'] ?? 1
-            ]);
+            $quantity = $item['quantity'] ?? 1;
 
-            // Get included items for this package from package_items table
-            $packageItems = $itemModel->packageItems()->with('includedItem')->get();
-            if ($packageItems->isEmpty()) {
-                Log::warning("Package item has no included items", [
+            // Check if package tracking record already exists to prevent duplicates
+            $existingTracking = \App\Models\PackageTracking::where([
+                'invoice_id' => $invoice->id,
+                'package_item_id' => $itemId,
+                'client_id' => $invoice->client_id
+            ])->first();
+
+            if ($existingTracking) {
+                Log::warning("Package tracking record already exists - skipping creation to prevent duplicate", [
+                    'existing_tracking_id' => $existingTracking->id,
+                    'invoice_id' => $invoice->id,
                     'package_item_id' => $itemId,
-                    'package_name' => $itemModel->name
+                    'client_id' => $invoice->client_id
                 ]);
                 continue;
             }
 
-            $quantity = $item['quantity'] ?? 1;
-            $packagePrice = $item['price'] ?? 0;
-
-            foreach ($packageItems as $packageItem) {
-                $includedItem = $packageItem->includedItem;
-                $includedItemId = $includedItem->id;
-                $maxQuantity = $packageItem->max_quantity ?? 1;
-                $includedItemPrice = $includedItem->default_price ?? 0;
-
-                // Calculate total quantity for this included item
-                $totalQuantity = $maxQuantity * $quantity;
-
-                // Check if package tracking record already exists to prevent duplicates
-                $existingTracking = \App\Models\PackageTracking::where([
-                    'invoice_id' => $invoice->id,
-                    'package_item_id' => $itemId,
-                    'included_item_id' => $includedItemId,
-                    'client_id' => $invoice->client_id
-                ])->first();
-
-                if ($existingTracking) {
-                    Log::warning("Package tracking record already exists - skipping creation to prevent duplicate", [
-                        'existing_tracking_id' => $existingTracking->id,
-                        'invoice_id' => $invoice->id,
-                        'package_item_id' => $itemId,
-                        'included_item_id' => $includedItemId,
-                        'client_id' => $invoice->client_id
-                    ]);
-                    continue;
-                }
-
-                Log::info("Creating package tracking record", [
-                    'package_item_id' => $itemId,
-                    'included_item_id' => $includedItemId,
-                    'included_item_name' => $includedItem->name,
-                    'max_quantity' => $maxQuantity,
-                    'package_quantity' => $quantity,
-                    'total_quantity' => $totalQuantity
-                ]);
-
-                // Create package tracking record with timestamp format
-                $packageTracking = \App\Models\PackageTracking::create([
-                    'business_id' => $invoice->business_id,
-                    'client_id' => $invoice->client_id,
-                    'invoice_id' => $invoice->id,
-                    'package_item_id' => $itemId,
-                    'included_item_id' => $includedItemId,
-                    'total_quantity' => $totalQuantity,
-                    'used_quantity' => 0,
-                    'remaining_quantity' => $totalQuantity,
-                    'valid_from' => now()->toDateString(),
-                    'valid_until' => now()->addDays(365)->toDateString(), // Default 1 year validity
-                    'status' => 'active',
-                    'package_price' => $packagePrice,
-                    'item_price' => $includedItemPrice,
-                    'notes' => "Package: {$itemModel->name}, Invoice: {$invoice->invoice_number}",
-                    'tracking_number' => 'PKG-' . $packageTrackingCount . '-' . now()->format('YmdHis')
-                ]);
-
+            try {
+                // Use the new service to create package tracking
+                $packageTracking = $packageTrackingService->createPackageTracking($invoice, $item, $quantity);
                 $packageTrackingCount++;
                 
-                Log::info("Package tracking record created", [
+                Log::info("Package tracking created successfully", [
                     'package_tracking_id' => $packageTracking->id,
+                    'tracking_number' => $packageTracking->tracking_number,
                     'package_item_id' => $itemId,
-                    'included_item_id' => $includedItemId,
-                    'total_quantity' => $totalQuantity
+                    'quantity' => $quantity
                 ]);
+
+            } catch (\Exception $e) {
+                Log::error("Failed to create package tracking", [
+                    'error' => $e->getMessage(),
+                    'invoice_id' => $invoice->id,
+                    'package_item_id' => $itemId,
+                    'quantity' => $quantity
+                ]);
+                continue;
             }
         }
 
@@ -731,7 +688,7 @@ class CheckPaymentStatus extends Command
             }
         }
 
-        Log::info("=== PACKAGE TRACKING CREATION COMPLETED ===", [
+        Log::info("=== PACKAGE TRACKING CREATION COMPLETED (NEW STRUCTURE) ===", [
             'invoice_id' => $invoice->id,
             'invoice_number' => $invoice->invoice_number,
             'total_package_tracking_records_created' => $packageTrackingCount

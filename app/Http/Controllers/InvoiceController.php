@@ -43,120 +43,19 @@ class InvoiceController extends Controller
                 'items' => $items
             ]);
 
-            $totalAdjustment = 0;
-            $adjustmentDetails = [];
+            // Use the new PackageTrackingService for package adjustment calculation
+            $packageTrackingService = new \App\Services\PackageTrackingService();
+            
+            // Create a mock invoice object for the service
+            $mockInvoice = new \App\Models\Invoice();
+            $mockInvoice->client_id = $clientId;
+            $mockInvoice->business_id = $businessId;
+            
+            $result = $packageTrackingService->usePackageItems($mockInvoice, $items);
+            $totalAdjustment = $result['total_adjustment'];
+            $adjustmentDetails = $result['details'];
 
-            // Get client's valid package tracking records
-            $validPackages = \App\Models\PackageTracking::where('client_id', $clientId)
-                ->where('business_id', $businessId)
-                ->where('status', 'active')
-                ->where('remaining_quantity', '>', 0)
-                ->where('valid_until', '>=', now()->toDateString())
-                ->with(['packageItem.packageItems.includedItem'])
-                ->get();
-
-            foreach ($items as $item) {
-                $itemId = $item['id'] ?? $item['item_id'];
-                $quantity = $item['quantity'] ?? 1;
-                $remainingQuantity = $quantity;
-                
-                Log::info("Processing item for package adjustment calculation", [
-                    'item_id' => $itemId,
-                    'item_name' => $item['name'] ?? 'Unknown',
-                    'quantity' => $quantity,
-                    'remaining_quantity' => $remainingQuantity
-                ]);
-                
-                // Get the item price from the database (branch-specific or default)
-                $itemModel = \App\Models\Item::find($itemId);
-                $price = $itemModel ? $itemModel->default_price : 0;
-                
-                // Check for branch-specific price
-                $branchPrice = \App\Models\BranchItemPrice::where('branch_id', $branchId)
-                    ->where('item_id', $itemId)
-                    ->first();
-                
-                if ($branchPrice) {
-                    $price = $branchPrice->price;
-                    Log::info("Using branch-specific price for package adjustment", [
-                        'item_id' => $itemId,
-                        'branch_id' => $branchId,
-                        'branch_price' => $price,
-                        'default_price' => $itemModel->default_price
-                    ]);
-                } else {
-                    Log::info("Using default price for package adjustment", [
-                        'item_id' => $itemId,
-                        'default_price' => $price
-                    ]);
-                }
-
-                // Check if this item is included in any valid packages
-                foreach ($validPackages as $packageTracking) {
-                    if ($remainingQuantity <= 0) break;
-
-                    // Check if the current item is included in this package
-                    $packageItems = $packageTracking->packageItem->packageItems;
-                    
-                    foreach ($packageItems as $packageItem) {
-                        if ($packageItem->included_item_id == $itemId) {
-                            // Check max quantity constraint from package_items table
-                            $maxQuantity = $packageItem->max_quantity ?? null;
-                            $fixedQuantity = $packageItem->fixed_quantity ?? null;
-                            
-                            // Determine how much quantity can be used from this package
-                            $availableFromPackage = $packageTracking->remaining_quantity;
-                            
-                            if ($maxQuantity !== null) {
-                                // If max_quantity is set, limit by that
-                                $availableFromPackage = min($availableFromPackage, $maxQuantity);
-                            } elseif ($fixedQuantity !== null) {
-                                // If fixed_quantity is set, use that
-                                $availableFromPackage = min($availableFromPackage, $fixedQuantity);
-                            }
-                            
-                            // Calculate how much we can actually use
-                            $quantityToUse = min($remainingQuantity, $availableFromPackage);
-                            
-                            if ($quantityToUse > 0) {
-                                // Use individual item price for display purposes (what customer paid for this specific item)
-                                // The actual money transfer will still use the full package amount
-                                $itemAdjustment = $quantityToUse * $price;
-                                $totalAdjustment += $itemAdjustment;
-                                
-                                Log::info("Package adjustment calculation", [
-                                    'item_id' => $itemId,
-                                    'item_name' => $item['name'] ?? 'Unknown',
-                                    'quantity_to_use' => $quantityToUse,
-                                    'individual_item_price' => $price,
-                                    'package_price' => $packageTracking->package_price,
-                                    'item_adjustment' => $itemAdjustment,
-                                    'package_tracking_id' => $packageTracking->id,
-                                    'reason' => 'Using individual item price for display, package price used for money transfer'
-                                ]);
-                                
-                                $adjustmentDetails[] = [
-                                    'item_id' => $itemId,
-                                    'item_name' => $item['name'] ?? 'Unknown',
-                                    'quantity_adjusted' => $quantityToUse,
-                                    'adjustment_amount' => $itemAdjustment,
-                                    'package_name' => $packageTracking->packageItem->name,
-                                    'package_tracking_id' => $packageTracking->id,
-                                    'package_expiry' => $packageTracking->valid_until->format('Y-m-d'),
-                                    'remaining_in_package' => $packageTracking->remaining_quantity - $quantityToUse,
-                                    'max_quantity' => $maxQuantity,
-                                    'fixed_quantity' => $fixedQuantity,
-                                ];
-                                
-                                $remainingQuantity -= $quantityToUse;
-                                
-                                // If we've used all available quantity from this package, break
-                                if ($remainingQuantity <= 0) break;
-                            }
-                        }
-                    }
-                }
-            }
+            // Package adjustment calculation is now handled by the PackageTrackingService
 
             Log::info("=== PACKAGE ADJUSTMENT CALCULATION COMPLETED ===", [
                 'client_id' => $clientId,

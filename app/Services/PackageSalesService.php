@@ -57,16 +57,19 @@ class PackageSalesService
                     continue;
                 }
 
-                // Find package tracking records for this item
-                $packageTrackingRecords = PackageTracking::where('included_item_id', $itemId)
-                    ->where('client_id', $clientId)
+                // Find package tracking items for this item using the new structure
+                $packageTrackingItems = \App\Models\PackageTrackingItem::where('included_item_id', $itemId)
+                    ->whereHas('packageTracking', function($q) use ($clientId) {
+                        $q->where('client_id', $clientId)
+                          ->where('status', 'active');
+                    })
                     ->where('remaining_quantity', '>', 0)
-                    ->where('status', 'active')
+                    ->with('packageTracking')
                     ->orderBy('created_at', 'asc') // Use oldest packages first (FIFO)
                     ->get();
 
-                if ($packageTrackingRecords->isEmpty()) {
-                    Log::warning('No active package tracking records found for item', [
+                if ($packageTrackingItems->isEmpty()) {
+                    Log::warning('No active package tracking items found for item', [
                         'item_id' => $itemId,
                         'client_id' => $clientId
                     ]);
@@ -76,16 +79,16 @@ class PackageSalesService
                 $remainingQuantity = $quantity;
                 $itemTotalAmount = 0;
 
-                foreach ($packageTrackingRecords as $packageTracking) {
+                foreach ($packageTrackingItems as $trackingItem) {
                     if ($remainingQuantity <= 0) break;
 
-                    $availableQuantity = $packageTracking->remaining_quantity;
+                    $availableQuantity = $trackingItem->remaining_quantity;
                     $quantityToUse = min($remainingQuantity, $availableQuantity);
                     
                     if ($quantityToUse <= 0) continue;
 
                     Log::info('Processing package item sale', [
-                        'package_tracking_id' => $packageTracking->id,
+                        'package_tracking_id' => $trackingItem->package_tracking_id,
                         'item_id' => $itemId,
                         'quantity_to_use' => $quantityToUse,
                         'available_quantity' => $availableQuantity,
@@ -93,40 +96,36 @@ class PackageSalesService
                     ]);
 
                     // Calculate amount for this portion of the sale
-                    $itemPrice = $packageTracking->item_price ?? 0;
+                    $itemPrice = $trackingItem->item_price ?? 0;
                     $portionAmount = $itemPrice * $quantityToUse;
                     $itemTotalAmount += $portionAmount;
 
                     // Create package sales record
                     $packageSale = PackageSales::create([
-                        'name' => $packageTracking->client->name ?? 'Unknown Client',
+                        'name' => $trackingItem->packageTracking->client->name ?? 'Unknown Client',
                         'invoice_number' => $invoiceNumber,
-                        'pkn' => $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}-{$packageTracking->created_at->format('YmdHis')}",
+                        'pkn' => $trackingItem->packageTracking->tracking_number ?? "PKG-{$trackingItem->package_tracking_id}-{$trackingItem->created_at->format('YmdHis')}",
                         'date' => now()->toDateString(),
                         'qty' => $quantityToUse,
-                        'item_name' => $packageTracking->includedItem->name ?? 'Unknown Item',
+                        'item_name' => $trackingItem->includedItem->name ?? 'Unknown Item',
                         'amount' => $portionAmount,
                         'business_id' => $businessId,
                         'branch_id' => $branchId,
                         'client_id' => $clientId,
-                        'package_tracking_id' => $packageTracking->id,
+                        'package_tracking_id' => $trackingItem->package_tracking_id,
                         'item_id' => $itemId,
                         'status' => 'completed',
-                        'notes' => "Package item sale from tracking #{$packageTracking->id}"
+                        'notes' => "Package item sale from tracking #{$trackingItem->package_tracking_id}"
                     ]);
 
-                    // Update package tracking quantities
-                    $packageTracking->update([
-                        'used_quantity' => $packageTracking->used_quantity + $quantityToUse,
-                        'remaining_quantity' => $packageTracking->remaining_quantity - $quantityToUse,
-                        'status' => $packageTracking->remaining_quantity - $quantityToUse <= 0 ? 'fully_used' : 'active'
-                    ]);
+                    // Update package tracking item quantities
+                    $trackingItem->useQuantity($quantityToUse);
 
-                    Log::info('Package tracking updated', [
-                        'package_tracking_id' => $packageTracking->id,
-                        'new_used_quantity' => $packageTracking->used_quantity,
-                        'new_remaining_quantity' => $packageTracking->remaining_quantity,
-                        'new_status' => $packageTracking->status
+                    Log::info('Package tracking item updated', [
+                        'tracking_item_id' => $trackingItem->id,
+                        'package_tracking_id' => $trackingItem->package_tracking_id,
+                        'new_used_quantity' => $trackingItem->used_quantity,
+                        'new_remaining_quantity' => $trackingItem->remaining_quantity
                     ]);
 
                     $remainingQuantity -= $quantityToUse;
@@ -134,7 +133,8 @@ class PackageSalesService
 
                     $results[] = [
                         'package_sale_id' => $packageSale->id,
-                        'package_tracking_id' => $packageTracking->id,
+                        'package_tracking_id' => $trackingItem->package_tracking_id,
+                        'tracking_item_id' => $trackingItem->id,
                         'quantity_used' => $quantityToUse,
                         'amount' => $portionAmount,
                         'pkn' => $packageSale->pkn

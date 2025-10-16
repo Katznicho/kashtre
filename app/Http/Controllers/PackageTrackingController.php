@@ -17,7 +17,7 @@ class PackageTrackingController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $query = PackageTracking::with(['client', 'invoice', 'packageItem', 'includedItem'])
+        $query = PackageTracking::with(['client', 'invoice', 'packageItem', 'trackingItems.includedItem'])
             ->where('business_id', $user->business_id);
 
         // Filter by status
@@ -48,7 +48,7 @@ class PackageTrackingController extends Controller
             });
         }
 
-        $packageTrackings = $query->with(['client', 'invoice', 'packageItem.packageItems.includedItem'])->orderBy('created_at', 'desc')->paginate(20);
+        $packageTrackings = $query->with(['client', 'invoice', 'packageItem', 'trackingItems.includedItem'])->orderBy('created_at', 'desc')->paginate(20);
         $clients = Client::where('business_id', $user->business_id)->get();
 
         return view('package-tracking.index', compact('packageTrackings', 'clients'));
@@ -68,17 +68,17 @@ class PackageTrackingController extends Controller
             abort(403, 'Unauthorized access to package tracking record.');
         }
 
-        $packageTracking->load(['client', 'invoice', 'packageItem', 'includedItem']);
+        $packageTracking->load(['client', 'invoice', 'packageItem', 'trackingItems.includedItem']);
         
-        // Load all included items for this package
-        $packageItems = $packageTracking->packageItem->packageItems()->with('includedItem')->get();
+        // Get tracking items for this package
+        $trackingItems = $packageTracking->trackingItems()->with('includedItem')->get();
 
         // Load package sales for this package tracking record
         $packageSales = \App\Models\PackageSales::where('package_tracking_id', $packageTracking->id)
             ->orderBy('date', 'desc')
             ->get();
 
-        return view('package-tracking.show', compact('packageTracking', 'packageItems', 'packageSales'));
+        return view('package-tracking.show', compact('packageTracking', 'trackingItems', 'packageSales'));
     }
 
 
@@ -102,7 +102,7 @@ class PackageTrackingController extends Controller
     }
 
     /**
-     * Use package quantity (mark as used)
+     * Use package item quantity (mark as used)
      */
     public function useQuantity(Request $request, PackageTracking $packageTracking)
     {
@@ -117,26 +117,36 @@ class PackageTrackingController extends Controller
         }
 
         $validated = $request->validate([
+            'tracking_item_id' => 'required|exists:package_tracking_items,id',
             'quantity' => 'required|integer|min:1',
         ]);
 
-        $quantity = $validated['quantity'];
-
-        if ($packageTracking->remaining_quantity < $quantity) {
+        $trackingItem = $packageTracking->trackingItems()->find($validated['tracking_item_id']);
+        
+        if (!$trackingItem) {
             return response()->json([
                 'success' => false,
-                'message' => 'Insufficient remaining quantity. Available: ' . $packageTracking->remaining_quantity
+                'message' => 'Tracking item not found for this package.'
+            ], 404);
+        }
+
+        $quantity = $validated['quantity'];
+
+        if ($trackingItem->remaining_quantity < $quantity) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Insufficient remaining quantity. Available: ' . $trackingItem->remaining_quantity
             ], 400);
         }
 
-        $packageTracking->useQuantity($quantity);
+        $trackingItem->useQuantity($quantity);
 
         return response()->json([
             'success' => true,
-            'message' => 'Package quantity used successfully.',
-            'remaining_quantity' => $packageTracking->remaining_quantity,
-            'used_quantity' => $packageTracking->used_quantity,
-            'status' => $packageTracking->status
+            'message' => 'Package item quantity used successfully.',
+            'remaining_quantity' => $trackingItem->remaining_quantity,
+            'used_quantity' => $trackingItem->used_quantity,
+            'package_status' => $packageTracking->fresh()->status
         ]);
     }
 
@@ -160,14 +170,14 @@ class PackageTrackingController extends Controller
             ->count();
 
         // Get recent package tracking records
-        $recentPackages = PackageTracking::with(['client', 'packageItem.packageItems.includedItem', 'includedItem'])
+        $recentPackages = PackageTracking::with(['client', 'packageItem', 'trackingItems.includedItem'])
             ->where('business_id', $user->business_id)
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();
 
         // Get packages expiring soon (within 30 days)
-        $expiringSoon = PackageTracking::with(['client', 'packageItem.packageItems.includedItem', 'includedItem'])
+        $expiringSoon = PackageTracking::with(['client', 'packageItem', 'trackingItems.includedItem'])
             ->where('business_id', $user->business_id)
             ->where('status', 'active')
             ->where('valid_until', '<=', now()->addDays(30))
@@ -177,7 +187,7 @@ class PackageTrackingController extends Controller
             ->get();
 
         // Get packages with low remaining quantity (less than 25% remaining)
-        $lowQuantity = PackageTracking::with(['client', 'packageItem.packageItems.includedItem', 'includedItem'])
+        $lowQuantity = PackageTracking::with(['client', 'packageItem', 'trackingItems.includedItem'])
             ->where('business_id', $user->business_id)
             ->where('status', 'active')
             ->whereRaw('(remaining_quantity / total_quantity) < 0.25')
@@ -209,7 +219,7 @@ class PackageTrackingController extends Controller
             abort(403, 'Unauthorized access to client.');
         }
 
-        $packageTrackings = PackageTracking::with(['invoice', 'packageItem', 'includedItem'])
+        $packageTrackings = PackageTracking::with(['invoice', 'packageItem', 'trackingItems.includedItem'])
             ->where('business_id', $user->business_id)
             ->where('client_id', $client->id)
             ->orderBy('created_at', 'desc')

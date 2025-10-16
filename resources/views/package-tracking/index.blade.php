@@ -69,9 +69,9 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tracking #</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Package</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Max Qty</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Balance</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Qty</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valid Until</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -97,14 +97,22 @@
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <div class="text-sm text-blue-600 font-mono font-semibold">{{ $package->packageItem->name }}</div>
                                                 <div class="text-xs text-gray-500">
-                                                    @if($package->packageItem->packageItems->count() > 1)
-                                                        +{{ $package->packageItem->packageItems->count() - 1 }} more items
-                                                    @endif
+                                                    Package
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm font-medium text-gray-900">{{ $package->includedItem->name }}</div>
-                                                <div class="text-xs text-gray-500">Item name</div>
+                                                <div class="text-sm font-medium text-gray-900">
+                                                    @if($package->trackingItems->count() > 0)
+                                                        @foreach($package->trackingItems->take(2) as $item)
+                                                            <div class="text-xs">{{ $item->includedItem->name ?? 'Unknown' }} ({{ $item->remaining_quantity }})</div>
+                                                        @endforeach
+                                                        @if($package->trackingItems->count() > 2)
+                                                            <div class="text-xs text-gray-500">+{{ $package->trackingItems->count() - 2 }} more</div>
+                                                        @endif
+                                                    @else
+                                                        <div class="text-xs text-gray-500">No items</div>
+                                                    @endif
+                                                </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <div class="text-sm font-medium text-gray-900">{{ $package->total_quantity }}</div>

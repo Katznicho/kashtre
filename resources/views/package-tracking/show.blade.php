@@ -94,8 +94,16 @@
                                 <dd class="mt-1 text-sm text-gray-900">{{ $packageTracking->packageItem->name }}</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Included Item</dt>
-                                <dd class="mt-1 text-sm text-gray-900">{{ $packageTracking->includedItem->name }}</dd>
+                                <dt class="text-sm font-medium text-gray-500">Included Items</dt>
+                                <dd class="mt-1 text-sm text-gray-900">
+                                    @if($trackingItems->count() > 0)
+                                        @foreach($trackingItems as $item)
+                                            <div class="text-xs">{{ $item->includedItem->name ?? 'Unknown' }} ({{ $item->remaining_quantity }}/{{ $item->total_quantity }})</div>
+                                        @endforeach
+                                    @else
+                                        <span class="text-gray-500">No items</span>
+                                    @endif
+                                </dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Status</dt>
