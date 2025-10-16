@@ -30,6 +30,10 @@ class ModelActivityObserver
             return;
         }
 
+        // Generate meaningful description
+        $modelName = class_basename($model);
+        $description = $this->generateDescription($action, $model, $modelName);
+
         ActivityLog::create([
             'user_id'     => Auth::id(),
             'business_id' => optional(Auth::user())->business_id,
@@ -41,7 +45,47 @@ class ModelActivityObserver
             'new_values'  => in_array($action, ['created', 'updated']) ? json_encode($model->getAttributes()) : null,
             'ip_address'  => request()->ip(),
             'user_agent'  => request()->header('User-Agent'),
-            'description' => '',
+            'description' => $description,
         ]);
+    }
+
+    /**
+     * Generate a meaningful description for the activity log
+     */
+    protected function generateDescription(string $action, Model $model, string $modelName): string
+    {
+        $userName = Auth::user() ? Auth::user()->name : 'System';
+        
+        // Try to get a meaningful identifier for the model
+        $identifier = $this->getModelIdentifier($model);
+        
+        switch ($action) {
+            case 'created':
+                return "{$userName} created a new {$modelName}" . ($identifier ? " ({$identifier})" : '');
+            case 'updated':
+                return "{$userName} updated {$modelName}" . ($identifier ? " ({$identifier})" : '');
+            case 'deleted':
+                return "{$userName} deleted {$modelName}" . ($identifier ? " ({$identifier})" : '');
+            default:
+                return "{$userName} performed {$action} on {$modelName}" . ($identifier ? " ({$identifier})" : '');
+        }
+    }
+
+    /**
+     * Get a meaningful identifier for the model (name, title, etc.)
+     */
+    protected function getModelIdentifier(Model $model): ?string
+    {
+        // Try common identifier fields
+        $identifierFields = ['name', 'title', 'email', 'username', 'invoice_number', 'tracking_number'];
+        
+        foreach ($identifierFields as $field) {
+            if (isset($model->$field) && !empty($model->$field)) {
+                return $model->$field;
+            }
+        }
+        
+        // Fallback to ID
+        return $model->getKey() ? "ID: {$model->getKey()}" : null;
     }
 }

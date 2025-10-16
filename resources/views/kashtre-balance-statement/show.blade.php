@@ -155,7 +155,24 @@
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {{ $history->reference_number ?? 'N/A' }}
+                                    @if($history->reference_type && $history->reference_id)
+                                        @if($history->reference_type === 'invoice')
+                                            @php
+                                                $invoice = \App\Models\Invoice::find($history->reference_id);
+                                            @endphp
+                                            @if($invoice)
+                                                <a href="{{ route('invoices.show', $invoice->id) }}" class="text-blue-600 hover:text-blue-800">
+                                                    {{ $invoice->invoice_number }}
+                                                </a>
+                                            @else
+                                                Invoice #{{ $history->reference_id }}
+                                            @endif
+                                        @else
+                                            {{ ucfirst($history->reference_type) }} #{{ $history->reference_id }}
+                                        @endif
+                                    @else
+                                        N/A
+                                    @endif
                                 </td>
                             </tr>
                         @empty

@@ -302,7 +302,13 @@ class ServicePointController extends Controller
             'client_id' => $clientId,
             'user_id' => auth()->id(),
             'user_name' => auth()->user()->name,
-            'request_data' => $request->all()
+            'user_business_id' => auth()->user()->business_id,
+            'request_data' => $request->all(),
+            'item_statuses' => $request->input('item_statuses', []),
+            'item_statuses_count' => count($request->input('item_statuses', [])),
+            'raw_input' => $request->input(),
+            'all_input' => $request->all(),
+            'timestamp' => now()->toDateTimeString()
         ]);
 
         // Start database transaction for rollback capability

@@ -581,6 +581,9 @@
     
     <script>
         let cart = [];
+        let serviceCharge = 0;
+        let packageAdjustment = 0;
+        let balanceAdjustment = 0;
         
         // Add event listeners to quantity inputs
         document.addEventListener('DOMContentLoaded', function() {
@@ -962,7 +965,7 @@
             
             // Calculate package adjustment
             const packageAdjustmentData = await calculatePackageAdjustment();
-            const packageAdjustment = packageAdjustmentData.total_adjustment;
+            packageAdjustment = packageAdjustmentData.total_adjustment;
             
             // Show package adjustment details if any adjustments were made
             if (packageAdjustmentData.details && packageAdjustmentData.details.length > 0) {
@@ -1027,7 +1030,7 @@
             
             // Calculate balance adjustment first (needed for service charge calculation)
             const balanceAdjustmentData = await calculateBalanceAdjustment(subtotal);
-            const balanceAdjustment = balanceAdjustmentData.balance_adjustment;
+            balanceAdjustment = balanceAdjustmentData.balance_adjustment;
             
             // Calculate totals according to correct formula:
             // Subtotal 1 = Sum of all items (already calculated as 'subtotal')
@@ -1044,7 +1047,7 @@
             }
             
             const serviceChargeData = await calculateServiceCharge(subtotal2);
-            const serviceCharge = serviceChargeData.amount;
+            serviceCharge = serviceChargeData.amount;
             let finalTotal = subtotal2 + parseFloat(serviceCharge);
             
             // Ensure final total never goes below 0
@@ -1206,7 +1209,7 @@
                 });
                 
                 const packageAdjustmentData = await calculatePackageAdjustment();
-                const packageAdjustment = parseFloat(packageAdjustmentData.total_adjustment) || 0;
+                packageAdjustment = parseFloat(packageAdjustmentData.total_adjustment) || 0;
                 let adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
                 
                 // Ensure adjustedSubtotal never goes below 0
@@ -1215,13 +1218,13 @@
                 }
                 
                 const serviceChargeData = await calculateServiceCharge(adjustedSubtotal);
-                const serviceCharge = serviceChargeData.amount;
+                serviceCharge = serviceChargeData.amount;
                 
                 const subtotalWithServiceCharge = parseFloat(adjustedSubtotal) + parseFloat(serviceCharge);
                 
                 // Calculate balance adjustment
                 const balanceAdjustmentData = await calculateBalanceAdjustment(subtotalWithServiceCharge);
-                const balanceAdjustment = parseFloat(balanceAdjustmentData.balance_adjustment) || 0;
+                balanceAdjustment = parseFloat(balanceAdjustmentData.balance_adjustment) || 0;
                 let totalAmount = parseFloat(subtotalWithServiceCharge) - parseFloat(balanceAdjustment);
                 
                 // Ensure totalAmount never goes below 0
@@ -1423,8 +1426,10 @@
                                 showConfirmButton: false
                             });
                         }, 1000);
+                    } else if (result.isDenied) {
+                        // Stay Here - refresh the page to show updated package tracking
+                        window.location.reload();
                     }
-                    // If "Stay Here" is clicked, do nothing
                     
                 } else {
                     Swal.fire({
@@ -1845,96 +1850,26 @@
                 action: 'Save and Exit',
                 timestamp: new Date().toISOString()
             });
+            
+            // Debug: Check if packageAdjustment is defined
+            console.log('packageAdjustment value:', packageAdjustment);
+            console.log('packageAdjustment type:', typeof packageAdjustment);
 
-            // Show confirmation dialog
+            // Show simple confirmation dialog
             Swal.fire({
-                title: 'Save Changes?',
-                text: 'Are you sure you want to save the selected statuses?',
+                title: 'Save Proforma Invoice?',
+                text: 'Are you sure you want to save this proforma invoice?',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#3b82f6',
                 cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, save changes!',
-                cancelButtonText: 'Cancel',
-                showLoaderOnConfirm: true,
-                preConfirm: () => {
-                    // Get form data
-                    const form = document.getElementById('itemStatusForm');
-                    if (!form) {
-                        throw new Error('Item status form not found');
-                    }
-                    const formData = new FormData(form);
-                    
-                    // Debug: Log what's being sent
-                    console.log('Form data being sent:');
-                    for (let [key, value] of formData.entries()) {
-                        console.log(key + ': ' + value);
-                    }
-                    
-                    return fetch('{{ route("service-points.update-statuses-and-process-money", [$servicePoint, $client->id]) }}', {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        },
-                        body: formData
-                    })
-                    .then(response => {
-                        // Check if response is JSON
-                        const contentType = response.headers.get('content-type');
-                        if (!contentType || !contentType.includes('application/json')) {
-                            // If not JSON, get the text and log it for debugging
-                            return response.text().then(text => {
-                                console.error('Non-JSON response received:', text);
-                                throw new Error('Server returned non-JSON response. Check console for details.');
-                            });
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (!data.success) {
-                            throw new Error(data.message || 'An error occurred');
-                        }
-                        return data;
-                    });
-                }
+                confirmButtonText: 'Yes, Save',
+                cancelButtonText: 'Cancel'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    console.log('=== SERVICE POINTS CLIENT DETAILS - SAVE CONFIRMED ===', {
-                        client_id: {{ $client->id }},
-                        action: 'Save Confirmed',
-                        redirect_to: 'service-points.show',
-                        timestamp: new Date().toISOString()
-                    });
-
-                    Swal.fire({
-                        title: 'Saved Successfully!',
-                        text: result.value.message,
-                        icon: 'success',
-                        confirmButtonColor: '#10b981'
-                    }).then(() => {
-                        // Redirect back to service point
-                        window.location.href = '{{ route("service-points.show", $servicePoint) }}';
-                    });
-                } else {
-                    console.log('=== SERVICE POINTS CLIENT DETAILS - SAVE CANCELLED ===', {
-                        client_id: {{ $client->id }},
-                        action: 'Save Cancelled',
-                        timestamp: new Date().toISOString()
-                    });
+                    // Call the existing saveInvoice function
+                    saveInvoice();
                 }
-            }).catch((error) => {
-                console.error('=== SERVICE POINTS CLIENT DETAILS - SAVE ERROR ===', {
-                    client_id: {{ $client->id }},
-                    error: error.message,
-                    timestamp: new Date().toISOString()
-                });
-
-                Swal.fire({
-                    title: 'Error!',
-                    text: error.message,
-                    icon: 'error',
-                    confirmButtonColor: '#ef4444'
-                });
             });
         }
         

@@ -581,6 +581,9 @@
     
     <script>
         let cart = [];
+        let serviceCharge = 0;
+        let packageAdjustment = 0;
+        let balanceAdjustment = 0;
         
         // Add event listeners to quantity inputs
         document.addEventListener('DOMContentLoaded', function() {
@@ -1435,8 +1438,10 @@
                                 showConfirmButton: false
                             });
                         }, 1000);
+                    } else if (result.isDenied) {
+                        // Stay Here - refresh the page to show updated package tracking
+                        window.location.reload();
                     }
-                    // If "Stay Here" is clicked, do nothing
                     
                 } else {
                     Swal.fire({
@@ -1859,10 +1864,14 @@
                 client_name: '{{ $client->name }}',
                 page: 'POS Item Selection',
                 action: 'Save and Exit',
+                cart_items: cart,
+                cart_count: cart.length,
+                package_adjustment: packageAdjustment,
+                total_package_adjustment: packageAdjustment.total_adjustment || 0,
                 timestamp: new Date().toISOString()
             });
 
-            // Show confirmation dialog
+            // Show simple confirmation dialog
             Swal.fire({
                 title: 'Save Changes?',
                 text: 'Are you sure you want to save the selected statuses?',
@@ -1870,93 +1879,69 @@
                 showCancelButton: true,
                 confirmButtonColor: '#3b82f6',
                 cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, save changes!',
-                cancelButtonText: 'Cancel',
-                showLoaderOnConfirm: true,
-                preConfirm: () => {
+                confirmButtonText: 'Yes, Save',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
                     // Get form data
                     const form = document.getElementById('itemStatusForm');
                     if (!form) {
-                        throw new Error('Item status form not found');
+                        Swal.fire('Error', 'Form not found', 'error');
+                        return;
                     }
+                    
                     const formData = new FormData(form);
                     
-                    // Debug: Log what's being sent
-                    console.log('Form data being sent:');
+                    // Debug: Log form data
+                    console.log('Form data being sent:', formData);
                     for (let [key, value] of formData.entries()) {
-                        console.log(key + ': ' + value);
+                        console.log('Form field:', key, '=', value);
                     }
                     
+                    // Show loading
+                    Swal.fire({
+                        title: 'Saving...',
+                        text: 'Please wait',
+                        allowOutsideClick: false,
+                        showConfirmButton: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                    
+                    // Send request
                     @if($servicePoint)
                     const url = '{{ route("service-points.update-statuses-and-process-money", [$servicePoint, $client->id]) }}';
                     @else
-                    const url = '{{ route("service-points.update-statuses-and-process-money", [0, $client->id]) }}'; // Use 0 as placeholder for null service point
+                    const url = '{{ route("service-points.update-statuses-and-process-money", [0, $client->id]) }}';
                     @endif
                     
-                    return fetch(url, {
+                    fetch(url, {
                         method: 'POST',
                         headers: {
                             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
                         },
                         body: formData
                     })
-                    .then(response => {
-                        // Check if response is JSON
-                        const contentType = response.headers.get('content-type');
-                        if (!contentType || !contentType.includes('application/json')) {
-                            // If not JSON, get the text and log it for debugging
-                            return response.text().then(text => {
-                                console.error('Non-JSON response received:', text);
-                                throw new Error('Server returned non-JSON response. Check console for details.');
-                            });
-                        }
-                        return response.json();
-                    })
+                    .then(response => response.json())
                     .then(data => {
-                        if (!data.success) {
-                            throw new Error(data.message || 'An error occurred');
+                        if (data.success) {
+                            Swal.fire({
+                                title: 'Success!',
+                                text: 'Changes saved successfully',
+                                icon: 'success',
+                                confirmButtonColor: '#10b981'
+                            }).then(() => {
+                                window.location.href = '{{ route("clients.index") }}';
+                            });
+                        } else {
+                            Swal.fire('Error', data.message || 'Failed to save changes', 'error');
                         }
-                        return data;
+                    })
+                    .catch(error => {
+                        Swal.fire('Error', 'Something went wrong', 'error');
                     });
                 }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    console.log('=== POS ITEM SELECTION - SAVE CONFIRMED ===', {
-                        client_id: {{ $client->id }},
-                        action: 'Save Confirmed',
-                        redirect_to: 'clients.index',
-                        timestamp: new Date().toISOString()
-                    });
-
-                    Swal.fire({
-                        title: 'Saved Successfully!',
-                        text: result.value.message,
-                        icon: 'success',
-                        confirmButtonColor: '#10b981'
-                    }).then(() => {
-                        // Redirect back to clients list
-                        window.location.href = '{{ route("clients.index") }}';
-                    });
-                } else {
-                    console.log('=== POS ITEM SELECTION - SAVE CANCELLED ===', {
-                        client_id: {{ $client->id }},
-                        action: 'Save Cancelled',
-                        timestamp: new Date().toISOString()
-                    });
-                }
-            }).catch((error) => {
-                console.error('=== POS ITEM SELECTION - SAVE ERROR ===', {
-                    client_id: {{ $client->id }},
-                    error: error.message,
-                    timestamp: new Date().toISOString()
-                });
-
-                Swal.fire({
-                    title: 'Error!',
-                    text: error.message,
-                    icon: 'error',
-                    confirmButtonColor: '#ef4444'
-                });
             });
         }
         

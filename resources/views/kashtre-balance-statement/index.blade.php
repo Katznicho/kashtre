@@ -75,10 +75,6 @@
             <div class="px-6 py-4 border-b border-gray-200">
                 <div class="flex items-center justify-between">
                     <h2 class="text-xl font-semibold text-gray-900">Recent Transactions</h2>
-                    <a href="{{ route('kashtre-balance-statement.show') }}" 
-                       class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                        View Full Statement
-                    </a>
                 </div>
             </div>
             
@@ -127,7 +123,24 @@
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {{ $history->reference_number ?? 'N/A' }}
+                                    @if($history->reference_type && $history->reference_id)
+                                        @if($history->reference_type === 'invoice')
+                                            @php
+                                                $invoice = \App\Models\Invoice::find($history->reference_id);
+                                            @endphp
+                                            @if($invoice)
+                                                <a href="{{ route('invoices.show', $invoice->id) }}" class="text-blue-600 hover:text-blue-800">
+                                                    {{ $invoice->invoice_number }}
+                                                </a>
+                                            @else
+                                                Invoice #{{ $history->reference_id }}
+                                            @endif
+                                        @else
+                                            {{ ucfirst($history->reference_type) }} #{{ $history->reference_id }}
+                                        @endif
+                                    @else
+                                        N/A
+                                    @endif
                                 </td>
                             </tr>
                         @empty
@@ -143,17 +156,12 @@
         </div>
 
         <!-- Navigation -->
-        <div class="mt-8 flex justify-between">
+        <div class="mt-8 flex justify-start">
             <a href="{{ route('dashboard') }}" 
                class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
                 Back to Dashboard
             </a>
-            
-            <a href="{{ route('kashtre-balance-statement.show') }}" 
-               class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
-                View Detailed Statement
-            </a>
-                        </div>
+        </div>
                     </div>
                 </div>
             </div>

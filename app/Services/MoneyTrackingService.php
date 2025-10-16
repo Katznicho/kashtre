@@ -1341,6 +1341,7 @@ class MoneyTrackingService
                 'business_name' => $invoice->business->name ?? 'Unknown',
                 'branch_id' => $invoice->branch_id,
                 'items_count' => count($items),
+                'items' => $items,
                 'service_charge' => $invoice->service_charge ?? 0,
                 'package_adjustment' => $invoice->package_adjustment ?? 0,
                 'item_status' => $itemStatus,
@@ -1348,6 +1349,8 @@ class MoneyTrackingService
                 'subtotal_1' => $invoice->subtotal_1 ?? 0,
                 'subtotal_2' => $invoice->subtotal_2 ?? 0,
                 'invoice_status' => $invoice->status,
+                'invoice_created_at' => $invoice->created_at,
+                'invoice_updated_at' => $invoice->updated_at,
                 'timestamp' => now()->toDateTimeString()
             ]);
 
@@ -1519,11 +1522,62 @@ class MoneyTrackingService
                     // Move package adjustment money from client suspense to business account
                     $this->processPackageAdjustmentMoneyMovement($invoice, $clientSuspenseAccount, $business, $transferRecords);
                     
+                    // Actually use package items (reduce quantities)
+                    Log::info("=== CALLING usePackageItems TO REDUCE QUANTITIES ===", [
+                        'invoice_id' => $invoice->id,
+                        'invoice_number' => $invoice->invoice_number,
+                        'client_id' => $invoice->client_id,
+                        'business_id' => $invoice->business_id,
+                        'items_count' => count($items),
+                        'items' => $items,
+                        'package_adjustment' => $invoice->package_adjustment,
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+                    
+                    $packageTrackingService = new \App\Services\PackageTrackingService();
+                    $usePackageResult = $packageTrackingService->usePackageItems($invoice, $items);
+                    
+                    Log::info("=== usePackageItems COMPLETED ===", [
+                        'invoice_id' => $invoice->id,
+                        'total_adjustment' => $usePackageResult['total_adjustment'] ?? 0,
+                        'details_count' => count($usePackageResult['details'] ?? []),
+                        'details' => $usePackageResult['details'] ?? [],
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+                    
                     // Update package tracking records and create package sales
+                    Log::info("=== CALLING updatePackageTrackingForAdjustments ===", [
+                        'invoice_id' => $invoice->id,
+                        'invoice_number' => $invoice->invoice_number,
+                        'client_id' => $invoice->client_id,
+                        'business_id' => $invoice->business_id,
+                        'items_count' => count($items),
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+                    
                     $this->updatePackageTrackingForAdjustments($invoice, $items);
                     
+                    Log::info("=== updatePackageTrackingForAdjustments COMPLETED ===", [
+                        'invoice_id' => $invoice->id,
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+                    
                     // Create package sales records and account statements
+                    Log::info("=== CALLING createPackageSalesAndStatements ===", [
+                        'invoice_id' => $invoice->id,
+                        'invoice_number' => $invoice->invoice_number,
+                        'client_id' => $invoice->client_id,
+                        'business_id' => $invoice->business_id,
+                        'items_count' => count($items),
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+                    
                     $this->createPackageSalesAndStatements($invoice, $items);
+                    
+                    Log::info("=== createPackageSalesAndStatements COMPLETED ===", [
+                        'invoice_id' => $invoice->id,
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
                 }
             } else {
                 Log::info("Package adjustment conditions NOT met", [
@@ -1643,19 +1697,44 @@ class MoneyTrackingService
 
             Log::info("=== SAVE AND EXIT PROCESSING COMPLETED SUCCESSFULLY ===", [
                 'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
                 'client_id' => $client->id,
+                'client_name' => $client->name ?? 'Unknown',
+                'business_id' => $invoice->business_id,
+                'business_name' => $invoice->business->name ?? 'Unknown',
+                'branch_id' => $invoice->branch_id,
+                'item_status' => $itemStatus,
+                'package_adjustment' => $invoice->package_adjustment ?? 0,
                 'transfer_records_count' => count($transferRecords),
                 'client_suspense_balance_final' => $clientSuspenseAccount->fresh()->balance,
-                'total_amount_processed' => array_sum(array_column($transferRecords, 'amount'))
+                'total_amount_processed' => array_sum(array_column($transferRecords, 'amount')),
+                'transfer_records' => $transferRecords,
+                'items_processed' => count($items),
+                'timestamp' => now()->toDateTimeString()
             ]);
 
             return $transferRecords;
 
         } catch (Exception $e) {
             DB::rollBack();
-            Log::error("Failed to process save and exit", [
+            Log::error("=== SAVE AND EXIT PROCESSING FAILED ===", [
                 'invoice_id' => $invoice->id,
-                'error' => $e->getMessage()
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $invoice->client_id,
+                'client_name' => $invoice->client->name ?? 'Unknown',
+                'business_id' => $invoice->business_id,
+                'business_name' => $invoice->business->name ?? 'Unknown',
+                'branch_id' => $invoice->branch_id,
+                'item_status' => $itemStatus,
+                'package_adjustment' => $invoice->package_adjustment ?? 0,
+                'items_count' => count($items),
+                'items' => $items,
+                'error' => $e->getMessage(),
+                'error_code' => $e->getCode(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'timestamp' => now()->toDateTimeString()
             ]);
             throw $e;
         }
@@ -2743,7 +2822,7 @@ class MoneyTrackingService
                 $invoice->client,
                 $totalAmount,
                 "{$constituentItemsDescription} from invoice {$invoice->invoice_number}",
-                $invoice->invoice_number,
+                $trackingNumbersRef, // Use package tracking numbers as reference instead of invoice number
                 $constituentItemsDescription,
                 'package_usage'
             );

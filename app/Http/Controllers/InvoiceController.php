@@ -51,7 +51,7 @@ class InvoiceController extends Controller
             $mockInvoice->client_id = $clientId;
             $mockInvoice->business_id = $businessId;
             
-            $result = $packageTrackingService->usePackageItems($mockInvoice, $items);
+               $result = $packageTrackingService->calculatePackageAdjustment($mockInvoice, $items);
             $totalAdjustment = $result['total_adjustment'];
             $adjustmentDetails = $result['details'];
 

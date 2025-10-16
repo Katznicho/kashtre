@@ -21,15 +21,19 @@ class ListContractorProfiles extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
-        $query = ContractorProfile::with(['business', 'user']);
+        $query = ContractorProfile::with(['business', 'user'])
+            ->withTrashed() // Include soft-deleted records
+            ->orderBy('created_at', 'desc');
         
         // Filter by business: super admin (business_id == 1) can see all, others see only their business
-        if (Auth::user()->business_id != 1) {
+        if (Auth::user()->business_id && Auth::user()->business_id != 1) {
             $query->where('business_id', Auth::user()->business_id);
         }
         
         return $table
             ->query($query)
+            ->defaultPaginationPageOption(50)
+            ->paginationPageOptions([10, 25, 50, 100])
             ->columns([
                 Tables\Columns\TextColumn::make('business.name')
                     ->label('Business')

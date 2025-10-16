@@ -126,9 +126,14 @@ class PackageTrackingService
     }
 
     /**
-     * Use package items for an invoice
+     * Calculate package adjustment without actually using the items.
+     * This method only calculates what the adjustment would be without modifying the database.
+     *
+     * @param Invoice $invoice A mock or actual invoice object containing client_id and business_id.
+     * @param array $items An array of items being purchased, with 'id' and 'quantity'.
+     * @return array An array containing 'total_adjustment' and 'details' of adjustments.
      */
-    public function usePackageItems($invoice, $items)
+    public function calculatePackageAdjustment($invoice, $items)
     {
         Log::info("=== USING PACKAGE ITEMS (NEW STRUCTURE) ===", [
             'invoice_id' => $invoice->id,
@@ -174,8 +179,8 @@ class PackageTrackingService
                     $itemAdjustment = $quantityToUse * $price;
                     $totalAdjustment += $itemAdjustment;
 
-                    // Mark the quantity as used in the tracking item
-                    $trackingItem->useQuantity($quantityToUse);
+                    // NOTE: We don't actually use the quantity here - this is just for calculation
+                    // The actual usage happens when the invoice is saved/paid
 
                     Log::info("Package adjustment applied to tracking item", [
                         'tracking_item_id' => $trackingItem->id,
@@ -208,6 +213,105 @@ class PackageTrackingService
             'total_adjustment' => $totalAdjustment,
             'adjustment_details' => $adjustmentDetails
         ]);
+
+        return [
+            'total_adjustment' => $totalAdjustment,
+            'details' => $adjustmentDetails,
+        ];
+    }
+
+    /**
+     * Actually use package items for an invoice (when invoice is saved/paid).
+     * This method will find available package tracking items and mark them as used.
+     *
+     * @param Invoice $invoice The actual invoice object.
+     * @param array $items An array of items being purchased, with 'id' and 'quantity'.
+     * @return array An array containing 'total_adjustment' and 'details' of adjustments.
+     */
+    public function usePackageItems($invoice, $items)
+    {
+        Log::info("=== ACTUALLY USING PACKAGE ITEMS (NEW STRUCTURE) ===", [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'client_id' => $invoice->client_id,
+            'business_id' => $invoice->business_id,
+            'items_count' => count($items),
+            'items' => $items,
+            'timestamp' => now()->toDateTimeString()
+        ]);
+
+        $totalAdjustment = 0;
+        $adjustmentDetails = [];
+
+        foreach ($items as $item) {
+            $itemId = $item['id'] ?? $item['item_id'];
+            $quantity = $item['quantity'] ?? 1;
+            $price = $item['price'] ?? 0;
+
+            Log::info("=== PROCESSING ITEM FOR PACKAGE USAGE ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'item_id' => $itemId,
+                'item_name' => $item['name'] ?? 'Unknown',
+                'quantity' => $quantity,
+                'current_item_price' => $price,
+                'client_id' => $invoice->client_id,
+                'business_id' => $invoice->business_id,
+                'timestamp' => now()->toDateTimeString()
+            ]);
+
+            $remainingQuantityToAdjust = $quantity;
+
+            // Find valid package tracking items for this included item
+            $validTrackingItems = PackageTrackingItem::active()
+                ->valid()
+                ->forClient($invoice->client_id)
+                ->forBusiness($invoice->business_id)
+                ->forItem($itemId)
+                ->where('remaining_quantity', '>', 0)
+                ->orderBy('created_at', 'asc') // Use oldest packages first (FIFO)
+                ->get();
+
+            foreach ($validTrackingItems as $trackingItem) {
+                if ($remainingQuantityToAdjust <= 0) break;
+
+                $availableQuantityInTrackingItem = $trackingItem->remaining_quantity;
+                $quantityToUse = min($remainingQuantityToAdjust, $availableQuantityInTrackingItem);
+
+                if ($quantityToUse > 0) {
+                    // Calculate adjustment based on the price of the item in the current invoice
+                    $itemAdjustment = $quantityToUse * $price;
+                    $totalAdjustment += $itemAdjustment;
+
+                    // Actually mark the quantity as used in the tracking item
+                    $trackingItem->useQuantity($quantityToUse);
+
+                    Log::info("Package items actually used in tracking item", [
+                        'tracking_item_id' => $trackingItem->id,
+                        'package_tracking_id' => $trackingItem->package_tracking_id,
+                        'included_item_id' => $itemId,
+                        'quantity_used' => $quantityToUse,
+                        'item_adjustment_amount' => $itemAdjustment,
+                        'new_remaining_quantity' => $trackingItem->remaining_quantity
+                    ]);
+
+                    $adjustmentDetails[] = [
+                        'item_id' => $itemId,
+                        'item_name' => $item['name'] ?? 'Unknown',
+                        'quantity_adjusted' => $quantityToUse,
+                        'adjustment_amount' => $itemAdjustment,
+                        'package_name' => $trackingItem->packageTracking->packageItem->name ?? 'Unknown Package',
+                        'package_tracking_id' => $trackingItem->package_tracking_id,
+                        'tracking_number' => $trackingItem->packageTracking->tracking_number ?? "PKG-{$trackingItem->package_tracking_id}-{$trackingItem->packageTracking->created_at->format('YmdHis')}",
+                        'tracking_item_id' => $trackingItem->id,
+                        'package_expiry' => $trackingItem->packageTracking->valid_until->format('Y-m-d'),
+                        'remaining_in_package_item' => $trackingItem->remaining_quantity,
+                    ];
+
+                    $remainingQuantityToAdjust -= $quantityToUse;
+                }
+            }
+        }
 
         return [
             'total_adjustment' => $totalAdjustment,
