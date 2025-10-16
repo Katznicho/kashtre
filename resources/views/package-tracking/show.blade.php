@@ -94,16 +94,8 @@
                                 <dd class="mt-1 text-sm text-gray-900">{{ $packageTracking->packageItem->name }}</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Included Items</dt>
-                                <dd class="mt-1 text-sm text-gray-900">
-                                    @if($trackingItems->count() > 0)
-                                        @foreach($trackingItems as $item)
-                                            <div class="text-xs">{{ $item->includedItem->name ?? 'Unknown' }} ({{ $item->remaining_quantity }}/{{ $item->total_quantity }})</div>
-                                        @endforeach
-                                    @else
-                                        <span class="text-gray-500">No items</span>
-                                    @endif
-                                </dd>
+                                <dt class="text-sm font-medium text-gray-500">Total Items</dt>
+                                <dd class="mt-1 text-sm text-gray-900">{{ $packageTracking->trackingItems->count() }} items included</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Status</dt>
@@ -192,57 +184,14 @@
                     </div>
 
                     <!-- Package Contents -->
-                    <div class="mb-6">
-                        <h4 class="text-md font-medium text-gray-800 mb-3">Package Contents</h4>
-                        @if($trackingItems->count() > 0)
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-gray-200">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Name</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service Point</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="bg-white divide-y divide-gray-200">
-                                        @foreach($trackingItems as $trackingItem)
-                                            <tr>
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="text-sm font-medium text-gray-900">{{ $trackingItem->includedItem->name }}</div>
-                                                    <div class="text-sm text-gray-500">{{ $trackingItem->includedItem->description ?? 'No description' }}</div>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <span class="px-2 py-1 text-xs rounded-full {{ $trackingItem->includedItem->type === 'service' ? 'bg-blue-100 text-blue-800' : ($trackingItem->includedItem->type === 'goods' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800') }}">
-                                                        {{ ucfirst($trackingItem->includedItem->type ?? 'Unknown') }}
-                                                    </span>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="text-sm text-gray-900">
-                                                        {{ $trackingItem->total_quantity }} ({{ $trackingItem->remaining_quantity }} remaining)
-                                                    </div>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="text-sm text-gray-900">UGX {{ number_format($trackingItem->item_price ?? 0) }}</div>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="text-sm text-gray-900">
-                                                        @if($trackingItem->includedItem->servicePoint)
-                                                            {{ $trackingItem->includedItem->servicePoint->name }}
-                                                        @else
-                                                            <span class="text-gray-500">Not assigned</span>
-                                                        @endif
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
-                        @else
-                            <p class="text-gray-500 text-center py-4">No items found in this package.</p>
-                        @endif
+                    <div class="bg-white rounded-lg shadow overflow-hidden mb-6">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h4 class="text-lg font-semibold text-gray-900">Package Contents</h4>
+                        </div>
+                        
+                        <div class="p-6">
+                            @livewire('package-tracking-items-table', ['packageTracking' => $packageTracking])
+                        </div>
                     </div>
 
                     <!-- Notes -->

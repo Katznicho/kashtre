@@ -34,17 +34,14 @@ class PackageTrackingController extends Controller
             abort(403, 'Unauthorized access to package tracking record.');
         }
 
-        $packageTracking->load(['client', 'invoice', 'packageItem', 'trackingItems.includedItem']);
-        
-        // Get tracking items for this package
-        $trackingItems = $packageTracking->trackingItems()->with('includedItem')->get();
+        $packageTracking->load(['client', 'invoice', 'packageItem', 'trackingItems']);
 
         // Load package sales for this package tracking record
         $packageSales = \App\Models\PackageSales::where('package_tracking_id', $packageTracking->id)
             ->orderBy('date', 'desc')
             ->get();
 
-        return view('package-tracking.show', compact('packageTracking', 'trackingItems', 'packageSales'));
+        return view('package-tracking.show', compact('packageTracking', 'packageSales'));
     }
 
 
