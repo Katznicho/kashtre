@@ -16,42 +16,8 @@ class PackageTrackingController extends Controller
      */
     public function index(Request $request)
     {
-        $user = Auth::user();
-        $query = PackageTracking::with(['client', 'invoice', 'packageItem', 'trackingItems.includedItem'])
-            ->where('business_id', $user->business_id);
-
-        // Filter by status
-        if ($request->has('status') && $request->status !== '') {
-            $query->where('status', $request->status);
-        }
-
-        // Filter by client
-        if ($request->has('client_id') && $request->client_id !== '') {
-            $query->where('client_id', $request->client_id);
-        }
-
-        // Filter by package item
-        if ($request->has('package_item_id') && $request->package_item_id !== '') {
-            $query->where('package_item_id', $request->package_item_id);
-        }
-
-        // Search by client name or invoice number
-        if ($request->has('search') && $request->search !== '') {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->whereHas('client', function($clientQuery) use ($search) {
-                    $clientQuery->where('name', 'like', "%{$search}%");
-                })
-                ->orWhereHas('invoice', function($invoiceQuery) use ($search) {
-                    $invoiceQuery->where('invoice_number', 'like', "%{$search}%");
-                });
-            });
-        }
-
-        $packageTrackings = $query->with(['client', 'invoice', 'packageItem', 'trackingItems.includedItem'])->orderBy('created_at', 'desc')->paginate(20);
-        $clients = Client::where('business_id', $user->business_id)->get();
-
-        return view('package-tracking.index', compact('packageTrackings', 'clients'));
+        // The Livewire component handles all the data fetching and filtering
+        return view('package-tracking.index');
     }
 
 

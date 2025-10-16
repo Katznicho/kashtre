@@ -194,7 +194,7 @@
                     <!-- Package Contents -->
                     <div class="mb-6">
                         <h4 class="text-md font-medium text-gray-800 mb-3">Package Contents</h4>
-                        @if($packageItems->count() > 0)
+                        @if($trackingItems->count() > 0)
                             <div class="overflow-x-auto">
                                 <table class="min-w-full divide-y divide-gray-200">
                                     <thead class="bg-gray-50">
@@ -207,35 +207,29 @@
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white divide-y divide-gray-200">
-                                        @foreach($packageItems as $packageItem)
+                                        @foreach($trackingItems as $trackingItem)
                                             <tr>
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="text-sm font-medium text-gray-900">{{ $packageItem->includedItem->name }}</div>
-                                                    <div class="text-sm text-gray-500">{{ $packageItem->includedItem->description ?? 'No description' }}</div>
+                                                    <div class="text-sm font-medium text-gray-900">{{ $trackingItem->includedItem->name }}</div>
+                                                    <div class="text-sm text-gray-500">{{ $trackingItem->includedItem->description ?? 'No description' }}</div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    <span class="px-2 py-1 text-xs rounded-full {{ $packageItem->includedItem->type === 'service' ? 'bg-blue-100 text-blue-800' : ($packageItem->includedItem->type === 'goods' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800') }}">
-                                                        {{ ucfirst($packageItem->includedItem->type ?? 'Unknown') }}
+                                                    <span class="px-2 py-1 text-xs rounded-full {{ $trackingItem->includedItem->type === 'service' ? 'bg-blue-100 text-blue-800' : ($trackingItem->includedItem->type === 'goods' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800') }}">
+                                                        {{ ucfirst($trackingItem->includedItem->type ?? 'Unknown') }}
                                                     </span>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm text-gray-900">
-                                                        @if($packageItem->fixed_quantity)
-                                                            {{ $packageItem->fixed_quantity }}
-                                                        @elseif($packageItem->max_quantity)
-                                                            Up to {{ $packageItem->max_quantity }}
-                                                        @else
-                                                            Variable
-                                                        @endif
+                                                        {{ $trackingItem->total_quantity }} ({{ $trackingItem->remaining_quantity }} remaining)
                                                     </div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="text-sm text-gray-900">UGX {{ number_format($packageItem->includedItem->price ?? 0) }}</div>
+                                                    <div class="text-sm text-gray-900">UGX {{ number_format($trackingItem->item_price ?? 0) }}</div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="text-sm text-gray-900">
-                                                        @if($packageItem->includedItem->servicePoint)
-                                                            {{ $packageItem->includedItem->servicePoint->name }}
+                                                        @if($trackingItem->includedItem->servicePoint)
+                                                            {{ $trackingItem->includedItem->servicePoint->name }}
                                                         @else
                                                             <span class="text-gray-500">Not assigned</span>
                                                         @endif
