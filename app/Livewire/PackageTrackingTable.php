@@ -81,20 +81,6 @@ class PackageTrackingTable extends Component implements HasForms, HasTable
                         return $record->packageItem->name ?? 'Unknown';
                     }),
                 
-                TextColumn::make('trackingItems')
-                    ->label('Items')
-                    ->formatStateUsing(function ($record) {
-                        $items = $record->trackingItems->take(2);
-                        $itemNames = $items->map(function ($item) {
-                            return ($item->includedItem->name ?? 'Unknown') . ' (' . $item->remaining_quantity . ')';
-                        })->join(', ');
-                        
-                        if ($record->trackingItems->count() > 2) {
-                            $itemNames .= ' +' . ($record->trackingItems->count() - 2) . ' more';
-                        }
-                        
-                        return $itemNames ?: 'No items';
-                    }),
                 
                 TextColumn::make('total_quantity')
                     ->label('Total Qty')
