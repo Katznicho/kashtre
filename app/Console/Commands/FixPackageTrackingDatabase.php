@@ -71,9 +71,7 @@ class FixPackageTrackingDatabase extends Command
             if (Schema::hasColumn('package_tracking', 'included_item_id')) {
                 // Drop foreign key first
                 try {
-                    $foreignKeys = DB::select(
-                        DB::raw("SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'package_tracking' AND CONSTRAINT_TYPE = 'FOREIGN KEY' AND CONSTRAINT_NAME LIKE '%included_item_id_foreign%'")
-                    );
+                    $foreignKeys = DB::select("SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'package_tracking' AND CONSTRAINT_TYPE = 'FOREIGN KEY' AND CONSTRAINT_NAME LIKE '%included_item_id_foreign%'");
                     foreach ($foreignKeys as $fk) {
                         DB::statement("ALTER TABLE package_tracking DROP FOREIGN KEY {$fk->CONSTRAINT_NAME}");
                         $this->info("Dropped foreign key: {$fk->CONSTRAINT_NAME}");

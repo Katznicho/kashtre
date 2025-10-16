@@ -61,9 +61,7 @@ return new class extends Migration
             if (Schema::hasColumn('package_tracking', 'included_item_id')) {
                 try {
                     // Drop foreign key first if it exists
-                    $foreignKeys = DB::select(
-                        DB::raw("SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'package_tracking' AND CONSTRAINT_TYPE = 'FOREIGN KEY' AND CONSTRAINT_NAME LIKE '%included_item_id_foreign%'")
-                    );
+                    $foreignKeys = DB::select("SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'package_tracking' AND CONSTRAINT_TYPE = 'FOREIGN KEY' AND CONSTRAINT_NAME LIKE '%included_item_id_foreign%'");
                     foreach ($foreignKeys as $fk) {
                         $table->dropForeign($fk->CONSTRAINT_NAME);
                         Log::info("Dropped foreign key: {$fk->CONSTRAINT_NAME}");
