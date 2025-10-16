@@ -1653,8 +1653,12 @@
                     })
                 });
                 
+                console.log('Package adjustment response status:', response.status);
                 const data = await response.json();
+                console.log('Package adjustment response data:', data);
+                
                 if (data.success) {
+                    console.log('Package adjustment successful:', data.total_adjustment);
                     return {
                         total_adjustment: parseFloat(data.total_adjustment) || 0,
                         details: data.details || []
