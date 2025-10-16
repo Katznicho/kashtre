@@ -971,8 +971,8 @@
                 
                 let detailsHTML = '';
                 packageAdjustmentData.details.forEach(detail => {
-                    // Generate tracking number for package adjustments
-                    const packageTrackingNumber = generatePackageTrackingNumber(detail.package_id || 'adj_' + Date.now(), detail.package_name);
+                    // Use the actual tracking number from the API response
+                    const packageTrackingNumber = detail.tracking_number || `PKG-${detail.package_tracking_id}-${Date.now()}`;
                     
                     detailsHTML += `
                         <div class="flex justify-between items-center text-sm">

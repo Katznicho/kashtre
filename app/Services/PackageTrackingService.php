@@ -193,6 +193,7 @@ class PackageTrackingService
                         'adjustment_amount' => $itemAdjustment,
                         'package_name' => $trackingItem->packageTracking->packageItem->name ?? 'Unknown Package',
                         'package_tracking_id' => $trackingItem->package_tracking_id,
+                        'tracking_number' => $trackingItem->packageTracking->tracking_number ?? "PKG-{$trackingItem->package_tracking_id}-{$trackingItem->packageTracking->created_at->format('YmdHis')}",
                         'tracking_item_id' => $trackingItem->id,
                         'package_expiry' => $trackingItem->packageTracking->valid_until->format('Y-m-d'),
                         'remaining_in_package_item' => $trackingItem->remaining_quantity,
