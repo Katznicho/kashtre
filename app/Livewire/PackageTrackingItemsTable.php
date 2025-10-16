@@ -55,14 +55,6 @@ class PackageTrackingItemsTable extends Component implements HasForms, HasTable
                         return $record->includedItem->description ?? 'No description';
                     }),
                 
-                BadgeColumn::make('includedItem.type')
-                    ->label('Type')
-                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
-                    ->colors([
-                        'success' => 'service',
-                        'warning' => 'goods',
-                        'gray' => 'other',
-                    ]),
                 
                 TextColumn::make('total_quantity')
                     ->label('Total Qty')
@@ -104,13 +96,6 @@ class PackageTrackingItemsTable extends Component implements HasForms, HasTable
                     ->sortable(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('includedItem.type')
-                    ->label('Item Type')
-                    ->options([
-                        'service' => 'Service',
-                        'goods' => 'Goods',
-                        'other' => 'Other',
-                    ]),
                 
                 Tables\Filters\Filter::make('remaining_quantity')
                     ->label('Remaining Quantity')
