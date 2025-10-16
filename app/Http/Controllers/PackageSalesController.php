@@ -16,48 +16,13 @@ class PackageSalesController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $query = PackageSales::with(['client', 'packageTracking', 'item', 'business', 'branch'])
-            ->where('business_id', $user->business_id);
-
-        // Filter by status
-        if ($request->has('status') && $request->status !== '') {
-            $query->where('status', $request->status);
-        }
-
-        // Filter by client
-        if ($request->has('client_id') && $request->client_id !== '') {
-            $query->where('client_id', $request->client_id);
-        }
-
-        // Filter by date range
-        if ($request->has('start_date') && $request->start_date !== '') {
-            $query->where('date', '>=', $request->start_date);
-        }
-
-        if ($request->has('end_date') && $request->end_date !== '') {
-            $query->where('date', '<=', $request->end_date);
-        }
-
-        // Search by client name, invoice number, or item name
-        if ($request->has('search') && $request->search !== '') {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('invoice_number', 'like', "%{$search}%")
-                  ->orWhere('item_name', 'like', "%{$search}%")
-                  ->orWhere('pkn', 'like', "%{$search}%");
-            });
-        }
-
-        $packageSales = $query->orderBy('date', 'desc')->paginate(20);
-        $clients = Client::where('business_id', $user->business_id)->get();
-
+        
         // Calculate summary statistics
         $totalSales = PackageSales::where('business_id', $user->business_id)->sum('amount');
         $totalQuantity = PackageSales::where('business_id', $user->business_id)->sum('qty');
         $totalRecords = PackageSales::where('business_id', $user->business_id)->count();
 
-        return view('package-sales.index', compact('packageSales', 'clients', 'totalSales', 'totalQuantity', 'totalRecords'));
+        return view('package-sales.index', compact('totalSales', 'totalQuantity', 'totalRecords'));
     }
 
     /**
