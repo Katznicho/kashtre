@@ -952,10 +952,10 @@
                 const itemTotal = (item.price || 0) * (item.quantity || 0);
                 subtotal += itemTotal;
                 
-                // Generate tracking number for packages
+                // Don't show tracking numbers for packages in cart (not yet purchased)
                 let trackingNumber = 'N/A';
                 if (item.type === 'package') {
-                    trackingNumber = generatePackageTrackingNumber(item.id, item.displayName || item.name);
+                    trackingNumber = 'Pending';
                 }
                 
                 tableHTML += `
@@ -983,8 +983,8 @@
                 
                 let detailsHTML = '';
                 packageAdjustmentData.details.forEach(detail => {
-                    // Generate tracking number for package adjustments
-                    const packageTrackingNumber = generatePackageTrackingNumber(detail.package_id || 'adj_' + Date.now(), detail.package_name);
+                    // Use the actual tracking number from the API response
+                    const packageTrackingNumber = detail.tracking_number || `PKG-${detail.package_tracking_id}-${Date.now()}`;
                     
                     detailsHTML += `
                         <div class="flex justify-between items-center text-sm">
@@ -1015,7 +1015,8 @@
                 
                 let trackingHTML = '';
                 packagesInCart.forEach(package => {
-                    const trackingNumber = window.packageTrackingNumbers.get(package.id) || generatePackageTrackingNumber(package.id, package.displayName || package.name);
+                    // For packages in cart (not yet purchased), show "Pending" instead of generating tracking numbers
+                    const trackingNumber = "Pending - Will be generated upon purchase";
                     trackingHTML += `
                         <div class="flex justify-between items-center text-sm">
                             <div>
