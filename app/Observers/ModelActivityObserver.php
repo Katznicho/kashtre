@@ -51,6 +51,7 @@ class ModelActivityObserver
 
     /**
      * Generate a meaningful description for the activity log
+     * Updated to provide better audit trail descriptions
      */
     protected function generateDescription(string $action, Model $model, string $modelName): string
     {
