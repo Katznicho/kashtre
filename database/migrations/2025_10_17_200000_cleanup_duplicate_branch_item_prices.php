@@ -13,7 +13,7 @@ return new class extends Migration
     public function up(): void
     {
         // Clean up duplicate branch item prices before adding unique constraint
-        $this->command->info('Cleaning up duplicate branch item prices...');
+        \Log::info('Cleaning up duplicate branch item prices...');
         
         // Find and remove duplicates, keeping the most recent one
         $duplicates = DB::table('branch_item_prices')
@@ -22,10 +22,10 @@ return new class extends Migration
             ->having('count', '>', 1)
             ->get();
         
-        $this->command->info("Found " . $duplicates->count() . " duplicate combinations");
+        \Log::info("Found " . $duplicates->count() . " duplicate combinations");
         
         foreach ($duplicates as $duplicate) {
-            $this->command->info("Processing duplicates for business_id={$duplicate->business_id}, item_id={$duplicate->item_id}, branch_id={$duplicate->branch_id}");
+            \Log::info("Processing duplicates for business_id={$duplicate->business_id}, item_id={$duplicate->item_id}, branch_id={$duplicate->branch_id}");
             
             // Get all records for this combination
             $records = DB::table('branch_item_prices')
@@ -39,15 +39,15 @@ return new class extends Migration
             $keepRecord = $records->first();
             $deleteRecords = $records->skip(1);
             
-            $this->command->info("Keeping record ID {$keepRecord->id} (created: {$keepRecord->created_at}), deleting " . $deleteRecords->count() . " duplicates");
+            \Log::info("Keeping record ID {$keepRecord->id} (created: {$keepRecord->created_at}), deleting " . $deleteRecords->count() . " duplicates");
             
             foreach ($deleteRecords as $deleteRecord) {
                 DB::table('branch_item_prices')->where('id', $deleteRecord->id)->delete();
-                $this->command->info("Deleted duplicate record ID {$deleteRecord->id}");
+                \Log::info("Deleted duplicate record ID {$deleteRecord->id}");
             }
         }
         
-        $this->command->info('Duplicate cleanup completed!');
+        \Log::info('Duplicate cleanup completed!');
     }
 
     /**
@@ -56,6 +56,6 @@ return new class extends Migration
     public function down(): void
     {
         // This migration cannot be reversed as we're deleting data
-        $this->command->warn('This migration cannot be reversed - duplicate data has been permanently removed');
+        \Log::warning('This migration cannot be reversed - duplicate data has been permanently removed');
     }
 };
