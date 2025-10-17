@@ -52,7 +52,7 @@
                                 <td class="px-4 py-3">
                                     <div class="flex flex-col space-y-2">
                                         <label class="flex items-center">
-                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="pending" class="mr-2" {{ $item->status == 'pending' ? 'checked' : '' }}>
+                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="pending" class="mr-2">
                                             <span class="text-sm">Not Done</span>
                                         </label>
                                         <label class="flex items-center">
@@ -87,7 +87,7 @@
                                 <td class="px-4 py-3">
                                     <div class="flex flex-col space-y-2">
                                         <label class="flex items-center">
-                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="pending" class="mr-2" {{ $item->status == 'pending' ? 'checked' : '' }}>
+                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="pending" class="mr-2">
                                             <span class="text-sm">Not Done</span>
                                         </label>
                                         <label class="flex items-center">
@@ -122,7 +122,7 @@
                                 <td class="px-4 py-3">
                                     <div class="flex flex-col space-y-2">
                                         <label class="flex items-center">
-                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="pending" class="mr-2" {{ $item->status == 'pending' ? 'checked' : '' }}>
+                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="pending" class="mr-2">
                                             <span class="text-sm">Not Done</span>
                                         </label>
                                         <label class="flex items-center">
