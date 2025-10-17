@@ -217,6 +217,15 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
             
             $branchPrice = $data[$rowIndex][$columnIndex] ?? null;
             
+            Log::info("Checking branch price for {$branchName}", [
+                'row_index' => $rowIndex,
+                'column_index' => $columnIndex,
+                'raw_value' => $branchPrice,
+                'is_empty' => empty($branchPrice),
+                'is_numeric' => is_numeric($branchPrice),
+                'will_create_price' => (!empty($branchPrice) && is_numeric($branchPrice))
+            ]);
+            
             if (!empty($branchPrice) && is_numeric($branchPrice)) {
                 // Find the branch by name
                 $branch = $this->branches->where('name', $branchName)->first();
@@ -230,12 +239,12 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
                         'item_code' => $item->code
                     ];
                     
-                    Log::info("Captured branch price for {$branchName}: {$branchPrice}");
+                    Log::info("✓ CREATING branch price for {$branchName}: {$branchPrice} (explicitly provided)");
                 } else {
                     Log::warning("Branch not found: {$branchName}");
                 }
             } else {
-                Log::info("No price found for {$branchName} in column {$columnIndex}");
+                Log::info("✗ SKIPPING branch price for {$branchName} - no valid price provided (empty or non-numeric)");
             }
         }
     }
@@ -360,17 +369,30 @@ class PackageBulkTemplateImport implements ToModel, WithHeadingRow, SkipsOnError
         Log::info("=== CREATING BRANCH PRICES ===");
         Log::info("Total branch prices to create: " . count($this->branchPrices));
         
+        if (count($this->branchPrices) > 0) {
+            Log::info("Branch prices data:", $this->branchPrices);
+        } else {
+            Log::info("✓ NO BRANCH PRICES TO CREATE - This is correct if no branch-specific prices were provided in the template");
+        }
+        
         $successCount = 0;
         $errorCount = 0;
         
-        foreach ($this->branchPrices as $branchPriceData) {
+        foreach ($this->branchPrices as $index => $branchPriceData) {
             try {
+                Log::info("Creating branch price " . ($index + 1) . "/" . count($this->branchPrices), [
+                    'item_code' => $branchPriceData['item_code'],
+                    'branch_id' => $branchPriceData['branch_id'],
+                    'price' => $branchPriceData['price'],
+                    'business_id' => $branchPriceData['business_id']
+                ]);
+                
                 $branchPrice = BranchItemPrice::create($branchPriceData);
                 $successCount++;
-                Log::info("Successfully created branch price for item '{$branchPriceData['item_code']}' at branch {$branchPriceData['branch_id']} with price {$branchPriceData['price']}");
+                Log::info("✓ Successfully created branch price for item '{$branchPriceData['item_code']}' at branch {$branchPriceData['branch_id']} with price {$branchPriceData['price']}");
             } catch (\Exception $e) {
                 $errorCount++;
-                Log::error("Error creating branch price for item '{$branchPriceData['item_code']}': " . $e->getMessage());
+                Log::error("✗ Error creating branch price for item '{$branchPriceData['item_code']}': " . $e->getMessage());
             }
         }
         
