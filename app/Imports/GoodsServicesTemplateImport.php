@@ -335,22 +335,22 @@ class GoodsServicesTemplateImport implements ToModel, WithHeadingRow, SkipsOnErr
             $priceColumnPattern = $this->normalizeColumnName($branch->name . '_price');
             $priceValue = $this->findColumnValueByNormalizedKey($row, $priceColumnPattern);
             
-            // Use default price if branch price is empty or not provided
-            $finalPrice = null;
+            // Only create branch price if explicitly provided in import data
             if (!empty($priceValue) && is_numeric($priceValue)) {
                 $finalPrice = (float) $priceValue;
+                
+                // Only create branch price record if a specific price was provided
+                if ($finalPrice > 0) {
+                    $this->branchPrices[] = [
+                        'item_code' => $item->code ?? $item->name, // Use code or name for later lookup
+                        'branch_id' => $branch->id,
+                        'price' => $finalPrice
+                    ];
+                    
+                    Log::info("Creating branch price for {$branch->name}: {$finalPrice} (explicitly provided)");
+                }
             } else {
-                // Use default price as fallback
-                $finalPrice = $item->default_price;
-            }
-            
-            // Always create a branch price record (either with specific price or default price)
-            if ($finalPrice > 0) {
-                $this->branchPrices[] = [
-                    'item_code' => $item->code ?? $item->name, // Use code or name for later lookup
-                    'branch_id' => $branch->id,
-                    'price' => $finalPrice
-                ];
+                Log::info("No branch price provided for {$branch->name} - skipping branch price creation");
             }
             
             // Process service point columns - use normalized pattern matching
