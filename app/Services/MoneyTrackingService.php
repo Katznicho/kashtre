@@ -1836,6 +1836,17 @@ class MoneyTrackingService
                     'description' => "Service delivery completed - Bulk: {$bulkItem->name}"
                 ]
             );
+            
+            // Update contractor account balance
+            $contractor->increment('account_balance', $totalAmount);
+            
+            Log::info("Contractor account balance updated for bulk item", [
+                'contractor_id' => $contractor->id,
+                'contractor_name' => $contractor->name,
+                'bulk_item_name' => $bulkItem->name,
+                'amount_added' => $totalAmount,
+                'new_balance' => $contractor->fresh()->account_balance
+            ]);
         } else {
             Log::info("Creating business balance statement for bulk", [
                 'business_id' => $business->id,
@@ -1959,6 +1970,16 @@ class MoneyTrackingService
                     'description' => "Service delivery completed - Item: {$item->name}"
                 ]
             );
+            
+            // Update contractor account balance
+            $contractor->increment('account_balance', $totalAmount);
+            
+            Log::info("Contractor account balance updated", [
+                'contractor_id' => $contractor->id,
+                'contractor_name' => $contractor->name,
+                'amount_added' => $totalAmount,
+                'new_balance' => $contractor->fresh()->account_balance
+            ]);
         } else {
             Log::info("Creating business balance statement", [
                 'business_id' => $business->id,
