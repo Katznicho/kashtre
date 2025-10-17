@@ -415,10 +415,13 @@ class ServicePointController extends Controller
                     }
 
                     // Check if money was already moved for this item
-                    // Only skip money movement if the item is already completed
-                    if ($item->is_money_moved && $item->status === 'completed') {
-                        \Illuminate\Support\Facades\Log::info("Money already moved for completed item, skipping", [
-                            'item_id' => $item->id
+                    // If money was already moved, only update status without moving money again
+                    if ($item->is_money_moved) {
+                        \Illuminate\Support\Facades\Log::info("Money already moved for this item, only updating status", [
+                            'item_id' => $item->id,
+                            'current_status' => $item->status,
+                            'new_status' => $status,
+                            'money_moved_at' => $item->money_moved_at
                         ]);
                         $item->status = $status;
                         $item->save();
@@ -476,13 +479,10 @@ class ServicePointController extends Controller
                         }
                         
                         // Mark item as money moved to prevent double processing
-                        // Only mark as money moved if this is the first time (not already moved)
-                        if (!$item->is_money_moved) {
-                            $item->is_money_moved = true;
-                            $item->money_moved_at = now();
-                            $item->money_moved_by_user_id = auth()->id();
-                            $item->save();
-                        }
+                        $item->is_money_moved = true;
+                        $item->money_moved_at = now();
+                        $item->money_moved_by_user_id = auth()->id();
+                        $item->save();
                         
                         \Illuminate\Support\Facades\Log::info("Money movement completed for item", [
                             'item_id' => $item->id,
