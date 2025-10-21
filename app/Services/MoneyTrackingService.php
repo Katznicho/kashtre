@@ -1961,7 +1961,7 @@ class MoneyTrackingService
         ]);
 
         // Create balance statement for the destination account
-        if ($item->contractor_account_id) {
+        if ($item->contractor_account_id && $contractor) {
             Log::info("Creating contractor balance statement", [
                 'contractor_id' => $contractor->id,
                 'amount' => $totalAmount,
