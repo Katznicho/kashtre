@@ -20,7 +20,7 @@ class SuspenseAccountController extends Controller
             $businessId = Auth::user()->business_id;
             $business = Business::findOrFail($businessId);
 
-            // Get all suspense accounts for the business
+            // Get all suspense accounts for the business (including client-specific ones)
             $suspenseAccounts = MoneyAccount::where('business_id', $businessId)
                 ->whereIn('type', [
                     'package_suspense_account',
@@ -28,9 +28,11 @@ class SuspenseAccountController extends Controller
                     'kashtre_suspense_account'
                 ])
                 ->with(['business', 'client'])
+                ->orderBy('type')
+                ->orderBy('balance', 'desc')
                 ->get();
 
-            // Get client suspense accounts
+            // Get client suspense accounts (for separate display)
             $clientSuspenseAccounts = MoneyAccount::where('business_id', $businessId)
                 ->where('type', 'general_suspense_account')
                 ->whereNotNull('client_id')
