@@ -25,6 +25,9 @@ class PackageTracking extends Model
         'valid_until',
         'status',
         'package_price',
+        'package_money_moved',
+        'money_moved_at',
+        'money_movement_notes',
         'notes',
         'tracking_number'
     ];
@@ -36,6 +39,8 @@ class PackageTracking extends Model
         'valid_from' => 'date',
         'valid_until' => 'date',
         'package_price' => 'decimal:2',
+        'package_money_moved' => 'boolean',
+        'money_moved_at' => 'datetime',
     ];
 
     // Relationships
@@ -157,6 +162,38 @@ class PackageTracking extends Model
             ->where('included_item_id', $itemId)
             ->where('remaining_quantity', '>', 0)
             ->get();
+    }
+
+    /**
+     * Mark package money as moved to prevent double movement
+     */
+    public function markMoneyMoved($notes = null)
+    {
+        $this->update([
+            'package_money_moved' => true,
+            'money_moved_at' => now(),
+            'money_movement_notes' => $notes
+        ]);
+    }
+
+    /**
+     * Check if package money has already been moved
+     */
+    public function hasMoneyMoved()
+    {
+        return $this->package_money_moved;
+    }
+
+    /**
+     * Reset money movement status (for testing or corrections)
+     */
+    public function resetMoneyMovement()
+    {
+        $this->update([
+            'package_money_moved' => false,
+            'money_moved_at' => null,
+            'money_movement_notes' => null
+        ]);
     }
 
     protected static function booted()

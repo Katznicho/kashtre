@@ -2202,6 +2202,24 @@ class MoneyTrackingService
             'amount_calculation_update' => 'Business statement now uses sum of item amounts (actual revenue) instead of package price',
             'timestamp' => now()->toDateTimeString()
         ]);
+
+        // Check if package money has already been moved to prevent double movement
+        $packageTracking = \App\Models\PackageTracking::where('client_id', $invoice->client_id)
+            ->where('business_id', $business->id)
+            ->where('invoice_id', $invoice->id)
+            ->where('package_money_moved', true)
+            ->first();
+
+        if ($packageTracking) {
+            Log::info("Package money already moved - skipping to prevent double movement", [
+                'invoice_id' => $invoice->id,
+                'package_tracking_id' => $packageTracking->id,
+                'money_moved_at' => $packageTracking->money_moved_at,
+                'money_movement_notes' => $packageTracking->money_movement_notes,
+                'reason' => 'Package money has already been moved for this package tracking record'
+            ]);
+            return; // Skip money movement to prevent double processing
+        }
         
         // Check if this invoice already has individual package item entries to prevent duplicates
         $hasIndividualPackageEntries = \App\Models\BalanceHistory::where('client_id', $invoice->client_id)
@@ -2344,6 +2362,21 @@ class MoneyTrackingService
             'transfer_id' => $transfer->id,
             'description' => "Package adjustment money moved to business account"
         ];
+
+        // Mark package money as moved to prevent double movement
+        $packageTracking = \App\Models\PackageTracking::where('client_id', $invoice->client_id)
+            ->where('business_id', $business->id)
+            ->where('invoice_id', $invoice->id)
+            ->first();
+
+        if ($packageTracking) {
+            $packageTracking->markMoneyMoved("Package adjustment money moved to business account via Save & Exit");
+            Log::info("Package money movement marked as completed", [
+                'package_tracking_id' => $packageTracking->id,
+                'invoice_id' => $invoice->id,
+                'money_moved_at' => $packageTracking->money_moved_at
+            ]);
+        }
     }
 
     /**

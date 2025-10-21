@@ -42,6 +42,7 @@ use App\Http\Controllers\BusinessBalanceHistoryController;
 use App\Http\Controllers\ContractorBalanceHistoryController;
 use App\Http\Controllers\ServiceDeliveryController;
 use App\Http\Controllers\MoneyTrackingController;
+use App\Http\Controllers\SuspenseAccountController;
 use App\Http\Controllers\ServiceQueueController;
 use App\Http\Controllers\ServiceDeliveryQueueController;
 use App\Http\Controllers\TestingController;
@@ -249,6 +250,11 @@ Route::get('/money-tracking/contractor-account/{contractor}', [MoneyTrackingCont
 Route::get('/money-tracking/transfer-statement', [MoneyTrackingController::class, 'getTransferHistory'])->name('money-tracking.transfer-statement');
 Route::get('/money-tracking/account-summary', [MoneyTrackingController::class, 'getAccountSummary'])->name('money-tracking.account-summary');
 Route::post('/money-tracking/process-refund', [MoneyTrackingController::class, 'processRefund'])->name('money-tracking.process-refund');
+
+// Suspense Accounts routes
+Route::get('/suspense-accounts', [SuspenseAccountController::class, 'index'])->name('suspense-accounts.index');
+Route::get('/suspense-accounts/{id}', [SuspenseAccountController::class, 'show'])->name('suspense-accounts.show');
+Route::get('/suspense-accounts-api/data', [SuspenseAccountController::class, 'getSuspenseAccountsData'])->name('suspense-accounts.data');
     Route::get('/pos/item-selection/{client}', [TransactionController::class, 'itemSelection'])->name('pos.item-selection');
     
     // Admin bulk operations
