@@ -1900,16 +1900,28 @@ class MoneyTrackingService
         if ($item->contractor_account_id) {
             // Contractor item - move to contractor account
             $contractor = ContractorProfile::find($item->contractor_account_id);
-            $destinationAccount = $this->getOrCreateContractorAccount($contractor);
-            $transferDescription = "{$item->name} ({$quantity})";
             
-            Log::info("Item assigned to contractor", [
-                'item_id' => $item->id,
-                'contractor_id' => $contractor->id,
-                'contractor_name' => $contractor->name,
-                'destination_account_id' => $destinationAccount->id,
-                'destination_account_balance_before' => $destinationAccount->balance
-            ]);
+            if (!$contractor) {
+                Log::error("Contractor not found for item", [
+                    'item_id' => $item->id,
+                    'contractor_account_id' => $item->contractor_account_id,
+                    'item_name' => $item->name
+                ]);
+                // Fall back to business account if contractor not found
+                $destinationAccount = $this->getOrCreateBusinessAccount($business);
+                $transferDescription = "{$item->name} ({$quantity}) - Contractor not found, moved to business account";
+            } else {
+                $destinationAccount = $this->getOrCreateContractorAccount($contractor);
+                $transferDescription = "{$item->name} ({$quantity})";
+                
+                Log::info("Item assigned to contractor", [
+                    'item_id' => $item->id,
+                    'contractor_id' => $contractor->id,
+                    'contractor_name' => $contractor->name,
+                    'destination_account_id' => $destinationAccount->id,
+                    'destination_account_balance_before' => $destinationAccount->balance
+                ]);
+            }
         } else {
             // Business item - move to business account
             $destinationAccount = $this->getOrCreateBusinessAccount($business);
