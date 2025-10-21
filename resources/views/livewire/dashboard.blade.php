@@ -53,7 +53,7 @@
                     @if($business->id == 1)
                         {{ \App\Models\Client::count() }}
                     @else
-                        {{ \App\Models\Client::where('business_id', $business->id)->where('branch_id', $currentBranch->id)->count() }}
+                        {{ \App\Models\Client::where('business_id', $business->id)->where('branch_id', $currentBranch?->id)->count() }}
                     @endif
                 </span>
                 <span class="ml-2 text-sm text-gray-500">Clients</span>
@@ -71,7 +71,7 @@
                     @if($business->id == 1)
                         {{ \App\Models\Client::whereDate('created_at', today())->count() }}
                     @else
-                        {{ \App\Models\Client::where('business_id', $business->id)->where('branch_id', $currentBranch->id)->whereDate('created_at', today())->count() }}
+                        {{ \App\Models\Client::where('business_id', $business->id)->where('branch_id', $currentBranch?->id)->whereDate('created_at', today())->count() }}
                     @endif
                 </span>
                 <span class="ml-2 text-sm text-gray-500">New</span>
@@ -225,7 +225,7 @@
             \Log::info("=== DASHBOARD TRANSACTION QUERIES START ===", [
                 'business_id' => $business->id,
                 'business_name' => $business->name,
-                'current_branch_id' => $currentBranch->id ?? null,
+                'current_branch_id' => $currentBranch?->id ?? null,
                 'current_branch_name' => $currentBranch->name ?? null,
                 'user_id' => auth()->user()->id,
                 'is_kashtre_user' => $business->id == 1,

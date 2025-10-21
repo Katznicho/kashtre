@@ -1343,7 +1343,7 @@
                     invoice_number: invoiceNumber,
                     client_id: {{ $client->id }},
                     business_id: {{ auth()->user()->business_id }},
-                    branch_id: {{ auth()->user()->currentBranch->id ?? 'null' }},
+                    branch_id: {{ auth()->user()->currentBranch?->id ?? 'null' }},
                     created_by: {{ auth()->id() }},
                     client_name: '{{ $client->name }}',
                     client_phone: '{{ $client->phone_number }}',
@@ -1604,7 +1604,7 @@
                     body: JSON.stringify({
                         subtotal: subtotal,
                         business_id: {{ auth()->user()->business_id }},
-                        branch_id: {{ auth()->user()->currentBranch->id ?? 'null' }}
+                        branch_id: {{ auth()->user()->currentBranch?->id ?? 'null' }}
                     })
                 });
                 
