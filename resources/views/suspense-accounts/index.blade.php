@@ -69,132 +69,206 @@
                     </div>
                 </div>
 
-                <!-- Suspense Accounts Details -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    <!-- Package Suspense Account -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-                        <div class="p-6 border-b border-gray-200">
-                            <h3 class="text-lg font-semibold text-gray-900 flex items-center">
-                                <i class="fas fa-box text-blue-500 mr-2"></i>
-                                Package Suspense Account
-                            </h3>
-                        </div>
-                        <div class="p-6">
-                            <p class="text-gray-600 mb-4">
-                                <strong>Purpose:</strong> Holds funds for paid package items if nothing has been used.
-                            </p>
-                            @if($suspenseAccounts->where('type', 'package_suspense_account')->count() > 0)
-                                @foreach($suspenseAccounts->where('type', 'package_suspense_account') as $account)
-                                    <div class="flex justify-between items-center mb-3 p-3 bg-blue-50 rounded-lg">
-                                        <span class="font-medium text-gray-700">{{ $account->name }}</span>
-                                        <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                            {{ number_format($account->balance, 0) }} UGX
-                                        </span>
-                                    </div>
-                                @endforeach
-                            @else
-                                <p class="text-gray-500 italic">No package suspense accounts found.</p>
-                            @endif
-                        </div>
+                <!-- Suspense Accounts Table -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                            <i class="fas fa-piggy-bank text-purple-500 mr-2"></i>
+                            Suspense Accounts Overview
+                        </h3>
+                        <p class="text-gray-600 mt-2">All suspense accounts with their current balances and purposes</p>
                     </div>
-
-                    <!-- General Suspense Account -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-                        <div class="p-6 border-b border-gray-200">
-                            <h3 class="text-lg font-semibold text-gray-900 flex items-center">
-                                <i class="fas fa-clock text-yellow-500 mr-2"></i>
-                                General Suspense Account
-                            </h3>
-                        </div>
-                        <div class="p-6">
-                            <p class="text-gray-600 mb-4">
-                                <strong>Purpose:</strong> Holds funds for ordered items not yet offered for all clients.
-                            </p>
-                            @if($suspenseAccounts->where('type', 'general_suspense_account')->count() > 0)
-                                @foreach($suspenseAccounts->where('type', 'general_suspense_account') as $account)
-                                    <div class="flex justify-between items-center mb-3 p-3 bg-yellow-50 rounded-lg">
-                                        <span class="font-medium text-gray-700">{{ $account->name }}</span>
-                                        <span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                            {{ number_format($account->balance, 0) }} UGX
-                                        </span>
-                                    </div>
-                                @endforeach
-                            @else
-                                <p class="text-gray-500 italic">No general suspense accounts found.</p>
-                            @endif
+                    <div class="p-6">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Name</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    @foreach($suspenseAccounts as $account)
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <div class="flex-shrink-0 h-10 w-10">
+                                                        @switch($account->type)
+                                                            @case('package_suspense_account')
+                                                                <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                                                    <i class="fas fa-box text-blue-600"></i>
+                                                                </div>
+                                                                @break
+                                                            @case('general_suspense_account')
+                                                                <div class="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                                                                    <i class="fas fa-clock text-yellow-600"></i>
+                                                                </div>
+                                                                @break
+                                                            @case('kashtre_suspense_account')
+                                                                <div class="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                                                                    <i class="fas fa-hand-holding-usd text-green-600"></i>
+                                                                </div>
+                                                                @break
+                                                            @default
+                                                                <div class="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                                                                    <i class="fas fa-piggy-bank text-gray-600"></i>
+                                                                </div>
+                                                        @endswitch
+                                                    </div>
+                                                    <div class="ml-4">
+                                                        <div class="text-sm font-medium text-gray-900">{{ $account->name }}</div>
+                                                        @if($account->client)
+                                                            <div class="text-sm text-gray-500">Client: {{ $account->client->name }}</div>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                @switch($account->type)
+                                                    @case('package_suspense_account')
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                            Package Suspense
+                                                        </span>
+                                                        @break
+                                                    @case('general_suspense_account')
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                            General Suspense
+                                                        </span>
+                                                        @break
+                                                    @case('kashtre_suspense_account')
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                            Kashtre Suspense
+                                                        </span>
+                                                        @break
+                                                    @default
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                            {{ ucfirst(str_replace('_', ' ', $account->type)) }}
+                                                        </span>
+                                                @endswitch
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="text-sm text-gray-900">
+                                                    @switch($account->type)
+                                                        @case('package_suspense_account')
+                                                            Holds funds for paid package items if nothing has been used
+                                                            @break
+                                                        @case('general_suspense_account')
+                                                            Holds funds for ordered items not yet offered for all clients
+                                                            @break
+                                                        @case('kashtre_suspense_account')
+                                                            Holds all service fees charged on invoices and deposits
+                                                            @break
+                                                        @default
+                                                            {{ $account->description ?? 'No description available' }}
+                                                    @endswitch
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm font-semibold text-[#011478]">
+                                                    {{ number_format($account->balance, 0) }} UGX
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                @if($account->is_active)
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                        Active
+                                                    </span>
+                                                @else
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                        Inactive
+                                                    </span>
+                                                @endif
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <a href="{{ route('suspense-accounts.show', $account->id) }}" 
+                                                   class="bg-[#011478] hover:bg-[#011478]/90 text-white px-3 py-1 rounded-lg text-sm transition-colors">
+                                                    <i class="fas fa-eye mr-1"></i> View Details
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
 
-                <!-- Kashtre Suspense Account -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    <!-- Kashtre Suspense Account -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-                        <div class="p-6 border-b border-gray-200">
-                            <h3 class="text-lg font-semibold text-gray-900 flex items-center">
-                                <i class="fas fa-hand-holding-usd text-green-500 mr-2"></i>
-                                Kashtre Suspense Account
-                            </h3>
-                        </div>
-                        <div class="p-6">
-                            <p class="text-gray-600 mb-4">
-                                <strong>Purpose:</strong> Holds all service fees charged on invoices and deposits for services paid but not yet offered.
-                            </p>
-                            @if($suspenseAccounts->where('type', 'kashtre_suspense_account')->count() > 0)
-                                @foreach($suspenseAccounts->where('type', 'kashtre_suspense_account') as $account)
-                                    <div class="flex justify-between items-center mb-3 p-3 bg-green-50 rounded-lg">
-                                        <span class="font-medium text-gray-700">{{ $account->name }}</span>
-                                        <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                            {{ number_format($account->balance, 0) }} UGX
-                                        </span>
-                                    </div>
-                                @endforeach
-                            @else
-                                <p class="text-gray-500 italic">No Kashtre suspense accounts found.</p>
-                            @endif
-                        </div>
-                    </div>
-
-                    <!-- Client Suspense Accounts -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                <!-- Client Suspense Accounts Table -->
+                @if($clientSuspenseAccounts->count() > 0)
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
                         <div class="p-6 border-b border-gray-200">
                             <h3 class="text-lg font-semibold text-gray-900 flex items-center">
                                 <i class="fas fa-users text-gray-500 mr-2"></i>
                                 Client Suspense Accounts
                             </h3>
+                            <p class="text-gray-600 mt-2">Individual client funds held in suspense until service delivery</p>
                         </div>
                         <div class="p-6">
-                            <p class="text-gray-600 mb-4">
-                                <strong>Purpose:</strong> Individual client funds held in suspense until service delivery.
-                            </p>
-                            @if($clientSuspenseAccounts->count() > 0)
-                                <div class="space-y-3">
-                                    @foreach($clientSuspenseAccounts->take(5) as $account)
-                                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                            <div>
-                                                <span class="font-medium text-gray-700">{{ $account->client->name ?? 'Unknown Client' }}</span>
-                                            </div>
-                                            <div class="flex items-center space-x-3">
-                                                <span class="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                                    {{ number_format($account->balance, 0) }} UGX
-                                                </span>
-                                                <a href="{{ route('suspense-accounts.show', $account->id) }}" 
-                                                   class="bg-[#011478] hover:bg-[#011478]/90 text-white px-3 py-1 rounded-lg text-sm transition-colors">
-                                                    <i class="fas fa-eye mr-1"></i> View
-                                                </a>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                    @if($clientSuspenseAccounts->count() > 5)
-                                        <p class="text-gray-500 text-sm italic">... and {{ $clientSuspenseAccounts->count() - 5 }} more clients</p>
-                                    @endif
-                                </div>
-                            @else
-                                <p class="text-gray-500 italic">No client suspense accounts found.</p>
-                            @endif
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client Name</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Name</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        @foreach($clientSuspenseAccounts as $account)
+                                            <tr class="hover:bg-gray-50">
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <div class="flex items-center">
+                                                        <div class="flex-shrink-0 h-10 w-10">
+                                                            <div class="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                                                                <i class="fas fa-user text-gray-600"></i>
+                                                            </div>
+                                                        </div>
+                                                        <div class="ml-4">
+                                                            <div class="text-sm font-medium text-gray-900">
+                                                                {{ $account->client->name ?? 'Unknown Client' }}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <div class="text-sm text-gray-900">{{ $account->name }}</div>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <div class="text-sm font-semibold text-[#011478]">
+                                                        {{ number_format($account->balance, 0) }} UGX
+                                                    </div>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    @if($account->is_active)
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                            Active
+                                                        </span>
+                                                    @else
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                            Inactive
+                                                        </span>
+                                                    @endif
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                    <a href="{{ route('suspense-accounts.show', $account->id) }}" 
+                                                       class="bg-[#011478] hover:bg-[#011478]/90 text-white px-3 py-1 rounded-lg text-sm transition-colors">
+                                                        <i class="fas fa-eye mr-1"></i> View Details
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
-                </div>
+                @endif
 
                 <!-- Recent Money Movements -->
                 @if($recentMovements->count() > 0)
