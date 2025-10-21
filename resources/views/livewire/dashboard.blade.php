@@ -16,6 +16,12 @@
                 View All Clients
             </a>
             @endif
+            
+            <!-- Suspense Accounts Quick Access -->
+            <a href="{{ route('suspense-accounts.index') }}" class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors flex items-center">
+                <i class="fas fa-piggy-bank mr-2"></i>
+                Suspense Accounts
+            </a>
         </div>
     </div>
     
@@ -105,6 +111,45 @@
                     @endif
                 </span>
                 <span class="ml-2 text-sm text-gray-500">Today</span>
+            </div>
+        </div>
+
+        <!-- Suspense Accounts Overview Card -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Suspense Accounts</h3>
+                <a href="{{ route('suspense-accounts.index') }}" class="text-xs text-purple-600 hover:text-purple-700">View Details</a>
+            </div>
+            <div class="space-y-3">
+                @php
+                    $suspenseAccounts = \App\Models\MoneyAccount::where('business_id', $business->id)
+                        ->whereIn('type', ['package_suspense_account', 'general_suspense_account', 'kashtre_suspense_account'])
+                        ->get();
+                    
+                    $totalPackageSuspense = $suspenseAccounts->where('type', 'package_suspense_account')->sum('balance');
+                    $totalGeneralSuspense = $suspenseAccounts->where('type', 'general_suspense_account')->sum('balance');
+                    $totalKashtreSuspense = $suspenseAccounts->where('type', 'kashtre_suspense_account')->sum('balance');
+                    $totalSuspense = $totalPackageSuspense + $totalGeneralSuspense + $totalKashtreSuspense;
+                @endphp
+                
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-600">Package Suspense</span>
+                    <span class="text-sm font-semibold text-blue-600">{{ number_format($totalPackageSuspense, 0) }} UGX</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-600">General Suspense</span>
+                    <span class="text-sm font-semibold text-yellow-600">{{ number_format($totalGeneralSuspense, 0) }} UGX</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-600">Kashtre Suspense</span>
+                    <span class="text-sm font-semibold text-green-600">{{ number_format($totalKashtreSuspense, 0) }} UGX</span>
+                </div>
+                <div class="border-t pt-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-gray-800">Total Suspense</span>
+                        <span class="text-lg font-bold text-purple-600">{{ number_format($totalSuspense, 0) }} UGX</span>
+                    </div>
+                </div>
             </div>
         </div>
 
