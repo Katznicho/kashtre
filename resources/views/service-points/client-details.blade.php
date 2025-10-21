@@ -430,7 +430,7 @@
                     <div class="space-y-2">
                         <p class="text-sm text-gray-600">{{ $client->name }}</p>
                         <p class="text-sm text-gray-600">Client ID: {{ $client->client_id }}</p>
-                        <p class="text-sm text-gray-600">Branch: {{ auth()->user()->currentBranch->name ?? 'N/A' }}</p>
+                        <p class="text-sm text-gray-600">Branch: {{ auth()->user()->currentBranch?->name ?? 'N/A' }}</p>
                     </div>
                     <div class="space-y-2">
                         <p class="text-sm text-gray-600">Age: {{ $client->age ?? 'N/A' }}</p>
