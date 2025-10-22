@@ -113,17 +113,22 @@ class Client extends Model
     }
 
     /**
-     * Get the client's suspense balance (money in suspense accounts)
-     * This should return the actual balance from the suspense account
+     * Get the client's suspense balance (money in suspense accounts that is NOT MOVED yet)
+     * This should return the actual balance from ALL suspense accounts that haven't been moved to final accounts
      */
     public function getSuspenseBalanceAttribute()
     {
-        // Get the actual suspense account balance
-        $suspenseAccount = $this->suspenseAccounts()
-            ->where('type', 'general_suspense_account')
-            ->first();
+        // Get the sum of ALL suspense account balances for this client
+        // Only include money that has NOT been moved to final accounts yet
+        $totalSuspenseBalance = $this->suspenseAccounts()
+            ->whereIn('type', [
+                'package_suspense_account',
+                'general_suspense_account', 
+                'kashtre_suspense_account'
+            ])
+            ->sum('balance');
         
-        return $suspenseAccount ? $suspenseAccount->balance : 0;
+        return $totalSuspenseBalance;
     }
 
     /**
