@@ -563,6 +563,144 @@ class MoneyTrackingService
     }
 
     /**
+     * Process suspense account movements after payment completion
+     * This moves money from client suspense account to appropriate suspense accounts
+     */
+    public function processSuspenseAccountMovements(Invoice $invoice, $items)
+    {
+        try {
+            DB::beginTransaction();
+
+            $client = $invoice->client;
+            $business = $invoice->business;
+            $clientSuspenseAccount = $this->getOrCreateClientSuspenseAccount($client);
+            $suspenseMovements = [];
+
+            Log::info("=== PROCESSING SUSPENSE ACCOUNT MOVEMENTS ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $client->id,
+                'business_id' => $business->id,
+                'items_count' => count($items),
+                'client_suspense_balance_before' => $clientSuspenseAccount->balance
+            ]);
+
+            foreach ($items as $index => $itemData) {
+                $itemId = $itemData['item_id'] ?? $itemData['id'] ?? null;
+                if (!$itemId) continue;
+                
+                $item = Item::find($itemId);
+                if (!$item) continue;
+                
+                $quantity = $itemData['quantity'] ?? 1;
+                $totalAmount = $itemData['total_amount'] ?? ($item->default_price * $quantity);
+
+                Log::info("Processing suspense movement for item " . ($index + 1), [
+                    'item_id' => $itemId,
+                    'item_name' => $item->name,
+                    'item_type' => $item->type,
+                    'quantity' => $quantity,
+                    'total_amount' => $totalAmount
+                ]);
+
+                // Determine destination suspense account based on item type
+                $destinationAccount = null;
+                $transferDescription = "";
+                
+                // Check if this is a service fee (should go to Kashtre Suspense)
+                if ($item->name === 'Service Fee' || str_contains(strtolower($item->name), 'service fee')) {
+                    $destinationAccount = $this->getOrCreateKashtreSuspenseAccount($business);
+                    $transferDescription = "Service Fee - {$item->name} ({$quantity})";
+                    
+                    Log::info("Item identified as service fee - routing to Kashtre Suspense", [
+                        'item_id' => $item->id,
+                        'item_name' => $item->name,
+                        'destination_account_type' => 'kashtre_suspense_account'
+                    ]);
+                }
+                // Check if this is a package item (should go to Package Suspense)
+                elseif ($item->type === 'package' || str_contains(strtolower($item->name), 'package') || str_contains(strtolower($item->name), 'procedure')) {
+                    $destinationAccount = $this->getOrCreatePackageSuspenseAccount($business);
+                    $transferDescription = "Package Item - {$item->name} ({$quantity})";
+                    
+                    Log::info("Item identified as package item - routing to Package Suspense", [
+                        'item_id' => $item->id,
+                        'item_name' => $item->name,
+                        'item_type' => $item->type,
+                        'destination_account_type' => 'package_suspense_account'
+                    ]);
+                }
+                // All other items go to General Suspense
+                else {
+                    $destinationAccount = $this->getOrCreateGeneralSuspenseAccount($business);
+                    $transferDescription = "General Item - {$item->name} ({$quantity})";
+                    
+                    Log::info("Item identified as general item - routing to General Suspense", [
+                        'item_id' => $item->id,
+                        'item_name' => $item->name,
+                        'item_type' => $item->type,
+                        'destination_account_type' => 'general_suspense_account'
+                    ]);
+                }
+
+                // Transfer money from client suspense to destination suspense account
+                Log::info("Initiating suspense account transfer", [
+                    'from_account_id' => $clientSuspenseAccount->id,
+                    'from_account_name' => $clientSuspenseAccount->name,
+                    'to_account_id' => $destinationAccount->id,
+                    'to_account_name' => $destinationAccount->name,
+                    'amount' => $totalAmount,
+                    'description' => $transferDescription
+                ]);
+
+                $transfer = $this->transferMoney(
+                    $clientSuspenseAccount,
+                    $destinationAccount,
+                    $totalAmount,
+                    'suspense_movement',
+                    $invoice,
+                    $item,
+                    $transferDescription
+                );
+
+                $suspenseMovements[] = [
+                    'item_name' => $item->name,
+                    'quantity' => $quantity,
+                    'amount' => $totalAmount,
+                    'source_account' => $clientSuspenseAccount->name,
+                    'destination_account' => $destinationAccount->name,
+                    'transfer_id' => $transfer->id
+                ];
+
+                Log::info("Suspense account transfer completed", [
+                    'transfer_id' => $transfer->id,
+                    'from_account_balance_after' => $clientSuspenseAccount->fresh()->balance,
+                    'to_account_balance_after' => $destinationAccount->fresh()->balance
+                ]);
+            }
+
+            DB::commit();
+
+            Log::info("=== SUSPENSE ACCOUNT MOVEMENTS COMPLETED ===", [
+                'invoice_id' => $invoice->id,
+                'movements_count' => count($suspenseMovements),
+                'total_amount_moved' => array_sum(array_column($suspenseMovements, 'amount')),
+                'client_suspense_balance_after' => $clientSuspenseAccount->fresh()->balance
+            ]);
+
+            return $suspenseMovements;
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error("Failed to process suspense account movements", [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
      * Step 3: Service delivered - Money moves to final accounts
      */
     public function processServiceDelivered(Invoice $invoice, $itemId, $quantity = 1)
@@ -1319,6 +1457,23 @@ class MoneyTrackingService
         ], [
             'name' => "Kashtre Suspense Account - {$business->name}",
             'description' => "Kashtre suspense account for {$business->name}",
+            'balance' => 0,
+            'currency' => 'UGX',
+            'is_active' => true
+        ]);
+    }
+
+    /**
+     * Get or create Package suspense account
+     */
+    private function getOrCreatePackageSuspenseAccount(Business $business)
+    {
+        return MoneyAccount::firstOrCreate([
+            'business_id' => $business->id,
+            'type' => 'package_suspense_account'
+        ], [
+            'name' => "Package Suspense Account - {$business->name}",
+            'description' => "Package suspense account for {$business->name}",
             'balance' => 0,
             'currency' => 'UGX',
             'is_active' => true

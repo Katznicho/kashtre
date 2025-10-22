@@ -257,6 +257,32 @@ class CheckPaymentStatus extends Command
                                         'balance_statements_count' => count($balanceStatements)
                                     ]);
                                     
+                                    // Move money from client suspense to appropriate suspense accounts after payment completion
+                                    Log::info("Processing suspense account money movement after payment completion", [
+                                        'invoice_id' => $invoice->id,
+                                        'items_count' => count($invoice->items ?? [])
+                                    ]);
+                                    
+                                    $suspenseMovements = $moneyTrackingService->processSuspenseAccountMovements($invoice, $invoice->items);
+                                    
+                                    Log::info("Suspense account movements completed", [
+                                        'invoice_id' => $invoice->id,
+                                        'suspense_movements_count' => count($suspenseMovements)
+                                    ]);
+                                    
+                                    // Move money from business/contractor accounts to suspense accounts after payment completion
+                                    Log::info("Processing suspense account money movement after payment completion", [
+                                        'invoice_id' => $invoice->id,
+                                        'items_count' => count($invoice->items ?? [])
+                                    ]);
+                                    
+                                    $suspenseMovements = $moneyTrackingService->processSuspenseAccountMovements($invoice, $invoice->items);
+                                    
+                                    Log::info("Suspense account movements completed", [
+                                        'invoice_id' => $invoice->id,
+                                        'suspense_movements_count' => count($suspenseMovements)
+                                    ]);
+                                    
                                     // Queue items at service points only after payment is completed
                                     Log::info("Starting to queue items at service points", [
                                         'invoice_id' => $invoice->id,
