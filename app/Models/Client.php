@@ -144,7 +144,11 @@ class Client extends Model
      */
     public function suspenseAccounts()
     {
-        return $this->hasMany(MoneyAccount::class)->whereIn('type', ['general_suspense_account', 'package_suspense_account']);
+        return $this->hasMany(MoneyAccount::class)->whereIn('type', [
+            'general_suspense_account', 
+            'package_suspense_account',
+            'kashtre_suspense_account'
+        ]);
     }
 
     /**
