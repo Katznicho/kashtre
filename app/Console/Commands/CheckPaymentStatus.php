@@ -265,13 +265,21 @@ class CheckPaymentStatus extends Command
                                         'items_data' => $invoice->items
                                     ]);
                                     
-                                    $suspenseMovements = $moneyTrackingService->processSuspenseAccountMovements($invoice, $invoice->items);
-                                    
-                                    Log::info("✅ SUSPENSE ACCOUNT MOVEMENTS COMPLETED", [
-                                        'invoice_id' => $invoice->id,
-                                        'suspense_movements_count' => count($suspenseMovements),
-                                        'suspense_movements' => $suspenseMovements
-                                    ]);
+                                    try {
+                                        $suspenseMovements = $moneyTrackingService->processSuspenseAccountMovements($invoice, $invoice->items);
+                                        
+                                        Log::info("✅ SUSPENSE ACCOUNT MOVEMENTS COMPLETED", [
+                                            'invoice_id' => $invoice->id,
+                                            'suspense_movements_count' => count($suspenseMovements),
+                                            'suspense_movements' => $suspenseMovements
+                                        ]);
+                                    } catch (\Exception $e) {
+                                        Log::error("❌ SUSPENSE ACCOUNT MOVEMENTS FAILED", [
+                                            'invoice_id' => $invoice->id,
+                                            'error' => $e->getMessage(),
+                                            'trace' => $e->getTraceAsString()
+                                        ]);
+                                    }
                                     
                                     // Queue items at service points only after payment is completed
                                     Log::info("Starting to queue items at service points", [
