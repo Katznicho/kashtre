@@ -49,6 +49,31 @@ class SuspenseAccountController extends Controller
             // Calculate total suspense balance (sum of all suspense accounts)
             $totalSuspenseBalance = $totalPackageSuspense + $totalGeneralSuspense + $totalKashtreSuspense;
 
+            // Get individual transfer records for each suspense account type
+            $packageSuspenseTransfers = \App\Models\MoneyTransfer::whereHas('toAccount', function($query) use ($businessId) {
+                    $query->where('business_id', $businessId)
+                          ->where('type', 'package_suspense_account');
+                })
+                ->with(['fromAccount', 'toAccount', 'invoice'])
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            $generalSuspenseTransfers = \App\Models\MoneyTransfer::whereHas('toAccount', function($query) use ($businessId) {
+                    $query->where('business_id', $businessId)
+                          ->where('type', 'general_suspense_account');
+                })
+                ->with(['fromAccount', 'toAccount', 'invoice'])
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            $kashtreSuspenseTransfers = \App\Models\MoneyTransfer::whereHas('toAccount', function($query) use ($businessId) {
+                    $query->where('business_id', $businessId)
+                          ->where('type', 'kashtre_suspense_account');
+                })
+                ->with(['fromAccount', 'toAccount', 'invoice'])
+                ->orderBy('created_at', 'desc')
+                ->get();
+
             // Get recent money movements
             $recentMovements = \App\Models\MoneyTransfer::whereHas('fromAccount', function($query) use ($businessId) {
                     $query->where('business_id', $businessId);
@@ -80,6 +105,9 @@ class SuspenseAccountController extends Controller
                 'totalKashtreSuspense',
                 'totalClientSuspense',
                 'totalSuspenseBalance',
+                'packageSuspenseTransfers',
+                'generalSuspenseTransfers',
+                'kashtreSuspenseTransfers',
                 'recentMovements'
             ));
 
