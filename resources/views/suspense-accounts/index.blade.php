@@ -123,9 +123,15 @@
                                                     <div class="text-sm text-gray-900">{{ $transfer->created_at->format('M d, Y H:i') }}</div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                                        Moved
-                                                    </span>
+                                                    @if($transfer->money_moved_to_final_account)
+                                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                                            Moved to Final
+                                                        </span>
+                                                    @else
+                                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                            Not Moved
+                                                        </span>
+                                                    @endif
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -190,9 +196,15 @@
                                                     <div class="text-sm text-gray-900">{{ $transfer->created_at->format('M d, Y H:i') }}</div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                                        Moved
-                                                    </span>
+                                                    @if($transfer->money_moved_to_final_account)
+                                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                                            Moved to Final
+                                                        </span>
+                                                    @else
+                                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                            Not Moved
+                                                        </span>
+                                                    @endif
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -257,9 +269,15 @@
                                                     <div class="text-sm text-gray-900">{{ $transfer->created_at->format('M d, Y H:i') }}</div>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                                        Moved
-                                                    </span>
+                                                    @if($transfer->money_moved_to_final_account)
+                                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                                            Moved to Final
+                                                        </span>
+                                                    @else
+                                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                            Not Moved
+                                                        </span>
+                                                    @endif
                                                 </td>
                                             </tr>
                                         @endforeach

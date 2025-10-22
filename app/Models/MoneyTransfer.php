@@ -26,13 +26,18 @@ class MoneyTransfer extends Model
         'reference',
         'description',
         'metadata',
-        'processed_at'
+        'processed_at',
+        'money_moved_to_final_account',
+        'moved_to_final_at',
+        'final_movement_notes'
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'metadata' => 'array',
         'processed_at' => 'datetime',
+        'money_moved_to_final_account' => 'boolean',
+        'moved_to_final_at' => 'datetime',
     ];
 
     // Relationships
@@ -121,6 +126,31 @@ class MoneyTransfer extends Model
     public function markAsCancelled()
     {
         $this->update(['status' => 'cancelled']);
+        return $this;
+    }
+
+    public function markMoneyMovedToFinalAccount($notes = null)
+    {
+        $this->update([
+            'money_moved_to_final_account' => true,
+            'moved_to_final_at' => now(),
+            'final_movement_notes' => $notes
+        ]);
+        return $this;
+    }
+
+    public function hasMoneyMovedToFinalAccount()
+    {
+        return $this->money_moved_to_final_account;
+    }
+
+    public function resetMoneyMovementToFinal()
+    {
+        $this->update([
+            'money_moved_to_final_account' => false,
+            'moved_to_final_at' => null,
+            'final_movement_notes' => null
+        ]);
         return $this;
     }
 
