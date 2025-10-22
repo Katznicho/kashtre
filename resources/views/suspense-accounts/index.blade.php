@@ -56,16 +56,16 @@
                         <p class="text-green-200 text-sm mt-2">Service fees and deposits</p>
                     </div>
 
-                    <!-- Client Suspense Card -->
-                    <div class="bg-gradient-to-r from-gray-500 to-gray-600 rounded-xl p-6 text-white">
+                    <!-- Total Suspense Balance Card -->
+                    <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white">
                         <div class="flex items-center justify-between mb-4">
                             <div class="p-3 bg-white/20 rounded-lg">
-                                <i class="fas fa-users text-2xl"></i>
+                                <i class="fas fa-calculator text-2xl"></i>
                             </div>
                         </div>
-                        <h3 class="text-2xl font-bold mb-2">{{ number_format($totalClientSuspense, 0) }} UGX</h3>
-                        <p class="text-gray-100 font-medium">Client Suspense</p>
-                        <p class="text-gray-200 text-sm mt-2">Individual client funds</p>
+                        <h3 class="text-2xl font-bold mb-2">{{ number_format($totalSuspenseBalance, 0) }} UGX</h3>
+                        <p class="text-purple-100 font-medium">Total Suspense Balance</p>
+                        <p class="text-purple-200 text-sm mt-2">Sum of all suspense accounts</p>
                     </div>
                 </div>
 

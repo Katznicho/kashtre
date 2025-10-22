@@ -45,6 +45,9 @@ class SuspenseAccountController extends Controller
             $totalGeneralSuspense = $suspenseAccounts->where('type', 'general_suspense_account')->sum('balance');
             $totalKashtreSuspense = $suspenseAccounts->where('type', 'kashtre_suspense_account')->sum('balance');
             $totalClientSuspense = $clientSuspenseAccounts->sum('balance');
+            
+            // Calculate total suspense balance (sum of all suspense accounts)
+            $totalSuspenseBalance = $totalPackageSuspense + $totalGeneralSuspense + $totalKashtreSuspense;
 
             // Get recent money movements
             $recentMovements = \App\Models\MoneyTransfer::whereHas('fromAccount', function($query) use ($businessId) {
@@ -76,6 +79,7 @@ class SuspenseAccountController extends Controller
                 'totalGeneralSuspense',
                 'totalKashtreSuspense',
                 'totalClientSuspense',
+                'totalSuspenseBalance',
                 'recentMovements'
             ));
 
