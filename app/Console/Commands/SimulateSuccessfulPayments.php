@@ -129,6 +129,30 @@ class SimulateSuccessfulPayments extends Command
                             'balance_statements_count' => count($balanceStatements)
                         ]);
                         
+                        // Move money from client suspense to appropriate suspense accounts after payment completion
+                        Log::info("🔄 PROCESSING SUSPENSE ACCOUNT MONEY MOVEMENT AFTER SIMULATED PAYMENT COMPLETION", [
+                            'invoice_id' => $invoice->id,
+                            'invoice_number' => $invoice->invoice_number,
+                            'items_count' => count($invoice->items ?? []),
+                            'items_data' => $invoice->items
+                        ]);
+                        
+                        try {
+                            $suspenseMovements = $moneyTrackingService->processSuspenseAccountMovements($invoice, $invoice->items);
+                            
+                            Log::info("✅ SUSPENSE ACCOUNT MOVEMENTS COMPLETED (SIMULATED)", [
+                                'invoice_id' => $invoice->id,
+                                'suspense_movements_count' => count($suspenseMovements),
+                                'suspense_movements' => $suspenseMovements
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::error("❌ SUSPENSE ACCOUNT MOVEMENTS FAILED (SIMULATED)", [
+                                'invoice_id' => $invoice->id,
+                                'error' => $e->getMessage(),
+                                'trace' => $e->getTraceAsString()
+                            ]);
+                        }
+                        
                         // Queue items at service points only after payment is completed
                         Log::info("Starting to queue items at service points (simulated)", [
                             'invoice_id' => $invoice->id,
