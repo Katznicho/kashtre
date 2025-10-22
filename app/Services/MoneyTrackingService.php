@@ -595,51 +595,67 @@ class MoneyTrackingService
                 $quantity = $itemData['quantity'] ?? 1;
                 $totalAmount = $itemData['total_amount'] ?? ($item->default_price * $quantity);
 
-                Log::info("Processing suspense movement for item " . ($index + 1), [
+                Log::info("🔍 PROCESSING SUSPENSE MOVEMENT FOR ITEM " . ($index + 1), [
                     'item_id' => $itemId,
                     'item_name' => $item->name,
                     'item_type' => $item->type,
                     'quantity' => $quantity,
-                    'total_amount' => $totalAmount
+                    'total_amount' => $totalAmount,
+                    'item_data' => $itemData
                 ]);
 
                 // Determine destination suspense account based on item type
                 $destinationAccount = null;
                 $transferDescription = "";
+                $routingReason = "";
                 
                 // Check if this is a service fee (should go to Kashtre Suspense)
                 if ($item->name === 'Service Fee' || str_contains(strtolower($item->name), 'service fee')) {
                     $destinationAccount = $this->getOrCreateKashtreSuspenseAccount($business);
                     $transferDescription = "Service Fee - {$item->name} ({$quantity})";
+                    $routingReason = "Service fee detected by name match";
                     
-                    Log::info("Item identified as service fee - routing to Kashtre Suspense", [
-                        'item_id' => $item->id,
-                        'item_name' => $item->name,
-                        'destination_account_type' => 'kashtre_suspense_account'
-                    ]);
-                }
-                // Check if this is a package item (should go to Package Suspense)
-                elseif ($item->type === 'package' || str_contains(strtolower($item->name), 'package') || str_contains(strtolower($item->name), 'procedure')) {
-                    $destinationAccount = $this->getOrCreatePackageSuspenseAccount($business);
-                    $transferDescription = "Package Item - {$item->name} ({$quantity})";
-                    
-                    Log::info("Item identified as package item - routing to Package Suspense", [
+                    Log::info("✅ ITEM ROUTED TO KASHTRE SUSPENSE", [
                         'item_id' => $item->id,
                         'item_name' => $item->name,
                         'item_type' => $item->type,
-                        'destination_account_type' => 'package_suspense_account'
+                        'destination_account_type' => 'kashtre_suspense_account',
+                        'routing_reason' => $routingReason,
+                        'amount' => $totalAmount
+                    ]);
+                }
+                // Check if this is a package item (should go to Package Suspense)
+                elseif ($item->type === 'package' || 
+                        str_contains(strtolower($item->name), 'package') || 
+                        str_contains(strtolower($item->name), 'procedure') ||
+                        str_contains(strtolower($item->name), 'minor procedure') ||
+                        str_contains(strtolower($item->name), 'major procedure')) {
+                    $destinationAccount = $this->getOrCreatePackageSuspenseAccount($business);
+                    $transferDescription = "Package Item - {$item->name} ({$quantity})";
+                    $routingReason = "Package/procedure item detected by name or type";
+                    
+                    Log::info("✅ ITEM ROUTED TO PACKAGE SUSPENSE", [
+                        'item_id' => $item->id,
+                        'item_name' => $item->name,
+                        'item_type' => $item->type,
+                        'destination_account_type' => 'package_suspense_account',
+                        'routing_reason' => $routingReason,
+                        'amount' => $totalAmount
                     ]);
                 }
                 // All other items go to General Suspense
                 else {
                     $destinationAccount = $this->getOrCreateGeneralSuspenseAccount($business);
                     $transferDescription = "General Item - {$item->name} ({$quantity})";
+                    $routingReason = "Default routing for non-package, non-service items";
                     
-                    Log::info("Item identified as general item - routing to General Suspense", [
+                    Log::info("✅ ITEM ROUTED TO GENERAL SUSPENSE", [
                         'item_id' => $item->id,
                         'item_name' => $item->name,
                         'item_type' => $item->type,
-                        'destination_account_type' => 'general_suspense_account'
+                        'destination_account_type' => 'general_suspense_account',
+                        'routing_reason' => $routingReason,
+                        'amount' => $totalAmount
                     ]);
                 }
 
