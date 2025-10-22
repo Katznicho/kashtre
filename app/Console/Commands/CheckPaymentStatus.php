@@ -258,29 +258,19 @@ class CheckPaymentStatus extends Command
                                     ]);
                                     
                                     // Move money from client suspense to appropriate suspense accounts after payment completion
-                                    Log::info("Processing suspense account money movement after payment completion", [
+                                    Log::info("🔄 PROCESSING SUSPENSE ACCOUNT MONEY MOVEMENT AFTER PAYMENT COMPLETION", [
                                         'invoice_id' => $invoice->id,
-                                        'items_count' => count($invoice->items ?? [])
+                                        'invoice_number' => $invoice->invoice_number,
+                                        'items_count' => count($invoice->items ?? []),
+                                        'items_data' => $invoice->items
                                     ]);
                                     
                                     $suspenseMovements = $moneyTrackingService->processSuspenseAccountMovements($invoice, $invoice->items);
                                     
-                                    Log::info("Suspense account movements completed", [
+                                    Log::info("✅ SUSPENSE ACCOUNT MOVEMENTS COMPLETED", [
                                         'invoice_id' => $invoice->id,
-                                        'suspense_movements_count' => count($suspenseMovements)
-                                    ]);
-                                    
-                                    // Move money from business/contractor accounts to suspense accounts after payment completion
-                                    Log::info("Processing suspense account money movement after payment completion", [
-                                        'invoice_id' => $invoice->id,
-                                        'items_count' => count($invoice->items ?? [])
-                                    ]);
-                                    
-                                    $suspenseMovements = $moneyTrackingService->processSuspenseAccountMovements($invoice, $invoice->items);
-                                    
-                                    Log::info("Suspense account movements completed", [
-                                        'invoice_id' => $invoice->id,
-                                        'suspense_movements_count' => count($suspenseMovements)
+                                        'suspense_movements_count' => count($suspenseMovements),
+                                        'suspense_movements' => $suspenseMovements
                                     ]);
                                     
                                     // Queue items at service points only after payment is completed
@@ -638,13 +628,48 @@ class CheckPaymentStatus extends Command
             'total_items' => count($items ?? [])
         ]);
 
-        foreach ($items as $item) {
+        foreach ($items as $index => $item) {
             $itemId = $item['id'] ?? $item['item_id'] ?? null;
-            if (!$itemId) continue;
+            
+            Log::info("🔍 PROCESSING ITEM " . ($index + 1) . " FOR PACKAGE TRACKING", [
+                'item_id' => $itemId,
+                'item_data' => $item,
+                'item_name' => $item['name'] ?? 'Unknown'
+            ]);
+            
+            if (!$itemId) {
+                Log::warning("❌ No item ID found for item " . ($index + 1), [
+                    'item_data' => $item
+                ]);
+                continue;
+            }
 
             // Get the item from database to check if it's a package
             $itemModel = \App\Models\Item::find($itemId);
-            if (!$itemModel || $itemModel->type !== 'package') continue;
+            if (!$itemModel) {
+                Log::warning("❌ Item model not found", [
+                    'item_id' => $itemId,
+                    'item_name' => $item['name'] ?? 'Unknown'
+                ]);
+                continue;
+            }
+            
+            Log::info("📦 ITEM MODEL DETAILS", [
+                'item_id' => $itemModel->id,
+                'item_name' => $itemModel->name,
+                'item_type' => $itemModel->type,
+                'is_package' => $itemModel->type === 'package'
+            ]);
+            
+            if ($itemModel->type !== 'package') {
+                Log::info("⏭️ SKIPPING NON-PACKAGE ITEM", [
+                    'item_id' => $itemModel->id,
+                    'item_name' => $itemModel->name,
+                    'item_type' => $itemModel->type,
+                    'reason' => 'Item is not a package type'
+                ]);
+                continue;
+            }
 
             $quantity = $item['quantity'] ?? 1;
 
