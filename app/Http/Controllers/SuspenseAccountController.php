@@ -34,7 +34,11 @@ class SuspenseAccountController extends Controller
 
             // Get client suspense accounts (for separate display)
             $clientSuspenseAccounts = MoneyAccount::where('business_id', $businessId)
-                ->where('type', 'general_suspense_account')
+                ->whereIn('type', [
+                    'package_suspense_account',
+                    'general_suspense_account', 
+                    'kashtre_suspense_account'
+                ])
                 ->whereNotNull('client_id')
                 ->with('client')
                 ->orderBy('balance', 'desc')

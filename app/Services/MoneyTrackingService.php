@@ -612,7 +612,7 @@ class MoneyTrackingService
                 
                 // Check if this is a service fee (should go to Kashtre Suspense)
                 if ($item->name === 'Service Fee' || str_contains(strtolower($item->name), 'service fee')) {
-                    $destinationAccount = $this->getOrCreateKashtreSuspenseAccount($business);
+                    $destinationAccount = $this->getOrCreateKashtreSuspenseAccount($business, $client->id);
                     $transferDescription = "Service Fee - {$item->name} ({$quantity})";
                     $routingReason = "Service fee detected by name match";
                     
@@ -631,7 +631,7 @@ class MoneyTrackingService
                         str_contains(strtolower($item->name), 'procedure') ||
                         str_contains(strtolower($item->name), 'minor procedure') ||
                         str_contains(strtolower($item->name), 'major procedure')) {
-                    $destinationAccount = $this->getOrCreatePackageSuspenseAccount($business);
+                    $destinationAccount = $this->getOrCreatePackageSuspenseAccount($business, $client->id);
                     $transferDescription = "Package Item - {$item->name} ({$quantity})";
                     $routingReason = "Package/procedure item detected by name or type";
                     
@@ -646,7 +646,7 @@ class MoneyTrackingService
                 }
                 // All other items go to General Suspense
                 else {
-                    $destinationAccount = $this->getOrCreateGeneralSuspenseAccount($business);
+                    $destinationAccount = $this->getOrCreateGeneralSuspenseAccount($business, $client->id);
                     $transferDescription = "General Item - {$item->name} ({$quantity})";
                     $routingReason = "Default routing for non-package, non-service items";
                     
@@ -705,7 +705,7 @@ class MoneyTrackingService
                 ]);
 
                 // Service Fee always goes to Kashtre Suspense
-                $destinationAccount = $this->getOrCreateKashtreSuspenseAccount($business);
+                $destinationAccount = $this->getOrCreateKashtreSuspenseAccount($business, $client->id);
                 $transferDescription = "Service Fee - {$invoice->service_charge} UGX";
                 $routingReason = "Service fee from invoice service_charge field";
 
@@ -1504,14 +1504,15 @@ class MoneyTrackingService
     /**
      * Get or create general suspense account
      */
-    private function getOrCreateGeneralSuspenseAccount(Business $business)
+    private function getOrCreateGeneralSuspenseAccount(Business $business, $clientId = null)
     {
         return MoneyAccount::firstOrCreate([
             'business_id' => $business->id,
+            'client_id' => $clientId,
             'type' => 'general_suspense_account'
         ], [
-            'name' => "General Suspense Account - {$business->name}",
-            'description' => "General suspense account for {$business->name}",
+            'name' => "General Suspense Account - {$business->name}" . ($clientId ? " - Client {$clientId}" : ""),
+            'description' => "General suspense account for {$business->name}" . ($clientId ? " - Client {$clientId}" : ""),
             'balance' => 0,
             'currency' => 'UGX',
             'is_active' => true
@@ -1521,14 +1522,15 @@ class MoneyTrackingService
     /**
      * Get or create Kashtre suspense account
      */
-    private function getOrCreateKashtreSuspenseAccount(Business $business)
+    private function getOrCreateKashtreSuspenseAccount(Business $business, $clientId = null)
     {
         return MoneyAccount::firstOrCreate([
             'business_id' => $business->id,
+            'client_id' => $clientId,
             'type' => 'kashtre_suspense_account'
         ], [
-            'name' => "Kashtre Suspense Account - {$business->name}",
-            'description' => "Kashtre suspense account for {$business->name}",
+            'name' => "Kashtre Suspense Account - {$business->name}" . ($clientId ? " - Client {$clientId}" : ""),
+            'description' => "Kashtre suspense account for {$business->name}" . ($clientId ? " - Client {$clientId}" : ""),
             'balance' => 0,
             'currency' => 'UGX',
             'is_active' => true
@@ -1538,14 +1540,15 @@ class MoneyTrackingService
     /**
      * Get or create Package suspense account
      */
-    private function getOrCreatePackageSuspenseAccount(Business $business)
+    private function getOrCreatePackageSuspenseAccount(Business $business, $clientId = null)
     {
         return MoneyAccount::firstOrCreate([
             'business_id' => $business->id,
+            'client_id' => $clientId,
             'type' => 'package_suspense_account'
         ], [
-            'name' => "Package Suspense Account - {$business->name}",
-            'description' => "Package suspense account for {$business->name}",
+            'name' => "Package Suspense Account - {$business->name}" . ($clientId ? " - Client {$clientId}" : ""),
+            'description' => "Package suspense account for {$business->name}" . ($clientId ? " - Client {$clientId}" : ""),
             'balance' => 0,
             'currency' => 'UGX',
             'is_active' => true
