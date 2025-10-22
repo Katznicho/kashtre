@@ -585,6 +585,7 @@ class MoneyTrackingService
                 'client_suspense_balance_before' => $clientSuspenseAccount->balance
             ]);
 
+            // Process regular items
             foreach ($items as $index => $itemData) {
                 $itemId = $itemData['item_id'] ?? $itemData['id'] ?? null;
                 if (!$itemId) continue;
@@ -689,6 +690,61 @@ class MoneyTrackingService
                 ];
 
                 Log::info("Suspense account transfer completed", [
+                    'transfer_id' => $transfer->id,
+                    'from_account_balance_after' => $clientSuspenseAccount->fresh()->balance,
+                    'to_account_balance_after' => $destinationAccount->fresh()->balance
+                ]);
+            }
+
+            // Process Service Fee separately if it exists
+            if ($invoice->service_charge > 0) {
+                Log::info("🔍 PROCESSING SERVICE FEE FOR SUSPENSE MOVEMENT", [
+                    'invoice_id' => $invoice->id,
+                    'service_charge' => $invoice->service_charge,
+                    'invoice_number' => $invoice->invoice_number
+                ]);
+
+                // Service Fee always goes to Kashtre Suspense
+                $destinationAccount = $this->getOrCreateKashtreSuspenseAccount($business);
+                $transferDescription = "Service Fee - {$invoice->service_charge} UGX";
+                $routingReason = "Service fee from invoice service_charge field";
+
+                Log::info("✅ SERVICE FEE ROUTED TO KASHTRE SUSPENSE", [
+                    'service_charge' => $invoice->service_charge,
+                    'destination_account_type' => 'kashtre_suspense_account',
+                    'routing_reason' => $routingReason
+                ]);
+
+                // Transfer money from client suspense to Kashtre Suspense
+                Log::info("Initiating service fee suspense account transfer", [
+                    'from_account_id' => $clientSuspenseAccount->id,
+                    'from_account_name' => $clientSuspenseAccount->name,
+                    'to_account_id' => $destinationAccount->id,
+                    'to_account_name' => $destinationAccount->name,
+                    'amount' => $invoice->service_charge,
+                    'description' => $transferDescription
+                ]);
+
+                $transfer = $this->transferMoney(
+                    $clientSuspenseAccount,
+                    $destinationAccount,
+                    $invoice->service_charge,
+                    'suspense_movement',
+                    $invoice,
+                    null, // No item for service fee
+                    $transferDescription
+                );
+
+                $suspenseMovements[] = [
+                    'item_name' => 'Service Fee',
+                    'quantity' => 1,
+                    'amount' => $invoice->service_charge,
+                    'source_account' => $clientSuspenseAccount->name,
+                    'destination_account' => $destinationAccount->name,
+                    'transfer_id' => $transfer->id
+                ];
+
+                Log::info("Service fee suspense account transfer completed", [
                     'transfer_id' => $transfer->id,
                     'from_account_balance_after' => $clientSuspenseAccount->fresh()->balance,
                     'to_account_balance_after' => $destinationAccount->fresh()->balance
