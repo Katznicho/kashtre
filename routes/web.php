@@ -34,6 +34,7 @@ use App\Http\Controllers\ServiceChargeController;
 use App\Http\Controllers\ContractorServiceChargeController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\QuotationController;
+use App\Http\Controllers\LocalPaymentController;
 
 use App\Http\Controllers\PackageTrackingController;
 use App\Http\Controllers\PackageSalesController;
@@ -185,7 +186,12 @@ Route::post('/clients/{client}/update-payment-phone', [ClientController::class, 
 Route::post('/invoices/service-charge', [InvoiceController::class, 'serviceCharge'])->name('invoices.service-charge');
 Route::post('/invoices/package-adjustment', [InvoiceController::class, 'calculatePackageAdjustment'])->name('invoices.package-adjustment');
 Route::post('/invoices/balance-adjustment', [InvoiceController::class, 'calculateBalanceAdjustment'])->name('invoices.balance-adjustment');
-Route::post('/invoices/mobile-money-payment', [InvoiceController::class, 'processMobileMoneyPayment'])->name('invoices.mobile-money-payment');
+// Local development override for mobile money payments
+if (app()->environment('local')) {
+    Route::post('/invoices/mobile-money-payment', [LocalPaymentController::class, 'processMobileMoneyPayment'])->name('invoices.mobile-money-payment');
+} else {
+    Route::post('/invoices/mobile-money-payment', [InvoiceController::class, 'processMobileMoneyPayment'])->name('invoices.mobile-money-payment');
+}
 Route::post('/invoices/reinitiate-failed-transaction', [InvoiceController::class, 'reinitiateFailedTransaction'])->name('invoices.reinitiate-failed-transaction');
 Route::post('/invoices/reinitiate-failed-invoice', [InvoiceController::class, 'reinitiateFailedInvoice'])->name('invoices.reinitiate-failed-invoice');
 
