@@ -79,7 +79,7 @@ trait AccessTrait
         "Sub Groups" => ['View Sub Groups', 'Edit Sub Groups', 'Add Sub Groups', 'Bulky Update Sub Groups'],
         "Maturation Periods" => ['View Maturation Periods', 'Edit Maturation Periods', 'Add Maturation Periods', 'Manage Maturation Periods'],
         "Withdrawal Settings" => ['View Withdrawal Settings', 'Edit Withdrawal Settings', 'Add Withdrawal Settings'],
-        "Business Withdrawal Settings" => ['View Business Withdrawal Settings', 'Edit Business Withdrawal Settings', 'Add Business Withdrawal Settings'],
+        "Business Withdrawal Settings" => ['View Business Withdrawal Charges', 'Edit Business Withdrawal Charges', 'Add Business Withdrawal Charges'],
     ];
 
     public static $adminAccess = [
