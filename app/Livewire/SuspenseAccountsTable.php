@@ -87,22 +87,36 @@ class SuspenseAccountsTable extends Component implements HasTable, HasForms
 
 
 
+        // For Kashtre (business_id = 1), show transfers from all businesses
+        if ($businessId == 1) {
+            $query = MoneyTransfer::query()
+                ->where(function($query) use ($accountType) {
+                    $query->whereHas('toAccount', function($q) use ($accountType) {
+                        $q->where('type', $accountType);
+                    })->orWhereHas('fromAccount', function($q) use ($accountType) {
+                        $q->where('type', $accountType);
+                    });
+                })
+                ->with(['fromAccount.client', 'fromAccount.business', 'toAccount.client', 'toAccount.business', 'invoice.client', 'client', 'business'])
+                ->orderBy('created_at', 'desc');
+        } else {
+            // For regular businesses, only show their own transfers
+            $query = MoneyTransfer::query()
+                ->where(function($query) use ($businessId, $accountType) {
+                    $query->whereHas('toAccount', function($q) use ($businessId, $accountType) {
+                        $q->where('business_id', $businessId)
+                          ->where('type', $accountType);
+                    })->orWhereHas('fromAccount', function($q) use ($businessId, $accountType) {
+                        $q->where('business_id', $businessId)
+                          ->where('type', $accountType);
+                    });
+                })
+                ->with(['fromAccount.client', 'fromAccount.business', 'toAccount.client', 'toAccount.business', 'invoice.client', 'client', 'business'])
+                ->orderBy('created_at', 'desc');
+        }
+
         return $table
-            ->query(
-                MoneyTransfer::query()
-                    ->where(function($query) use ($businessId, $accountType) {
-                        $query->whereHas('toAccount', function($q) use ($businessId, $accountType) {
-                            $q->where('business_id', $businessId)
-                              ->where('type', $accountType);
-                        })->orWhereHas('fromAccount', function($q) use ($businessId, $accountType) {
-                            $q->where('business_id', $businessId)
-                              ->where('type', $accountType);
-                        });
-                    })
-                    // Show both credit and debit records for complete audit trail
-                    ->with(['fromAccount.client', 'fromAccount.business', 'toAccount.client', 'toAccount.business', 'invoice.client', 'client', 'business'])
-                    ->orderBy('created_at', 'desc')
-            )
+            ->query($query)
             ->columns([
                 TextColumn::make('type')
                     ->label('Type')
@@ -149,36 +163,7 @@ class SuspenseAccountsTable extends Component implements HasTable, HasForms
                     ->sortable(),
             ])
             ->filters([
-                SelectFilter::make('type')
-                    ->label('Type')
-                    ->options([
-                        'credit' => 'Credit (Money Coming In)',
-                        'debit' => 'Debit (Money Going Out)',
-                    ]),
-                
-                SelectFilter::make('toAccount.client_id')
-                    ->label('Client')
-                    ->options(
-                        Client::where('business_id', $businessId)
-                            ->pluck('name', 'id')
-                            ->toArray()
-                    )
-                    ->searchable()
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query->when(
-                            $data['value'],
-                            fn (Builder $query, $value): Builder => $query->whereHas('toAccount', function($q) use ($value) {
-                                $q->where('client_id', $value);
-                            })
-                        );
-                    }),
-                
-                SelectFilter::make('money_moved_to_final_account')
-                    ->label('Status')
-                    ->options([
-                        false => 'Not Moved',
-                        true => 'Moved',
-                    ]),
+                // Filters removed for cleaner interface
             ])
             ->actions([
                 // Add any actions if needed
