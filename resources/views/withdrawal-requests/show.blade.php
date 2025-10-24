@@ -140,6 +140,74 @@
                         <h4 class="font-semibold text-gray-900 mb-2">Reason for Withdrawal</h4>
                         <p class="text-gray-700 bg-gray-50 p-3 rounded-lg">{{ $withdrawalRequest->reason }}</p>
                     </div>
+
+                    <!-- Approval Progress -->
+                    <div class="mt-6">
+                        <h4 class="font-semibold text-gray-900 mb-4">Approval Progress</h4>
+                        @php
+                            $progress = $withdrawalRequest->getApprovalProgress();
+                            $currentStep = $withdrawalRequest->getCurrentApprovalStep();
+                        @endphp
+                        
+                        <div class="space-y-4">
+                            <!-- Current Step -->
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-semibold text-blue-900">Current Step:</span>
+                                    <span class="text-blue-700">{{ $currentStep }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Business Progress -->
+                            <div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="font-semibold text-gray-700">Business Approval</span>
+                                    <span class="text-sm text-gray-600">{{ $progress['business']['completed'] }}/{{ $progress['business']['total'] }} steps</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                         style="width: {{ $progress['business']['percentage'] }}%"></div>
+                                </div>
+                                <div class="flex justify-between mt-1">
+                                    <span class="text-xs text-gray-500">Step 1: Initiator</span>
+                                    <span class="text-xs text-gray-500">Step 2: Authorizer</span>
+                                    <span class="text-xs text-gray-500">Step 3: Approver</span>
+                                </div>
+                            </div>
+
+                            <!-- Kashtre Progress -->
+                            <div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="font-semibold text-gray-700">Kashtre Approval</span>
+                                    <span class="text-sm text-gray-600">{{ $progress['kashtre']['completed'] }}/{{ $progress['kashtre']['total'] }} steps</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-600 h-2 rounded-full transition-all duration-300" 
+                                         style="width: {{ $progress['kashtre']['percentage'] }}%"></div>
+                                </div>
+                                <div class="flex justify-between mt-1">
+                                    <span class="text-xs text-gray-500">Step 1: Initiator</span>
+                                    <span class="text-xs text-gray-500">Step 2: Authorizer</span>
+                                    <span class="text-xs text-gray-500">Step 3: Approver</span>
+                                </div>
+                            </div>
+
+                            <!-- Overall Progress -->
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="font-semibold text-gray-700">Overall Progress</span>
+                                    <span class="text-sm text-gray-600">{{ $progress['overall']['completed'] }}/{{ $progress['overall']['total'] }} approvals</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-3">
+                                    <div class="bg-purple-600 h-3 rounded-full transition-all duration-300" 
+                                         style="width: {{ $progress['overall']['percentage'] }}%"></div>
+                                </div>
+                                <div class="text-center mt-2">
+                                    <span class="text-sm font-semibold text-gray-700">{{ $progress['overall']['percentage'] }}% Complete</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -320,37 +388,11 @@
                         $user = auth()->user();
                         $canApprove = false;
                         
-                        // Check if user can approve this request
-                        if (in_array($withdrawalRequest->status, ['pending', 'business_approved', 'kashtre_approved'])) {
+                        // Check if user can approve this request using new step-by-step logic
+                        if (in_array($withdrawalRequest->status, ['pending', 'business_approved'])) {
                             // Prevent users from approving their own requests
                             if ($withdrawalRequest->created_by != $user->id) {
-                                $withdrawalSetting = \App\Models\WithdrawalSetting::where('business_id', $withdrawalRequest->business_id)
-                                    ->where('is_active', true)
-                                    ->first();
-                                
-                                if ($withdrawalSetting) {
-                                    // Check if user is assigned as any type of approver (initiator, authorizer, or approver) for this business
-                                    $isApprover = $withdrawalSetting->allBusinessApprovers()
-                                        ->where('approver_id', $user->id)
-                                        ->where('approver_type', 'user')
-                                        ->exists();
-                                    
-                                    if ($isApprover) {
-                                        $canApprove = true;
-                                    }
-                                    
-                                    // Check if user is a Kashtre approver (super business)
-                                    if ($user->business_id == 1) {
-                                        $isKashtreApprover = $withdrawalSetting->allKashtreApprovers()
-                                            ->where('approver_id', $user->id)
-                                            ->where('approver_type', 'user')
-                                            ->exists();
-                                        
-                                        if ($isKashtreApprover) {
-                                            $canApprove = true;
-                                        }
-                                    }
-                                }
+                                $canApprove = $withdrawalRequest->canUserApproveAtCurrentStep($user);
                             }
                         }
                         

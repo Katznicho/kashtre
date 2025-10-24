@@ -30,6 +30,14 @@ class WithdrawalRequest extends Model
         'kashtre_approvals_count',
         'required_business_approvals',
         'required_kashtre_approvals',
+        'current_business_step',
+        'current_kashtre_step',
+        'business_step_1_approvals',
+        'business_step_2_approvals',
+        'business_step_3_approvals',
+        'kashtre_step_1_approvals',
+        'kashtre_step_2_approvals',
+        'kashtre_step_3_approvals',
         'business_approved_at',
         'kashtre_approved_at',
         'approved_at',
@@ -49,6 +57,14 @@ class WithdrawalRequest extends Model
         'kashtre_approvals_count' => 'integer',
         'required_business_approvals' => 'integer',
         'required_kashtre_approvals' => 'integer',
+        'current_business_step' => 'integer',
+        'current_kashtre_step' => 'integer',
+        'business_step_1_approvals' => 'integer',
+        'business_step_2_approvals' => 'integer',
+        'business_step_3_approvals' => 'integer',
+        'kashtre_step_1_approvals' => 'integer',
+        'kashtre_step_2_approvals' => 'integer',
+        'kashtre_step_3_approvals' => 'integer',
         'business_approved_at' => 'datetime',
         'kashtre_approved_at' => 'datetime',
         'approved_at' => 'datetime',
@@ -201,6 +217,161 @@ class WithdrawalRequest extends Model
                 ->where('approver_type', 'user')
                 ->exists();
         }
+    }
+
+    // Step-by-Step Approval Methods
+    public function getCurrentApprovalStep()
+    {
+        if ($this->status === 'pending') {
+            return "Business Step {$this->current_business_step}";
+        } elseif ($this->status === 'business_approved') {
+            return "Kashtre Step {$this->current_kashtre_step}";
+        }
+        return 'Completed';
+    }
+
+    public function getCurrentApprovalLevel()
+    {
+        if ($this->status === 'pending') {
+            return 'business';
+        } elseif ($this->status === 'business_approved') {
+            return 'kashtre';
+        }
+        return 'completed';
+    }
+
+    public function getCurrentStepNumber()
+    {
+        if ($this->status === 'pending') {
+            return $this->current_business_step;
+        } elseif ($this->status === 'business_approved') {
+            return $this->current_kashtre_step;
+        }
+        return 0;
+    }
+
+    public function canUserApproveAtCurrentStep(User $user)
+    {
+        $withdrawalSetting = WithdrawalSetting::where('business_id', $this->business_id)->first();
+        
+        if (!$withdrawalSetting) {
+            return false;
+        }
+
+        $currentLevel = $this->getCurrentApprovalLevel();
+        $currentStep = $this->getCurrentStepNumber();
+
+        if ($currentLevel === 'business') {
+            // Check if user is assigned to the current business step
+            $stepApprovalLevel = $this->getStepApprovalLevel($currentStep);
+            return $withdrawalSetting->businessApprovers()
+                ->where('approver_id', $user->id)
+                ->where('approver_type', 'user')
+                ->where('approval_level', $stepApprovalLevel)
+                ->exists();
+        } elseif ($currentLevel === 'kashtre') {
+            // Check if user is assigned to the current kashtre step
+            $stepApprovalLevel = $this->getStepApprovalLevel($currentStep);
+            return $withdrawalSetting->kashtreApprovers()
+                ->where('approver_id', $user->id)
+                ->where('approver_type', 'user')
+                ->where('approval_level', $stepApprovalLevel)
+                ->exists();
+        }
+
+        return false;
+    }
+
+    private function getStepApprovalLevel($step)
+    {
+        return match($step) {
+            1 => 'initiator',
+            2 => 'authorizer',
+            3 => 'approver',
+            default => 'initiator'
+        };
+    }
+
+    public function hasApprovedCurrentStep()
+    {
+        $currentLevel = $this->getCurrentApprovalLevel();
+        $currentStep = $this->getCurrentStepNumber();
+
+        if ($currentLevel === 'business') {
+            $stepField = "business_step_{$currentStep}_approvals";
+            return $this->$stepField >= 1; // Only need 1 approval per step
+        } elseif ($currentLevel === 'kashtre') {
+            $stepField = "kashtre_step_{$currentStep}_approvals";
+            return $this->$stepField >= 1; // Only need 1 approval per step
+        }
+
+        return false;
+    }
+
+    public function moveToNextStep()
+    {
+        $currentLevel = $this->getCurrentApprovalLevel();
+        $currentStep = $this->getCurrentStepNumber();
+
+        if ($currentLevel === 'business') {
+            if ($currentStep < 3) {
+                // Move to next business step
+                $this->current_business_step = $currentStep + 1;
+                $this->save();
+            } else {
+                // All business steps completed, move to kashtre
+                $this->status = 'business_approved';
+                $this->business_approved_at = now();
+                $this->current_kashtre_step = 1;
+                $this->save();
+            }
+        } elseif ($currentLevel === 'kashtre') {
+            if ($currentStep < 3) {
+                // Move to next kashtre step
+                $this->current_kashtre_step = $currentStep + 1;
+                $this->save();
+            } else {
+                // All kashtre steps completed, fully approved
+                $this->status = 'approved';
+                $this->kashtre_approved_at = now();
+                $this->approved_at = now();
+                $this->save();
+            }
+        }
+    }
+
+    public function getApprovalProgress()
+    {
+        $businessProgress = 0;
+        $kashtreProgress = 0;
+
+        // Calculate business progress
+        if ($this->business_step_1_approvals >= 1) $businessProgress++;
+        if ($this->business_step_2_approvals >= 1) $businessProgress++;
+        if ($this->business_step_3_approvals >= 1) $businessProgress++;
+
+        // Calculate kashtre progress
+        if ($this->kashtre_step_1_approvals >= 1) $kashtreProgress++;
+        if ($this->kashtre_step_2_approvals >= 1) $kashtreProgress++;
+        if ($this->kashtre_step_3_approvals >= 1) $kashtreProgress++;
+
+        return [
+            'business' => [
+                'completed' => $businessProgress,
+                'total' => 3,
+                'percentage' => round(($businessProgress / 3) * 100, 1)
+            ],
+            'kashtre' => [
+                'completed' => $kashtreProgress,
+                'total' => 3,
+                'percentage' => round(($kashtreProgress / 3) * 100, 1)
+            ],
+            'overall' => [
+                'completed' => $businessProgress + $kashtreProgress,
+                'total' => 6,
+                'percentage' => round((($businessProgress + $kashtreProgress) / 6) * 100, 1)
+            ]
+        ];
     }
 
     // Type Check Methods

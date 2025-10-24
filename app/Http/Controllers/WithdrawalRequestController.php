@@ -322,11 +322,13 @@ class WithdrawalRequestController extends Controller
                 'comment' => $request->comment ?? null,
             ]);
 
-            // Update approval counts
-            $this->updateApprovalCounts($withdrawalRequest);
+            // Update step-specific approval counts
+            $this->updateStepApprovalCounts($withdrawalRequest, $user);
 
-            // Update request status
-            $this->updateRequestStatus($withdrawalRequest);
+            // Check if current step is completed and move to next step
+            if ($withdrawalRequest->hasApprovedCurrentStep()) {
+                $withdrawalRequest->moveToNextStep();
+            }
 
             DB::commit();
 
@@ -404,7 +406,7 @@ class WithdrawalRequestController extends Controller
     private function canUserApproveRequest($user, $withdrawalRequest)
     {
         // Check if request is in a state that can be approved
-        if (!in_array($withdrawalRequest->status, ['pending', 'business_approved', 'kashtre_approved'])) {
+        if (!in_array($withdrawalRequest->status, ['pending', 'business_approved'])) {
             return false;
         }
 
@@ -413,34 +415,8 @@ class WithdrawalRequestController extends Controller
             return false;
         }
 
-        // Get withdrawal settings for this business
-        $withdrawalSetting = WithdrawalSetting::where('business_id', $withdrawalRequest->business_id)
-            ->where('is_active', true)
-            ->first();
-
-        if (!$withdrawalSetting) {
-            return false;
-        }
-
-        // Check if user is assigned as any type of approver (initiator, authorizer, or approver) for this business
-        $isApprover = $withdrawalSetting->allBusinessApprovers()
-            ->where('approver_id', $user->id)
-            ->where('approver_type', 'user')
-            ->exists();
-
-        if ($isApprover) {
-            return true;
-        }
-
-        // Check if user is a Kashtre approver (super business)
-        if ($user->business_id == 1) {
-            return $withdrawalSetting->allKashtreApprovers()
-                ->where('approver_id', $user->id)
-                ->where('approver_type', 'user')
-                ->exists();
-        }
-
-        return false;
+        // Use the new step-by-step approval logic
+        return $withdrawalRequest->canUserApproveAtCurrentStep($user);
     }
 
     /**
@@ -471,6 +447,30 @@ class WithdrawalRequestController extends Controller
             'business_approvals_count' => $businessApprovals,
             'kashtre_approvals_count' => $kashtreApprovals,
         ]);
+    }
+
+    /**
+     * Update step-specific approval counts
+     */
+    private function updateStepApprovalCounts($withdrawalRequest, $user)
+    {
+        $currentLevel = $withdrawalRequest->getCurrentApprovalLevel();
+        $currentStep = $withdrawalRequest->getCurrentStepNumber();
+
+        if ($currentLevel === 'business') {
+            $stepField = "business_step_{$currentStep}_approvals";
+            $withdrawalRequest->increment($stepField);
+        } elseif ($currentLevel === 'kashtre') {
+            $stepField = "kashtre_step_{$currentStep}_approvals";
+            $withdrawalRequest->increment($stepField);
+        }
+
+        // Also update the general approval counts
+        if ($currentLevel === 'business') {
+            $withdrawalRequest->increment('business_approvals_count');
+        } elseif ($currentLevel === 'kashtre') {
+            $withdrawalRequest->increment('kashtre_approvals_count');
+        }
     }
 
     /**
