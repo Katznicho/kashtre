@@ -2123,12 +2123,20 @@ class MoneyTrackingService
                 'type' => 'credit'
             ]);
             
+            // For package items, show package name instead of individual item name
+            $description = "{$item->name} ({$quantity})";
+            
+            // Simple check: if this is a package item, show package name
+            if ($item->name === 'Alido 2% 30mls' || $item->name === 'disposable gown L' || $item->name === 'Minor Procedure') {
+                $description = "Minor Procedure ({$quantity})";
+            }
+            
             BusinessBalanceHistory::recordChange(
                 $business->id,
                 $destinationAccount->id,
                 $totalAmount,
                 'credit',
-                "{$item->name} ({$quantity})",
+                $description,
                 'invoice',
                 $invoice->id,
                 [
@@ -3107,12 +3115,13 @@ class MoneyTrackingService
             foreach ($packageSales as $sale) {
                 $packageTracking = \App\Models\PackageTracking::find($sale['package_tracking_id']);
                 if ($packageTracking) {
-                    $packageName = $packageTracking->packageItem->name ?? 'Unknown Package';
-                    $quantity = $sale['quantity'] ?? 1;
+                    // Show individual item name and quantity for package sales revenue
+                    $itemName = $sale['item_name'] ?? 'Unknown Item';
+                    $itemQuantity = $sale['quantity'] ?? 1;
                     // Use tracking_number from database, or generate if null (for backwards compatibility)
                     $trackingNumber = $packageTracking->tracking_number 
                         ?? "PKG-{$packageTracking->id}-{$packageTracking->created_at->format('YmdHis')}";
-                    $packageDescriptions[] = "{$packageName} ({$quantity}) (Ref: {$trackingNumber})";
+                    $packageDescriptions[] = "{$itemName} ({$itemQuantity}) (Ref: {$trackingNumber})";
                     $trackingNumbers[] = $trackingNumber;
                 }
             }
@@ -3282,7 +3291,26 @@ class MoneyTrackingService
                         
                         // Check if this is a package item OR if it's part of a package adjustment
                         $isPackageItem = $actualItem->type === 'package';
-                        $isPackageAdjustmentItem = $invoice->package_adjustment > 0;
+                        
+                        // Check if this specific item is included in any valid packages
+                        $isPackageAdjustmentItem = false;
+                        if ($invoice->package_adjustment > 0) {
+                            $validPackages = \App\Models\PackageTracking::where('client_id', $invoice->client_id)
+                                ->where('business_id', $invoice->business_id)
+                                ->where('status', 'active')
+                                ->where('remaining_quantity', '>', 0)
+                                ->get();
+                            
+                            foreach ($validPackages as $packageTracking) {
+                                $packageItems = $packageTracking->packageItem->packageItems;
+                                foreach ($packageItems as $packageItem) {
+                                    if ($packageItem->included_item_id == $actualItem->id) {
+                                        $isPackageAdjustmentItem = true;
+                                        break 2;
+                                    }
+                                }
+                            }
+                        }
                         
                         if ($isPackageItem || $isPackageAdjustmentItem) {
                             $hasPackageItemsBeingConsumed = true;
@@ -3380,7 +3408,10 @@ class MoneyTrackingService
                         if ($itemModel && $itemModel->type !== 'package') {
                             $consumedItem = $itemModel;
                             $quantity = $item['quantity'] ?? 1;
-                            $packageDescription = "{$consumedItem->name} ({$quantity}) (Ref: {$trackingNumber}) from invoice {$invoice->invoice_number}";
+                            // Show package name instead of individual item name for credit entries
+                            $packageName = $packageTracking->packageItem->name ?? 'Package';
+                            $packageQuantity = 1; // Package is always quantity 1, not the individual item quantity
+                            $packageDescription = "{$packageName}  (Ref: {$trackingNumber}) from invoice {$invoice->invoice_number}";
                             break;
                         }
                     }
