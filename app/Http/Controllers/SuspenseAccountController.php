@@ -20,9 +20,10 @@ class SuspenseAccountController extends Controller
             $businessId = Auth::user()->business_id;
             $business = Business::findOrFail($businessId);
 
-            // Get all suspense accounts for the business (including client-specific ones)
-            $suspenseAccounts = MoneyAccount::where('business_id', $businessId)
-                ->whereIn('type', [
+            // For Kashtre (business_id = 1), show suspense accounts from ALL businesses
+            if ($businessId == 1) {
+                // Get all suspense accounts from all businesses
+                $suspenseAccounts = MoneyAccount::whereIn('type', [
                     'package_suspense_account',
                     'general_suspense_account', 
                     'kashtre_suspense_account'
@@ -32,9 +33,8 @@ class SuspenseAccountController extends Controller
                 ->orderBy('balance', 'desc')
                 ->get();
 
-            // Get client suspense accounts (for separate display)
-            $clientSuspenseAccounts = MoneyAccount::where('business_id', $businessId)
-                ->whereIn('type', [
+                // Get client suspense accounts from all businesses
+                $clientSuspenseAccounts = MoneyAccount::whereIn('type', [
                     'package_suspense_account',
                     'general_suspense_account', 
                     'kashtre_suspense_account'
@@ -43,6 +43,31 @@ class SuspenseAccountController extends Controller
                 ->with('client')
                 ->orderBy('balance', 'desc')
                 ->get();
+            } else {
+                // For regular businesses, only show their own suspense accounts
+                $suspenseAccounts = MoneyAccount::where('business_id', $businessId)
+                    ->whereIn('type', [
+                        'package_suspense_account',
+                        'general_suspense_account', 
+                        'kashtre_suspense_account'
+                    ])
+                    ->with(['business', 'client'])
+                    ->orderBy('type')
+                    ->orderBy('balance', 'desc')
+                    ->get();
+
+                // Get client suspense accounts for this business only
+                $clientSuspenseAccounts = MoneyAccount::where('business_id', $businessId)
+                    ->whereIn('type', [
+                        'package_suspense_account',
+                        'general_suspense_account', 
+                        'kashtre_suspense_account'
+                    ])
+                    ->whereNotNull('client_id')
+                    ->with('client')
+                    ->orderBy('balance', 'desc')
+                    ->get();
+            }
 
             // Calculate totals
             $totalPackageSuspense = $suspenseAccounts->where('type', 'package_suspense_account')->sum('balance');
@@ -55,16 +80,31 @@ class SuspenseAccountController extends Controller
 
 
             // Get recent money movements
-            $recentMovements = \App\Models\MoneyTransfer::whereHas('fromAccount', function($query) use ($businessId) {
-                    $query->where('business_id', $businessId);
-                })
-                ->orWhereHas('toAccount', function($query) use ($businessId) {
-                    $query->where('business_id', $businessId);
-                })
-                ->with(['fromAccount', 'toAccount'])
-                ->orderBy('created_at', 'desc')
-                ->limit(20)
-                ->get();
+            if ($businessId == 1) {
+                // For Kashtre, show movements from all businesses
+                $recentMovements = \App\Models\MoneyTransfer::whereHas('fromAccount', function($query) {
+                        $query->whereIn('type', ['package_suspense_account', 'general_suspense_account', 'kashtre_suspense_account']);
+                    })
+                    ->orWhereHas('toAccount', function($query) {
+                        $query->whereIn('type', ['package_suspense_account', 'general_suspense_account', 'kashtre_suspense_account']);
+                    })
+                    ->with(['fromAccount', 'toAccount'])
+                    ->orderBy('created_at', 'desc')
+                    ->limit(20)
+                    ->get();
+            } else {
+                // For regular businesses, only show their own movements
+                $recentMovements = \App\Models\MoneyTransfer::whereHas('fromAccount', function($query) use ($businessId) {
+                        $query->where('business_id', $businessId);
+                    })
+                    ->orWhereHas('toAccount', function($query) use ($businessId) {
+                        $query->where('business_id', $businessId);
+                    })
+                    ->with(['fromAccount', 'toAccount'])
+                    ->orderBy('created_at', 'desc')
+                    ->limit(20)
+                    ->get();
+            }
 
             Log::info("Suspense accounts dashboard accessed", [
                 'business_id' => $businessId,
