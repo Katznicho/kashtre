@@ -52,10 +52,6 @@ trait AccessTrait
         "Withdrawals" => ['View Withdrawals', 'Edit Withdrawals', 'Add Withdrawals'],
     ];
 
-    public static $withdrawalSettings = [
-        "Withdrawal Settings" => ['View Withdrawal Settings', 'Edit Withdrawal Settings', 'Add Withdrawal Settings'],
-        "Business Withdrawal Settings" => ['View Business Withdrawal Settings', 'Edit Business Withdrawal Settings', 'Add Business Withdrawal Settings'],
-    ];
 
     public static $modules = [
         "Modules" => ['View Modules', 'Edit Modules', 'Add Modules'],
@@ -82,6 +78,8 @@ trait AccessTrait
         "Insurance Companies" => ['View Insurance Companies', 'Edit Insurance Companies', 'Add Insurance Companies', 'Bulky Update Insurance Companies'],
         "Sub Groups" => ['View Sub Groups', 'Edit Sub Groups', 'Add Sub Groups', 'Bulky Update Sub Groups'],
         "Maturation Periods" => ['View Maturation Periods', 'Edit Maturation Periods', 'Add Maturation Periods', 'Manage Maturation Periods'],
+        "Withdrawal Settings" => ['View Withdrawal Settings', 'Edit Withdrawal Settings', 'Add Withdrawal Settings'],
+        "Business Withdrawal Settings" => ['View Business Withdrawal Settings', 'Edit Business Withdrawal Settings', 'Add Business Withdrawal Settings'],
     ];
 
     public static $adminAccess = [
@@ -193,7 +191,6 @@ trait AccessTrait
         "Clients" => self::$clients,
         "Queues" => self::$queues,
         "Withdrawals" => self::$withdrawaal,
-        "Withdrawal Settings" => self::$withdrawalSettings,
         "Modules" => self::$modules,
         "Stock" => self::$stock,
         "Masters" => self::$masters,
