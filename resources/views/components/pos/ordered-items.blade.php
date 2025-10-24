@@ -29,7 +29,6 @@
                         <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Price</th>
                         <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Qty</th>
                         <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Total Amount</th>
-                        <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Current Status</th>
                         <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase">Status Update</th>
                     </tr>
                 </thead>
@@ -47,22 +46,35 @@
                                     {{ number_format($item->price * $item->quantity, 0) }} UGX
                                 </td>
                                 <td class="px-4 py-3">
-                                    <span class="status-badge status-pending">Pending</span>
-                                </td>
-                                <td class="px-4 py-3">
                                     <div class="flex flex-col space-y-2">
-                                        <label class="flex items-center">
-                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="pending" class="mr-2">
-                                            <span class="text-sm">Not Done</span>
-                                        </label>
-                                        <label class="flex items-center">
-                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2" {{ $item->status == 'partially_done' ? 'checked' : '' }}>
-                                            <span class="text-sm">Partially Done</span>
-                                        </label>
-                                        <label class="flex items-center">
-                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2" {{ $item->status == 'completed' ? 'checked' : '' }}>
-                                            <span class="text-sm">Completed (Done)</span>
-                                        </label>
+                                        @if($item->status === 'pending')
+                                            <label class="flex items-center">
+                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="pending" class="mr-2">
+                                                <span class="text-sm">Not Done</span>
+                                            </label>
+                                            <label class="flex items-center">
+                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2">
+                                                <span class="text-sm">Partially Done</span>
+                                            </label>
+                                            <label class="flex items-center">
+                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2">
+                                                <span class="text-sm">Completed (Done)</span>
+                                            </label>
+                                        @elseif($item->status === 'partially_done')
+                                            <label class="flex items-center">
+                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2" checked>
+                                                <span class="text-sm">Partially Done</span>
+                                            </label>
+                                            <label class="flex items-center">
+                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2">
+                                                <span class="text-sm">Completed (Done)</span>
+                                            </label>
+                                        @elseif($item->status === 'completed')
+                                            <label class="flex items-center">
+                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2" checked>
+                                                <span class="text-sm">Completed (Done)</span>
+                                            </label>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
@@ -82,20 +94,13 @@
                                     {{ number_format($item->price * $item->quantity, 0) }} UGX
                                 </td>
                                 <td class="px-4 py-3">
-                                    <span class="status-badge status-partially-done">In Progress</span>
-                                </td>
-                                <td class="px-4 py-3">
                                     <div class="flex flex-col space-y-2">
                                         <label class="flex items-center">
-                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="pending" class="mr-2">
-                                            <span class="text-sm">Not Done</span>
-                                        </label>
-                                        <label class="flex items-center">
-                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2" {{ $item->status == 'partially_done' ? 'checked' : '' }}>
+                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2" checked>
                                             <span class="text-sm">Partially Done</span>
                                         </label>
                                         <label class="flex items-center">
-                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2" {{ $item->status == 'completed' ? 'checked' : '' }}>
+                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2">
                                             <span class="text-sm">Completed (Done)</span>
                                         </label>
                                     </div>
@@ -117,20 +122,9 @@
                                     {{ number_format($item->price * $item->quantity, 0) }} UGX
                                 </td>
                                 <td class="px-4 py-3">
-                                    <span class="status-badge status-completed">Completed</span>
-                                </td>
-                                <td class="px-4 py-3">
                                     <div class="flex flex-col space-y-2">
                                         <label class="flex items-center">
-                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="pending" class="mr-2">
-                                            <span class="text-sm">Not Done</span>
-                                        </label>
-                                        <label class="flex items-center">
-                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2" {{ $item->status == 'partially_done' ? 'checked' : '' }}>
-                                            <span class="text-sm">Partially Done</span>
-                                        </label>
-                                        <label class="flex items-center">
-                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2" {{ $item->status == 'completed' ? 'checked' : '' }}>
+                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2" checked>
                                             <span class="text-sm">Completed (Done)</span>
                                         </label>
                                     </div>
@@ -143,7 +137,7 @@
                         (!isset($partiallyDoneItems) || $partiallyDoneItems->count() == 0) && 
                         (!isset($completedItems) || $completedItems->count() == 0))
                         <tr>
-                            <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                            <td colspan="6" class="px-4 py-8 text-center text-gray-500">
                                 No ordered items found for this client.
                             </td>
                         </tr>

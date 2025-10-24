@@ -257,6 +257,18 @@ class CheckPaymentStatus extends Command
                                         'balance_statements_count' => count($balanceStatements)
                                     ]);
                                     
+                                    // Create package tracking records FIRST so they exist when processing suspense movements
+                                    Log::info("Creating package tracking records", [
+                                        'invoice_id' => $invoice->id,
+                                        'items_count' => count($invoice->items ?? [])
+                                    ]);
+                                    
+                                    $this->createPackageTrackingRecords($invoice, $invoice->items);
+                                    
+                                    Log::info("Package tracking records created", [
+                                        'invoice_id' => $invoice->id
+                                    ]);
+                                    
                                     // Move money from client suspense to appropriate suspense accounts after payment completion
                                     Log::info("🔄 PROCESSING SUSPENSE ACCOUNT MONEY MOVEMENT AFTER PAYMENT COMPLETION", [
                                         'invoice_id' => $invoice->id,
@@ -292,18 +304,6 @@ class CheckPaymentStatus extends Command
                                     Log::info("Items queued at service points completed", [
                                         'invoice_id' => $invoice->id,
                                         'queued_items_count' => $queuedItems
-                                    ]);
-                                    
-                                    // Create package tracking records for package items
-                                    Log::info("Creating package tracking records", [
-                                        'invoice_id' => $invoice->id,
-                                        'items_count' => count($invoice->items ?? [])
-                                    ]);
-                                    
-                                    $this->createPackageTrackingRecords($invoice, $invoice->items);
-                                    
-                                    Log::info("Package tracking records created", [
-                                        'invoice_id' => $invoice->id
                                     ]);
                                 } else {
                                     Log::warning("Invoice not found for transaction", [

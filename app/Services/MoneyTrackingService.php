@@ -100,7 +100,7 @@ class MoneyTrackingService
         $suspenseAccount = MoneyAccount::firstOrCreate([
             'business_id' => $client->business_id,
             'client_id' => $client->id,
-            'type' => 'general_suspense_account'
+            'type' => 'client_suspense_account'
         ], [
             'name' => "Client Suspense Account - {$client->name}",
             'description' => "Holds client money in suspense until service delivery",
@@ -156,10 +156,13 @@ class MoneyTrackingService
 
             $clientSuspenseAccount = $this->getOrCreateClientSuspenseAccount($client);
             
+            // Create or get Mobile Money account
+            $mobileMoneyAccount = $this->getOrCreateMobileMoneyAccount($client->business);
+            
             // Create transfer record
             $transfer = MoneyTransfer::create([
                 'business_id' => $client->business_id,
-                'from_account_id' => null, // External payment
+                'from_account_id' => $mobileMoneyAccount->id, // Mobile Money account
                 'to_account_id' => $clientSuspenseAccount->id,
                 'amount' => $amount,
                 'currency' => 'UGX',
@@ -593,6 +596,19 @@ class MoneyTrackingService
                 $item = Item::find($itemId);
                 if (!$item) continue;
                 
+                // Skip payment-related items (Mobile Money, Cash, etc.)
+                if ($item->name === 'Mobile Money' || 
+                    $item->name === 'Cash' || 
+                    str_contains(strtolower($item->name), 'payment') ||
+                    str_contains(strtolower($item->name), 'mobile money')) {
+                    Log::info("⏭️ SKIPPING PAYMENT ITEM", [
+                        'item_id' => $item->id,
+                        'item_name' => $item->name,
+                        'reason' => 'Payment method item, not a product/service'
+                    ]);
+                    continue;
+                }
+                
                 $quantity = $itemData['quantity'] ?? 1;
                 $totalAmount = $itemData['total_amount'] ?? ($item->default_price * $quantity);
 
@@ -631,8 +647,35 @@ class MoneyTrackingService
                         str_contains(strtolower($item->name), 'procedure') ||
                         str_contains(strtolower($item->name), 'minor procedure') ||
                         str_contains(strtolower($item->name), 'major procedure')) {
+                    
+                    // Get package tracking number for this package item
+                    $packageTrackingNumber = null;
+                    $packageTracking = \App\Models\PackageTracking::where('invoice_id', $invoice->id)
+                        ->where('package_item_id', $itemId)
+                        ->where('client_id', $client->id)
+                        ->first();
+                    
+                    if ($packageTracking) {
+                        $packageTrackingNumber = $packageTracking->tracking_number;
+                        Log::info("📦 PACKAGE TRACKING NUMBER FOUND", [
+                            'package_tracking_id' => $packageTracking->id,
+                            'tracking_number' => $packageTrackingNumber,
+                            'package_item_id' => $itemId,
+                            'invoice_id' => $invoice->id
+                        ]);
+                    } else {
+                        Log::warning("⚠️ PACKAGE TRACKING NOT FOUND", [
+                            'package_item_id' => $itemId,
+                            'invoice_id' => $invoice->id,
+                            'client_id' => $client->id,
+                            'item_name' => $item->name,
+                            'item_type' => $item->type
+                        ]);
+                    }
+                    
                     $destinationAccount = $this->getOrCreatePackageSuspenseAccount($business, $client->id);
-                    $transferDescription = "Package Item - {$item->name} ({$quantity})";
+                    $transferDescription = "Package Item - {$item->name} ({$quantity})" . 
+                        ($packageTrackingNumber ? " - Tracking: {$packageTrackingNumber}" : "");
                     $routingReason = "Package/procedure item detected by name or type";
                     
                     Log::info("✅ ITEM ROUTED TO PACKAGE SUSPENSE", [
@@ -641,7 +684,9 @@ class MoneyTrackingService
                         'item_type' => $item->type,
                         'destination_account_type' => 'package_suspense_account',
                         'routing_reason' => $routingReason,
-                        'amount' => $totalAmount
+                        'amount' => $totalAmount,
+                        'package_tracking_number' => $packageTrackingNumber,
+                        'package_tracking_id' => $packageTracking ? $packageTracking->id : null
                     ]);
                 }
                 // All other items go to General Suspense
@@ -661,13 +706,18 @@ class MoneyTrackingService
                 }
 
                 // Transfer money from client suspense to destination suspense account
-                Log::info("Initiating suspense account transfer", [
+                Log::info("💰 INITIATING SUSPENSE ACCOUNT TRANSFER", [
                     'from_account_id' => $clientSuspenseAccount->id,
                     'from_account_name' => $clientSuspenseAccount->name,
+                    'from_account_balance_before' => $clientSuspenseAccount->balance,
                     'to_account_id' => $destinationAccount->id,
                     'to_account_name' => $destinationAccount->name,
+                    'to_account_balance_before' => $destinationAccount->balance,
                     'amount' => $totalAmount,
-                    'description' => $transferDescription
+                    'description' => $transferDescription,
+                    'routing_reason' => $routingReason,
+                    'item_type' => $item->type,
+                    'item_name' => $item->name
                 ]);
 
                 $transfer = $this->transferMoney(
@@ -677,7 +727,8 @@ class MoneyTrackingService
                     'suspense_movement',
                     $invoice,
                     $item,
-                    $transferDescription
+                    $transferDescription,
+                    $packageTrackingNumber ?? null
                 );
 
                 $suspenseMovements[] = [
@@ -686,13 +737,19 @@ class MoneyTrackingService
                     'amount' => $totalAmount,
                     'source_account' => $clientSuspenseAccount->name,
                     'destination_account' => $destinationAccount->name,
-                    'transfer_id' => $transfer->id
+                    'transfer_id' => $transfer->id,
+                    'package_tracking_number' => $packageTrackingNumber ?? null
                 ];
 
-                Log::info("Suspense account transfer completed", [
+                Log::info("✅ SUSPENSE ACCOUNT TRANSFER COMPLETED", [
                     'transfer_id' => $transfer->id,
                     'from_account_balance_after' => $clientSuspenseAccount->fresh()->balance,
-                    'to_account_balance_after' => $destinationAccount->fresh()->balance
+                    'to_account_balance_after' => $destinationAccount->fresh()->balance,
+                    'amount_transferred' => $totalAmount,
+                    'item_name' => $item->name,
+                    'item_type' => $item->type,
+                    'routing_reason' => $routingReason,
+                    'package_tracking_number' => $packageTrackingNumber ?? null
                 ]);
             }
 
@@ -753,20 +810,41 @@ class MoneyTrackingService
 
             DB::commit();
 
-            Log::info("=== SUSPENSE ACCOUNT MOVEMENTS COMPLETED ===", [
+            // Get final account balances for summary
+            $finalClientSuspenseBalance = $clientSuspenseAccount->fresh()->balance;
+            $finalPackageSuspenseBalance = $this->getOrCreatePackageSuspenseAccount($business, $client->id)->fresh()->balance;
+            $finalGeneralSuspenseBalance = $this->getOrCreateGeneralSuspenseAccount($business, $client->id)->fresh()->balance;
+            $finalKashtreSuspenseBalance = $this->getOrCreateKashtreSuspenseAccount($business, $client->id)->fresh()->balance;
+
+            Log::info("🎉 === SUSPENSE ACCOUNT MOVEMENTS COMPLETED ===", [
                 'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $client->id,
+                'business_id' => $business->id,
                 'movements_count' => count($suspenseMovements),
                 'total_amount_moved' => array_sum(array_column($suspenseMovements, 'amount')),
-                'client_suspense_balance_after' => $clientSuspenseAccount->fresh()->balance
+                'client_suspense_balance_after' => $finalClientSuspenseBalance,
+                'package_suspense_balance_after' => $finalPackageSuspenseBalance,
+                'general_suspense_balance_after' => $finalGeneralSuspenseBalance,
+                'kashtre_suspense_balance_after' => $finalKashtreSuspenseBalance,
+                'total_suspense_balance' => $finalPackageSuspenseBalance + $finalGeneralSuspenseBalance + $finalKashtreSuspenseBalance,
+                'movements_summary' => $suspenseMovements
             ]);
 
             return $suspenseMovements;
 
         } catch (Exception $e) {
             DB::rollBack();
-            Log::error("Failed to process suspense account movements", [
+            Log::error("❌ FAILED TO PROCESS SUSPENSE ACCOUNT MOVEMENTS", [
                 'invoice_id' => $invoice->id,
-                'error' => $e->getMessage()
+                'invoice_number' => $invoice->invoice_number ?? 'Unknown',
+                'client_id' => $invoice->client_id ?? 'Unknown',
+                'business_id' => $invoice->business_id ?? 'Unknown',
+                'items_count' => count($items ?? []),
+                'error' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
             ]);
             throw $e;
         }
@@ -989,7 +1067,7 @@ class MoneyTrackingService
     /**
      * Helper method to transfer money between accounts
      */
-    private function transferMoney($fromAccount, $toAccount, $amount, $transferType, $invoice = null, $item = null, $description = '')
+    private function transferMoney($fromAccount, $toAccount, $amount, $transferType, $invoice = null, $item = null, $description = '', $packageTrackingNumber = null, $type = 'credit')
     {
         Log::info("=== MONEY TRANSFER STARTED ===", [
             'from_account_id' => $fromAccount->id,
@@ -1003,7 +1081,17 @@ class MoneyTrackingService
             'description' => $description
         ]);
 
-        // Create transfer record
+        // Create transfer record with specified type
+        Log::info("=== TRANSFERMONEY TYPE DEBUG ===", [
+            'type_parameter' => $type,
+            'from_account' => $fromAccount->name,
+            'to_account' => $toAccount->name,
+            'transfer_type' => $transferType,
+            'invoice_id' => $invoice ? $invoice->id : 'null',
+            'client_id' => $invoice ? $invoice->client_id : 'null',
+            'client_name' => $invoice && $invoice->client ? $invoice->client->name : 'null'
+        ]);
+        
         $transfer = MoneyTransfer::create([
             'business_id' => $fromAccount->business_id,
             'from_account_id' => $fromAccount->id,
@@ -1011,7 +1099,9 @@ class MoneyTrackingService
             'amount' => $amount,
             'currency' => 'UGX',
             'status' => 'completed',
+            'type' => $type,
             'transfer_type' => $transferType,
+            'package_tracking_number' => $packageTrackingNumber,
             'invoice_id' => $invoice ? $invoice->id : null,
             'client_id' => $invoice ? $invoice->client_id : null,
             'item_id' => $item ? $item->id : null,
@@ -1026,6 +1116,48 @@ class MoneyTrackingService
         // Update account balances
         $fromAccount->debit($amount);  // Money goes out of source account
         $toAccount->credit($amount);   // Money comes into destination account
+
+        // Create BusinessBalanceHistory records for business accounts
+        if ($toAccount->type === 'business_account' && $toAccount->business_id) {
+            \App\Models\BusinessBalanceHistory::recordChange(
+                $toAccount->business_id,
+                $toAccount->id,
+                $amount,
+                'credit',
+                $description,
+                $invoice ? 'invoice' : 'MoneyTransfer',
+                $invoice ? $invoice->id : $transfer->id,
+                [
+                    'from_account' => $fromAccount->name,
+                    'to_account' => $toAccount->name,
+                    'transfer_type' => $transferType,
+                    'invoice_id' => $invoice ? $invoice->id : null,
+                    'invoice_number' => $invoice ? $invoice->invoice_number : null
+                ],
+                auth()->id()
+            );
+        }
+
+        // Create BusinessBalanceHistory records for Kashtre account
+        if ($toAccount->type === 'kashtre_account') {
+            \App\Models\BusinessBalanceHistory::recordChange(
+                1, // Kashtre business ID
+                $toAccount->id,
+                $amount,
+                'credit',
+                $description,
+                $invoice ? 'invoice' : 'MoneyTransfer',
+                $invoice ? $invoice->id : $transfer->id,
+                [
+                    'from_account' => $fromAccount->name,
+                    'to_account' => $toAccount->name,
+                    'transfer_type' => $transferType,
+                    'invoice_id' => $invoice ? $invoice->id : null,
+                    'invoice_number' => $invoice ? $invoice->invoice_number : null
+                ],
+                auth()->id()
+            );
+        }
 
         Log::info("=== MONEY TRANSFER COMPLETED ===", [
             'transfer_id' => $transfer->id,
@@ -1502,13 +1634,31 @@ class MoneyTrackingService
     }
     
     /**
+     * Get or create mobile money account
+     */
+    private function getOrCreateMobileMoneyAccount(Business $business)
+    {
+        return MoneyAccount::firstOrCreate([
+            'business_id' => $business->id,
+            'client_id' => null, // Mobile Money is business-level
+            'type' => 'mobile_money_account'
+        ], [
+            'name' => "Mobile Money Account - {$business->name}",
+            'description' => "Mobile money payment account for {$business->name}",
+            'balance' => 0,
+            'currency' => 'UGX',
+            'is_active' => true
+        ]);
+    }
+    
+    /**
      * Get or create general suspense account
      */
     private function getOrCreateGeneralSuspenseAccount(Business $business, $clientId = null)
     {
         return MoneyAccount::firstOrCreate([
             'business_id' => $business->id,
-            'client_id' => $clientId,
+            'client_id' => $clientId, // General suspense accounts are client-specific
             'type' => 'general_suspense_account'
         ], [
             'name' => "General Suspense Account - {$business->name}" . ($clientId ? " - Client {$clientId}" : ""),
@@ -1556,7 +1706,7 @@ class MoneyTrackingService
     }
 
     /**
-     * Process "Save and Exit" - Move money from client suspense account to final accounts
+     * Process "Save and Exit" - Move money from suspense accounts to final accounts
      * This is called when the user clicks "save and exit" to finalize the order
      */
     public function processSaveAndExit(Invoice $invoice, $items, $itemStatus = null)
@@ -1593,335 +1743,79 @@ class MoneyTrackingService
 
             $client = $invoice->client;
             $business = $invoice->business;
-            $clientSuspenseAccount = $this->getOrCreateClientSuspenseAccount($client);
             $transferRecords = [];
 
-            Log::info("Client suspense account details", [
+            Log::info("Starting Save & Exit processing", [
                 'client_id' => $client->id,
-                'suspense_account_id' => $clientSuspenseAccount->id,
-                'suspense_account_balance_before' => $clientSuspenseAccount->balance
+                'business_id' => $business->id,
+                'item_status' => $itemStatus
             ]);
 
-            foreach ($items as $index => $itemData) {
-                $itemId = $itemData['item_id'] ?? $itemData['id'] ?? null;
-                if (!$itemId) {
-                    Log::warning("Item ID not found in item data", [
-                        'item_index' => $index,
-                        'item_data' => $itemData
-                    ]);
-                    continue;
-                }
-                
-                $item = Item::find($itemId);
-                if (!$item) {
-                    Log::warning("Item not found", [
-                        'item_id' => $itemId,
-                        'item_index' => $index
-                    ]);
-                    continue;
-                }
-                
-                $quantity = $itemData['quantity'] ?? 1;
-                $totalAmount = $itemData['total_amount'] ?? ($item->default_price * $quantity);
-
-                Log::info("Processing item " . ($index + 1), [
-                    'item_id' => $itemId,
-                    'item_name' => $item->name,
-                    'item_type' => $item->type,
-                    'quantity' => $quantity,
-                    'total_amount' => $totalAmount,
-                    'contractor_account_id' => $item->contractor_account_id
-                ]);
-
-                // Check if this item is included in a package AND if package adjustment is being processed
-                $isIncludedInPackage = $item->includedInPackages()->exists();
-                $hasPackageAdjustment = $invoice->package_adjustment > 0;
-                
-                Log::info("Package item check for processing decision", [
-                    'item_id' => $itemId,
-                    'item_name' => $item->name,
-                    'is_included_in_package' => $isIncludedInPackage,
-                    'has_package_adjustment' => $hasPackageAdjustment,
-                    'package_adjustment_amount' => $invoice->package_adjustment,
-                    'invoice_id' => $invoice->id
-                ]);
-                
-                if ($isIncludedInPackage && $hasPackageAdjustment) {
-                    // If item is included in package AND there's a package adjustment,
-                    // skip individual processing - package adjustment will handle the money movement
-                    Log::info("Item is included in package with package adjustment - skipping individual processing", [
-                        'item_id' => $itemId,
-                        'item_name' => $item->name,
-                        'item_type' => $item->type,
-                        'total_amount' => $totalAmount,
-                        'package_adjustment' => $invoice->package_adjustment,
-                        'reason' => 'Package item with package adjustment - will be processed via package adjustment logic'
-                    ]);
-                    // Skip individual item processing - package adjustment will handle the money movement
-                    continue;
-                } else if ($isIncludedInPackage && !$hasPackageAdjustment) {
-                    Log::info("Item is included in package but no package adjustment - processing individually", [
-                        'item_id' => $itemId,
-                        'item_name' => $item->name,
-                        'item_type' => $item->type,
-                        'total_amount' => $totalAmount,
-                        'reason' => 'No package adjustment for this invoice - processing as individual item'
-                    ]);
-                }
-                
-                // Handle bulk items differently
-                if ($item->type === 'bulk') {
-                    Log::info("Processing bulk item", [
-                        'bulk_item_id' => $itemId,
-                        'bulk_item_name' => $item->name,
-                        'bulk_total_amount' => $totalAmount
-                    ]);
-                    
-                    // For bulk items, we process the entire bulk amount
-                    // The included items will be handled separately for service point distribution
-                    $this->processBulkItem($item, $totalAmount, $clientSuspenseAccount, $business, $invoice, $transferRecords, $quantity);
-                } else {
-                    // Handle regular items (good, service) as before
-                    $this->processRegularItem($item, $totalAmount, $clientSuspenseAccount, $business, $invoice, $transferRecords, $quantity);
-                }
-            }
-
-            // Handle package adjustment money movement (only once per invoice and when package items are used)
-            Log::info("=== PACKAGE ADJUSTMENT CHECK START ===", [
+            // Process money movement from suspense accounts to final accounts
+            Log::info("🚀 === SAVE & EXIT: CALLING SUSPENSE TO FINAL MONEY MOVEMENT ===", [
                 'invoice_id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
-                'package_adjustment' => $invoice->package_adjustment,
-                'item_status' => $itemStatus,
-                'service_delivery_queue_id' => null, // Not available in processSaveAndExit context
-                'item_id' => null, // Not available in processSaveAndExit context
-                'item_name' => null, // Not available in processSaveAndExit context
-                'client_id' => $invoice->client_id,
-                'client_name' => $invoice->client_name,
-                'business_id' => $invoice->business_id,
-                'timestamp' => now()->toISOString()
+                'items_count' => count($items),
+                'item_status' => $itemStatus
+            ]);
+            
+            $this->processSuspenseToFinalMoneyMovement($invoice, $items, $itemStatus, $transferRecords);
+            
+            Log::info("✅ === SAVE & EXIT: SUSPENSE TO FINAL MONEY MOVEMENT RETURNED ===", [
+                'invoice_id' => $invoice->id,
+                'transfer_records_count' => count($transferRecords)
             ]);
 
+            // Handle package adjustment money movement from Package Suspense to final accounts
             if ($invoice->package_adjustment > 0 && in_array($itemStatus, ['completed', 'partially_done'])) {
-                Log::info("Package adjustment conditions met - checking for existing transfers", [
+                Log::info("=== PROCESSING PACKAGE ADJUSTMENT FROM SUSPENSE ===", [
                     'invoice_id' => $invoice->id,
                     'package_adjustment' => $invoice->package_adjustment,
                     'item_status' => $itemStatus
                 ]);
 
-                // Check if package adjustment has already been processed for this invoice
-                $existingPackageAdjustmentTransfer = \App\Models\MoneyTransfer::where('invoice_id', $invoice->id)
-                    ->where('description', 'like', '%Package adjustment for invoice%')
-                    ->first();
+                // Get Package Suspense account
+                $packageSuspenseAccount = $this->getOrCreatePackageSuspenseAccount($business, $client->id);
                 
-                Log::info("Package adjustment transfer check result", [
-                    'invoice_id' => $invoice->id,
-                    'existing_transfer_found' => $existingPackageAdjustmentTransfer ? true : false,
-                    'existing_transfer_id' => $existingPackageAdjustmentTransfer->id ?? null,
-                    'existing_transfer_description' => $existingPackageAdjustmentTransfer->description ?? null
-                ]);
-                
-                if ($existingPackageAdjustmentTransfer) {
-                    Log::info("Package adjustment already processed for this invoice - skipping", [
-                        'invoice_id' => $invoice->id,
-                        'existing_transfer_id' => $existingPackageAdjustmentTransfer->id,
-                        'package_adjustment_amount' => $invoice->package_adjustment,
-                        'reason' => 'Package adjustment transfer record already exists for this invoice'
-                    ]);
-                } else {
-                // Get detailed item information for logging (using first item from invoice since serviceDeliveryQueue is not available)
-                $firstItem = $invoice->items[0] ?? null;
-                $itemModel = $firstItem ? \App\Models\Item::find($firstItem['id'] ?? $firstItem['item_id']) : null;
-                $itemType = $itemModel ? $itemModel->type : 'unknown';
-                $isPackageItem = $itemModel && $itemModel->type === 'package';
-                $isIncludedInPackage = $itemModel ? $itemModel->includedInPackages()->exists() : false;
-                
-                Log::info("Processing package adjustment money movement", [
-                    'package_adjustment_amount' => $invoice->package_adjustment,
-                    'invoice_id' => $invoice->id,
-                    'item_status' => $itemStatus,
-                    'triggering_item_id' => $firstItem['id'] ?? $firstItem['item_id'] ?? null,
-                    'triggering_item_name' => $firstItem['name'] ?? null,
-                    'triggering_item_type' => $itemType,
-                    'is_package_item' => $isPackageItem,
-                    'is_included_in_package' => $isIncludedInPackage,
-                    'service_delivery_queue_id' => null, // Not available in processSaveAndExit context
-                    'reason' => 'Package items are being used - moving package adjustment money to business account',
-                    'timestamp' => now()->toISOString()
-                ]);
-                    
-                    // Move package adjustment money from client suspense to business account
-                    $this->processPackageAdjustmentMoneyMovement($invoice, $clientSuspenseAccount, $business, $transferRecords);
-                    
-                    // Actually use package items (reduce quantities)
-                    Log::info("=== CALLING usePackageItems TO REDUCE QUANTITIES ===", [
-                        'invoice_id' => $invoice->id,
-                        'invoice_number' => $invoice->invoice_number,
-                        'client_id' => $invoice->client_id,
-                        'business_id' => $invoice->business_id,
-                        'items_count' => count($items),
-                        'items' => $items,
-                        'package_adjustment' => $invoice->package_adjustment,
-                        'timestamp' => now()->toDateTimeString()
-                    ]);
-                    
-                    $packageTrackingService = new \App\Services\PackageTrackingService();
-                    $usePackageResult = $packageTrackingService->usePackageItems($invoice, $items);
-                    
-                    Log::info("=== usePackageItems COMPLETED ===", [
-                        'invoice_id' => $invoice->id,
-                        'total_adjustment' => $usePackageResult['total_adjustment'] ?? 0,
-                        'details_count' => count($usePackageResult['details'] ?? []),
-                        'details' => $usePackageResult['details'] ?? [],
-                        'timestamp' => now()->toDateTimeString()
-                    ]);
-                    
-                    // Update package tracking records and create package sales
-                    Log::info("=== CALLING updatePackageTrackingForAdjustments ===", [
-                        'invoice_id' => $invoice->id,
-                        'invoice_number' => $invoice->invoice_number,
-                        'client_id' => $invoice->client_id,
-                        'business_id' => $invoice->business_id,
-                        'items_count' => count($items),
-                        'timestamp' => now()->toDateTimeString()
-                    ]);
-                    
-                    $this->updatePackageTrackingForAdjustments($invoice, $items);
-                    
-                    Log::info("=== updatePackageTrackingForAdjustments COMPLETED ===", [
-                        'invoice_id' => $invoice->id,
-                        'timestamp' => now()->toDateTimeString()
-                    ]);
-                    
-                    // Create package sales records and account statements
-                    Log::info("=== CALLING createPackageSalesAndStatements ===", [
-                        'invoice_id' => $invoice->id,
-                        'invoice_number' => $invoice->invoice_number,
-                        'client_id' => $invoice->client_id,
-                        'business_id' => $invoice->business_id,
-                        'items_count' => count($items),
-                        'timestamp' => now()->toDateTimeString()
-                    ]);
-                    
-                    $this->createPackageSalesAndStatements($invoice, $items);
-                    
-                    Log::info("=== createPackageSalesAndStatements COMPLETED ===", [
-                        'invoice_id' => $invoice->id,
-                        'timestamp' => now()->toDateTimeString()
-                    ]);
-                }
-            } else {
-                Log::info("Package adjustment conditions NOT met", [
-                    'invoice_id' => $invoice->id,
-                    'package_adjustment' => $invoice->package_adjustment,
-                    'item_status' => $itemStatus,
-                    'reason' => $invoice->package_adjustment <= 0 ? 'No package adjustment' : 'Item status not completed/partially_done'
-                ]);
-            }
-
-            Log::info("=== PACKAGE ADJUSTMENT CHECK END ===", [
-                'invoice_id' => $invoice->id
-            ]);
-
-            // Handle service charge if applicable (only once per invoice and when item is completed or partially done)
-            $shouldProcessServiceCharge = false;
-            if ($invoice->service_charge > 0 && in_array($itemStatus, ['completed', 'partially_done'])) {
-                // Check if service charge has already been processed for this invoice (any transfer type)
-                $existingServiceChargeTransfer = \App\Models\MoneyTransfer::where('invoice_id', $invoice->id)
-                    ->where('description', 'like', '%Service charge for invoice%')
-                    ->first();
-                
-                if ($existingServiceChargeTransfer) {
-                    // Service charge has already been processed for this invoice - check if money was actually moved
-                    Log::info("Service charge already processed for this invoice - checking if money was actually moved", [
-                        'invoice_id' => $invoice->id,
-                        'existing_transfer_id' => $existingServiceChargeTransfer->id,
-                        'service_charge_amount' => $invoice->service_charge,
-                        'transfer_status' => $existingServiceChargeTransfer->status,
-                        'transfer_amount' => $existingServiceChargeTransfer->amount,
-                        'from_account_id' => $existingServiceChargeTransfer->from_account_id,
-                        'to_account_id' => $existingServiceChargeTransfer->to_account_id,
-                        'reason' => 'Service charge transfer record already exists for this invoice'
-                    ]);
-                    
-                    // Check if the transfer actually moved money by looking at account balances
-                    $fromAccount = \App\Models\MoneyAccount::find($existingServiceChargeTransfer->from_account_id);
-                    $toAccount = \App\Models\MoneyAccount::find($existingServiceChargeTransfer->to_account_id);
-                    
-                    Log::info("Service charge transfer account details", [
-                        'transfer_id' => $existingServiceChargeTransfer->id,
-                        'from_account_id' => $existingServiceChargeTransfer->from_account_id,
-                        'from_account_name' => $fromAccount ? $fromAccount->name : 'NOT FOUND',
-                        'from_account_balance' => $fromAccount ? $fromAccount->balance : 'N/A',
-                        'to_account_id' => $existingServiceChargeTransfer->to_account_id,
-                        'to_account_name' => $toAccount ? $toAccount->name : 'NOT FOUND',
-                        'to_account_balance' => $toAccount ? $toAccount->balance : 'N/A',
-                        'transfer_amount' => $existingServiceChargeTransfer->amount
-                    ]);
-                    
-                    $shouldProcessServiceCharge = false;
-                } else {
-                    Log::info("Processing service charge for item", [
-                        'service_charge_amount' => $invoice->service_charge,
-                        'invoice_id' => $invoice->id,
-                        'item_status' => $itemStatus
-                    ]);
-                    $shouldProcessServiceCharge = true;
-                }
-            }
-
-                
-                if ($shouldProcessServiceCharge) {
-
-                $kashtreSuspenseAccount = $this->getOrCreateKashtreSuspenseAccount($business);
-                
-                Log::info("Kashtre suspense account details", [
-                    'kashtre_account_id' => $kashtreSuspenseAccount->id,
-                    'kashtre_account_balance_before' => $kashtreSuspenseAccount->balance
-                ]);
+                // Check if money is available in Package Suspense
+                if ($packageSuspenseAccount->balance >= $invoice->package_adjustment) {
+                    // Move package adjustment from Package Suspense to Business Account
+                    $businessAccount = $this->getOrCreateBusinessAccount($business);
                 
                 $transfer = $this->transferMoney(
-                    $clientSuspenseAccount,
-                    $kashtreSuspenseAccount,
-                    $invoice->service_charge,
-                    'save_and_exit',
-                    $invoice,
-                    null,
-                    "Service charge for invoice {$invoice->invoice_number}"
-                );
+                        $packageSuspenseAccount,
+                        $businessAccount,
+                        $invoice->package_adjustment,
+                        'suspense_to_final',
+                        $invoice,
+                        null,
+                        "Package Adjustment - Final Transfer"
+                    );
 
-                Log::info("Service charge transfer completed", [
-                    'transfer_id' => $transfer->id,
-                    'kashtre_account_balance_after' => $kashtreSuspenseAccount->fresh()->balance
-                ]);
-
-                // Create balance statement for Kashtre account
-                Log::info("Creating Kashtre balance statement", [
-                    'business_id' => $business->id,
-                    'amount' => $invoice->service_charge,
-                    'type' => 'credit'
-                ]);
-
-                BusinessBalanceHistory::recordChange(
-                    1, // Kashtre business_id
-                    $kashtreSuspenseAccount->id,
-                    $invoice->service_charge,
-                    'credit',
-                    "Service charge received",
-                    'invoice',
-                    $invoice->id,
-                    [
-                        'invoice_number' => $invoice->invoice_number,
-                        'description' => "Service delivery completed - Service charge for invoice"
-                    ]
-                );
+                    $transfer->markMoneyMovedToFinalAccount();
 
                 $transferRecords[] = [
-                    'item_name' => 'Service Charge',
-                    'amount' => $invoice->service_charge,
-                    'destination' => $kashtreSuspenseAccount->name,
+                        'item_name' => 'Package Adjustment',
+                        'amount' => $invoice->package_adjustment,
+                        'source_suspense' => $packageSuspenseAccount->name,
+                        'destination' => $businessAccount->name,
                     'transfer_id' => $transfer->id
                 ];
+
+                    Log::info("Package adjustment money moved from suspense to final account", [
+                        'amount' => $invoice->package_adjustment,
+                        'transfer_id' => $transfer->id
+                    ]);
+                } else {
+                    Log::warning("Insufficient funds in Package Suspense for package adjustment", [
+                        'required' => $invoice->package_adjustment,
+                        'available' => $packageSuspenseAccount->balance
+                    ]);
+                }
             }
+
+            // Service charge is now handled in the processSuspenseToFinalMoneyMovement method
+            // No additional service charge processing needed here
 
             DB::commit();
 
@@ -1936,7 +1830,7 @@ class MoneyTrackingService
                 'item_status' => $itemStatus,
                 'package_adjustment' => $invoice->package_adjustment ?? 0,
                 'transfer_records_count' => count($transferRecords),
-                'client_suspense_balance_final' => $clientSuspenseAccount->fresh()->balance,
+                'client_suspense_balance_final' => 0, // No longer using client suspense account
                 'total_amount_processed' => array_sum(array_column($transferRecords, 'amount')),
                 'transfer_records' => $transferRecords,
                 'items_processed' => count($items),
@@ -2141,16 +2035,16 @@ class MoneyTrackingService
                 $destinationAccount = $this->getOrCreateBusinessAccount($business);
                 $transferDescription = "{$item->name} ({$quantity}) - Contractor not found, moved to business account";
             } else {
-                $destinationAccount = $this->getOrCreateContractorAccount($contractor);
-                $transferDescription = "{$item->name} ({$quantity})";
-                
-                Log::info("Item assigned to contractor", [
-                    'item_id' => $item->id,
-                    'contractor_id' => $contractor->id,
-                    'contractor_name' => $contractor->name,
-                    'destination_account_id' => $destinationAccount->id,
-                    'destination_account_balance_before' => $destinationAccount->balance
-                ]);
+            $destinationAccount = $this->getOrCreateContractorAccount($contractor);
+            $transferDescription = "{$item->name} ({$quantity})";
+            
+            Log::info("Item assigned to contractor", [
+                'item_id' => $item->id,
+                'contractor_id' => $contractor->id,
+                'contractor_name' => $contractor->name,
+                'destination_account_id' => $destinationAccount->id,
+                'destination_account_balance_before' => $destinationAccount->balance
+            ]);
             }
         } else {
             // Business item - move to business account
@@ -2851,6 +2745,14 @@ class MoneyTrackingService
                 ->where('valid_until', '>=', now()->toDateString())
                 ->with(['packageItem.packageItems.includedItem', 'client'])
                 ->get();
+                
+            Log::info("🔍 === PACKAGE SALES: CHECKING VALID PACKAGES ===", [
+                'client_id' => $invoice->client_id,
+                'business_id' => $invoice->business_id,
+                'valid_packages_count' => $validPackages->count(),
+                'valid_packages' => $validPackages->pluck('id')->toArray(),
+                'invoice_package_adjustment' => $invoice->package_adjustment
+            ]);
 
             $packageSalesCreated = [];
             $totalPackageAmount = 0;
@@ -3282,6 +3184,553 @@ class MoneyTrackingService
                 'timestamp' => now()->toDateTimeString()
             ]);
             throw $e;
+        }
+    }
+
+    /**
+     * Process money movement from suspense accounts to final accounts
+     * This is the core logic for Save & Exit functionality
+     */
+    private function processSuspenseToFinalMoneyMovement(Invoice $invoice, $items, $itemStatus, &$transferRecords)
+    {
+        try {
+            Log::info("🎯 === SAVE & EXIT: SUSPENSE TO FINAL MONEY MOVEMENT STARTED ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $invoice->client_id,
+                'client_name' => $invoice->client->name ?? 'Unknown',
+                'business_id' => $invoice->business_id,
+                'business_name' => $invoice->business->name ?? 'Unknown',
+                'item_status' => $itemStatus,
+                'items_count' => count($items),
+                'items_data' => $items,
+                'timestamp' => now()->toDateTimeString()
+            ]);
+
+            // Enhanced logging for debugging
+            Log::info("🔍 === SAVE & EXIT: DETAILED ITEM ANALYSIS ===", [
+                'items_being_processed' => $items,
+                'item_status_being_applied' => $itemStatus,
+                'total_items_count' => count($items),
+                'invoice_details' => [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'total_amount' => $invoice->total_amount,
+                    'status' => $invoice->status
+                ]
+            ]);
+
+            $client = $invoice->client;
+            $business = $invoice->business;
+
+            // Get all suspense accounts for this client
+            $packageSuspenseAccount = $this->getOrCreatePackageSuspenseAccount($business, $client->id);
+            $generalSuspenseAccount = $this->getOrCreateGeneralSuspenseAccount($business, $client->id);
+            $kashtreSuspenseAccount = $this->getOrCreateKashtreSuspenseAccount($business, $client->id);
+
+            Log::info("💰 === SAVE & EXIT: SUSPENSE ACCOUNT BALANCES BEFORE PROCESSING ===", [
+                'package_suspense_account_id' => $packageSuspenseAccount->id,
+                'package_suspense_account_name' => $packageSuspenseAccount->name,
+                'package_suspense_balance' => $packageSuspenseAccount->balance,
+                'general_suspense_account_id' => $generalSuspenseAccount->id,
+                'general_suspense_account_name' => $generalSuspenseAccount->name,
+                'general_suspense_balance' => $generalSuspenseAccount->balance,
+                'kashtre_suspense_account_id' => $kashtreSuspenseAccount->id,
+                'kashtre_suspense_account_name' => $kashtreSuspenseAccount->name,
+                'kashtre_suspense_balance' => $kashtreSuspenseAccount->balance,
+                'total_suspense_balance' => $packageSuspenseAccount->balance + $generalSuspenseAccount->balance + $kashtreSuspenseAccount->balance
+            ]);
+
+            // Process ALL money in suspense accounts, not just the items being updated
+            Log::info("🔄 === SAVE & EXIT: STARTING SUSPENSE ACCOUNT PROCESSING ===", [
+                'package_suspense_balance' => $packageSuspenseAccount->balance,
+                'general_suspense_balance' => $generalSuspenseAccount->balance,
+                'kashtre_suspense_balance' => $kashtreSuspenseAccount->balance,
+                'item_status' => $itemStatus
+            ]);
+
+            // Check if any package items are being consumed in this Save & Exit operation
+            $hasPackageItemsBeingConsumed = false;
+            $packageItemsFound = [];
+            $nonPackageItemsFound = [];
+            
+            // Check if any items being updated are package items
+            if (!empty($items)) {
+                Log::info("🔍 === SAVE & EXIT: ANALYZING EACH ITEM FOR PACKAGE TYPE ===", [
+                    'total_items_to_check' => count($items),
+                    'items_structure' => $items
+                ]);
+                
+                foreach ($items as $index => $item) {
+                    $itemId = $item['item_id'] ?? $item['id'] ?? null;
+                    Log::info("🔍 === SAVE & EXIT: CHECKING ITEM #{$index} ===", [
+                        'item_id' => $itemId,
+                        'item_data' => $item,
+                        'item_name' => $item['name'] ?? 'Unknown'
+                    ]);
+                    
+                    // Get the actual item from database to check its type
+                    $actualItem = \App\Models\Item::find($itemId);
+                    if ($actualItem) {
+                        Log::info("🔍 === SAVE & EXIT: ITEM #{$index} DATABASE LOOKUP ===", [
+                            'item_id' => $actualItem->id,
+                            'item_name' => $actualItem->name,
+                            'item_type' => $actualItem->type,
+                            'item_price' => $actualItem->price,
+                            'is_package_type' => $actualItem->type === 'package'
+                        ]);
+                        
+                        // Check if this is a package item OR if it's part of a package adjustment
+                        $isPackageItem = $actualItem->type === 'package';
+                        $isPackageAdjustmentItem = $invoice->package_adjustment > 0;
+                        
+                        if ($isPackageItem || $isPackageAdjustmentItem) {
+                            $hasPackageItemsBeingConsumed = true;
+                            $packageItemsFound[] = [
+                                'item_id' => $actualItem->id,
+                                'item_name' => $actualItem->name,
+                                'item_type' => $actualItem->type,
+                                'item_price' => $actualItem->price,
+                                'is_package_type' => $isPackageItem,
+                                'is_package_adjustment' => $isPackageAdjustmentItem
+                            ];
+                            Log::info("✅ === SAVE & EXIT: PACKAGE ITEM FOUND ===", [
+                                'item_id' => $actualItem->id,
+                                'item_name' => $actualItem->name,
+                                'item_type' => $actualItem->type,
+                                'is_package_type' => $isPackageItem,
+                                'is_package_adjustment' => $isPackageAdjustmentItem,
+                                'invoice_package_adjustment' => $invoice->package_adjustment
+                            ]);
+                        } else {
+                            $nonPackageItemsFound[] = [
+                                'item_id' => $actualItem->id,
+                                'item_name' => $actualItem->name,
+                                'item_type' => $actualItem->type,
+                                'item_price' => $actualItem->price
+                            ];
+                            Log::info("ℹ️ === SAVE & EXIT: NON-PACKAGE ITEM FOUND ===", [
+                                'item_id' => $actualItem->id,
+                                'item_name' => $actualItem->name,
+                                'item_type' => $actualItem->type
+                            ]);
+                        }
+                    } else {
+                        Log::warning("⚠️ === SAVE & EXIT: ITEM NOT FOUND IN DATABASE ===", [
+                            'item_id' => $itemId,
+                            'item_data' => $item
+                        ]);
+                    }
+                }
+            } else {
+                Log::info("ℹ️ === SAVE & EXIT: NO ITEMS TO PROCESS ===", [
+                    'items_array' => $items,
+                    'items_count' => count($items)
+                ]);
+            }
+
+            Log::info("📦 === SAVE & EXIT: PACKAGE ITEMS CONSUMPTION CHECK ===", [
+                'has_package_items_being_consumed' => $hasPackageItemsBeingConsumed,
+                'package_items_found' => $packageItemsFound,
+                'non_package_items_found' => $nonPackageItemsFound,
+                'package_items_count' => count($packageItemsFound),
+                'non_package_items_count' => count($nonPackageItemsFound),
+                'items_being_updated' => $items,
+                'package_suspense_balance' => $packageSuspenseAccount->balance,
+                'item_status' => $itemStatus,
+                'decision_logic' => [
+                    'will_package_suspense_move' => $hasPackageItemsBeingConsumed && $packageSuspenseAccount->balance > 0,
+                    'package_suspense_balance' => $packageSuspenseAccount->balance,
+                    'has_package_items' => $hasPackageItemsBeingConsumed
+                ]
+            ]);
+
+            // Process Package Suspense Account ONLY if package items are being consumed
+            if ($packageSuspenseAccount->balance > 0 && $hasPackageItemsBeingConsumed) {
+                Log::info("📦 === SAVE & EXIT: PROCESSING PACKAGE SUSPENSE ACCOUNT ===", [
+                    'balance' => $packageSuspenseAccount->balance,
+                    'account_name' => $packageSuspenseAccount->name,
+                    'account_id' => $packageSuspenseAccount->id,
+                    'has_package_items_being_consumed' => $hasPackageItemsBeingConsumed,
+                    'package_items_triggering_movement' => $packageItemsFound,
+                    'decision_reason' => 'Package suspense has money, moving ALL package money on Save & Exit'
+                ]);
+
+                $businessAccount = $this->getOrCreateBusinessAccount($business);
+                
+                // Get package tracking information for description
+                // For package adjustments, look for the most recent package tracking record
+                $packageTracking = \App\Models\PackageTracking::where('client_id', $client->id)
+                    ->where('business_id', $business->id)
+                    ->where('status', 'active')
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+                
+                // For package adjustments, use the actual item being consumed
+                $packageDescription = "Package Revenue";
+                $trackingNumber = null;
+                
+                if ($packageTracking) {
+                    $trackingNumber = $packageTracking->tracking_number ?? "PKG-{$packageTracking->id}";
+                    
+                    // Get the actual item being consumed from the invoice
+                    $consumedItem = null;
+                    foreach ($invoice->items as $item) {
+                        $itemModel = \App\Models\Item::find($item['id'] ?? $item['item_id'] ?? null);
+                        if ($itemModel && $itemModel->type !== 'package') {
+                            $consumedItem = $itemModel;
+                            $quantity = $item['quantity'] ?? 1;
+                            $packageDescription = "{$consumedItem->name} ({$quantity}) (Ref: {$trackingNumber}) from invoice {$invoice->invoice_number}";
+                            break;
+                        }
+                    }
+                    
+                    // If no consumed item found, use package name
+                    if (!$consumedItem) {
+                        $packageName = $packageTracking->packageItem->name ?? 'Package';
+                        $packageDescription = "{$packageName} (Ref: {$trackingNumber}) from invoice {$invoice->invoice_number}";
+                    }
+                }
+                
+                $transfer = $this->transferMoney(
+                    $packageSuspenseAccount,
+                    $businessAccount,
+                    $packageSuspenseAccount->balance,
+                    'suspense_to_final',
+                    $invoice,
+                    null,
+                    $packageDescription,
+                    $trackingNumber, // Pass the tracking number
+                    'debit' // Explicitly set type to 'debit'
+                );
+
+                $transfer->markMoneyMovedToFinalAccount();
+                
+                // Mark the suspense account as moved
+                $packageSuspenseAccount->markAsMoved("Money transferred to Business Account via Save & Exit");
+
+                $transferRecords[] = [
+                    'item_name' => 'Package Suspense Account',
+                    'amount' => $packageSuspenseAccount->balance,
+                    'source_suspense' => $packageSuspenseAccount->name,
+                    'destination' => $businessAccount->name,
+                    'transfer_id' => $transfer->id
+                ];
+
+                Log::info("✅ SAVE & EXIT: Package Suspense processed", [
+                    'amount_transferred' => $packageSuspenseAccount->balance,
+                    'transfer_id' => $transfer->id
+                ]);
+            } else {
+                Log::info("⏭️ SAVE & EXIT: SKIPPING PACKAGE SUSPENSE - No money in package suspense", [
+                    'package_suspense_balance' => $packageSuspenseAccount->balance,
+                    'has_package_items_being_consumed' => $hasPackageItemsBeingConsumed,
+                    'package_items_found' => $packageItemsFound,
+                    'non_package_items_found' => $nonPackageItemsFound,
+                    'decision_reason' => 'Package suspense balance is zero',
+                    'skip_conditions' => [
+                        'balance_is_zero' => $packageSuspenseAccount->balance <= 0
+                    ]
+                ]);
+            }
+
+            // Process General Suspense Account - Create individual records for each item
+            if ($generalSuspenseAccount->balance > 0) {
+                Log::info("📦 === SAVE & EXIT: PROCESSING GENERAL SUSPENSE ACCOUNT ===", [
+                    'balance' => $generalSuspenseAccount->balance,
+                    'account_name' => $generalSuspenseAccount->name,
+                    'account_id' => $generalSuspenseAccount->id,
+                    'decision_reason' => 'General suspense has balance, creating individual item records',
+                    'destination_account_type' => 'business_account'
+                ]);
+
+                $businessAccount = $this->getOrCreateBusinessAccount($business);
+                
+                // Get individual money transfers from general suspense to create separate records
+                // Filter by credit records (money coming into suspense) that haven't been moved yet
+                $generalTransfers = \App\Models\MoneyTransfer::where('to_account_id', $generalSuspenseAccount->id)
+                    ->where('type', 'credit')
+                    ->where('money_moved_to_final_account', false)
+                    ->get();
+
+                foreach ($generalTransfers as $transfer) {
+                    // Get the item information for proper description
+                    $item = null;
+                    if ($transfer->item_id) {
+                        $item = \App\Models\Item::find($transfer->item_id);
+                    }
+
+                    $description = "General Item - Final Transfer";
+                    if ($item) {
+                        $description = "{$item->name} (x1)";
+                    }
+
+                    // Create individual transfer to business account (as debit)
+                    $finalTransfer = $this->transferMoney(
+                        $generalSuspenseAccount,
+                        $businessAccount,
+                        $transfer->amount,
+                        'suspense_to_final',
+                        $invoice,
+                        $item,
+                        $description,
+                        null,
+                        'debit'
+                    );
+
+                    $finalTransfer->markMoneyMovedToFinalAccount();
+                    $transfer->markMoneyMovedToFinalAccount();
+
+                    $transferRecords[] = [
+                        'item_name' => $item ? $item->name : 'General Item',
+                        'amount' => $transfer->amount,
+                        'source_suspense' => $generalSuspenseAccount->name,
+                        'destination' => $businessAccount->name,
+                        'transfer_id' => $finalTransfer->id
+                    ];
+
+                    Log::info("✅ SAVE & EXIT: Individual general item processed", [
+                        'item_name' => $item ? $item->name : 'Unknown',
+                        'amount_transferred' => $transfer->amount,
+                        'transfer_id' => $finalTransfer->id
+                    ]);
+                }
+                
+                // Mark the suspense account as moved
+                $generalSuspenseAccount->markAsMoved("Money transferred to Business Account via Save & Exit");
+
+                Log::info("✅ SAVE & EXIT: General Suspense processed", [
+                    'total_amount_transferred' => $generalSuspenseAccount->balance,
+                    'individual_transfers' => count($generalTransfers)
+                ]);
+            }
+
+            // Process Kashtre Suspense Account
+            Log::info("🔍 === SAVE & EXIT: CHECKING KASHTRE SUSPENSE ACCOUNT ===", [
+                'kashtre_suspense_account_id' => $kashtreSuspenseAccount->id,
+                'kashtre_suspense_account_name' => $kashtreSuspenseAccount->name,
+                'kashtre_suspense_balance' => $kashtreSuspenseAccount->balance,
+                'will_process' => $kashtreSuspenseAccount->balance > 0
+            ]);
+            
+            if ($kashtreSuspenseAccount->balance > 0) {
+                // Store the balance before transfer
+                $kashtreSuspenseBalance = $kashtreSuspenseAccount->balance;
+                
+                Log::info("📦 === SAVE & EXIT: PROCESSING KASHTRE SUSPENSE ACCOUNT ===", [
+                    'balance' => $kashtreSuspenseBalance,
+                    'account_name' => $kashtreSuspenseAccount->name,
+                    'account_id' => $kashtreSuspenseAccount->id,
+                    'decision_reason' => 'Kashtre suspense has balance, moving to Kashtre account',
+                    'destination_account_type' => 'kashtre_account'
+                ]);
+
+                $kashtreAccount = $this->getOrCreateKashtreAccount($business);
+                
+                // Get package tracking number for description
+                // For package adjustments, look for the most recent package tracking record
+                $packageTracking = \App\Models\PackageTracking::where('client_id', $client->id)
+                    ->where('business_id', $business->id)
+                    ->where('status', 'active')
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+                
+                $trackingNumber = $packageTracking ? $packageTracking->tracking_number : 'N/A';
+                $description = "Service Fee Transfer from Invoice {$invoice->invoice_number} (Ref: {$trackingNumber})";
+                
+                $transfer = $this->transferMoney(
+                    $kashtreSuspenseAccount,
+                    $kashtreAccount,
+                    $kashtreSuspenseBalance,
+                    'suspense_to_final',
+                    $invoice,
+                    null,
+                    $description,
+                    null,
+                    'debit'
+                );
+
+                $transfer->markMoneyMovedToFinalAccount();
+                
+                Log::info("🔍 === KASHTRE TRANSFER RECORD UPDATE ===", [
+                    'transfer_id' => $transfer->id,
+                    'money_moved_to_final_account' => $transfer->fresh()->money_moved_to_final_account,
+                    'moved_to_final_at' => $transfer->fresh()->moved_to_final_at
+                ]);
+                
+                // Mark the suspense account as moved
+                $kashtreSuspenseAccount->markAsMoved("Money transferred to Kashtre Account via Save & Exit");
+                
+                Log::info("🔍 === KASHTRE SUSPENSE STATUS UPDATE ===", [
+                    'account_id' => $kashtreSuspenseAccount->id,
+                    'account_name' => $kashtreSuspenseAccount->name,
+                    'status_before' => $kashtreSuspenseAccount->status,
+                    'status_after' => $kashtreSuspenseAccount->fresh()->status,
+                    'balance_after_transfer' => $kashtreSuspenseAccount->fresh()->balance
+                ]);
+
+                $transferRecords[] = [
+                    'item_name' => 'Kashtre Suspense Account',
+                    'amount' => $kashtreSuspenseBalance,
+                    'source_suspense' => $kashtreSuspenseAccount->name,
+                    'destination' => $kashtreAccount->name,
+                    'transfer_id' => $transfer->id
+                ];
+
+                Log::info("✅ SAVE & EXIT: Kashtre Suspense processed", [
+                    'amount_transferred' => $kashtreSuspenseBalance,
+                    'transfer_id' => $transfer->id
+                ]);
+            } else {
+                Log::info("⏭️ SAVE & EXIT: SKIPPING KASHTRE SUSPENSE - No money in account", [
+                    'kashtre_suspense_balance' => $kashtreSuspenseAccount->balance,
+                    'account_name' => $kashtreSuspenseAccount->name,
+                    'account_id' => $kashtreSuspenseAccount->id
+                ]);
+            }
+
+            // Create package sales and statement entries for package items
+            // Only create package sales when there's an actual package adjustment (consumption), not when purchasing a package
+            if ($hasPackageItemsBeingConsumed && !empty($items) && $invoice->package_adjustment > 0) {
+                Log::info("📦 === SAVE & EXIT: CREATING PACKAGE SALES AND STATEMENTS ===", [
+                    'package_items_being_consumed' => $packageItemsFound,
+                    'items_count' => count($items),
+                    'invoice_package_adjustment' => $invoice->package_adjustment
+                ]);
+                
+                $this->createPackageSalesAndStatements($invoice, $items);
+            } else {
+                Log::info("⏭️ SAVE & EXIT: SKIPPING PACKAGE SALES CREATION", [
+                    'has_package_items_being_consumed' => $hasPackageItemsBeingConsumed,
+                    'items_empty' => empty($items),
+                    'items_count' => count($items),
+                    'package_items_found' => $packageItemsFound,
+                    'non_package_items_found' => $nonPackageItemsFound,
+                    'package_adjustment' => $invoice->package_adjustment,
+                    'reason' => $invoice->package_adjustment > 0 ? 'Package adjustment detected' : 'No package adjustment - likely package purchase'
+                ]);
+            }
+
+            // All suspense accounts have been processed
+            Log::info("✅ === SAVE & EXIT: ALL SUSPENSE ACCOUNTS PROCESSED ===", [
+                'package_suspense_processed' => $packageSuspenseAccount->balance > 0 && $hasPackageItemsBeingConsumed,
+                'general_suspense_processed' => $generalSuspenseAccount->balance > 0,
+                'kashtre_suspense_processed' => $kashtreSuspenseAccount->balance > 0,
+                'total_transfers' => count($transferRecords),
+                'package_items_analysis' => [
+                    'package_items_found' => $packageItemsFound,
+                    'non_package_items_found' => $nonPackageItemsFound,
+                    'has_package_items_being_consumed' => $hasPackageItemsBeingConsumed
+                ],
+                'suspense_accounts_summary' => [
+                    'package_suspense_balance_before' => $packageSuspenseAccount->balance,
+                    'general_suspense_balance_before' => $generalSuspenseAccount->balance,
+                    'kashtre_suspense_balance_before' => $kashtreSuspenseAccount->balance,
+                    'total_suspense_balance_before' => $packageSuspenseAccount->balance + $generalSuspenseAccount->balance + $kashtreSuspenseAccount->balance
+                ]
+            ]);
+
+            Log::info("🏁 === SAVE & EXIT: SUSPENSE TO FINAL MONEY MOVEMENT COMPLETED ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $client->id,
+                'client_name' => $client->name,
+                'business_id' => $business->id,
+                'business_name' => $business->name,
+                'transfer_records_count' => count($transferRecords),
+                'package_suspense_balance_after' => $packageSuspenseAccount->fresh()->balance,
+                'general_suspense_balance_after' => $generalSuspenseAccount->fresh()->balance,
+                'kashtre_suspense_balance_after' => $kashtreSuspenseAccount->fresh()->balance,
+                'total_suspense_balance_after' => $packageSuspenseAccount->fresh()->balance + $generalSuspenseAccount->fresh()->balance + $kashtreSuspenseAccount->fresh()->balance,
+                'transfer_records' => $transferRecords,
+                'timestamp' => now()->toDateTimeString()
+            ]);
+
+        } catch (Exception $e) {
+            Log::error("❌ === SAVE & EXIT: SUSPENSE TO FINAL MONEY MOVEMENT FAILED ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number ?? 'Unknown',
+                'client_id' => $invoice->client_id ?? 'Unknown',
+                'business_id' => $invoice->business_id ?? 'Unknown',
+                'error' => $e->getMessage(),
+                'error_code' => $e->getCode(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'items_being_processed' => $items ?? 'Not provided',
+                'item_status' => $itemStatus ?? 'Not provided',
+                'transfer_records_count' => count($transferRecords ?? []),
+                'timestamp' => now()->toDateTimeString()
+            ]);
+            throw $e;
+        }
+        
+        // Update package tracking records to reflect usage (always called for package adjustments)
+        $this->updatePackageTrackingUsage($invoice, $client, $business);
+    }
+    
+    /**
+     * Update package tracking records to reflect usage when package items are consumed
+     */
+    private function updatePackageTrackingUsage($invoice, $client, $business)
+    {
+        try {
+            Log::info("=== UPDATING PACKAGE TRACKING USAGE ===", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'client_id' => $client->id,
+                'business_id' => $business->id
+            ]);
+            
+            // Get the package tracking service
+            $packageTrackingService = app(\App\Services\PackageTrackingService::class);
+            
+            // Get items from the invoice that are being consumed
+            $items = $invoice->items ?? [];
+            
+            if (empty($items)) {
+                Log::info("No items found in invoice for package tracking update");
+                return;
+            }
+            
+            // Filter out package items (we only want the actual items being consumed)
+            $consumedItems = [];
+            foreach ($items as $item) {
+                $itemId = $item['id'] ?? $item['item_id'] ?? null;
+                if (!$itemId) continue;
+                
+                $itemModel = \App\Models\Item::find($itemId);
+                if ($itemModel && $itemModel->type !== 'package') {
+                    $consumedItems[] = $item;
+                }
+            }
+            
+            if (empty($consumedItems)) {
+                Log::info("No non-package items found for package tracking update");
+                return;
+            }
+            
+            Log::info("Found items to update package tracking for", [
+                'consumed_items_count' => count($consumedItems),
+                'items' => $consumedItems
+            ]);
+            
+            // Use the package tracking service to update usage
+            $result = $packageTrackingService->usePackageItems($invoice, $consumedItems);
+            
+            Log::info("Package tracking usage updated successfully", [
+                'result' => $result,
+                'invoice_id' => $invoice->id
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error("Failed to update package tracking usage", [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine()
+            ]);
+            // Don't throw the exception - this is not critical for money movement
         }
     }
 }

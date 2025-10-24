@@ -138,9 +138,6 @@
                                 </p>
                                 <p class="text-sm text-gray-500" id="client-total-balance">
                                     <span class="text-gray-600">Total:</span> UGX {{ number_format($client->total_balance ?? 0, 2) }}
-                                    @if(($client->suspense_balance ?? 0) > 0)
-                                        <span class="text-orange-600">({{ number_format($client->suspense_balance ?? 0, 2) }} in suspense)</span>
-                                    @endif
                                 </p>
                             </div>
                         </div>
@@ -149,12 +146,9 @@
                             <p class="text-xl font-bold text-yellow-600">0</p>
                         </div>
                     </div>
-                    <div class="mt-4 flex space-x-2">
-                        <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
-                            View Detailed Client Statement
-                        </button>
-                                        <a href="{{ route('balance-statement.show', $client->id) }}" target="_blank" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
-                    View Balance Statement
+                    <div class="mt-4">
+                        <a href="{{ route('balance-statement.show', $client->id) }}" target="_blank" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                            View Client Statement
                         </a>
                     </div>
                 </div>

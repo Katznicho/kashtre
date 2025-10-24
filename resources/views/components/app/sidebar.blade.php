@@ -253,7 +253,8 @@
                             </li>
                             @endif
                             
-                            <!-- Suspense Accounts -->
+                            <!-- Suspense Accounts - Only for Kashtre (business_id = 1) and Local Environment -->
+                            @if(Auth::user()->business_id == 1 && config('app.env') === 'local')
                             <li>
                                 <a href="{{ route('suspense-accounts.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
                                     <span class="flex items-center">
@@ -264,6 +265,7 @@
                                     </span>
                                 </a>
                             </li>
+                            @endif
                             
                             <!-- Withdrawal Requests -->
                             @if(in_array('View Withdrawal Requests', $permissions))

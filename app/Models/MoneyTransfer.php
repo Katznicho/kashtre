@@ -18,7 +18,9 @@ class MoneyTransfer extends Model
         'amount',
         'currency',
         'status',
+        'type',
         'transfer_type',
+        'package_tracking_number',
         'invoice_id',
         'client_id',
         'item_id',
@@ -136,6 +138,9 @@ class MoneyTransfer extends Model
             'moved_to_final_at' => now(),
             'final_movement_notes' => $notes
         ]);
+        
+        // NO automatic debit creation - we'll handle this manually in the service
+        
         return $this;
     }
 
@@ -152,6 +157,33 @@ class MoneyTransfer extends Model
             'final_movement_notes' => null
         ]);
         return $this;
+    }
+
+    /**
+     * Create a corresponding debit record when money moves out of suspense
+     * This creates a debit record that reverses the original credit transfer
+     */
+    public function createDebitRecord($notes = null)
+    {
+        return self::create([
+            'business_id' => $this->business_id,
+            'from_account_id' => $this->to_account_id,    // Reverse: from destination
+            'to_account_id' => $this->from_account_id,   // Reverse: to source
+            'amount' => $this->amount,
+            'currency' => $this->currency,
+            'status' => 'completed',
+            'type' => 'debit',
+            'transfer_type' => $this->transfer_type,
+            'package_tracking_number' => $this->package_tracking_number,
+            'invoice_id' => $this->invoice_id,
+            'client_id' => $this->client_id,
+            'item_id' => $this->item_id,
+            'description' => $this->description,
+            'processed_at' => now(),
+            'money_moved_to_final_account' => true,
+            'moved_to_final_at' => now(),
+            'final_movement_notes' => $notes
+        ]);
     }
 
     public function getFormattedAmountAttribute()

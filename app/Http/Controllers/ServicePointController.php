@@ -191,9 +191,12 @@ class ServicePointController extends Controller
         // Get client notes (if you have a notes system)
         $clientNotes = []; // You can implement this based on your notes system
 
-        // Get the correct total amount from the invoice (not from service delivery queue items)
-        $invoice = $clientItems->first()?->invoice;
-        $correctTotalAmount = $invoice ? $invoice->total_amount : 0;
+        // Calculate correct total amount from service delivery queue items (only pending and partially done)
+        $correctTotalAmount = $pendingItems->sum(function ($item) {
+            return $item->price * $item->quantity;
+        }) + $partiallyDoneItems->sum(function ($item) {
+            return $item->price * $item->quantity;
+        });
 
         // Get items for the POS functionality with branch-specific pricing
         // If user is from Kashtre (business_id 1), they can access items from all businesses
@@ -322,19 +325,34 @@ class ServicePointController extends Controller
 
             $itemStatuses = $request->input('item_statuses');
 
-            // Additional validation: Check for status reversals
+            // Additional validation: Check for status reversals (unidirectional flow)
             foreach ($itemStatuses as $itemId => $status) {
                 $item = \App\Models\ServiceDeliveryQueue::find($itemId);
-                if ($item && $item->status === 'partially_done' && $status === 'pending') {
-                    \Illuminate\Support\Facades\Log::warning("Status reversal validation failed", [
-                        'item_id' => $itemId,
-                        'current_status' => $item->status,
-                        'attempted_status' => $status
-                    ]);
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Cannot reverse status from "Partially Done" to "Not Done"'
-                    ], 422);
+                if ($item) {
+                    // Prevent going backwards in status progression
+                    if ($item->status === 'partially_done' && $status === 'pending') {
+                        \Illuminate\Support\Facades\Log::warning("Status reversal validation failed", [
+                            'item_id' => $itemId,
+                            'current_status' => $item->status,
+                            'attempted_status' => $status
+                        ]);
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Cannot reverse status from "Partially Done" to "Not Done"'
+                        ], 422);
+                    }
+                    
+                    if ($item->status === 'completed' && in_array($status, ['pending', 'partially_done'])) {
+                        \Illuminate\Support\Facades\Log::warning("Status reversal validation failed", [
+                            'item_id' => $itemId,
+                            'current_status' => $item->status,
+                            'attempted_status' => $status
+                        ]);
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Cannot reverse status from "Completed" to previous status'
+                        ], 422);
+                    }
                 }
             }
             $updatedCount = 0;

@@ -20,12 +20,16 @@ class MoneyAccount extends Model
         'balance',
         'currency',
         'description',
-        'is_active'
+        'is_active',
+        'status',
+        'status_changed_at',
+        'status_notes'
     ];
 
     protected $casts = [
         'balance' => 'decimal:2',
         'is_active' => 'boolean',
+        'status_changed_at' => 'datetime',
     ];
 
     // Relationships
@@ -105,5 +109,60 @@ class MoneyAccount extends Model
     public function getRouteKeyName()
     {
         return 'uuid';
+    }
+
+    /**
+     * Mark the account as moved (money has been transferred out)
+     */
+    public function markAsMoved($notes = null)
+    {
+        $this->update([
+            'status' => 'moved',
+            'status_changed_at' => now(),
+            'status_notes' => $notes
+        ]);
+        return $this;
+    }
+
+    /**
+     * Mark the account as active (money is available)
+     */
+    public function markAsActive($notes = null)
+    {
+        $this->update([
+            'status' => 'active',
+            'status_changed_at' => now(),
+            'status_notes' => $notes
+        ]);
+        return $this;
+    }
+
+    /**
+     * Mark the account as closed
+     */
+    public function markAsClosed($notes = null)
+    {
+        $this->update([
+            'status' => 'closed',
+            'status_changed_at' => now(),
+            'status_notes' => $notes
+        ]);
+        return $this;
+    }
+
+    /**
+     * Check if the account has been moved
+     */
+    public function hasBeenMoved()
+    {
+        return $this->status === 'moved';
+    }
+
+    /**
+     * Check if the account is active
+     */
+    public function isActiveStatus()
+    {
+        return $this->status === 'active';
     }
 }

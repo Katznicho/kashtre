@@ -129,6 +129,18 @@ class SimulateSuccessfulPayments extends Command
                             'balance_statements_count' => count($balanceStatements)
                         ]);
                         
+                        // Create package tracking records FIRST so they exist when processing suspense movements
+                        Log::info("Creating package tracking records (simulated)", [
+                            'invoice_id' => $invoice->id,
+                            'items_count' => count($invoice->items ?? [])
+                        ]);
+                        
+                        $this->createPackageTrackingRecords($invoice, $invoice->items);
+                        
+                        Log::info("Package tracking records created (simulated)", [
+                            'invoice_id' => $invoice->id
+                        ]);
+                        
                         // Move money from client suspense to appropriate suspense accounts after payment completion
                         Log::info("🔄 PROCESSING SUSPENSE ACCOUNT MONEY MOVEMENT AFTER SIMULATED PAYMENT COMPLETION", [
                             'invoice_id' => $invoice->id,
@@ -165,18 +177,6 @@ class SimulateSuccessfulPayments extends Command
                             'invoice_id' => $invoice->id,
                             'queued_items_count' => $queuedItems
                         ]);
-                        
-                        // Create package tracking records for package items
-                        Log::info("Creating package tracking records (simulated)", [
-                            'invoice_id' => $invoice->id,
-                            'items_count' => count($invoice->items ?? [])
-                        ]);
-                        
-                        $this->createPackageTrackingRecords($invoice, $invoice->items);
-                        
-                        Log::info("Package tracking records created (simulated)", [
-                            'invoice_id' => $invoice->id
-                        ]);
                     } else {
                         Log::warning("Invoice not found for transaction", [
                             'transaction_id' => $transaction->id,
@@ -210,10 +210,14 @@ class SimulateSuccessfulPayments extends Command
                 DB::commit();
                 $processedCount++;
 
-                Log::info("=== SIMULATED PAYMENT SUCCEEDED - Transaction processing completed ===", [
+                Log::info("🎉 === SIMULATED PAYMENT SUCCEEDED - Transaction processing completed ===", [
                     'transaction_id' => $transaction->id,
                     'reference' => $transaction->reference,
-                    'amount' => $transaction->amount
+                    'amount' => $transaction->amount,
+                    'client_id' => $transaction->client_id,
+                    'business_id' => $transaction->business_id,
+                    'invoice_id' => $transaction->invoice_id,
+                    'invoice_number' => $transaction->invoice ? $transaction->invoice->invoice_number : 'N/A'
                 ]);
 
                 $this->info("✅ Simulated successful payment for transaction {$transaction->id} (Amount: {$transaction->amount} UGX)");
@@ -240,55 +244,317 @@ class SimulateSuccessfulPayments extends Command
     {
         $queuedCount = 0;
         
-        if (!$items || !is_array($items)) {
-            Log::warning("No items found for invoice", ['invoice_id' => $invoice->id]);
-            return $queuedCount;
+        Log::info("=== STARTING ITEM QUEUING PROCESS (SIMULATED) ===", [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'total_items' => count($items ?? [])
+        ]);
+
+        if (empty($items)) {
+            Log::warning("No items found in invoice for queuing", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number
+            ]);
+            return 0;
         }
 
-        foreach ($items as $item) {
-            try {
-                // Simulate queuing logic here
-                Log::info("Simulating item queuing at service point", [
+        foreach ($items as $index => $item) {
+            $itemId = $item['id'] ?? $item['item_id'] ?? null;
+            
+            Log::info("Processing item " . ($index + 1), [
+                'item_id' => $itemId,
+                'item_name' => $item['name'] ?? 'Unknown',
+                'quantity' => $item['quantity'] ?? 1
+            ]);
+
+            if (!$itemId) {
+                Log::warning("Item ID not found, skipping", ['item_data' => $item]);
+                continue;
+            }
+
+            // Get the item from database
+            $itemModel = \App\Models\Item::find($itemId);
+            if (!$itemModel) {
+                Log::warning("Item model not found in database", ['item_id' => $itemId]);
+                continue;
+            }
+
+            $quantity = $item['quantity'] ?? 1;
+
+            // Get service point through BranchServicePoint relationship
+            $branchServicePoint = $itemModel->branchServicePoints()
+                ->where('business_id', $invoice->business_id)
+                ->where('branch_id', $invoice->branch_id)
+                ->first();
+
+            Log::info("Found item model", [
+                'item_id' => $itemId,
+                'item_name' => $itemModel->name,
+                'item_type' => $itemModel->type,
+                'has_branch_service_point' => $branchServicePoint ? true : false,
+                'service_point_id' => $branchServicePoint->service_point_id ?? null
+            ]);
+
+            // Handle package items FIRST - packages use their own tracking system, not service point queuing
+            if ($itemModel->type === 'package') {
+                Log::info("Package item detected - using package tracking system instead of service point queuing", [
+                    'package_item_id' => $itemId,
+                    'package_name' => $itemModel->name,
                     'invoice_id' => $invoice->id,
-                    'item_id' => $item['id'] ?? 'unknown',
-                    'item_name' => $item['name'] ?? 'unknown'
+                    'client_id' => $invoice->client_id
                 ]);
                 
-                $queuedCount++;
-            } catch (\Exception $e) {
-                Log::error("Error queuing item at service point", [
+                // Packages are handled by package tracking logic, not service point queuing
+                // No queuing action needed here
+                continue; // Skip to next item
+            }
+
+            // Handle bulk items - bulk items don't have service points, use service point from one of their included items
+            if ($itemModel->type === 'bulk') {
+                Log::info("Processing bulk item", [
+                    'bulk_item_id' => $itemId,
+                    'bulk_name' => $itemModel->name
+                ]);
+
+                // Get service point from one of the bulk item's contained items
+                Log::info("Bulk items don't have service points, checking contained items for service point", [
+                    'bulk_item_id' => $itemId,
+                    'bulk_name' => $itemModel->name
+                ]);
+
+                $bulkItems = $itemModel->bulkItems()->with('includedItem')->get();
+                
+                Log::info("Found bulk items for service point lookup", [
+                    'bulk_item_id' => $itemId,
+                    'included_items_count' => $bulkItems->count()
+                ]);
+
+                $servicePointId = null;
+                $selectedIncludedItem = null;
+                
+                // Find the first included item that has a service point for this business/branch
+                foreach ($bulkItems as $bulkItem) {
+                    $includedItem = $bulkItem->includedItem;
+                    
+                    $includedItemBranchServicePoint = $includedItem->branchServicePoints()
+                        ->where('business_id', $invoice->business_id)
+                        ->where('branch_id', $invoice->branch_id)
+                        ->first();
+
+                    if ($includedItemBranchServicePoint && $includedItemBranchServicePoint->service_point_id) {
+                        $servicePointId = $includedItemBranchServicePoint->service_point_id;
+                        $selectedIncludedItem = $includedItem;
+                        Log::info("Found service point from included item", [
+                            'included_item_id' => $includedItem->id,
+                            'included_item_name' => $includedItem->name,
+                            'service_point_id' => $servicePointId
+                        ]);
+                        break;
+                    }
+                }
+
+                // Queue bulk item at the service point from its included item
+                if ($servicePointId) {
+                    Log::info("Creating service delivery queue for bulk item using included item's service point", [
+                        'bulk_item_id' => $itemId,
+                        'service_point_id' => $servicePointId,
+                        'selected_included_item' => $selectedIncludedItem ? $selectedIncludedItem->name : 'Unknown',
+                        'quantity' => $quantity
+                    ]);
+
+                    $queueRecord = \App\Models\ServiceDeliveryQueue::create([
+                        'business_id' => $invoice->business_id,
+                        'branch_id' => $invoice->branch_id,
+                        'service_point_id' => $servicePointId,
+                        'invoice_id' => $invoice->id,
+                        'client_id' => $invoice->client_id,
+                        'item_id' => $itemId,
+                        'item_name' => $item['name'] ?? $itemModel->name,
+                        'quantity' => $quantity,
+                        'price' => $item['price'] ?? $itemModel->default_price ?? 0,
+                        'status' => 'pending',
+                        'priority' => 'normal',
+                        'notes' => "Bulk item queued at SP from included item: {$selectedIncludedItem->name}, Invoice: {$invoice->invoice_number}, Client: {$invoice->client_name}",
+                        'queued_at' => now(),
+                        'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
+                    ]);
+
+                    $queuedCount++;
+                    Log::info("Service delivery queue created for bulk item using included item's service point", [
+                        'queue_id' => $queueRecord->id,
+                        'bulk_item_id' => $itemId,
+                        'service_point_id' => $servicePointId,
+                        'selected_included_item' => $selectedIncludedItem ? $selectedIncludedItem->name : 'Unknown'
+                    ]);
+                } else {
+                    Log::info("No service point found for bulk item or any of its contained items, skipping queuing", [
+                        'bulk_item_id' => $itemId,
+                        'bulk_name' => $itemModel->name,
+                        'business_id' => $invoice->business_id,
+                        'branch_id' => $invoice->branch_id
+                    ]);
+                }
+            }
+
+            // Handle regular items with service points (only for non-package, non-bulk items)
+            if ($branchServicePoint && $branchServicePoint->service_point_id) {
+                Log::info("Creating service delivery queue for regular item", [
+                    'item_id' => $itemId,
+                    'service_point_id' => $branchServicePoint->service_point_id,
+                    'quantity' => $quantity
+                ]);
+
+                $queueRecord = \App\Models\ServiceDeliveryQueue::create([
+                    'business_id' => $invoice->business_id,
+                    'branch_id' => $invoice->branch_id,
+                    'service_point_id' => $branchServicePoint->service_point_id,
                     'invoice_id' => $invoice->id,
-                    'item_id' => $item['id'] ?? 'unknown',
-                    'error' => $e->getMessage()
+                    'client_id' => $invoice->client_id,
+                    'item_id' => $itemId,
+                    'item_name' => $item['name'] ?? $itemModel->name,
+                    'quantity' => $quantity,
+                    'price' => $item['price'] ?? $itemModel->default_price ?? 0,
+                    'status' => 'pending',
+                    'priority' => 'normal',
+                    'notes' => "Invoice: {$invoice->invoice_number}, Client: {$invoice->client_name}",
+                    'queued_at' => now(),
+                    'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
+                ]);
+
+                $queuedCount++;
+                Log::info("Service delivery queue created for regular item", [
+                    'queue_id' => $queueRecord->id,
+                    'item_id' => $itemId,
+                    'service_point_id' => $branchServicePoint->service_point_id
+                ]);
+            } else {
+                Log::info("Regular item has no service point for this business/branch, skipping queuing", [
+                    'item_id' => $itemId,
+                    'item_name' => $itemModel->name,
+                    'business_id' => $invoice->business_id,
+                    'branch_id' => $invoice->branch_id,
+                    'branch_service_point_found' => $branchServicePoint ? 'yes' : 'no'
                 ]);
             }
         }
+
+        Log::info("=== ITEM QUEUING PROCESS COMPLETED (SIMULATED) ===", [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'total_items_processed' => count($items),
+            'total_items_queued' => $queuedCount
+        ]);
 
         return $queuedCount;
     }
 
     private function createPackageTrackingRecords($invoice, $items)
     {
-        if (!$items || !is_array($items)) {
-            Log::warning("No items found for package tracking", ['invoice_id' => $invoice->id]);
+        $packageTrackingService = new \App\Services\PackageTrackingService();
+        $packageTrackingCount = 0;
+        
+        Log::info("=== STARTING PACKAGE TRACKING CREATION (SIMULATED) ===", [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'total_items' => count($items ?? [])
+        ]);
+
+        if (empty($items)) {
+            Log::warning("No items found for package tracking", [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number
+            ]);
             return;
         }
 
-        foreach ($items as $item) {
+        foreach ($items as $index => $item) {
+            $itemId = $item['id'] ?? $item['item_id'] ?? null;
+            
+            Log::info("🔍 PROCESSING ITEM " . ($index + 1) . " FOR PACKAGE TRACKING (SIMULATED)", [
+                'item_id' => $itemId,
+                'item_data' => $item,
+                'item_name' => $item['name'] ?? 'Unknown'
+            ]);
+            
+            if (!$itemId) {
+                Log::warning("❌ No item ID found for item " . ($index + 1), [
+                    'item_data' => $item
+                ]);
+                continue;
+            }
+
+            // Get the item from database to check if it's a package
+            $itemModel = \App\Models\Item::find($itemId);
+            if (!$itemModel) {
+                Log::warning("❌ Item model not found", [
+                    'item_id' => $itemId,
+                    'item_name' => $item['name'] ?? 'Unknown'
+                ]);
+                continue;
+            }
+            
+            Log::info("📦 ITEM MODEL DETAILS (SIMULATED)", [
+                'item_id' => $itemModel->id,
+                'item_name' => $itemModel->name,
+                'item_type' => $itemModel->type,
+                'is_package' => $itemModel->type === 'package'
+            ]);
+            
+            if ($itemModel->type !== 'package') {
+                Log::info("⏭️ SKIPPING NON-PACKAGE ITEM (SIMULATED)", [
+                    'item_id' => $itemModel->id,
+                    'item_name' => $itemModel->name,
+                    'item_type' => $itemModel->type,
+                    'reason' => 'Item is not a package type'
+                ]);
+                continue;
+            }
+
+            $quantity = $item['quantity'] ?? 1;
+
+            // Check if package tracking record already exists to prevent duplicates
+            $existingTracking = \App\Models\PackageTracking::where([
+                'invoice_id' => $invoice->id,
+                'package_item_id' => $itemId,
+                'client_id' => $invoice->client_id
+            ])->first();
+
+            if ($existingTracking) {
+                Log::warning("Package tracking record already exists - skipping creation to prevent duplicate", [
+                    'existing_tracking_id' => $existingTracking->id,
+                    'invoice_id' => $invoice->id,
+                    'package_item_id' => $itemId,
+                    'client_id' => $invoice->client_id
+                ]);
+                continue;
+            }
+
             try {
-                // Simulate package tracking creation here
-                Log::info("Simulating package tracking record creation", [
-                    'invoice_id' => $invoice->id,
-                    'item_id' => $item['id'] ?? 'unknown',
-                    'item_name' => $item['name'] ?? 'unknown'
+                // Use the new service to create package tracking
+                $packageTracking = $packageTrackingService->createPackageTracking($invoice, $item, $quantity);
+                $packageTrackingCount++;
+                
+                Log::info("Package tracking created successfully (SIMULATED)", [
+                    'package_tracking_id' => $packageTracking->id,
+                    'tracking_number' => $packageTracking->tracking_number,
+                    'package_item_id' => $itemId,
+                    'quantity' => $quantity
                 ]);
+
             } catch (\Exception $e) {
-                Log::error("Error creating package tracking record", [
+                Log::error("Failed to create package tracking (SIMULATED)", [
+                    'error' => $e->getMessage(),
                     'invoice_id' => $invoice->id,
-                    'item_id' => $item['id'] ?? 'unknown',
-                    'error' => $e->getMessage()
+                    'package_item_id' => $itemId,
+                    'quantity' => $quantity
                 ]);
+                continue;
             }
         }
+
+        Log::info("=== PACKAGE TRACKING CREATION COMPLETED (SIMULATED) ===", [
+            'invoice_id' => $invoice->id,
+            'package_tracking_count' => $packageTrackingCount
+        ]);
     }
 }

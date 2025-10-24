@@ -36,6 +36,24 @@ class PackageTrackingService
                 'quantity' => $quantity
             ]);
 
+            // Check if package tracking already exists to prevent duplicates
+            $existingTracking = PackageTracking::where([
+                'invoice_id' => $invoice->id,
+                'package_item_id' => $packageItem['id'],
+                'client_id' => $invoice->client_id
+            ])->first();
+
+            if ($existingTracking) {
+                Log::warning("Package tracking record already exists - skipping creation to prevent duplicate", [
+                    'existing_tracking_id' => $existingTracking->id,
+                    'tracking_number' => $existingTracking->tracking_number,
+                    'invoice_id' => $invoice->id,
+                    'package_item_id' => $packageItem['id'],
+                    'client_id' => $invoice->client_id
+                ]);
+                return $existingTracking; // Return existing record instead of creating new one
+            }
+
             // Get the package item from database
             $itemModel = Item::find($packageItem['id']);
             if (!$itemModel || $itemModel->type !== 'package') {
@@ -85,6 +103,22 @@ class PackageTrackingService
                 $includedItem = $pkgItem->includedItem;
                 $includedItemQuantity = ($pkgItem->max_quantity ?? 1) * $quantity;
                 $includedItemPrice = $includedItem->default_price ?? 0;
+
+                // Check if package tracking item already exists to prevent duplicate key constraint
+                $existingTrackingItem = PackageTrackingItem::where([
+                    'package_tracking_id' => $packageTracking->id,
+                    'included_item_id' => $includedItem->id
+                ])->first();
+
+                if ($existingTrackingItem) {
+                    Log::warning("Package tracking item already exists - skipping creation to prevent duplicate", [
+                        'existing_item_id' => $existingTrackingItem->id,
+                        'package_tracking_id' => $packageTracking->id,
+                        'included_item_id' => $includedItem->id,
+                        'included_item_name' => $includedItem->name
+                    ]);
+                    continue; // Skip to next item
+                }
 
                 PackageTrackingItem::create([
                     'package_tracking_id' => $packageTracking->id,

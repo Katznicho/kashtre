@@ -83,11 +83,8 @@ class PackageTrackingItem extends Model
             $this->increment('used_quantity', $quantity);
             $this->decrement('remaining_quantity', $quantity);
             
-            // Check if fully used
-            if ($this->remaining_quantity <= 0) {
-                // Update package tracking status if all items are used
-                $this->packageTracking->updateStatusIfFullyUsed();
-            }
+            // Update the main package tracking record's remaining quantity
+            $this->packageTracking->updateRemainingQuantityFromItems();
             
             return true;
         }

@@ -17,6 +17,7 @@ class ContractorValidationService
         
         $contractors = ContractorProfile::with('user')
             ->where('business_id', $businessId)
+            ->withTrashed() // Include soft-deleted contractors
             ->get();
             
         \Log::info("Found " . $contractors->count() . " contractor profiles");
@@ -61,6 +62,7 @@ class ContractorValidationService
             $contractor = ContractorProfile::with('user')
                 ->where('business_id', $businessId)
                 ->where('kashtre_account_number', $accountNumber)
+                ->withTrashed() // Include soft-deleted contractors
                 ->first();
                 
             if (!$contractor) {
@@ -100,6 +102,7 @@ class ContractorValidationService
         return ContractorProfile::with('user')
             ->where('business_id', $businessId)
             ->where('kashtre_account_number', $accountNumber)
+            ->withTrashed() // Include soft-deleted contractors
             ->first();
     }
 

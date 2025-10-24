@@ -154,6 +154,28 @@ class PackageTracking extends Model
     }
 
     /**
+     * Update the main package tracking record's remaining quantity based on tracking items
+     */
+    public function updateRemainingQuantityFromItems()
+    {
+        $totalRemaining = $this->trackingItems()
+            ->sum('remaining_quantity');
+            
+        $totalUsed = $this->trackingItems()
+            ->sum('used_quantity');
+            
+        $this->update([
+            'remaining_quantity' => $totalRemaining,
+            'used_quantity' => $totalUsed
+        ]);
+        
+        // Update status if fully used
+        if ($totalRemaining <= 0) {
+            $this->update(['status' => 'fully_used']);
+        }
+    }
+
+    /**
      * Get all valid tracking items for a specific included item
      */
     public function getValidTrackingItemsForItem($itemId)

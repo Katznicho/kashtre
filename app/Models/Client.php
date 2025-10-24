@@ -119,14 +119,8 @@ class Client extends Model
     public function getSuspenseBalanceAttribute()
     {
         // Get the sum of ALL suspense account balances for this client
-        // Only include money that has NOT been moved to final accounts yet
-        $totalSuspenseBalance = $this->suspenseAccounts()
-            ->whereIn('type', [
-                'package_suspense_account',
-                'general_suspense_account', 
-                'kashtre_suspense_account'
-            ])
-            ->sum('balance');
+        // All suspense accounts are now client-specific
+        $totalSuspenseBalance = $this->suspenseAccounts()->sum('balance');
         
         return $totalSuspenseBalance;
     }
@@ -150,6 +144,7 @@ class Client extends Model
             'kashtre_suspense_account'
         ]);
     }
+
 
     /**
      * Generate a unique client ID based on NIN, business, and branch
