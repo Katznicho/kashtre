@@ -125,9 +125,16 @@
             </div>
             <div class="space-y-3">
                 @php
-                    $suspenseAccounts = \App\Models\MoneyAccount::where('business_id', $business->id)
-                        ->whereIn('type', ['package_suspense_account', 'general_suspense_account', 'kashtre_suspense_account'])
-                        ->get();
+                    // For Kashtre (business_id = 1), show suspense accounts from ALL businesses
+                    if ($business->id == 1) {
+                        $suspenseAccounts = \App\Models\MoneyAccount::whereIn('type', ['package_suspense_account', 'general_suspense_account', 'kashtre_suspense_account'])
+                            ->get();
+                    } else {
+                        // For regular businesses, only show their own suspense accounts
+                        $suspenseAccounts = \App\Models\MoneyAccount::where('business_id', $business->id)
+                            ->whereIn('type', ['package_suspense_account', 'general_suspense_account', 'kashtre_suspense_account'])
+                            ->get();
+                    }
                     
                     $totalPackageSuspense = $suspenseAccounts->where('type', 'package_suspense_account')->sum('balance');
                     $totalGeneralSuspense = $suspenseAccounts->where('type', 'general_suspense_account')->sum('balance');
