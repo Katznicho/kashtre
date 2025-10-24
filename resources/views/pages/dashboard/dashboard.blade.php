@@ -72,7 +72,7 @@
             @endif
 
             <!-- Testing Dashboard - Only for Admin Users and Local Environment -->
-            @if(Auth::user()->business_id == 1 && Auth::user()->status === 'active' && config('app.env') === 'local')
+            @if(Auth::user()->business_id == 1 && Auth::user()->status === 'active' && config('app.env') === 'local' && !app()->environment('production'))
                 <div class="mb-6 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-6">
                     <div class="flex items-center justify-between mb-4">
                         <div class="flex items-center space-x-4">

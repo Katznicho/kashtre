@@ -17,8 +17,8 @@
             </a>
             @endif
             
-            <!-- Suspense Accounts Quick Access - Only for Kashtre (business_id = 1) and Local Environment -->
-            @if($business->id == 1 && config('app.env') === 'local')
+            <!-- Suspense Accounts Quick Access - Only for Kashtre (business_id = 1) -->
+            @if($business->id == 1)
             <a href="{{ route('suspense-accounts.index') }}" class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors flex items-center">
                 <i class="fas fa-piggy-bank mr-2"></i>
                 Suspense Accounts
@@ -116,8 +116,8 @@
             </div>
         </div>
 
-        <!-- Suspense Accounts Overview Card - Only for Kashtre (business_id = 1) and Local Environment -->
-        @if($business->id == 1 && config('app.env') === 'local')
+        <!-- Suspense Accounts Overview Card - Only for Kashtre (business_id = 1) -->
+        @if($business->id == 1)
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Suspense Accounts</h3>
