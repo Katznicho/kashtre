@@ -544,13 +544,15 @@ class InvoiceController extends Controller
             // SERVICE POINT QUEUING: Items will be queued only after payment is completed
             // This is now handled by the CheckPaymentStatus cron job
             // EXCEPTION: For zero-amount transactions (due to package adjustments OR balance adjustments), queue immediately
-            if ($validated['total_amount'] == 0) {
+            // BUT ONLY if it's not a mobile money transaction (which should remain pending until payment confirmation)
+            if ($validated['total_amount'] == 0 && !in_array('mobile_money', $validated['payment_methods'] ?? [])) {
                 Log::info("Zero-amount transaction detected - auto-completing and queuing items", [
                     'invoice_id' => $invoice->id,
                     'invoice_number' => $invoice->invoice_number,
                     'total_amount' => $validated['total_amount'],
                     'package_adjustment' => $validated['package_adjustment'] ?? 0,
-                    'account_balance_adjustment' => $validated['account_balance_adjustment'] ?? 0
+                    'account_balance_adjustment' => $validated['account_balance_adjustment'] ?? 0,
+                    'payment_methods' => $validated['payment_methods'] ?? []
                 ]);
                 
                 // Auto-complete the transaction
@@ -602,6 +604,22 @@ class InvoiceController extends Controller
                 Log::info("Zero-amount transaction auto-completed and items queued", [
                     'invoice_id' => $invoice->id,
                     'items_queued' => count($validated['items'])
+                ]);
+            } else {
+                // For mobile money transactions with zero amount, keep them pending until payment confirmation
+                Log::info("Mobile money transaction with zero amount - keeping pending until payment confirmation", [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'total_amount' => $validated['total_amount'],
+                    'payment_methods' => $validated['payment_methods'] ?? [],
+                    'current_status' => $invoice->status,
+                    'current_payment_status' => $invoice->payment_status
+                ]);
+                
+                // Ensure invoice remains in pending status for mobile money transactions
+                $invoice->update([
+                    'payment_status' => 'pending',
+                    'status' => 'draft' // Keep as draft until payment is confirmed
                 ]);
             }
             
