@@ -322,30 +322,33 @@
                         
                         // Check if user can approve this request
                         if (in_array($withdrawalRequest->status, ['pending', 'business_approved', 'kashtre_approved'])) {
-                            $withdrawalSetting = \App\Models\WithdrawalSetting::where('business_id', $withdrawalRequest->business_id)
-                                ->where('is_active', true)
-                                ->first();
-                            
-                            if ($withdrawalSetting) {
-                                // Check if user is assigned as any type of approver (initiator, authorizer, or approver) for this business
-                                $isApprover = $withdrawalSetting->allBusinessApprovers()
-                                    ->where('approver_id', $user->id)
-                                    ->where('approver_type', 'user')
-                                    ->exists();
+                            // Prevent users from approving their own requests
+                            if ($withdrawalRequest->created_by != $user->id) {
+                                $withdrawalSetting = \App\Models\WithdrawalSetting::where('business_id', $withdrawalRequest->business_id)
+                                    ->where('is_active', true)
+                                    ->first();
                                 
-                                if ($isApprover) {
-                                    $canApprove = true;
-                                }
-                                
-                                // Check if user is a Kashtre approver (super business)
-                                if ($user->business_id == 1) {
-                                    $isKashtreApprover = $withdrawalSetting->allKashtreApprovers()
+                                if ($withdrawalSetting) {
+                                    // Check if user is assigned as any type of approver (initiator, authorizer, or approver) for this business
+                                    $isApprover = $withdrawalSetting->allBusinessApprovers()
                                         ->where('approver_id', $user->id)
                                         ->where('approver_type', 'user')
                                         ->exists();
                                     
-                                    if ($isKashtreApprover) {
+                                    if ($isApprover) {
                                         $canApprove = true;
+                                    }
+                                    
+                                    // Check if user is a Kashtre approver (super business)
+                                    if ($user->business_id == 1) {
+                                        $isKashtreApprover = $withdrawalSetting->allKashtreApprovers()
+                                            ->where('approver_id', $user->id)
+                                            ->where('approver_type', 'user')
+                                            ->exists();
+                                        
+                                        if ($isKashtreApprover) {
+                                            $canApprove = true;
+                                        }
                                     }
                                 }
                             }

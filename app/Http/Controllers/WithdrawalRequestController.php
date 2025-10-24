@@ -408,6 +408,11 @@ class WithdrawalRequestController extends Controller
             return false;
         }
 
+        // Prevent users from approving their own requests
+        if ($withdrawalRequest->created_by == $user->id) {
+            return false;
+        }
+
         // Get withdrawal settings for this business
         $withdrawalSetting = WithdrawalSetting::where('business_id', $withdrawalRequest->business_id)
             ->where('is_active', true)
