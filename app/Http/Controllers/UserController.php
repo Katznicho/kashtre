@@ -268,8 +268,9 @@ class UserController extends Controller
                     ]
                 );
             } else {
-                // Soft delete contractor profile when user doesn't have contractor permissions
-                \App\Models\ContractorProfile::where('user_id', $user->id)->delete();
+                // Do not delete contractor profile when user doesn't have contractor permissions
+                // Contractor profiles should remain active even if user permissions change
+                // This prevents breaking item-contractor relationships
             }
             return redirect()->route('users.index')->with('success', 'User updated successfully.');
         } catch (\Exception $e) {
