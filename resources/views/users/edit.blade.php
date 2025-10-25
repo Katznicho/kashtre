@@ -193,7 +193,7 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
                                 <template x-for="sp in filteredServicePoints" :key="sp.id">
                                     <label class="inline-flex items-center">
-                                        <input type="checkbox" name="service_points[]" :value="sp.id" class="form-checkbox" :checked="userServicePoints.includes(sp.id)">
+                                        <input type="checkbox" name="service_points[]" :value="sp.id" class="form-checkbox" :checked="userServicePoints.includes(parseInt(sp.id)) || userServicePoints.includes(sp.id.toString())">
                                         <span class="ml-2" x-text="sp.name"></span>
                                     </label>
                                 </template>
@@ -378,29 +378,28 @@
                         this.updateServicePointsAndBranches();
                     },
                     updateServicePointsAndBranches() {
-                        // Convert selectedBusinessId to integer for consistent comparison
-                        const businessId = parseInt(this.selectedBusinessId);
-                        
-                        this.filteredServicePoints = this.selectedBusinessId && this.servicePointsByBusiness[businessId]
-                            ? this.servicePointsByBusiness[businessId]
+                        this.filteredServicePoints = this.selectedBusinessId && this.servicePointsByBusiness[this.selectedBusinessId]
+                            ? this.servicePointsByBusiness[this.selectedBusinessId]
                             : [];
                         
                         // Debug logging
-                        console.log('Selected Business ID:', this.selectedBusinessId, 'Parsed:', businessId);
+                        console.log('Selected Business ID:', this.selectedBusinessId);
                         console.log('Service Points by Business:', this.servicePointsByBusiness);
                         console.log('Filtered Service Points:', this.filteredServicePoints);
                         console.log('User Service Points:', this.userServicePoints);
+                        console.log('User Service Points type:', typeof this.userServicePoints[0]);
+                        console.log('Filtered Service Points type:', typeof this.filteredServicePoints[0]?.id);
                         
                         const biz = this.businessData.find(b => b.id == this.selectedBusinessId);
                         this.filteredBranches = biz ? biz.branches : [];
-                        this.filteredQualifications = this.selectedBusinessId && this.qualificationsByBusiness[businessId]
-                            ? this.qualificationsByBusiness[businessId]
+                        this.filteredQualifications = this.selectedBusinessId && this.qualificationsByBusiness[this.selectedBusinessId]
+                            ? this.qualificationsByBusiness[this.selectedBusinessId]
                             : [];
-                        this.filteredDepartments = this.selectedBusinessId && this.departmentsByBusiness[businessId]
-                            ? this.departmentsByBusiness[businessId]
+                        this.filteredDepartments = this.selectedBusinessId && this.departmentsByBusiness[this.selectedBusinessId]
+                            ? this.departmentsByBusiness[this.selectedBusinessId]
                             : [];
-                        this.filteredTitles = this.selectedBusinessId && this.titlesByBusiness[businessId]
-                            ? this.titlesByBusiness[businessId]
+                        this.filteredTitles = this.selectedBusinessId && this.titlesByBusiness[this.selectedBusinessId]
+                            ? this.titlesByBusiness[this.selectedBusinessId]
                             : [];
                     },
                     handleFormSubmit(event) {
