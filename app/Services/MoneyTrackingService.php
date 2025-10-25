@@ -454,6 +454,37 @@ class MoneyTrackingService
                 $quantity = $itemData['quantity'] ?? 1;
                 $totalAmount = $itemData['total_amount'] ?? ($item->default_price * $quantity);
 
+                // Check if this item is part of a package adjustment
+                $isPackageAdjustmentItem = false;
+                if ($invoice->package_adjustment > 0) {
+                    // Check if this specific item is included in any valid packages
+                    $validPackages = \App\Models\PackageTracking::where('client_id', $invoice->client_id)
+                        ->where('business_id', $invoice->business_id)
+                        ->where('status', 'active')
+                        ->where('remaining_quantity', '>', 0)
+                        ->get();
+                    
+                    foreach ($validPackages as $packageTracking) {
+                        $packageItems = $packageTracking->packageItem->packageItems;
+                        foreach ($packageItems as $packageItem) {
+                            if ($packageItem->included_item_id == $itemId) {
+                                $isPackageAdjustmentItem = true;
+                                break 2;
+                            }
+                        }
+                    }
+                }
+
+                // Skip creating debit record for package adjustment items
+                if ($isPackageAdjustmentItem) {
+                    Log::info("SKIPPING CLIENT DEBIT FOR PACKAGE ITEM", [
+                        'item_id' => $itemId,
+                        'item_name' => $item->name,
+                        'reason' => 'Item is covered by package adjustment - no debit needed'
+                    ]);
+                    continue;
+                }
+
                 // Create debit record for client balance statement
                 $itemDisplayName = $item->name;
                 $debitRecord = BalanceHistory::recordDebit(
