@@ -720,6 +720,57 @@ class MoneyTrackingService
                         'package_tracking_id' => $packageTracking ? $packageTracking->id : null
                     ]);
                 }
+                // Check if this item is part of a package adjustment (should go to Package Suspense)
+                elseif ($invoice->package_adjustment > 0) {
+                    // Check if this specific item is included in any valid packages
+                    $isPackageAdjustmentItem = false;
+                    $validPackages = \App\Models\PackageTracking::where('client_id', $client->id)
+                        ->where('business_id', $business->id)
+                        ->where('status', 'active')
+                        ->where('remaining_quantity', '>', 0)
+                        ->get();
+                    
+                    foreach ($validPackages as $packageTracking) {
+                        $packageItems = $packageTracking->packageItem->packageItems;
+                        foreach ($packageItems as $packageItem) {
+                            if ($packageItem->included_item_id == $itemId) {
+                                $isPackageAdjustmentItem = true;
+                                break 2;
+                            }
+                        }
+                    }
+                    
+                    if ($isPackageAdjustmentItem) {
+                        $destinationAccount = $this->getOrCreatePackageSuspenseAccount($business, $client->id);
+                        $transferDescription = "Package Item - {$item->name} ({$quantity})";
+                        $routingReason = "Item is part of package adjustment";
+                        
+                        Log::info("✅ ITEM ROUTED TO PACKAGE SUSPENSE (PACKAGE ADJUSTMENT)", [
+                            'item_id' => $item->id,
+                            'item_name' => $item->name,
+                            'item_type' => $item->type,
+                            'destination_account_type' => 'package_suspense_account',
+                            'routing_reason' => $routingReason,
+                            'amount' => $totalAmount,
+                            'package_adjustment' => $invoice->package_adjustment
+                        ]);
+                    } else {
+                        // Not a package adjustment item, route to general suspense
+                        $destinationAccount = $this->getOrCreateGeneralSuspenseAccount($business, $client->id);
+                        $transferDescription = "General Item - {$item->name} ({$quantity})";
+                        $routingReason = "Item not part of package adjustment";
+                        
+                        Log::info("✅ ITEM ROUTED TO GENERAL SUSPENSE (NOT PACKAGE ADJUSTMENT)", [
+                            'item_id' => $item->id,
+                            'item_name' => $item->name,
+                            'item_type' => $item->type,
+                            'destination_account_type' => 'general_suspense_account',
+                            'routing_reason' => $routingReason,
+                            'amount' => $totalAmount,
+                            'package_adjustment' => $invoice->package_adjustment
+                        ]);
+                    }
+                }
                 // All other items go to General Suspense
                 else {
                     $destinationAccount = $this->getOrCreateGeneralSuspenseAccount($business, $client->id);
