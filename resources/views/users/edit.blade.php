@@ -378,19 +378,29 @@
                         this.updateServicePointsAndBranches();
                     },
                     updateServicePointsAndBranches() {
-                        this.filteredServicePoints = this.selectedBusinessId && this.servicePointsByBusiness[this.selectedBusinessId]
-                            ? this.servicePointsByBusiness[this.selectedBusinessId]
+                        // Convert selectedBusinessId to integer for consistent comparison
+                        const businessId = parseInt(this.selectedBusinessId);
+                        
+                        this.filteredServicePoints = this.selectedBusinessId && this.servicePointsByBusiness[businessId]
+                            ? this.servicePointsByBusiness[businessId]
                             : [];
+                        
+                        // Debug logging
+                        console.log('Selected Business ID:', this.selectedBusinessId, 'Parsed:', businessId);
+                        console.log('Service Points by Business:', this.servicePointsByBusiness);
+                        console.log('Filtered Service Points:', this.filteredServicePoints);
+                        console.log('User Service Points:', this.userServicePoints);
+                        
                         const biz = this.businessData.find(b => b.id == this.selectedBusinessId);
                         this.filteredBranches = biz ? biz.branches : [];
-                        this.filteredQualifications = this.selectedBusinessId && this.qualificationsByBusiness[this.selectedBusinessId]
-                            ? this.qualificationsByBusiness[this.selectedBusinessId]
+                        this.filteredQualifications = this.selectedBusinessId && this.qualificationsByBusiness[businessId]
+                            ? this.qualificationsByBusiness[businessId]
                             : [];
-                        this.filteredDepartments = this.selectedBusinessId && this.departmentsByBusiness[this.selectedBusinessId]
-                            ? this.departmentsByBusiness[this.selectedBusinessId]
+                        this.filteredDepartments = this.selectedBusinessId && this.departmentsByBusiness[businessId]
+                            ? this.departmentsByBusiness[businessId]
                             : [];
-                        this.filteredTitles = this.selectedBusinessId && this.titlesByBusiness[this.selectedBusinessId]
-                            ? this.titlesByBusiness[this.selectedBusinessId]
+                        this.filteredTitles = this.selectedBusinessId && this.titlesByBusiness[businessId]
+                            ? this.titlesByBusiness[businessId]
                             : [];
                     },
                     handleFormSubmit(event) {
