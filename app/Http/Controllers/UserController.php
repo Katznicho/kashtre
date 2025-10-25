@@ -174,7 +174,7 @@ class UserController extends Controller
         $servicePoints = \App\Models\ServicePoint::all();
         $contractorProfile = null;
         if (in_array('Contractor', (array) $user->permissions)) {
-            $contractorProfile = \App\Models\ContractorProfile::where('business_id', $user->business_id)->first();
+            $contractorProfile = \App\Models\ContractorProfile::where('user_id', $user->id)->first();
         }
         // Split name for form
         $nameParts = explode(' ', $user->name, 3);
@@ -251,15 +251,16 @@ class UserController extends Controller
             // Contractor profile logic
             if (in_array('Contractor', $validated['permissions_menu'])) {
                 \App\Models\ContractorProfile::updateOrCreate(
-                    ['business_id' => $validated['business_id']],
+                    ['user_id' => $user->id],
                     [
+                        'business_id' => $validated['business_id'],
                         'bank_name' => $validated['bank_name'],
                         'account_name' => $validated['account_name'],
                         'account_number' => $validated['account_number'],
                     ]
                 );
             } else {
-                \App\Models\ContractorProfile::where('business_id', $validated['business_id'])->delete();
+                \App\Models\ContractorProfile::where('user_id', $user->id)->delete();
             }
             return redirect()->route('users.index')->with('success', 'User updated successfully.');
         } catch (\Exception $e) {
