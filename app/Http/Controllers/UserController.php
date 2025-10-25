@@ -253,19 +253,16 @@ class UserController extends Controller
             ]);
             // Contractor profile logic
             if (in_array('Contractor', $validated['permissions_menu'])) {
-                // First, remove any existing contractor profiles (both active and soft deleted) to prevent duplicates
-                \App\Models\ContractorProfile::withTrashed()
-                    ->where('user_id', $user->id)
-                    ->forceDelete();
-                
-                // Create a single new contractor profile
-                \App\Models\ContractorProfile::create([
-                    'user_id' => $user->id,
-                    'business_id' => $validated['business_id'],
-                    'bank_name' => $validated['bank_name'],
-                    'account_name' => $validated['account_name'],
-                    'account_number' => $validated['account_number'],
-                ]);
+                // Update or create contractor profile
+                \App\Models\ContractorProfile::updateOrCreate(
+                    ['user_id' => $user->id],
+                    [
+                        'business_id' => $validated['business_id'],
+                        'bank_name' => $validated['bank_name'],
+                        'account_name' => $validated['account_name'],
+                        'account_number' => $validated['account_number'],
+                    ]
+                );
             } else {
                 // Soft delete contractor profile when user doesn't have contractor permissions
                 \App\Models\ContractorProfile::where('user_id', $user->id)->delete();
