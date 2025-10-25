@@ -133,18 +133,21 @@ class CityHealthClinicContractorsSeeder extends Seeder
                 'gender' => $contractorData['gender'],
             ]);
             
-            // Create contractor profile
-            ContractorProfile::create([
-                'uuid' => Str::uuid(),
-                'business_id' => $business->id,
-                'user_id' => $user->id,
-                'bank_name' => $contractorData['bank_name'],
-                'account_name' => $contractorData['account_name'],
-                'account_number' => $contractorData['account_number'],
-                'account_balance' => '0',
-                'kashtre_account_number' => $contractorData['kashtre_account_number'],
-                'signing_qualifications' => $contractorData['specialization']
-            ]);
+            // Create contractor profile (check for existing first)
+            $existingProfile = ContractorProfile::where('user_id', $user->id)->first();
+            if (!$existingProfile) {
+                ContractorProfile::create([
+                    'uuid' => Str::uuid(),
+                    'business_id' => $business->id,
+                    'user_id' => $user->id,
+                    'bank_name' => $contractorData['bank_name'],
+                    'account_name' => $contractorData['account_name'],
+                    'account_number' => $contractorData['account_number'],
+                    'account_balance' => '0',
+                    'kashtre_account_number' => $contractorData['kashtre_account_number'],
+                    'signing_qualifications' => $contractorData['specialization']
+                ]);
+            }
             
             $this->command->info("Created contractor: {$contractorData['name']} ({$contractorData['specialization']})");
         }

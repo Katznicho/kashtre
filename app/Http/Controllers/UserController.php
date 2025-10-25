@@ -129,13 +129,17 @@ class UserController extends Controller
 
             // If Contractor permission is selected, create ContractorProfile
             if (in_array('Contractor', $validated['permissions_menu'])) {
-                \App\Models\ContractorProfile::create([
-                    'business_id' => $validated['business_id'],
-                    'bank_name' => $validated['bank_name'],
-                    'account_name' => $validated['account_name'],
-                    'account_number' => $validated['account_number'],
-                    'user_id' => $user->id,
-                ]);
+                // Check if contractor profile already exists for this user
+                $existingProfile = \App\Models\ContractorProfile::where('user_id', $user->id)->first();
+                if (!$existingProfile) {
+                    \App\Models\ContractorProfile::create([
+                        'business_id' => $validated['business_id'],
+                        'bank_name' => $validated['bank_name'],
+                        'account_name' => $validated['account_name'],
+                        'account_number' => $validated['account_number'],
+                        'user_id' => $user->id,
+                    ]);
+                }
             }
 
 

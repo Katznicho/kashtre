@@ -178,18 +178,21 @@ class SimpleDummyDataSeeder extends Seeder
                 'gender' => $i == 1 ? 'male' : 'female',
             ]);
 
-            // Create contractor profile
-            ContractorProfile::create([
-                'uuid' => Str::uuid(),
-                'business_id' => $business->id,
-                'user_id' => $user->id,
-                'bank_name' => 'Demo Bank',
-                'account_name' => $user->name,
-                'account_number' => '100' . str_pad($business->id * 100 + $i, 7, '0', STR_PAD_LEFT),
-                'account_balance' => '0',
-                'kashtre_account_number' => 'KTR' . str_pad($business->id * 1000 + $i, 6, '0', STR_PAD_LEFT),
-                'signing_qualifications' => 'General Medicine'
-            ]);
+            // Create contractor profile (check for existing first)
+            $existingProfile = ContractorProfile::where('user_id', $user->id)->first();
+            if (!$existingProfile) {
+                ContractorProfile::create([
+                    'uuid' => Str::uuid(),
+                    'business_id' => $business->id,
+                    'user_id' => $user->id,
+                    'bank_name' => 'Demo Bank',
+                    'account_name' => $user->name,
+                    'account_number' => '100' . str_pad($business->id * 100 + $i, 7, '0', STR_PAD_LEFT),
+                    'account_balance' => '0',
+                    'kashtre_account_number' => 'KTR' . str_pad($business->id * 1000 + $i, 6, '0', STR_PAD_LEFT),
+                    'signing_qualifications' => 'General Medicine'
+                ]);
+            }
         }
     }
 }

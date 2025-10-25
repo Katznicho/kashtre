@@ -330,16 +330,23 @@ class StaffTemplateImport implements ToModel, WithHeadingRow
 
         // Create contractor profile if needed
         if ($isContractor) {
-            try {
-                $contractorProfile = \App\Models\ContractorProfile::create([
-                    'user_id' => $user->id,
-                    'business_id' => $this->businessId,
-                    'bank_name' => $bankName,
-                    'account_name' => $accountName,
-                    'account_number' => $accountNumber,
-                ]);
-            } catch (\Exception $e) {
-                // Handle error silently
+            // Check if contractor profile already exists for this user
+            $existingProfile = \App\Models\ContractorProfile::where('user_id', $user->id)->first();
+            if (!$existingProfile) {
+                try {
+                    $contractorProfile = \App\Models\ContractorProfile::create([
+                        'user_id' => $user->id,
+                        'business_id' => $this->businessId,
+                        'bank_name' => $bankName,
+                        'account_name' => $accountName,
+                        'account_number' => $accountNumber,
+                    ]);
+                    Log::info("Created contractor profile for user: {$user->id}");
+                } catch (\Exception $e) {
+                    Log::error("Failed to create contractor profile for user {$user->id}: " . $e->getMessage());
+                }
+            } else {
+                Log::info("Contractor profile already exists for user: {$user->id}");
             }
         }
 

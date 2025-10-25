@@ -346,16 +346,20 @@ class TestDataSeeder extends Seeder
         foreach ($contractorUsers as $userData) {
             $user = User::create($userData);
             
-            ContractorProfile::create([
-                'user_id' => $user->id,
-                'business_id' => $user->business_id,
-                'account_name' => $user->name,
-                'bank_name' => 'Stanbic Bank',
-                'account_number' => 'ACC' . rand(100000, 999999),
-                'account_balance' => rand(100000, 1000000),
-                'kashtre_account_number' => 'KC' . Str::random(10),
-                'signing_qualifications' => ['Cardiology', 'Neurology', 'Pediatrics'][rand(0, 2)]
-            ]);
+            // Check if contractor profile already exists
+            $existingProfile = ContractorProfile::where('user_id', $user->id)->first();
+            if (!$existingProfile) {
+                ContractorProfile::create([
+                    'user_id' => $user->id,
+                    'business_id' => $user->business_id,
+                    'account_name' => $user->name,
+                    'bank_name' => 'Stanbic Bank',
+                    'account_number' => 'ACC' . rand(100000, 999999),
+                    'account_balance' => rand(100000, 1000000),
+                    'kashtre_account_number' => 'KC' . Str::random(10),
+                    'signing_qualifications' => ['Cardiology', 'Neurology', 'Pediatrics'][rand(0, 2)]
+                ]);
+            }
         }
     }
 
