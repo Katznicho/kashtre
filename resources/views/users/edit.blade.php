@@ -193,7 +193,7 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
                                 <template x-for="sp in filteredServicePoints" :key="sp.id">
                                     <label class="inline-flex items-center">
-                                        <input type="checkbox" name="service_points[]" :value="sp.id" class="form-checkbox" :checked="{{ json_encode($user->service_points ?? []) }}.includes(sp.id)">
+                                        <input type="checkbox" name="service_points[]" :value="sp.id" class="form-checkbox" :checked="userServicePoints.includes(sp.id)">
                                         <span class="ml-2" x-text="sp.name"></span>
                                     </label>
                                 </template>
@@ -343,6 +343,7 @@
                     qualificationsByBusiness: @json($qualificationsByBusiness),
                     departmentsByBusiness: @json($departmentsByBusiness),
                     titlesByBusiness: @json($titlesByBusiness),
+                    userServicePoints: @json($user->service_points ?? []),
                     filteredServicePoints: [],
                     filteredBranches: [],
                     filteredQualifications: [],
