@@ -174,7 +174,15 @@ class UserController extends Controller
         $servicePoints = \App\Models\ServicePoint::all();
         $contractorProfile = null;
         if (in_array('Contractor', (array) $user->permissions)) {
+            // First try to get an active contractor profile
             $contractorProfile = \App\Models\ContractorProfile::where('user_id', $user->id)->first();
+            
+            // If no active profile, check for soft deleted ones
+            if (!$contractorProfile) {
+                $contractorProfile = \App\Models\ContractorProfile::withTrashed()
+                    ->where('user_id', $user->id)
+                    ->first();
+            }
         }
         // Split name for form
         $nameParts = explode(' ', $user->name, 3);
@@ -250,15 +258,32 @@ class UserController extends Controller
             ]);
             // Contractor profile logic
             if (in_array('Contractor', $validated['permissions_menu'])) {
-                \App\Models\ContractorProfile::updateOrCreate(
-                    ['user_id' => $user->id],
-                    [
+                // Check if there's a soft deleted contractor profile for this user
+                $existingProfile = \App\Models\ContractorProfile::withTrashed()
+                    ->where('user_id', $user->id)
+                    ->first();
+                
+                if ($existingProfile && $existingProfile->trashed()) {
+                    // Restore the soft deleted profile and update it
+                    $existingProfile->restore();
+                    $existingProfile->update([
                         'business_id' => $validated['business_id'],
                         'bank_name' => $validated['bank_name'],
                         'account_name' => $validated['account_name'],
                         'account_number' => $validated['account_number'],
-                    ]
-                );
+                    ]);
+                } else {
+                    // Create new profile or update existing active profile
+                    \App\Models\ContractorProfile::updateOrCreate(
+                        ['user_id' => $user->id],
+                        [
+                            'business_id' => $validated['business_id'],
+                            'bank_name' => $validated['bank_name'],
+                            'account_name' => $validated['account_name'],
+                            'account_number' => $validated['account_number'],
+                        ]
+                    );
+                }
             } else {
                 \App\Models\ContractorProfile::where('user_id', $user->id)->delete();
             }
