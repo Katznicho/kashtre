@@ -720,7 +720,7 @@ class MoneyTrackingService
                         'package_tracking_id' => $packageTracking ? $packageTracking->id : null
                     ]);
                 }
-                // Check if this item is part of a package adjustment (should go to Package Suspense)
+                // Check if this item is part of a package adjustment (should be SKIPPED from suspense movements)
                 elseif ($invoice->package_adjustment > 0) {
                     // Check if this specific item is included in any valid packages
                     $isPackageAdjustmentItem = false;
@@ -741,19 +741,16 @@ class MoneyTrackingService
                     }
                     
                     if ($isPackageAdjustmentItem) {
-                        $destinationAccount = $this->getOrCreatePackageSuspenseAccount($business, $client->id);
-                        $transferDescription = "Package Item - {$item->name} ({$quantity})";
-                        $routingReason = "Item is part of package adjustment";
-                        
-                        Log::info("✅ ITEM ROUTED TO PACKAGE SUSPENSE (PACKAGE ADJUSTMENT)", [
+                        // SKIP package adjustment items - they should not create suspense account entries
+                        Log::info("⏭️ SKIPPING PACKAGE ADJUSTMENT ITEM FROM SUSPENSE MOVEMENTS", [
                             'item_id' => $item->id,
                             'item_name' => $item->name,
                             'item_type' => $item->type,
-                            'destination_account_type' => 'package_suspense_account',
-                            'routing_reason' => $routingReason,
+                            'reason' => 'Package adjustment items should not create suspense account entries',
                             'amount' => $totalAmount,
                             'package_adjustment' => $invoice->package_adjustment
                         ]);
+                        continue; // Skip this item entirely
                     } else {
                         // Not a package adjustment item, route to general suspense
                         $destinationAccount = $this->getOrCreateGeneralSuspenseAccount($business, $client->id);
