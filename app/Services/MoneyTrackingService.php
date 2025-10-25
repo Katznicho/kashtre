@@ -1846,8 +1846,34 @@ class MoneyTrackingService
             ]);
 
             // Handle package adjustment money movement from Package Suspense to final accounts
-            // Process package adjustment when any items are updated (package adjustment is the whole package value)
+            // BUT ONLY if package items were actually updated
+            $hasPackageItemsUpdated = false;
             if ($invoice->package_adjustment > 0 && in_array($itemStatus, ['completed', 'partially_done'])) {
+                // Check if any of the updated items are package items
+                foreach ($items as $itemData) {
+                    $itemId = $itemData['item_id'] ?? null;
+                    if (!$itemId) continue;
+                    
+                    // Check if this item is part of a package adjustment
+                    $validPackages = \App\Models\PackageTracking::where('client_id', $invoice->client_id)
+                        ->where('business_id', $invoice->business_id)
+                        ->where('status', 'active')
+                        ->where('remaining_quantity', '>', 0)
+                        ->get();
+                    
+                    foreach ($validPackages as $packageTracking) {
+                        $packageItems = $packageTracking->packageItem->packageItems;
+                        foreach ($packageItems as $packageItem) {
+                            if ($packageItem->included_item_id == $itemId) {
+                                $hasPackageItemsUpdated = true;
+                                break 3;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if ($invoice->package_adjustment > 0 && in_array($itemStatus, ['completed', 'partially_done']) && $hasPackageItemsUpdated) {
                 Log::info("=== PROCESSING PACKAGE ADJUSTMENT FROM SUSPENSE ===", [
                     'invoice_id' => $invoice->id,
                     'package_adjustment' => $invoice->package_adjustment,
@@ -1897,7 +1923,8 @@ class MoneyTrackingService
                     'invoice_id' => $invoice->id,
                     'package_adjustment' => $invoice->package_adjustment,
                     'item_status' => $itemStatus,
-                    'reason' => 'No items were updated or package adjustment is zero'
+                    'has_package_items_updated' => $hasPackageItemsUpdated,
+                    'reason' => 'No package items were updated or package adjustment is zero'
                 ]);
             }
 
