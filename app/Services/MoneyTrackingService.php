@@ -3466,7 +3466,8 @@ class MoneyTrackingService
             }
 
             // Process General Suspense Account - Create individual records for each item
-            if ($generalSuspenseAccount->balance > 0) {
+            // BUT ONLY if there are no package items being consumed (package items should not be in general suspense)
+            if ($generalSuspenseAccount->balance > 0 && !$hasPackageItemsBeingConsumed) {
                 Log::info("📦 === SAVE & EXIT: PROCESSING GENERAL SUSPENSE ACCOUNT ===", [
                     'balance' => $generalSuspenseAccount->balance,
                     'account_name' => $generalSuspenseAccount->name,
@@ -3558,6 +3559,13 @@ class MoneyTrackingService
                 Log::info("✅ SAVE & EXIT: General Suspense processed", [
                     'total_amount_transferred' => $generalSuspenseAccount->balance,
                     'individual_transfers' => count($generalTransfers)
+                ]);
+            } else {
+                Log::info("⏭️ SAVE & EXIT: SKIPPING GENERAL SUSPENSE - Package items being consumed", [
+                    'general_suspense_balance' => $generalSuspenseAccount->balance,
+                    'has_package_items_being_consumed' => $hasPackageItemsBeingConsumed,
+                    'package_items_found' => $packageItemsFound,
+                    'decision_reason' => 'Package items should not be processed in general suspense'
                 ]);
             }
 
