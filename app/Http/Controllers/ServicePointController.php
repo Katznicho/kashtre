@@ -407,7 +407,7 @@ class ServicePointController extends Controller
                     ->with(['item', 'invoice'])
                     ->first();
 
-                if ($item && in_array($status, ['partially_done', 'completed'])) {
+                if ($item && in_array($status, ['partially_done', 'completed']) && $item->status !== $status) {
                     // Set the invoice if not already set
                     if (!$invoice) {
                         $invoice = $item->invoice;

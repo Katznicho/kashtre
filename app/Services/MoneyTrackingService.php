@@ -3479,10 +3479,35 @@ class MoneyTrackingService
                 
                 // Get individual money transfers from general suspense to create separate records
                 // Filter by credit records (money coming into suspense) that haven't been moved yet
+                // BUT ONLY for items that were actually updated (have status changes)
                 $generalTransfers = \App\Models\MoneyTransfer::where('to_account_id', $generalSuspenseAccount->id)
                     ->where('type', 'credit')
                     ->where('money_moved_to_final_account', false)
                     ->get();
+                
+                // Filter transfers to only include items that were actually updated
+                $updatedItemIds = [];
+                foreach ($items as $itemData) {
+                    if (isset($itemData['id'])) {
+                        $updatedItemIds[] = $itemData['id'];
+                    }
+                }
+                
+                Log::info("🔍 === SAVE & EXIT: FILTERING TRANSFERS BY UPDATED ITEMS ===", [
+                    'updated_item_ids' => $updatedItemIds,
+                    'total_transfers_before_filter' => $generalTransfers->count(),
+                    'items_being_processed' => $items
+                ]);
+                
+                // Only process transfers for items that were actually updated
+                $generalTransfers = $generalTransfers->filter(function($transfer) use ($updatedItemIds) {
+                    return $transfer->item_id && in_array($transfer->item_id, $updatedItemIds);
+                });
+                
+                Log::info("✅ === SAVE & EXIT: FILTERED TRANSFERS RESULT ===", [
+                    'transfers_after_filter' => $generalTransfers->count(),
+                    'filtered_transfer_ids' => $generalTransfers->pluck('id')->toArray()
+                ]);
 
                 foreach ($generalTransfers as $transfer) {
                     // Get the item information for proper description
