@@ -319,14 +319,15 @@ class ServicePointController extends Controller
         
         try {
             $request->validate([
-                'item_statuses' => 'required|array',
+                'item_statuses' => 'nullable|array',
                 'item_statuses.*' => 'required|in:pending,partially_done,completed'
             ]);
 
-            $itemStatuses = $request->input('item_statuses');
+            $itemStatuses = $request->input('item_statuses', []);
 
             // Additional validation: Check for status reversals (unidirectional flow)
-            foreach ($itemStatuses as $itemId => $status) {
+            if (!empty($itemStatuses)) {
+                foreach ($itemStatuses as $itemId => $status) {
                 $item = \App\Models\ServiceDeliveryQueue::find($itemId);
                 if ($item) {
                     // Prevent going backwards in status progression
@@ -354,6 +355,7 @@ class ServicePointController extends Controller
                         ], 422);
                     }
                 }
+            }
             }
             $updatedCount = 0;
             $moneyMovementCount = 0;

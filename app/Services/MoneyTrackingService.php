@@ -3488,8 +3488,8 @@ class MoneyTrackingService
                 // Filter transfers to only include items that were actually updated
                 $updatedItemIds = [];
                 foreach ($items as $itemData) {
-                    if (isset($itemData['id'])) {
-                        $updatedItemIds[] = $itemData['id'];
+                    if (isset($itemData['item_id'])) {
+                        $updatedItemIds[] = $itemData['item_id'];
                     }
                 }
                 
