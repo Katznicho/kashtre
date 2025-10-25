@@ -238,7 +238,7 @@
                 @endif
 
                 <!-- Branch-Specific Attributes Table -->
-                @if($item->branchPrices->count() > 0)
+                @if($item->branchPrices->count() > 0 || $item->branchServicePoints->count() > 0)
                 <div class="mt-6">
                     <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b pb-2 mb-4">Branch-Specific Attributes</h3>
                     <div class="overflow-x-auto">
@@ -253,25 +253,64 @@
                                 </tr>
                             </thead>
                             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                @foreach($item->branchPrices as $branchPrice)
-                                @if($branchPrice->branch)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                                        {{ $branchPrice->branch->name ?? 'N/A' }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                        <span class="font-semibold">UGX {{ number_format($branchPrice->price, 2) }}</span>
-                                        @if($branchPrice->price != $item->default_price)
-                                            <span class="ml-2 text-xs {{ $branchPrice->price > $item->default_price ? 'text-red-600' : 'text-green-600' }}">
-                                                ({{ $branchPrice->price > $item->default_price ? '+' : '' }}{{ number_format((($branchPrice->price - $item->default_price) / $item->default_price) * 100, 1) }}%)
+                                @if($item->branchPrices->count() > 0)
+                                    @foreach($item->branchPrices as $branchPrice)
+                                    @if($branchPrice->branch)
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                                            {{ $branchPrice->branch->name ?? 'N/A' }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                            <span class="font-semibold">UGX {{ number_format($branchPrice->price, 2) }}</span>
+                                            @if($branchPrice->price != $item->default_price)
+                                                <span class="ml-2 text-xs {{ $branchPrice->price > $item->default_price ? 'text-red-600' : 'text-green-600' }}">
+                                                    ({{ $branchPrice->price > $item->default_price ? '+' : '' }}{{ number_format((($branchPrice->price - $item->default_price) / $item->default_price) * 100, 1) }}%)
+                                                </span>
+                                            @endif
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                            @php
+                                                $branchServicePoints = $item->branchServicePoints->where('branch_id', $branchPrice->branch_id);
+                                            @endphp
+                                            @if($branchServicePoints->count() > 0)
+                                                <div class="space-y-1">
+                                                    @foreach($branchServicePoints as $branchServicePoint)
+                                                        <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                                            {{ $branchServicePoint->servicePoint->name ?? 'N/A' }}
+                                                        </span>
+                                                    @endforeach
+                                                </div>
+                                            @else
+                                                <span class="text-gray-400 text-xs">No service points assigned</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                                Active
                                             </span>
-                                        @endif
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                        @php
-                                            $branchServicePoints = $item->branchServicePoints->where('branch_id', $branchPrice->branch_id);
-                                        @endphp
-                                        @if($branchServicePoints->count() > 0)
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                            {{ $branchPrice->updated_at->format('M d, Y H:i') }}
+                                        </td>
+                                    </tr>
+                                    @endif
+                                    @endforeach
+                                @else
+                                    @php
+                                        $filteredBranchServicePoints = $item->branchServicePoints->filter(function($bsp) use ($item) {
+                                            return $bsp->business_id == $item->business_id;
+                                        });
+                                    @endphp
+                                    @foreach($filteredBranchServicePoints->groupBy('branch_id') as $branchId => $branchServicePoints)
+                                    @if($branchServicePoints->first()->branch)
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                                            {{ $branchServicePoints->first()->branch->name ?? 'N/A' }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                            <span class="text-gray-400 text-xs">No branch-specific price</span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                                             <div class="space-y-1">
                                                 @foreach($branchServicePoints as $branchServicePoint)
                                                     <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
@@ -279,21 +318,19 @@
                                                     </span>
                                                 @endforeach
                                             </div>
-                                        @else
-                                            <span class="text-gray-400 text-xs">No service points assigned</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                                            Active
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                        {{ $branchPrice->updated_at->format('M d, Y H:i') }}
-                                    </td>
-                                </tr>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                                Active
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                            {{ $branchServicePoints->first()->updated_at->format('M d, Y H:i') }}
+                                        </td>
+                                    </tr>
+                                    @endif
+                                    @endforeach
                                 @endif
-                                @endforeach
                             </tbody>
                         </table>
                     </div>

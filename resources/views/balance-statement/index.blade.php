@@ -47,7 +47,7 @@
                     <div class="ml-4">
                         <h3 class="text-lg font-semibold text-gray-900">Total Balance</h3>
                         <p class="text-2xl font-bold text-green-600">
-                            UGX {{ number_format($balanceHistories->where('change_amount', '>', 0)->sum('change_amount'), 2) }}
+                            UGX {{ number_format($balanceHistories->where('change_amount', '>', 0)->where('transaction_type', '!=', 'package')->sum('change_amount') - abs($balanceHistories->where('change_amount', '<', 0)->where('transaction_type', '!=', 'package')->sum('change_amount')), 2) }}
                         </p>
                     </div>
                 </div>

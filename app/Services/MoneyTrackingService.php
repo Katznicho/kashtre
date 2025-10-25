@@ -3664,35 +3664,158 @@ class MoneyTrackingService
                         $description = "{$item->name} (x1)";
                     }
 
-                    // Create individual transfer to business account (as debit)
-                    $finalTransfer = $this->transferMoney(
-                        $generalSuspenseAccount,
-                        $businessAccount,
-                        $transfer->amount,
-                        'suspense_to_final',
-                        $invoice,
-                        $item,
-                        $description,
-                        null,
-                        'debit'
-                    );
+                    // Check if item has hospital share and contractor
+                    if ($item && $item->contractor_account_id && $item->hospital_share < 100) {
+                        Log::info("=== PROCESSING HOSPITAL SHARE FOR SAVE & EXIT ===", [
+                            'item_id' => $item->id,
+                            'item_name' => $item->name,
+                            'total_amount' => $transfer->amount,
+                            'hospital_share' => $item->hospital_share,
+                            'contractor_account_id' => $item->contractor_account_id
+                        ]);
+
+                        // Calculate shares
+                        $contractorShare = ($transfer->amount * (100 - $item->hospital_share)) / 100;
+                        $businessShare = $transfer->amount - $contractorShare;
+
+                        Log::info("Hospital share calculation", [
+                            'total_amount' => $transfer->amount,
+                            'hospital_share_percentage' => $item->hospital_share,
+                            'contractor_share_percentage' => 100 - $item->hospital_share,
+                            'contractor_share_amount' => $contractorShare,
+                            'business_share_amount' => $businessShare
+                        ]);
+
+                        // First, transfer full amount from suspense to business account
+                        $finalTransfer = $this->transferMoney(
+                            $generalSuspenseAccount,
+                            $businessAccount,
+                            $transfer->amount,
+                            'suspense_to_final',
+                            $invoice,
+                            $item,
+                            $description,
+                            null,
+                            'debit'
+                        );
+
+                        // Then transfer contractor share from business to contractor
+                        $contractor = \App\Models\ContractorProfile::find($item->contractor_account_id);
+                        if ($contractor) {
+                            $contractorAccount = $this->getOrCreateContractorAccount($contractor);
+                            
+                            $contractorTransfer = $this->transferMoney(
+                                $businessAccount,
+                                $contractorAccount,
+                                $contractorShare,
+                                'contractor_share',
+                                $invoice,
+                                $item,
+                                "Contractor share for {$item->name}",
+                                null,
+                                'debit'
+                            );
+
+                            // Record contractor balance statement
+                            \App\Models\ContractorBalanceHistory::recordChange(
+                                $contractor->id,
+                                $contractorAccount->id,
+                                $contractorShare,
+                                'credit',
+                                "Contractor share for {$item->name} (x1)",
+                                'invoice',
+                                $invoice->id,
+                                [
+                                    'invoice_number' => $invoice->invoice_number,
+                                    'item_name' => $item->name,
+                                    'description' => "Contractor share for item: {$item->name}"
+                                ]
+                            );
+
+                            // Record business balance statement for contractor share payment
+                            \App\Models\BusinessBalanceHistory::recordChange(
+                                $business->id,
+                                $businessAccount->id,
+                                $contractorShare,
+                                'debit',
+                                "Contractor share payment for {$item->name} (x1)",
+                                'invoice',
+                                $invoice->id,
+                                [
+                                    'invoice_number' => $invoice->invoice_number,
+                                    'item_name' => $item->name,
+                                    'contractor_id' => $contractor->id,
+                                    'description' => "Contractor share payment for item: {$item->name}"
+                                ]
+                            );
+
+                            // Update contractor account balance
+                            $contractor->increment('account_balance', $contractorShare);
+
+                            // Sync with money account if it exists
+                            if ($contractor->moneyAccount) {
+                                $contractor->moneyAccount->credit($contractorShare);
+                            }
+
+                            Log::info("Contractor share processed", [
+                                'contractor_id' => $contractor->id,
+                                'contractor_name' => $contractor->name,
+                                'contractor_share_amount' => $contractorShare,
+                                'contractor_new_balance' => $contractor->fresh()->account_balance
+                            ]);
+                        }
+
+                        // Business has already been credited with the full amount during initial processing
+                        // No need to credit again here - the contractor share debit is sufficient
+
+                        $transferRecords[] = [
+                            'item_name' => $item->name,
+                            'amount' => $transfer->amount,
+                            'business_share' => $businessShare,
+                            'contractor_share' => $contractorShare,
+                            'source_suspense' => $generalSuspenseAccount->name,
+                            'destination' => $businessAccount->name,
+                            'transfer_id' => $finalTransfer->id
+                        ];
+
+                        Log::info("✅ SAVE & EXIT: Hospital share item processed", [
+                            'item_name' => $item->name,
+                            'total_amount' => $transfer->amount,
+                            'business_share' => $businessShare,
+                            'contractor_share' => $contractorShare,
+                            'transfer_id' => $finalTransfer->id
+                        ]);
+                    } else {
+                        // No hospital share - transfer full amount to business account
+                        $finalTransfer = $this->transferMoney(
+                            $generalSuspenseAccount,
+                            $businessAccount,
+                            $transfer->amount,
+                            'suspense_to_final',
+                            $invoice,
+                            $item,
+                            $description,
+                            null,
+                            'debit'
+                        );
+
+                        $transferRecords[] = [
+                            'item_name' => $item ? $item->name : 'General Item',
+                            'amount' => $transfer->amount,
+                            'source_suspense' => $generalSuspenseAccount->name,
+                            'destination' => $businessAccount->name,
+                            'transfer_id' => $finalTransfer->id
+                        ];
+
+                        Log::info("✅ SAVE & EXIT: Regular item processed", [
+                            'item_name' => $item ? $item->name : 'Unknown',
+                            'amount_transferred' => $transfer->amount,
+                            'transfer_id' => $finalTransfer->id
+                        ]);
+                    }
 
                     $finalTransfer->markMoneyMovedToFinalAccount();
                     $transfer->markMoneyMovedToFinalAccount();
-
-                    $transferRecords[] = [
-                        'item_name' => $item ? $item->name : 'General Item',
-                        'amount' => $transfer->amount,
-                        'source_suspense' => $generalSuspenseAccount->name,
-                        'destination' => $businessAccount->name,
-                        'transfer_id' => $finalTransfer->id
-                    ];
-
-                    Log::info("✅ SAVE & EXIT: Individual general item processed", [
-                        'item_name' => $item ? $item->name : 'Unknown',
-                        'amount_transferred' => $transfer->amount,
-                        'transfer_id' => $finalTransfer->id
-                    ]);
                 }
                 
                 // Mark the suspense account as moved
@@ -3742,7 +3865,7 @@ class MoneyTrackingService
                     ->first();
                 
                 $trackingNumber = $packageTracking ? $packageTracking->tracking_number : 'N/A';
-                $description = "Service Fee Transfer from Invoice {$invoice->invoice_number} (Ref: {$trackingNumber})";
+                $description = "Service Fee Transfer from Invoice {$invoice->invoice_number}";
                 
                 $transfer = $this->transferMoney(
                     $kashtreSuspenseAccount,
