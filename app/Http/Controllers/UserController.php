@@ -174,15 +174,10 @@ class UserController extends Controller
         $servicePoints = \App\Models\ServicePoint::all();
         $contractorProfile = null;
         if (in_array('Contractor', (array) $user->permissions)) {
-            // First try to get an active contractor profile
-            $contractorProfile = \App\Models\ContractorProfile::where('user_id', $user->id)->first();
-            
-            // If no active profile, check for soft deleted ones
-            if (!$contractorProfile) {
-                $contractorProfile = \App\Models\ContractorProfile::withTrashed()
-                    ->where('user_id', $user->id)
-                    ->first();
-            }
+            // Get the single contractor profile for this user (active or soft deleted)
+            $contractorProfile = \App\Models\ContractorProfile::withTrashed()
+                ->where('user_id', $user->id)
+                ->first();
         }
         // Split name for form
         $nameParts = explode(' ', $user->name, 3);
@@ -258,33 +253,21 @@ class UserController extends Controller
             ]);
             // Contractor profile logic
             if (in_array('Contractor', $validated['permissions_menu'])) {
-                // Check if there's a soft deleted contractor profile for this user
-                $existingProfile = \App\Models\ContractorProfile::withTrashed()
+                // First, remove any existing contractor profiles (both active and soft deleted) to prevent duplicates
+                \App\Models\ContractorProfile::withTrashed()
                     ->where('user_id', $user->id)
-                    ->first();
+                    ->forceDelete();
                 
-                if ($existingProfile && $existingProfile->trashed()) {
-                    // Restore the soft deleted profile and update it
-                    $existingProfile->restore();
-                    $existingProfile->update([
-                        'business_id' => $validated['business_id'],
-                        'bank_name' => $validated['bank_name'],
-                        'account_name' => $validated['account_name'],
-                        'account_number' => $validated['account_number'],
-                    ]);
-                } else {
-                    // Create new profile or update existing active profile
-                    \App\Models\ContractorProfile::updateOrCreate(
-                        ['user_id' => $user->id],
-                        [
-                            'business_id' => $validated['business_id'],
-                            'bank_name' => $validated['bank_name'],
-                            'account_name' => $validated['account_name'],
-                            'account_number' => $validated['account_number'],
-                        ]
-                    );
-                }
+                // Create a single new contractor profile
+                \App\Models\ContractorProfile::create([
+                    'user_id' => $user->id,
+                    'business_id' => $validated['business_id'],
+                    'bank_name' => $validated['bank_name'],
+                    'account_name' => $validated['account_name'],
+                    'account_number' => $validated['account_number'],
+                ]);
             } else {
+                // Soft delete contractor profile when user doesn't have contractor permissions
                 \App\Models\ContractorProfile::where('user_id', $user->id)->delete();
             }
             return redirect()->route('users.index')->with('success', 'User updated successfully.');
