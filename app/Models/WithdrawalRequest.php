@@ -264,7 +264,7 @@ class WithdrawalRequest extends Model
         if ($currentLevel === 'business') {
             // Check if user is assigned to the current business step
             $stepApprovalLevel = $this->getStepApprovalLevel($currentStep);
-            return $withdrawalSetting->businessApprovers()
+            return $withdrawalSetting->allBusinessApprovers()
                 ->where('approver_id', $user->id)
                 ->where('approver_type', 'user')
                 ->where('approval_level', $stepApprovalLevel)
@@ -272,7 +272,7 @@ class WithdrawalRequest extends Model
         } elseif ($currentLevel === 'kashtre') {
             // Check if user is assigned to the current kashtre step
             $stepApprovalLevel = $this->getStepApprovalLevel($currentStep);
-            return $withdrawalSetting->kashtreApprovers()
+            return $withdrawalSetting->allKashtreApprovers()
                 ->where('approver_id', $user->id)
                 ->where('approver_type', 'user')
                 ->where('approval_level', $stepApprovalLevel)
@@ -282,7 +282,7 @@ class WithdrawalRequest extends Model
         return false;
     }
 
-    private function getStepApprovalLevel($step)
+    public function getStepApprovalLevel($step)
     {
         return match($step) {
             1 => 'initiator',
@@ -336,6 +336,9 @@ class WithdrawalRequest extends Model
                 $this->kashtre_approved_at = now();
                 $this->approved_at = now();
                 $this->save();
+                
+                // Process the withdrawal automatically
+                $this->processWithdrawal();
             }
         }
     }
@@ -426,5 +429,23 @@ class WithdrawalRequest extends Model
             'failed' => 'Failed',
             default => ucfirst($this->status),
         };
+    }
+
+    /**
+     * Process the withdrawal when fully approved
+     */
+    public function processWithdrawal()
+    {
+        try {
+            $withdrawalService = app(\App\Services\WithdrawalProcessingService::class);
+            return $withdrawalService->processWithdrawal($this);
+        } catch (\Exception $e) {
+            \Log::error("Failed to process withdrawal automatically", [
+                'withdrawal_request_id' => $this->id,
+                'uuid' => $this->uuid,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
     }
 }

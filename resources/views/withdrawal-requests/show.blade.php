@@ -50,48 +50,20 @@
                             <h4 class="font-semibold text-gray-900 mb-2">Amount Details</h4>
                             <div class="space-y-2">
                                 @php
-                                    // Calculate the actual charge and amount from related requests
-                                    $actualCharge = 0;
+                                    // Use withdrawal_charge directly from the request (single entry approach)
+                                    $actualCharge = $withdrawalRequest->withdrawal_charge ?? 0;
                                     $actualAmount = $withdrawalRequest->amount;
-                                    $totalDeduction = $withdrawalRequest->amount;
-                                    
-                                    if ($withdrawalRequest->request_type === 'charge') {
-                                        $actualCharge = $withdrawalRequest->amount;
-                                        // Get the related amount request
-                                        $relatedRequest = $withdrawalRequest->relatedRequest;
-                                        if ($relatedRequest && $relatedRequest->request_type === 'amount') {
-                                            $actualAmount = $relatedRequest->amount;
-                                            $totalDeduction = $actualAmount + $actualCharge;
-                                        }
-                                    } elseif ($withdrawalRequest->request_type === 'amount') {
-                                        // Get the related charge request
-                                        $relatedRequest = $withdrawalRequest->relatedRequest;
-                                        if ($relatedRequest && $relatedRequest->request_type === 'charge') {
-                                            $actualCharge = $relatedRequest->amount;
-                                            $totalDeduction = $actualAmount + $actualCharge;
-                                        }
-                                    }
+                                    $totalDeduction = $actualAmount + $actualCharge;
                                 @endphp
                                 
-                                @if($withdrawalRequest->request_type === 'charge')
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-600">Withdrawal Charge:</span>
-                                        <span class="font-semibold text-red-600">{{ number_format($actualCharge, 2) }} UGX</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-600">Related Amount:</span>
-                                        <span class="font-semibold">{{ number_format($actualAmount, 2) }} UGX</span>
-                                    </div>
-                                @else
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-600">Requested Amount:</span>
-                                        <span class="font-semibold">{{ number_format($actualAmount, 2) }} UGX</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-600">Withdrawal Charge:</span>
-                                        <span class="font-semibold text-red-600">{{ number_format($actualCharge, 2) }} UGX</span>
-                                    </div>
-                                @endif
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Requested Amount:</span>
+                                    <span class="font-semibold">{{ number_format($actualAmount, 2) }} UGX</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Withdrawal Charge:</span>
+                                    <span class="font-semibold text-red-600">{{ number_format($actualCharge, 2) }} UGX</span>
+                                </div>
                                 
                                 <div class="flex justify-between border-t pt-2">
                                     <span class="text-gray-900 font-semibold">Total Deduction:</span>
@@ -107,10 +79,6 @@
                                 <div>
                                     <span class="text-gray-600">Type:</span>
                                     <span class="font-semibold">{{ ucfirst($withdrawalRequest->withdrawal_type) }}</span>
-                                </div>
-                                <div>
-                                    <span class="text-gray-600">Request Type:</span>
-                                    <span class="font-semibold">{{ ucfirst($withdrawalRequest->request_type ?? 'N/A') }}</span>
                                 </div>
                                 <div>
                                     <span class="text-gray-600">Requested By:</span>
@@ -231,13 +199,12 @@
                                     // Get actual approvals for this request
                                     $actualApprovals = $withdrawalRequest->approvals()->with('approver')->get();
                                     
-                                    // Count actual business approvals (excluding initiator and Kashtre users)
-                                    $actualBusinessApprovals = $actualApprovals->where('approver_type', 'user')
-                                        ->where('approver.business_id', '!=', 1)
+                                    // Count actual business approvals (business users only, excluding Kashtre)
+                                    // This includes the initiator's approval record if they auto-approved
+                                    $totalBusinessApprovals = $actualApprovals->where('approver_type', 'user')
+                                        ->where('approver_level', 'business')
+                                        ->where('action', 'approved')
                                         ->count();
-                                    
-                                    // Total business approvals = initiator (always 1) + actual approvals
-                                    $totalBusinessApprovals = 1 + $actualBusinessApprovals;
                                 @endphp
                                 <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                     <span class="text-sm text-gray-600">Approvals Received:</span>
@@ -298,9 +265,10 @@
                             <h4 class="font-semibold text-gray-900 mb-3">Kashtre Approval</h4>
                             <div class="space-y-2">
                                 @php
-                                    // Count actual kashtre approvals (only Kashtre users)
+                                    // Count actual kashtre approvals (Kashtre level only)
                                     $actualKashtreApprovals = $actualApprovals->where('approver_type', 'user')
-                                        ->where('approver.business_id', 1)
+                                        ->where('approver_level', 'kashtre')
+                                        ->where('action', 'approved')
                                         ->count();
                                 @endphp
                                 <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -374,7 +342,7 @@
                         <div class="bg-gray-200 rounded-full h-2">
                             @php
                                 $totalApprovals = $withdrawalRequest->required_business_approvals + $withdrawalRequest->required_kashtre_approvals;
-                                // Include initiator in business approvals count
+                                // Count all actual approval records (already includes initiator's approval)
                                 $receivedApprovals = $totalBusinessApprovals + $actualKashtreApprovals;
                                 $progress = $totalApprovals > 0 ? ($receivedApprovals / $totalApprovals) * 100 : 0;
                             @endphp
@@ -390,15 +358,18 @@
                         
                         // Check if user can approve this request using new step-by-step logic
                         if (in_array($withdrawalRequest->status, ['pending', 'business_approved'])) {
-                            // Prevent users from approving their own requests
-                            if ($withdrawalRequest->created_by != $user->id) {
-                                $canApprove = $withdrawalRequest->canUserApproveAtCurrentStep($user);
-                            }
+                            // User can approve if they are assigned to the current step (even if they created it)
+                            $canApprove = $withdrawalRequest->canUserApproveAtCurrentStep($user);
                         }
                         
-                        // Check if user has already approved this request
+                        // Check if user has already approved this request at the current step
+                        $currentStep = $withdrawalRequest->getCurrentStepNumber();
+                        $currentLevel = $withdrawalRequest->getCurrentApprovalLevel();
                         $userHasApproved = \App\Models\WithdrawalRequestApproval::where('withdrawal_request_id', $withdrawalRequest->id)
                             ->where('approver_id', $user->id)
+                            ->where('approval_step', $currentStep)
+                            ->where('approver_level', $currentLevel)
+                            ->where('action', 'approved')
                             ->exists();
                     @endphp
 

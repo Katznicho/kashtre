@@ -215,6 +215,23 @@ Route::get('/kashtre-balance-statement/show', [BusinessBalanceHistoryController:
 // Contractor Balance Statement Routes
 Route::get('/contractor-balance-statement', [ContractorBalanceHistoryController::class, 'index'])->name('contractor-balance-statement.index');
 Route::get('/contractor-balance-statement/{contractorProfile}', [ContractorBalanceHistoryController::class, 'show'])->name('contractor-balance-statement.show');
+
+// Contractor Withdrawal Request Routes
+Route::get('/contractor-withdrawal-requests/{contractorProfile}', [App\Http\Controllers\ContractorWithdrawalRequestController::class, 'index'])->name('contractor-withdrawal-requests.index');
+Route::get('/contractor-withdrawal-requests/create/{contractorProfile}', [App\Http\Controllers\ContractorWithdrawalRequestController::class, 'create'])->name('contractor-withdrawal-requests.create');
+Route::post('/contractor-withdrawal-requests/{contractorProfile}', [App\Http\Controllers\ContractorWithdrawalRequestController::class, 'store'])->name('contractor-withdrawal-requests.store');
+Route::get('/contractor-withdrawal-requests/show/{contractorWithdrawalRequest}', [App\Http\Controllers\ContractorWithdrawalRequestController::class, 'show'])->name('contractor-withdrawal-requests.show');
+Route::post('/contractor-withdrawal-requests/{contractorWithdrawalRequest}/approve', [App\Http\Controllers\ContractorWithdrawalRequestController::class, 'approve'])->name('contractor-withdrawal-requests.approve');
+Route::post('/contractor-withdrawal-requests/{contractorWithdrawalRequest}/reject', [App\Http\Controllers\ContractorWithdrawalRequestController::class, 'reject'])->name('contractor-withdrawal-requests.reject');
+
+// Finance - Withdrawal Requests (Kashtre)
+Route::get('/finance/withdrawals', function () {
+    // Only accessible to Kashtre and authenticated users
+    if (!auth()->check()) {
+        abort(403);
+    }
+    return view('finance.withdrawals.index');
+})->name('finance.withdrawals.index');
 Route::get('/balance-statement/{clientId}/json', [BalanceHistoryController::class, 'getBalanceHistory'])->name('balance-statement.json');
 
 Route::get('/invoices/generate-number', [InvoiceController::class, 'generateInvoiceNumber'])->name('invoices.generate-number');

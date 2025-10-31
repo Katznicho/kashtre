@@ -4,10 +4,16 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ $contractorProfile->user->name ?? 'Contractor' }} - Balance Statement
             </h2>
-            <a href="{{ route('contractor-balance-statement.index') }}" 
-               class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
-                Back to All Contractors
-            </a>
+            <div class="flex items-center space-x-3">
+                <a href="{{ route('contractor-withdrawal-requests.create', $contractorProfile) }}"
+                   class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                    Request New Withdrawal
+                </a>
+                <a href="{{ route('contractor-balance-statement.index') }}" 
+                   class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+                    Back to All Contractors
+                </a>
+            </div>
         </div>
     </x-slot>
 
@@ -34,7 +40,7 @@
                                 <div class="ml-4">
                                     <h3 class="text-lg font-semibold text-gray-900">Available Balance</h3>
                                     <p class="text-2xl font-bold text-blue-600">
-                                        UGX {{ number_format($contractorBalanceHistories->where('type', 'credit')->sum('amount') - $contractorBalanceHistories->where('type', 'debit')->sum('amount'), 2) }}
+                                        UGX {{ number_format($availableBalance, 2) }}
                                     </p>
                                 </div>
                             </div>
@@ -51,7 +57,7 @@
                                 <div class="ml-4">
                                     <h3 class="text-lg font-semibold text-gray-900">Total Balance</h3>
                                     <p class="text-2xl font-bold text-green-600">
-                                        UGX {{ number_format($contractorBalanceHistories->where('type', 'credit')->sum('amount'), 2) }}
+                                        UGX {{ number_format($availableBalance, 2) }}
                                     </p>
                                 </div>
                             </div>
@@ -68,7 +74,7 @@
                                 <div class="ml-4">
                                     <h3 class="text-lg font-semibold text-gray-900">Total Debits</h3>
                                     <p class="text-2xl font-bold text-red-600">
-                                        UGX {{ number_format($contractorBalanceHistories->where('type', 'debit')->sum('amount'), 2) }}
+                                        UGX {{ number_format($totalDebits, 2) }}
                                     </p>
                                 </div>
                             </div>
@@ -117,9 +123,18 @@
                                                 <div class="max-w-xs">
                                                     @php
                                                         $description = $history->description;
+                                                        $referenceNumber = null;
                                                         
-                                                        // Simplify descriptions for statements
-                                                        if (str_contains($description, 'Payment received via mobile_money')) {
+                                                        // Handle Contractor Withdrawal entries
+                                                        if (str_contains($description, 'Contractor Withdrawal') || $history->reference_type === 'contractor_withdrawal') {
+                                                            $description = 'Contractor Withdrawal';
+                                                            // Get UUID from metadata or description
+                                                            if ($history->metadata && isset($history->metadata['contractor_uuid'])) {
+                                                                $referenceNumber = $history->metadata['contractor_uuid'];
+                                                            } elseif (preg_match('/Contractor Withdrawal - ([a-f0-9-]+)/i', $history->description, $matches)) {
+                                                                $referenceNumber = $matches[1];
+                                                            }
+                                                        } elseif (str_contains($description, 'Payment received via mobile_money')) {
                                                             $description = 'Mobile Money';
                                                         } elseif (str_contains($description, 'Payment received for invoice')) {
                                                             $description = 'Invoice';
@@ -156,6 +171,15 @@
                                                         } elseif (str_contains($description, 'Service Charge')) {
                                                             $description = 'Service Fee';
                                                         }
+                                                        
+                                                        // If no reference number found yet, try to get from metadata
+                                                        if (!$referenceNumber && $history->metadata) {
+                                                            if (isset($history->metadata['contractor_uuid'])) {
+                                                                $referenceNumber = $history->metadata['contractor_uuid'];
+                                                            } elseif (isset($history->metadata['invoice_number'])) {
+                                                                $referenceNumber = $history->metadata['invoice_number'];
+                                                            }
+                                                        }
                                                     @endphp
                                                     {{ $description }}
                                                 </div>
@@ -170,7 +194,7 @@
                                                 @endif
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {{ $history->reference_number ?? 'N/A' }}
+                                                {{ $referenceNumber ?? ($history->reference_number ?? 'N/A') }}
                                             </td>
                                         </tr>
                                     @empty
@@ -191,17 +215,75 @@
                         @endif
                     </div>
 
-                    <!-- Navigation -->
-                    <div class="mt-8 flex justify-between">
-                        <a href="{{ route('dashboard') }}" 
-                           class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
-                            Back to Dashboard
-                        </a>
+                    <!-- Quick Actions Section -->
+                    <div class="mt-8 bg-gray-50 rounded-lg p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
                         
-                        <a href="{{ route('contractor-balance-statement.index') }}" 
-                           class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
-                            View All Contractors
-                        </a>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Withdrawal Requests Summary -->
+                            <div class="bg-white rounded-lg p-4 border border-gray-200">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-md font-medium text-gray-900">Withdrawal Requests</h4>
+                                    @if($pendingWithdrawalCount > 0)
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                            {{ $pendingWithdrawalCount }} Pending
+                                        </span>
+                                    @endif
+                                </div>
+                                
+                                @if($recentWithdrawalRequests->count() > 0)
+                                    <div class="space-y-2">
+                                        @foreach($recentWithdrawalRequests as $request)
+                                            <div class="flex items-center justify-between text-sm">
+                                                <div>
+                                                    <span class="font-medium">UGX {{ number_format($request->amount, 2) }}</span>
+                                                    <span class="text-gray-500 ml-2">{{ $request->created_at->format('M d, Y') }}</span>
+                                                </div>
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                                                    @if($request->status === 'completed') bg-green-100 text-green-800
+                                                    @elseif($request->status === 'rejected') bg-red-100 text-red-800
+                                                    @elseif(in_array($request->status, ['pending', 'business_approved', 'kashtre_approved', 'approved', 'processing'])) bg-yellow-100 text-yellow-800
+                                                    @else bg-gray-100 text-gray-800
+                                                    @endif">
+                                                    {{ $request->getStatusLabel() }}
+                                                </span>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    
+                                    <div class="mt-3 pt-3 border-t border-gray-200">
+                                        <a href="{{ route('contractor-withdrawal-requests.index', $contractorProfile) }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                            View All Withdrawal Requests →
+                                        </a>
+                                    </div>
+                                @else
+                                    <p class="text-gray-500 text-sm">No withdrawal requests yet</p>
+                                @endif
+                            </div>
+                            
+                            <!-- Action Buttons -->
+                            <div class="bg-white rounded-lg p-4 border border-gray-200">
+                                <h4 class="text-md font-medium text-gray-900 mb-3">Actions</h4>
+                                
+                                <div class="space-y-3">
+                                    @if(($availableBalance ?? 0) > 0)
+                                        <a href="{{ route('contractor-withdrawal-requests.create', $contractorProfile) }}" 
+                                           class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors text-center block">
+                                            Request New Withdrawal
+                                        </a>
+                                    @else
+                                        <div class="w-full bg-gray-300 text-gray-500 px-4 py-2 rounded-lg text-center">
+                                            No Balance Available
+                                        </div>
+                                    @endif
+                                    
+                                    <a href="{{ route('dashboard') }}" 
+                                       class="w-full bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors text-center block">
+                                        Back to Dashboard
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -10,6 +10,7 @@ use App\Models\Business;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class WithdrawalRequestController extends Controller
 {
@@ -138,48 +139,79 @@ class WithdrawalRequestController extends Controller
 
             // Calculate withdrawal charge
             $withdrawalCharge = $this->calculateWithdrawalCharge($request->amount, $user->business_id);
+            Log::info('WR Create - charge calculated', [
+                'business_id' => $user->business_id,
+                'amount' => (float) $request->amount,
+                'computed_charge' => (float) $withdrawalCharge,
+                'user_id' => $user->id,
+            ]);
             
-            // Total amount that will be deducted from balance (amount + charge)
+            // Total to be deducted from balance is amount + charge (handled at processing)
             $totalDeduction = $request->amount + $withdrawalCharge;
 
-            // Generate a unique transaction reference for linking the two requests
-            $transactionReference = 'WD-' . date('YmdHis') . '-' . mt_rand(1000, 9999);
-
-            // Create withdrawal charge request
-            $chargeRequest = WithdrawalRequest::create([
-                'business_id' => $user->business_id,
-                'requested_by' => $user->id,
-                'amount' => $withdrawalCharge,
-                'withdrawal_charge' => 0, // No charge on the charge itself
-                'net_amount' => $withdrawalCharge,
-                'withdrawal_type' => $request->withdrawal_type,
-                'status' => 'pending',
-                'reason' => 'Withdrawal Charge - ' . ucfirst($request->withdrawal_type) . ' Withdrawal',
-                'required_business_approvals' => 3, // 3-step business approval
-                'required_kashtre_approvals' => 3, // 3-step Kashtre approval
-                'transaction_reference' => $transactionReference,
-                'request_type' => 'charge',
-            ]);
-
-            // Create withdrawal amount request
+            // Create a single withdrawal request entry (no separate charge row)
             $withdrawalRequest = WithdrawalRequest::create([
                 'business_id' => $user->business_id,
                 'requested_by' => $user->id,
                 'amount' => $request->amount,
-                'withdrawal_charge' => 0, // No charge on the main withdrawal
-                'net_amount' => $request->amount,
+                'withdrawal_charge' => $withdrawalCharge,
+                'net_amount' => $request->amount, // payout equals requested amount
                 'withdrawal_type' => $request->withdrawal_type,
                 'status' => 'pending',
-                'reason' => 'Withdrawal Amount - ' . ucfirst($request->withdrawal_type) . ' Withdrawal',
-                'required_business_approvals' => 3, // 3-step business approval
-                'required_kashtre_approvals' => 3, // 3-step Kashtre approval
-                'transaction_reference' => $transactionReference,
-                'request_type' => 'amount',
-                'related_request_id' => $chargeRequest->id,
+                'reason' => ucfirst($request->withdrawal_type) . ' Withdrawal',
+                'required_business_approvals' => 3,
+                'required_kashtre_approvals' => 3,
+                // request_type is not needed since we only create one entry now
+                'current_business_step' => 1, // Start at step 1
             ]);
 
-            // Update the charge request to link back to the amount request
-            $chargeRequest->update(['related_request_id' => $withdrawalRequest->id]);
+            Log::info('WR Created', [
+                'id' => $withdrawalRequest->id,
+                'uuid' => $withdrawalRequest->uuid,
+                'business_id' => $withdrawalRequest->business_id,
+                'amount' => (float) $withdrawalRequest->amount,
+                'saved_withdrawal_charge' => (float) $withdrawalRequest->withdrawal_charge,
+                'net_amount' => (float) $withdrawalRequest->net_amount,
+                'status' => $withdrawalRequest->status,
+            ]);
+
+            // Auto-approve step 1 if creator is an initiator
+            // Check if user is assigned as initiator at business level
+            $withdrawalSetting = WithdrawalSetting::where('business_id', $user->business_id)
+                ->where('withdrawal_type', $request->withdrawal_type)
+                ->where('is_active', true)
+                ->first();
+
+            if ($withdrawalSetting) {
+                $isInitiator = $withdrawalSetting->allBusinessApprovers()
+                    ->where('approver_id', $user->id)
+                    ->where('approval_level', 'initiator')
+                    ->exists();
+
+                if ($isInitiator && $withdrawalRequest->getCurrentStepNumber() == 1) {
+                    // Create approval record for step 1
+                    WithdrawalRequestApproval::create([
+                        'withdrawal_request_id' => $withdrawalRequest->id,
+                        'approver_id' => $user->id,
+                        'approver_type' => 'user',
+                        'approver_level' => 'business',
+                        'approval_step' => 1,
+                        'action' => 'approved',
+                        'comment' => 'Auto-approved by initiator upon creation',
+                    ]);
+
+                    // Update step-specific approval counts
+                    $this->updateStepApprovalCounts($withdrawalRequest, $user);
+
+                    // Refresh to get updated counts
+                    $withdrawalRequest->refresh();
+
+                    // Check if step 1 is complete and move to step 2
+                    if ($withdrawalRequest->hasApprovedCurrentStep()) {
+                        $withdrawalRequest->moveToNextStep();
+                    }
+                }
+            }
 
             DB::commit();
 
@@ -270,22 +302,46 @@ class WithdrawalRequestController extends Controller
      */
     private function calculateWithdrawalCharge($amount, $businessId)
     {
+        // Find the matching bracket: lower_bound <= amount <= upper_bound
         $charge = BusinessWithdrawalSetting::where('business_id', $businessId)
             ->where('is_active', true)
             ->where('lower_bound', '<=', $amount)
             ->where('upper_bound', '>=', $amount)
+            ->orderByDesc('lower_bound')
             ->first();
 
         if (!$charge) {
+            Log::warning('WR Charge - no matching bracket', [
+                'business_id' => $businessId,
+                'amount' => (float) $amount,
+            ]);
             return 0;
         }
 
         if ($charge->charge_type === 'fixed') {
-            return $charge->charge_amount;
-        } else {
-            // Percentage
-            return ($amount * $charge->charge_amount) / 100;
+            $computed = (float) $charge->charge_amount;
+            Log::info('WR Charge - matched bracket (fixed)', [
+                'business_id' => $businessId,
+                'amount' => (float) $amount,
+                'lower_bound' => (float) $charge->lower_bound,
+                'upper_bound' => (float) $charge->upper_bound,
+                'charge_amount' => (float) $charge->charge_amount,
+                'computed' => $computed,
+            ]);
+            return $computed;
         }
+
+        // Percentage
+        $computed = (float) (($amount * $charge->charge_amount) / 100);
+        Log::info('WR Charge - matched bracket (percentage)', [
+            'business_id' => $businessId,
+            'amount' => (float) $amount,
+            'lower_bound' => (float) $charge->lower_bound,
+            'upper_bound' => (float) $charge->upper_bound,
+            'charge_amount' => (float) $charge->charge_amount,
+            'computed' => $computed,
+        ]);
+        return $computed;
     }
 
     /**
@@ -300,13 +356,18 @@ class WithdrawalRequestController extends Controller
             return back()->with('error', 'You do not have permission to approve this request.');
         }
 
-        // Check if user has already approved this request
+        // Check if user has already approved this request at current step
+        $currentStep = $withdrawalRequest->getCurrentStepNumber();
+        $currentLevel = $withdrawalRequest->getCurrentApprovalLevel();
         $existingApproval = WithdrawalRequestApproval::where('withdrawal_request_id', $withdrawalRequest->id)
             ->where('approver_id', $user->id)
+            ->where('approval_step', $currentStep)
+            ->where('approver_level', $currentLevel)
+            ->where('action', 'approved')
             ->first();
 
         if ($existingApproval) {
-            return back()->with('error', 'You have already approved this request.');
+            return back()->with('error', 'You have already approved this request at the current step.');
         }
 
         try {
@@ -318,6 +379,7 @@ class WithdrawalRequestController extends Controller
                 'approver_id' => $user->id,
                 'approver_type' => 'user',
                 'approver_level' => $this->getUserApproverLevel($user, $withdrawalRequest),
+                'approval_step' => $currentStep,
                 'action' => 'approved',
                 'comment' => $request->comment ?? null,
             ]);
@@ -410,8 +472,17 @@ class WithdrawalRequestController extends Controller
             return false;
         }
 
-        // Prevent users from approving their own requests
-        if ($withdrawalRequest->created_by == $user->id) {
+        // Check if user has already approved at current step
+        $currentStep = $withdrawalRequest->getCurrentStepNumber();
+        $currentLevel = $withdrawalRequest->getCurrentApprovalLevel();
+        $hasApproved = \App\Models\WithdrawalRequestApproval::where('withdrawal_request_id', $withdrawalRequest->id)
+            ->where('approver_id', $user->id)
+            ->where('approval_step', $currentStep)
+            ->where('approver_level', $currentLevel)
+            ->where('action', 'approved')
+            ->exists();
+
+        if ($hasApproved) {
             return false;
         }
 

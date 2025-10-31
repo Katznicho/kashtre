@@ -12,7 +12,9 @@ class WithdrawalRequestApproval extends Model
     protected $fillable = [
         'withdrawal_request_id',
         'approver_id',
+        'approver_type',
         'approver_level',
+        'approval_step',
         'action',
         'comment',
     ];

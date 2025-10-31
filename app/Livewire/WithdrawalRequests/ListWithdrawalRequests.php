@@ -26,6 +26,18 @@ class ListWithdrawalRequests extends Component implements HasForms, HasTable
         // If user is not from Kashtre, only show their business requests
         if (Auth::check() && Auth::user()->business_id !== 1) {
             $query->where('business_id', Auth::user()->business_id);
+        } else if (Auth::check() && Auth::user()->business_id === 1) {
+            // Kashtre users should only see business withdrawals that have completed all 3 business approval steps
+            // This means status should be 'business_approved' or later stages
+            $query->whereIn('status', [
+                'business_approved',
+                'kashtre_approved',
+                'approved',
+                'processing',
+                'completed',
+                'rejected',
+                'failed'
+            ]);
         }
 
         return $table
@@ -158,13 +170,6 @@ class ListWithdrawalRequests extends Component implements HasForms, HasTable
             ->actions([
                 Tables\Actions\ViewAction::make()
                     ->url(fn (WithdrawalRequest $record): string => route('withdrawal-requests.show', $record)),
-                
-                Tables\Actions\EditAction::make()
-                    ->url(fn (WithdrawalRequest $record): string => route('withdrawal-requests.edit', $record))
-                    ->visible(fn (WithdrawalRequest $record): bool => 
-                        in_array('Manage Withdrawal Requests', Auth::user()->permissions ?? []) 
-                        && $record->isPending()
-                    ),
             ])
             ->bulkActions([
                 // No bulk actions
