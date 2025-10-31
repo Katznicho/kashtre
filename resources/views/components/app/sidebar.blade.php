@@ -312,9 +312,9 @@
                             @if(in_array('View Clients', $permissions))
                             <li><a href="{{ route('clients.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>View All Clients</a></li>
                             @endif
-                            @if(in_array('View Clients', $permissions))
+                            {{-- @if(in_array('View Clients', $permissions)) --}}
                             <li><a href="{{ route('daily-visits.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Daily Visits</a></li>
-                            @endif
+                            {{-- @endif --}}
                             @if(in_array('Add Clients', $permissions))
                             <li><a href="{{ route('clients.create') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Add New Client</a></li>
                             @endif
