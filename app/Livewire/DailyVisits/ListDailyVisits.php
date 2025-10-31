@@ -2,6 +2,7 @@
 
 namespace App\Livewire\DailyVisits;
 
+use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\Business;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -21,74 +22,61 @@ class ListDailyVisits extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
-        $query = Invoice::query()
-            ->with(['client', 'business', 'branch'])
-            ->where('status', '!=', 'cancelled')
+        $user = Auth::user();
+        $currentBranchId = optional($user->current_branch)->id;
+        $allowedBranches = (array) ($user->allowed_branches ?? []);
+
+        $query = Client::query()
+            ->with(['business', 'branch'])
             ->latest();
 
         // Restrict by business
         if (Auth::check() && Auth::user()->business_id !== 1) {
             $query->where('business_id', Auth::user()->business_id);
+            // Default branch constraint: user's current branch, or allowed branches fallback
+            if (!empty($currentBranchId)) {
+                $query->where('branch_id', $currentBranchId);
+            } elseif (!empty($allowedBranches)) {
+                $query->whereIn('branch_id', $allowedBranches);
+            }
         } else {
             // Kashtre can see all
+            $query->where('business_id', '!=', 1);
         }
 
         return $table
             ->query($query)
             ->columns([
-                Tables\Columns\TextColumn::make('created_at')
+                Tables\Columns\TextColumn::make('created_at_date')
+                    ->label('Date')
+                    ->getStateUsing(fn (Client $record) => $record->created_at)
+                    ->dateTime('M d, Y')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('created_at_time')
                     ->label('Time')
+                    ->getStateUsing(fn (Client $record) => $record->created_at)
                     ->dateTime('H:i:s')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('invoice_number')
-                    ->label('Invoice #')
+                Tables\Columns\TextColumn::make('client_id')
+                    ->label('Client ID')
                     ->searchable()
-                    ->url(fn (Invoice $record): string => route('invoices.show', $record))
-                    ->openUrlInNewTab(),
+                    ->sortable(),
 
-                Tables\Columns\TextColumn::make('client_name')
+                Tables\Columns\TextColumn::make('full_name')
                     ->label('Client Name')
-                    ->searchable(),
+                    ->searchable(['surname', 'first_name', 'other_names'])
+                    ->formatStateUsing(fn (Client $record): string => $record->full_name),
 
-                Tables\Columns\TextColumn::make('client_phone')
+                Tables\Columns\TextColumn::make('phone_number')
                     ->label('Phone')
-                    ->toggleable(),
+                    ->toggleable()
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('visit_id')
                     ->label('Visit ID')
                     ->searchable(),
-
-                // Show a compact summary of ordered items (name x qty)
-                Tables\Columns\TextColumn::make('items')
-                    ->label('Items Ordered')
-                    ->getStateUsing(function (Invoice $record) {
-                        $items = (array) ($record->items ?? []);
-                        if (empty($items)) {
-                            return '—';
-                        }
-                        $parts = [];
-                        foreach ($items as $it) {
-                            $name = $it['name'] ?? ($it['item_name'] ?? 'Item');
-                            $qty = $it['qty'] ?? ($it['quantity'] ?? 1);
-                            $parts[] = trim($name) . ' x' . (int) $qty;
-                        }
-                        return implode(', ', array_slice($parts, 0, 3)) . (count($parts) > 3 ? '…' : '');
-                    })
-                    ->tooltip(function (Invoice $record) {
-                        $items = (array) ($record->items ?? []);
-                        if (empty($items)) {
-                            return null;
-                        }
-                        $lines = [];
-                        foreach ($items as $it) {
-                            $name = $it['name'] ?? ($it['item_name'] ?? 'Item');
-                            $qty = $it['qty'] ?? ($it['quantity'] ?? 1);
-                            $lines[] = trim($name) . ' x' . (int) $qty;
-                        }
-                        return implode("\n", $lines);
-                    })
-                    ->toggleable(),
 
                 ...(Auth::check() && Auth::user()->business_id === 1 ? [
                     Tables\Columns\TextColumn::make('business.name')
@@ -100,17 +88,6 @@ class ListDailyVisits extends Component implements HasForms, HasTable
                         ->sortable()
                         ->searchable(),
                 ] : []),
-
-                Tables\Columns\TextColumn::make('payment_status')
-                    ->label('Payment Status')
-                    ->badge()
-                    ->color(fn(string $state): string => match ($state) {
-                        'paid' => 'success',
-                        'partial' => 'warning',
-                        default => 'gray',
-                    })
-                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
-                    ->sortable(),
             ])
             ->filters([
                 ...(Auth::check() && Auth::user()->business_id === 1 ? [
@@ -132,11 +109,47 @@ class ListDailyVisits extends Component implements HasForms, HasTable
                         ->searchable(),
                 ] : []),
 
-                // Date filter (defaults to today if none selected)
+                // Quick date presets (defaults to Today)
+                Tables\Filters\Filter::make('quick_date')
+                    ->form([
+                        \Filament\Forms\Components\Select::make('preset')
+                            ->label('Quick Date')
+                            ->options([
+                                'today' => 'Today',
+                                'yesterday' => 'Yesterday',
+                                'this_week' => 'This Week',
+                                'this_month' => 'This Month',
+                            ])
+                    ])
+                    ->default([
+                        'preset' => 'today',
+                    ])
+                    ->query(function ($query, array $data) {
+                        $preset = $data['preset'] ?? 'today';
+                        return match ($preset) {
+                            'yesterday' => $query->whereDate('created_at', now()->subDay()->toDateString()),
+                            'this_week' => $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]),
+                            'this_month' => $query->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()]),
+                            default => $query->whereDate('created_at', now()->toDateString()),
+                        };
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        return match ($data['preset'] ?? 'today') {
+                            'yesterday' => 'Date: Yesterday',
+                            'this_week' => 'Date: This Week',
+                            'this_month' => 'Date: This Month',
+                            default => 'Date: Today',
+                        };
+                    }),
+
+                // Date filter (defaults to Today if none selected)
                 Tables\Filters\Filter::make('date')
                     ->form([
                         \Filament\Forms\Components\DatePicker::make('created_at')
                             ->label('Date'),
+                    ])
+                    ->default([
+                        'created_at' => now()->toDateString(),
                     ])
                     ->query(function ($query, array $data) {
                         if (!empty($data['created_at'])) {
@@ -151,19 +164,47 @@ class ListDailyVisits extends Component implements HasForms, HasTable
                             : 'Date: Today';
                     }),
 
-                Tables\Filters\SelectFilter::make('payment_status')
-                    ->label('Payment Status')
-                    ->options([
-                        'paid' => 'Paid',
-                        'partial' => 'Partial',
-                        'pending' => 'Pending',
+                // Date range filter
+                Tables\Filters\Filter::make('date_range')
+                    ->form([
+                        \Filament\Forms\Components\DatePicker::make('from')->label('From'),
+                        \Filament\Forms\Components\DatePicker::make('to')->label('To'),
                     ])
-                    ->multiple(),
+                    ->query(function ($query, array $data) {
+                        $from = $data['from'] ?? null;
+                        $to = $data['to'] ?? null;
+                        if ($from && $to) {
+                            $query->whereBetween('created_at', [\Carbon\Carbon::parse($from)->startOfDay(), \Carbon\Carbon::parse($to)->endOfDay()]);
+                        } elseif ($from) {
+                            $query->where('created_at', '>=', \Carbon\Carbon::parse($from)->startOfDay());
+                        } elseif ($to) {
+                            $query->where('created_at', '<=', \Carbon\Carbon::parse($to)->endOfDay());
+                        }
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        $from = $data['from'] ?? null;
+                        $to = $data['to'] ?? null;
+                        if ($from && $to) {
+                            return 'Range: ' . \Carbon\Carbon::parse($from)->format('M d, Y') . ' → ' . \Carbon\Carbon::parse($to)->format('M d, Y');
+                        }
+                        if ($from) {
+                            return 'From: ' . \Carbon\Carbon::parse($from)->format('M d, Y');
+                        }
+                        if ($to) {
+                            return 'To: ' . \Carbon\Carbon::parse($to)->format('M d, Y');
+                        }
+                        return null;
+                    }),
             ])
             ->actions([
+                Tables\Actions\Action::make('details')
+                    ->label('Details')
+                    ->url(fn (Client $record): string => route('pos.item-selection', $record))
+                    ->color('success'),
                 Tables\Actions\Action::make('view')
                     ->label('View')
-                    ->url(fn (Invoice $record): string => route('invoices.show', $record)),
+                    ->url(fn (Client $record): string => route('clients.show', $record))
+                    ->color('primary'),
             ])
             ->defaultSort('created_at', 'desc')
             ->emptyStateHeading('No visits found')

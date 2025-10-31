@@ -1,3 +1,5 @@
-<x-filament-tables::table />
+<div>
+    {{ $this->table }}
+</div>
 
 

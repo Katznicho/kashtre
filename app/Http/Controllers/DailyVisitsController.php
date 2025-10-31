@@ -39,71 +39,39 @@ class DailyVisitsController extends Controller
         // Date filter (default to today if not specified)
         $selectedDate = $request->get('date', now()->format('Y-m-d'));
         
-        // For Kashtre (business_id == 1), show all invoices from all businesses
+        // For Kashtre (business_id == 1), show all clients registered on selected date
         if ($business->id == 1) {
-            $dailyVisits = Invoice::where('business_id', '!=', 1)
+            $dailyVisits = Client::where('business_id', '!=', 1)
                 ->whereDate('created_at', $selectedDate)
-                ->where('status', '!=', 'cancelled')
-                ->with(['client', 'business', 'branch', 'createdBy'])
+                ->with(['business', 'branch'])
                 ->orderBy('created_at', 'desc')
                 ->get();
-                
-            // Get summary stats for the selected date
-            $totalVisits = Invoice::where('business_id', '!=', 1)
+
+            $totalVisits = Client::where('business_id', '!=', 1)
                 ->whereDate('created_at', $selectedDate)
-                ->where('status', '!=', 'cancelled')
                 ->count();
-                
-            $uniqueClients = Invoice::where('business_id', '!=', 1)
-                ->whereDate('created_at', $selectedDate)
-                ->where('status', '!=', 'cancelled')
-                ->distinct('client_id')
-                ->count('client_id');
-                
-            $totalRevenue = Invoice::where('business_id', '!=', 1)
-                ->whereDate('created_at', $selectedDate)
-                ->where('status', '!=', 'cancelled')
-                ->sum('total_amount');
-                
-            $totalPaid = Invoice::where('business_id', '!=', 1)
-                ->whereDate('created_at', $selectedDate)
-                ->where('status', '!=', 'cancelled')
-                ->sum('amount_paid');
+
+            $uniqueClients = $totalVisits; // same as total when listing clients
+
+            $totalRevenue = 0;
+            $totalPaid = 0;
         } else {
-            // Get visits for the selected business and branch
-            $dailyVisits = Invoice::where('business_id', $business->id)
+            // Get clients registered for the selected business and branch
+            $dailyVisits = Client::where('business_id', $business->id)
                 ->where('branch_id', $selectedBranch->id)
                 ->whereDate('created_at', $selectedDate)
-                ->where('status', '!=', 'cancelled')
-                ->with(['client', 'branch', 'createdBy'])
+                ->with(['branch'])
                 ->orderBy('created_at', 'desc')
                 ->get();
-                
-            // Get summary stats for the selected date
-            $totalVisits = Invoice::where('business_id', $business->id)
+
+            $totalVisits = Client::where('business_id', $business->id)
                 ->where('branch_id', $selectedBranch->id)
                 ->whereDate('created_at', $selectedDate)
-                ->where('status', '!=', 'cancelled')
                 ->count();
-                
-            $uniqueClients = Invoice::where('business_id', $business->id)
-                ->where('branch_id', $selectedBranch->id)
-                ->whereDate('created_at', $selectedDate)
-                ->where('status', '!=', 'cancelled')
-                ->distinct('client_id')
-                ->count('client_id');
-                
-            $totalRevenue = Invoice::where('business_id', $business->id)
-                ->where('branch_id', $selectedBranch->id)
-                ->whereDate('created_at', $selectedDate)
-                ->where('status', '!=', 'cancelled')
-                ->sum('total_amount');
-                
-            $totalPaid = Invoice::where('business_id', $business->id)
-                ->where('branch_id', $selectedBranch->id)
-                ->whereDate('created_at', $selectedDate)
-                ->where('status', '!=', 'cancelled')
-                ->sum('amount_paid');
+
+            $uniqueClients = $totalVisits;
+            $totalRevenue = 0;
+            $totalPaid = 0;
         }
         
         // Get all branches the user has access to for the filter

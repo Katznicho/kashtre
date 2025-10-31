@@ -185,6 +185,7 @@ Route::post('/clients/{client}/update-payment-phone', [ClientController::class, 
     
     // Daily Visits
     Route::get('/daily-visits', [DailyVisitsController::class, 'index'])->name('daily-visits.index');
+    Route::view('/test-livewire', 'test-livewire')->name('test-livewire');
 
 // Invoice routes
 Route::post('/invoices/service-charge', [InvoiceController::class, 'serviceCharge'])->name('invoices.service-charge');
