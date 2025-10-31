@@ -16,6 +16,9 @@ class Kernel extends ConsoleKernel
         
         // Check payment statuses every minute
         $schedule->command('payments:check-status')->everyMinute();
+        
+        // Process extended service queue items every hour
+        $schedule->command('service-queue:process-extended-items')->hourly();
     }
 
     /**

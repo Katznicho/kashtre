@@ -30,6 +30,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BulkUploadController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\DailyVisitsController;
 use App\Http\Controllers\ServiceChargeController;
 use App\Http\Controllers\ContractorServiceChargeController;
 use App\Http\Controllers\InvoiceController;
@@ -181,6 +182,9 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::resource("clients", ClientController::class);
     Route::post('/clients/{client}/update-payment-methods', [ClientController::class, 'updatePaymentMethods'])->name('clients.update-payment-methods');
 Route::post('/clients/{client}/update-payment-phone', [ClientController::class, 'updatePaymentPhone'])->name('clients.update-payment-phone');
+    
+    // Daily Visits
+    Route::get('/daily-visits', [DailyVisitsController::class, 'index'])->name('daily-visits.index');
 
 // Invoice routes
 Route::post('/invoices/service-charge', [InvoiceController::class, 'serviceCharge'])->name('invoices.service-charge');

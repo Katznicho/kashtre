@@ -28,6 +28,7 @@ class ServiceDeliveryQueue extends Model
         'estimated_delivery_time',
         'started_at',
         'partially_done_at',
+        'extended_at',
         'completed_at',
         'assigned_to',
         'started_by_user_id',
@@ -43,6 +44,7 @@ class ServiceDeliveryQueue extends Model
         'estimated_delivery_time' => 'datetime',
         'started_at' => 'datetime',
         'partially_done_at' => 'datetime',
+        'extended_at' => 'datetime',
         'completed_at' => 'datetime',
         'is_money_moved' => 'boolean',
         'money_moved_at' => 'datetime',
@@ -89,6 +91,11 @@ class ServiceDeliveryQueue extends Model
         return $this->belongsTo(User::class, 'started_by_user_id');
     }
 
+    public function creditNote()
+    {
+        return $this->hasOne(CreditNote::class);
+    }
+
     // Scopes
     public function scopePending($query)
     {
@@ -108,6 +115,16 @@ class ServiceDeliveryQueue extends Model
     public function scopeCompleted($query)
     {
         return $query->where('status', 'completed');
+    }
+
+    public function scopeNotDone($query)
+    {
+        return $query->where('status', 'not_done');
+    }
+
+    public function scopeExtended($query)
+    {
+        return $query->whereNotNull('extended_at');
     }
 
     public function scopeForServicePoint($query, $servicePointId)
@@ -201,6 +218,25 @@ class ServiceDeliveryQueue extends Model
         return $this->status === 'cancelled';
     }
 
+    public function isNotDone()
+    {
+        return $this->status === 'not_done';
+    }
+
+    public function markAsNotDone()
+    {
+        $this->update([
+            'status' => 'not_done'
+        ]);
+    }
+
+    public function extend()
+    {
+        $this->update([
+            'extended_at' => now()
+        ]);
+    }
+
 
 
     public function getStatusBadgeAttribute()
@@ -211,6 +247,7 @@ class ServiceDeliveryQueue extends Model
             'in_progress' => 'bg-blue-100 text-blue-800',
             'completed' => 'bg-green-100 text-green-800',
             'cancelled' => 'bg-red-100 text-red-800',
+            'not_done' => 'bg-gray-100 text-gray-800',
             default => 'bg-gray-100 text-gray-800'
         };
     }

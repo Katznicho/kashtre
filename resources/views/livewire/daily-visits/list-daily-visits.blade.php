@@ -1,0 +1,3 @@
+<x-filament-tables::table />
+
+
