@@ -104,4 +104,14 @@ class Business extends Model
     {
         return $this->hasOne(MoneyAccount::class)->where('type', 'kashtre_account');
     }
+
+    public function creditNoteWorkflow()
+    {
+        return $this->hasOne(CreditNoteWorkflow::class);
+    }
+
+    public function servicePointSupervisors()
+    {
+        return $this->hasMany(ServicePointSupervisor::class);
+    }
 }

@@ -19,6 +19,9 @@ class Kernel extends ConsoleKernel
         
         // Process extended service queue items every hour
         $schedule->command('service-queue:process-extended-items')->hourly();
+        
+        // Expire visit IDs at midnight, extend for clients with pending/in-progress items
+        $schedule->command('visits:expire')->dailyAt('00:00');
     }
 
     /**

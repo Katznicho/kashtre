@@ -397,6 +397,10 @@
                             <li><a href="{{ route('maturation-periods.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Maturation Periods</a></li>
                             @endif
 
+                            @if(in_array('View Credit Note Workflows', $permissions))
+                            <li><a href="{{ route('credit-note-workflows.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Credit Note Workflows</a></li>
+                            @endif
+
                             @if(in_array('View Rooms', $permissions))
                             <li><a href="{{ route('rooms.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Rooms</a></li>
                             @endif

@@ -18,6 +18,7 @@ class Client extends Model
         'branch_id',
         'client_id',
         'visit_id',
+        'visit_expires_at',
         'name',
         'nin',
         'tin_number',
@@ -52,6 +53,7 @@ class Client extends Model
     protected $casts = [
         'payment_methods' => 'array',
         'date_of_birth' => 'date',
+        'visit_expires_at' => 'datetime',
     ];
 
     protected static function booted()

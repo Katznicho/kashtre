@@ -53,6 +53,8 @@ use App\Http\Controllers\MaturationPeriodController;
 use App\Http\Controllers\WithdrawalSettingController;
 use App\Http\Controllers\BusinessWithdrawalSettingController;
 use App\Http\Controllers\WithdrawalRequestController;
+use App\Http\Controllers\CreditNoteWorkflowController;
+use App\Http\Controllers\ServicePointSupervisorController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -167,6 +169,15 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     // Maturation Periods Settings (Kashtre only)
     Route::resource("maturation-periods", MaturationPeriodController::class);
     Route::post("maturation-periods/{maturationPeriod}/toggle-status", [MaturationPeriodController::class, 'toggleStatus'])->name('maturation-periods.toggle-status');
+    
+    // Credit Note Workflow Settings (Kashtre only)
+    Route::resource("credit-note-workflows", CreditNoteWorkflowController::class);
+    
+    // Service Point Supervisors
+    Route::resource("service-point-supervisors", ServicePointSupervisorController::class);
+    
+    // Service Delivery Queue Reassignment (Supervisors only)
+    Route::post("service-delivery-queues/{serviceDeliveryQueue}/reassign", [ServiceDeliveryQueueController::class, 'reassignItem'])->name('service-delivery-queues.reassign');
     
     // Withdrawal Settings
     Route::resource("withdrawal-settings", WithdrawalSettingController::class);

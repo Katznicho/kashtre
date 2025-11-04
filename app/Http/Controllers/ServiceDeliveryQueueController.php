@@ -281,6 +281,102 @@ class ServiceDeliveryQueueController extends Controller
 
 
     /**
+     * Reassign an in-progress item from one user to another
+     * Only supervisors can perform this action
+     */
+    public function reassignItem(Request $request, ServiceDeliveryQueue $serviceDeliveryQueue)
+    {
+        try {
+            $user = Auth::user();
+            $servicePoint = $serviceDeliveryQueue->servicePoint;
+            
+            // Check if user is a supervisor for this service point
+            if (!$this->isSupervisorForServicePoint($user, $servicePoint)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You must be a supervisor for this service point to reassign items.'
+                ], 403);
+            }
+
+            // Validate request
+            $validated = $request->validate([
+                'new_user_id' => 'required|exists:users,id',
+            ]);
+
+            // Only allow reassignment of in-progress or partially_done items
+            if (!in_array($serviceDeliveryQueue->status, ['in_progress', 'partially_done'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only in-progress or partially done items can be reassigned.'
+                ], 400);
+            }
+
+            $oldUserId = $serviceDeliveryQueue->assigned_to;
+            $newUserId = $validated['new_user_id'];
+
+            // Update the assignment
+            $serviceDeliveryQueue->assignTo($newUserId);
+
+            Log::info("Item reassigned by supervisor", [
+                'service_delivery_queue_id' => $serviceDeliveryQueue->id,
+                'item_name' => $serviceDeliveryQueue->item_name,
+                'service_point_id' => $servicePoint->id,
+                'service_point_name' => $servicePoint->name,
+                'old_user_id' => $oldUserId,
+                'new_user_id' => $newUserId,
+                'supervisor_id' => $user->id,
+                'supervisor_name' => $user->name,
+                'status' => $serviceDeliveryQueue->status,
+                'timestamp' => now()->toISOString()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Item reassigned successfully.',
+                'data' => [
+                    'id' => $serviceDeliveryQueue->id,
+                    'assigned_to' => $serviceDeliveryQueue->assigned_to,
+                    'assigned_to_name' => $serviceDeliveryQueue->assignedTo->name ?? null
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Failed to reassign item', [
+                'item_id' => $serviceDeliveryQueue->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to reassign item. Please try again.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Check if user is a supervisor for a service point
+     */
+    private function isSupervisorForServicePoint($user, $servicePoint)
+    {
+        if (is_numeric($servicePoint)) {
+            $servicePoint = \App\Models\ServicePoint::find($servicePoint);
+        }
+        
+        if (!$servicePoint) {
+            return false;
+        }
+
+        // Check if user is a supervisor for this service point
+        $supervisor = \App\Models\ServicePointSupervisor::where('service_point_id', $servicePoint->id)
+            ->where('supervisor_user_id', $user->id)
+            ->first();
+
+        return $supervisor !== null;
+    }
+
+    /**
      * Check if user has access to a service point
      */
     private function userHasAccessToServicePoint($user, $servicePoint)

@@ -76,6 +76,11 @@ class ServicePoint extends Model
         return $this->serviceQueues()->completed()->today()->orderBy('completed_at', 'desc');
     }
 
+    public function supervisor()
+    {
+        return $this->hasOne(ServicePointSupervisor::class);
+    }
+
     /**
      * Get the next queue number for this service point
      */

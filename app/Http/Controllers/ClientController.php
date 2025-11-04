@@ -208,6 +208,9 @@ class ClientController extends Controller
         $clientId = Client::generateClientId($validated['nin'] ?? null, $business, $currentBranch);
         $visitId = Client::generateVisitId($business, $currentBranch);
         
+        // Set visit expiration to next midnight (24 hours from creation)
+        $visitExpiresAt = \Carbon\Carbon::today()->addDay()->startOfDay();
+        
         // Generate full name by concatenating the name fields
         $fullName = trim($validated['surname'] . ' ' . $validated['first_name'] . ' ' . ($validated['other_names'] ?? ''));
         
@@ -218,6 +221,7 @@ class ClientController extends Controller
             'branch_id' => $currentBranch->id,
             'client_id' => $clientId,
             'visit_id' => $visitId,
+            'visit_expires_at' => $visitExpiresAt,
             'name' => $fullName,
             'surname' => $validated['surname'],
             'first_name' => $validated['first_name'],
