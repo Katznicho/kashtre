@@ -124,8 +124,8 @@ class ServiceDeliveryQueueController extends Controller
             $moneyTrackingService = app(MoneyTrackingService::class);
             $moneyTrackingService->processServiceDeliveryMoneyTransfer($serviceDeliveryQueue, $user);
 
-            // Update the item status
-            $serviceDeliveryQueue->markAsCompleted();
+            // Update the item status and assign to current user
+            $serviceDeliveryQueue->markAsCompleted($user->id);
 
             return response()->json([
                 'success' => true,

@@ -12,11 +12,17 @@ use Carbon\Carbon;
 class DailyVisitsController extends Controller
 {
     /**
-     * Display daily visits record
+     * Display visits record
      */
     public function index(Request $request)
     {
         $user = Auth::user();
+        
+        // Check if user has permission to view visits
+        if (!in_array('View Visits', $user->permissions ?? [])) {
+            return redirect()->route('dashboard')->with('error', 'You do not have permission to view visits.');
+        }
+        
         $business = $user->business;
         $currentBranch = $user->current_branch;
         

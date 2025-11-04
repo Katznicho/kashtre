@@ -444,13 +444,21 @@ class ServicePointController extends Controller
                             'money_moved_at' => $item->money_moved_at
                         ]);
                         $item->status = $status;
+                        // Assign to current user when marking as partially_done or completed
+                        if (in_array($status, ['partially_done', 'completed'])) {
+                            $item->assigned_to = auth()->id();
+                        }
                         $item->save();
                         $updatedCount++;
                         continue;
                     }
                     
-                    // Update the status
+                    // Update the status and assign to current user
                     $item->status = $status;
+                    // Assign to current user when marking as partially_done or completed
+                    if (in_array($status, ['partially_done', 'completed'])) {
+                        $item->assigned_to = auth()->id();
+                    }
                     $item->save();
 
                     \Illuminate\Support\Facades\Log::info("Item status updated", [

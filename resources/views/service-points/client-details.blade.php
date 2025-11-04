@@ -337,20 +337,17 @@
                             <!-- Request/Order Summary Table -->
                             <div class="border border-gray-200 rounded-lg overflow-hidden">
                                 <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                                    <div class="grid grid-cols-5 gap-4">
+                                    <div class="grid grid-cols-4 gap-4">
                                         <div>
                                             <span class="text-sm font-medium text-gray-700">Item</span>
                                         </div>
-                                        <div>
-                                            <span class="text-sm font-medium text-gray-700">Type</span>
-                                        </div>
-                                        <div>
+                                        <div class="text-center">
                                             <span class="text-sm font-medium text-gray-700">Quantity</span>
                                         </div>
-                                        <div>
+                                        <div class="text-right">
                                             <span class="text-sm font-medium text-gray-700">Price</span>
                                         </div>
-                                        <div>
+                                        <div class="text-right">
                                             <span class="text-sm font-medium text-gray-700">Action</span>
                                         </div>
                                     </div>
@@ -496,7 +493,6 @@
                         <thead>
                             <tr class="bg-blue-600 text-white">
                                 <th class="border border-gray-300 px-4 py-2 text-left">Item</th>
-                                <th class="border border-gray-300 px-4 py-2 text-center">Type</th>
                                 <th class="border border-gray-300 px-4 py-2 text-center">Quantity</th>
                                 <th class="border border-gray-300 px-4 py-2 text-right">Price</th>
                                 <th class="border border-gray-300 px-4 py-2 text-right">Amount</th>
@@ -525,11 +521,11 @@
                         <span>Subtotal 1:</span>
                         <span id="invoice-subtotal">UGX 0.00</span>
                     </div>
-                    <div class="flex justify-between">
+                    <div id="package-adjustment-row" class="flex justify-between hidden">
                         <span>Package Adjustment:</span>
                         <span id="package-adjustment-display">UGX 0.00</span>
                     </div>
-                    <div class="flex justify-between">
+                    <div id="balance-adjustment-row" class="flex justify-between hidden">
                         <span>Account Balance(A/c) Adjustment:</span>
                         <span id="balance-adjustment-display">UGX 0.00</span>
                     </div>
@@ -547,16 +543,6 @@
                     <div class="flex justify-between text-lg font-bold border-t pt-2">
                         <span>Total:</span>
                         <span id="invoice-final-total">UGX 0.00</span>
-                    </div>
-                </div>
-                
-                <!-- Package Tracking Numbers Summary -->
-                <div id="package-tracking-summary" class="mb-6 hidden">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Package Tracking Numbers</h3>
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <div id="package-tracking-list" class="space-y-2">
-                            <!-- Package tracking numbers will be populated by JavaScript -->
-                        </div>
                     </div>
                 </div>
                 
@@ -777,15 +763,14 @@
                             <div>
                                 <span class="text-sm text-gray-900 font-medium">${item.displayName || item.name}</span>
                             </div>
-                            <div>
-                                <span class="text-sm text-gray-600">${item.type || 'N/A'}</span>
-                            </div>
-                            <div>
+                            <div class="text-center">
                                 <span class="text-sm text-gray-900">${item.quantity}</span>
                             </div>
-                            <div class="flex justify-between items-center">
+                            <div class="text-right">
                                 <span class="text-sm text-blue-600">UGX ${(item.price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                                <button class="text-red-500 hover:text-red-700 text-sm ml-2" onclick="removeFromCart(${index})">
+                            </div>
+                            <div class="text-right">
+                                <button class="text-red-500 hover:text-red-700 text-sm" onclick="removeFromCart(${index})">
                                     Remove
                                 </button>
                             </div>
@@ -946,7 +931,6 @@
                 tableHTML += `
                     <tr class="bg-white">
                         <td class="border border-gray-300 px-4 py-2">${item.displayName || item.name}</td>
-                        <td class="border border-gray-300 px-4 py-2 text-center">${item.type || 'N/A'}</td>
                         <td class="border border-gray-300 px-4 py-2 text-center">${item.quantity}</td>
                         <td class="border border-gray-300 px-4 py-2 text-right">UGX ${(item.price || 0).toLocaleString()}</td>
                         <td class="border border-gray-300 px-4 py-2 text-right">UGX ${itemTotal.toLocaleString()}</td>
@@ -992,35 +976,7 @@
                 document.getElementById('package-adjustment-details').classList.add('hidden');
             }
             
-            // Show package tracking summary if there are packages in the cart
-            const packagesInCart = cart.filter(item => item.type === 'package');
-            if (packagesInCart.length > 0) {
-                const trackingSummaryContainer = document.getElementById('package-tracking-summary');
-                const trackingList = document.getElementById('package-tracking-list');
-                
-                let trackingHTML = '';
-                packagesInCart.forEach(package => {
-                    // For packages in cart (not yet purchased), show "Pending" instead of generating tracking numbers
-                    const trackingNumber = "Pending - Will be generated upon purchase";
-                    trackingHTML += `
-                        <div class="flex justify-between items-center text-sm">
-                            <div>
-                                <span class="font-medium text-gray-800">${package.displayName || package.name}</span>
-                                <span class="text-gray-600"> (Qty: ${package.quantity})</span>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-orange-600 font-semibold">${trackingNumber}</span>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                trackingList.innerHTML = trackingHTML;
-                trackingSummaryContainer.classList.remove('hidden');
-                
-            } else {
-                document.getElementById('package-tracking-summary').classList.add('hidden');
-            }
+            // Package Tracking Numbers section removed - was for testing purposes only
             
             // Calculate balance adjustment first (needed for service charge calculation)
             const balanceAdjustmentData = await calculateBalanceAdjustment(subtotal);
@@ -1051,8 +1007,27 @@
             
             // Update invoice summary
             document.getElementById('invoice-subtotal').textContent = `UGX ${subtotal1.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('package-adjustment-display').textContent = `UGX ${parseFloat(packageAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('balance-adjustment-display').textContent = `UGX ${parseFloat(balanceAdjustment).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            // Show/hide Package Adjustment based on value
+            const packageAdjustmentRow = document.getElementById('package-adjustment-row');
+            const packageAdjustmentValue = parseFloat(packageAdjustment);
+            if (packageAdjustmentValue !== 0) {
+                document.getElementById('package-adjustment-display').textContent = `UGX ${packageAdjustmentValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                packageAdjustmentRow.classList.remove('hidden');
+            } else {
+                packageAdjustmentRow.classList.add('hidden');
+            }
+            
+            // Show/hide Account Balance Adjustment based on value
+            const balanceAdjustmentRow = document.getElementById('balance-adjustment-row');
+            const balanceAdjustmentValue = parseFloat(balanceAdjustment);
+            if (balanceAdjustmentValue !== 0) {
+                document.getElementById('balance-adjustment-display').textContent = `UGX ${balanceAdjustmentValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                balanceAdjustmentRow.classList.remove('hidden');
+            } else {
+                balanceAdjustmentRow.classList.add('hidden');
+            }
+            
             document.getElementById('invoice-subtotal-2').textContent = `UGX ${subtotal2.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
             // Display service charge and handle note visibility

@@ -157,6 +157,20 @@ class SuspenseAccountsTable extends Component implements HasTable, HasForms
                     ->sortable()
                     ->limit(50),
                 
+                TextColumn::make('source')
+                    ->label('Source')
+                    ->searchable()
+                    ->sortable()
+                    ->formatStateUsing(fn ($state) => $state ?? 'N/A')
+                    ->limit(50),
+                
+                TextColumn::make('destination')
+                    ->label('Destination')
+                    ->searchable()
+                    ->sortable()
+                    ->formatStateUsing(fn ($state) => $state ?? 'N/A')
+                    ->limit(50),
+                
                 TextColumn::make('amount')
                     ->label('Amount')
                     ->money('UGX')

@@ -109,7 +109,7 @@ class ListDailyVisits extends Component implements HasForms, HasTable
                         ->searchable(),
                 ] : []),
 
-                // Quick date presets (defaults to Today)
+                // Quick date presets (removable default)
                 Tables\Filters\Filter::make('quick_date')
                     ->form([
                         \Filament\Forms\Components\Select::make('preset')
@@ -120,48 +120,55 @@ class ListDailyVisits extends Component implements HasForms, HasTable
                                 'this_week' => 'This Week',
                                 'this_month' => 'This Month',
                             ])
-                    ])
-                    ->default([
-                        'preset' => 'today',
+                            ->placeholder('All dates')
                     ])
                     ->query(function ($query, array $data) {
-                        $preset = $data['preset'] ?? 'today';
-                        return match ($preset) {
+                        // Default to today if no preset selected (but don't show as active filter badge)
+                        if (empty($data['preset'])) {
+                            return $query->whereDate('created_at', now()->toDateString());
+                        }
+                        return match ($data['preset']) {
                             'yesterday' => $query->whereDate('created_at', now()->subDay()->toDateString()),
                             'this_week' => $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]),
                             'this_month' => $query->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()]),
-                            default => $query->whereDate('created_at', now()->toDateString()),
+                            'today' => $query->whereDate('created_at', now()->toDateString()),
+                            default => $query->whereDate('created_at', now()->toDateString()), // Default to today
                         };
                     })
                     ->indicateUsing(function (array $data): ?string {
-                        return match ($data['preset'] ?? 'today') {
+                        if (empty($data['preset'])) {
+                            return null; // Don't show indicator when using default (today)
+                        }
+                        return match ($data['preset']) {
                             'yesterday' => 'Date: Yesterday',
                             'this_week' => 'Date: This Week',
                             'this_month' => 'Date: This Month',
-                            default => 'Date: Today',
+                            'today' => 'Date: Today',
+                            default => null,
                         };
                     }),
 
-                // Date filter (defaults to Today if none selected)
+                // Specific date filter (only applies when explicitly selected)
                 Tables\Filters\Filter::make('date')
                     ->form([
                         \Filament\Forms\Components\DatePicker::make('created_at')
                             ->label('Date'),
                     ])
-                    ->default([
-                        'created_at' => now()->toDateString(),
-                    ])
                     ->query(function ($query, array $data) {
                         if (!empty($data['created_at'])) {
                             $query->whereDate('created_at', $data['created_at']);
-                        } else {
-                            $query->whereDate('created_at', now()->toDateString());
                         }
                     })
                     ->indicateUsing(function (array $data): ?string {
-                        return !empty($data['created_at'])
-                            ? 'Date: ' . \Carbon\Carbon::parse($data['created_at'])->format('M d, Y')
-                            : 'Date: Today';
+                        if (!empty($data['created_at'])) {
+                            $selectedDate = \Carbon\Carbon::parse($data['created_at']);
+                            $today = now()->toDateString();
+                            // Only show if it's different from today (to avoid duplicate with quick_date)
+                            if ($selectedDate->toDateString() !== $today) {
+                                return 'Date: ' . $selectedDate->format('M d, Y');
+                            }
+                        }
+                        return null;
                     }),
 
                 // Date range filter

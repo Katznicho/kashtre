@@ -24,7 +24,7 @@ class ProcessExtendedServiceQueueItems extends Command
      *
      * @var string
      */
-    protected $description = 'Process service queue items that have passed their 24-hour extension period: mark partially done items as completed, mark pending items as not done and create credit notes';
+    protected $description = 'Process service queue items that have passed their 24-hour extension period: mark partially done items as completed, mark pending items as not done (credit note creation is commented out)';
 
     /**
      * Execute the console command.
@@ -69,45 +69,47 @@ class ProcessExtendedServiceQueueItems extends Command
                         
                         $this->info("Marked item #{$item->id} ({$item->item_name}) as completed.");
                     } elseif ($item->status === 'pending') {
-                        // Mark as not_done and create credit note
+                        // Mark as not_done
                         $item->update([
                             'status' => 'not_done',
                         ]);
 
+                        // TODO: Credit note creation commented out - to be implemented later
                         // Calculate credit amount (item price * quantity)
-                        $creditAmount = $item->price * $item->quantity;
+                        // $creditAmount = $item->price * $item->quantity;
 
                         // Create credit note
-                        $creditNote = CreditNote::create([
-                            'service_delivery_queue_id' => $item->id,
-                            'invoice_id' => $item->invoice_id,
-                            'client_id' => $item->client_id,
-                            'business_id' => $item->business_id,
-                            'branch_id' => $item->branch_id,
-                            'amount' => $creditAmount,
-                            'reason' => "Service not completed within 24-hour extension period - Item: {$item->item_name}",
-                            'status' => 'approved',
-                            'processed_at' => now(),
-                        ]);
+                        // $creditNote = CreditNote::create([
+                        //     'service_delivery_queue_id' => $item->id,
+                        //     'invoice_id' => $item->invoice_id,
+                        //     'client_id' => $item->client_id,
+                        //     'business_id' => $item->business_id,
+                        //     'branch_id' => $item->branch_id,
+                        //     'amount' => $creditAmount,
+                        //     'reason' => "Service not completed within 24-hour extension period - Item: {$item->item_name}",
+                        //     'status' => 'approved',
+                        //     'processed_at' => now(),
+                        // ]);
 
                         // Credit the client's account balance
-                        if ($item->client) {
-                            BalanceHistory::recordCredit(
-                                $item->client,
-                                $creditAmount,
-                                "Credit Note #{$creditNote->credit_note_number} - {$item->item_name} (Service not completed)",
-                                $creditNote->credit_note_number,
-                                "Automatic credit note for incomplete service after 24-hour extension period"
-                            );
+                        // if ($item->client) {
+                        //     BalanceHistory::recordCredit(
+                        //         $item->client,
+                        //         $creditAmount,
+                        //         "Credit Note #{$creditNote->credit_note_number} - {$item->item_name} (Service not completed)",
+                        //         $creditNote->credit_note_number,
+                        //         "Automatic credit note for incomplete service after 24-hour extension period"
+                        //     );
 
-                            // Update client balance
-                            $item->client->increment('balance', $creditAmount);
-                        }
+                        //     // Update client balance
+                        //     $item->client->increment('balance', $creditAmount);
+                        // }
 
                         $pendingCount++;
-                        $creditNotesCreated++;
+                        // $creditNotesCreated++;
 
-                        $this->info("Marked item #{$item->id} ({$item->item_name}) as not done and created credit note #{$creditNote->credit_note_number} for UGX " . number_format($creditAmount, 2));
+                        $this->info("Marked item #{$item->id} ({$item->item_name}) as not done. (Credit note creation is commented out)");
+                        // $this->info("Marked item #{$item->id} ({$item->item_name}) as not done and created credit note #{$creditNote->credit_note_number} for UGX " . number_format($creditAmount, 2));
                     }
                 } catch (\Exception $e) {
                     $errors++;
@@ -125,7 +127,7 @@ class ProcessExtendedServiceQueueItems extends Command
             $this->info("\nProcessing complete!");
             $this->info("Partially done items marked as completed: {$partiallyDoneCount}");
             $this->info("Pending items marked as not done: {$pendingCount}");
-            $this->info("Credit notes created: {$creditNotesCreated}");
+            // $this->info("Credit notes created: {$creditNotesCreated}"); // Commented out - credit note creation disabled
             
             if ($errors > 0) {
                 $this->warn("Errors encountered: {$errors}");
@@ -134,7 +136,7 @@ class ProcessExtendedServiceQueueItems extends Command
             Log::info("Extended service queue items processed", [
                 'partially_done_completed' => $partiallyDoneCount,
                 'pending_not_done' => $pendingCount,
-                'credit_notes_created' => $creditNotesCreated,
+                // 'credit_notes_created' => $creditNotesCreated, // Commented out - credit note creation disabled
                 'errors' => $errors
             ]);
 

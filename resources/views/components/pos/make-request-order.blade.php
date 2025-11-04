@@ -171,20 +171,17 @@
                 <!-- Request/Order Summary Table -->
                 <div class="border border-gray-200 rounded-lg overflow-hidden">
                     <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                        <div class="grid grid-cols-5 gap-4">
+                        <div class="grid grid-cols-4 gap-4">
                             <div>
                                 <span class="text-sm font-medium text-gray-700">Item</span>
                             </div>
-                            <div>
-                                <span class="text-sm font-medium text-gray-700">Type</span>
-                            </div>
-                            <div>
+                            <div class="text-center">
                                 <span class="text-sm font-medium text-gray-700">Quantity</span>
                             </div>
-                            <div>
+                            <div class="text-right">
                                 <span class="text-sm font-medium text-gray-700">Price</span>
                             </div>
-                            <div>
+                            <div class="text-right">
                                 <span class="text-sm font-medium text-gray-700">Action</span>
                             </div>
                         </div>

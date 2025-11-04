@@ -31,7 +31,9 @@ class MoneyTransfer extends Model
         'processed_at',
         'money_moved_to_final_account',
         'moved_to_final_at',
-        'final_movement_notes'
+        'final_movement_notes',
+        'source',
+        'destination'
     ];
 
     protected $casts = [

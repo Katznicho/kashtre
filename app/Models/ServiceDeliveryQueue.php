@@ -165,19 +165,23 @@ class ServiceDeliveryQueue extends Model
 
     public function markAsPartiallyDone($userId = null)
     {
+        $userId = $userId ?? auth()->id();
         $this->update([
             'status' => 'partially_done',
             'started_at' => $this->started_at ?? now(),
             'partially_done_at' => now(),
-            'started_by_user_id' => $userId ?? auth()->id()
+            'started_by_user_id' => $userId,
+            'assigned_to' => $userId // Assign to user when marking as partially_done
         ]);
     }
 
-    public function markAsCompleted()
+    public function markAsCompleted($userId = null)
     {
+        $userId = $userId ?? auth()->id();
         $this->update([
             'status' => 'completed',
-            'completed_at' => now()
+            'completed_at' => now(),
+            'assigned_to' => $userId // Assign to user when marking as completed
         ]);
     }
 

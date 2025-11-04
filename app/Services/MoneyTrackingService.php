@@ -1171,6 +1171,27 @@ class MoneyTrackingService
             'client_name' => $invoice && $invoice->client ? $invoice->client->name : 'null'
         ]);
         
+        // Generate source description
+        $source = $fromAccount->name;
+        if ($invoice && $invoice->client) {
+            $source = $invoice->client->name;
+            if ($invoice->invoice_number) {
+                $source .= " (Invoice: {$invoice->invoice_number})";
+            }
+        } elseif ($fromAccount->client) {
+            $source = $fromAccount->client->name . " - {$fromAccount->name}";
+        }
+        
+        // Generate destination description
+        $destination = $toAccount->name;
+        if (in_array($toAccount->type, ['business_account', 'kashtre_account'])) {
+            if ($invoice && $invoice->invoice_number) {
+                $destination .= " (Invoice: {$invoice->invoice_number})";
+            }
+        } elseif ($toAccount->client) {
+            $destination = $toAccount->client->name . " - {$toAccount->name}";
+        }
+        
         $transfer = MoneyTransfer::create([
             'business_id' => $fromAccount->business_id,
             'from_account_id' => $fromAccount->id,
@@ -1185,6 +1206,8 @@ class MoneyTrackingService
             'client_id' => $invoice ? $invoice->client_id : null,
             'item_id' => $item ? $item->id : null,
             'description' => $description,
+            'source' => $source,
+            'destination' => $destination,
             'processed_at' => now()
         ]);
 
@@ -1354,11 +1377,33 @@ class MoneyTrackingService
                 'note' => $isPackageItem ? 'Package item: Display shows item amount, money transfer uses full package amount' : 'Regular item: Same amount for display and transfer'
             ]);
             
-            // Transfer item amount to business account
+            // Calculate business and contractor shares FIRST
+            $businessShare = $itemAmount;
+            $contractorShare = 0;
+            
+            // Check if item has contractor and calculate shares
+            if ($item->contractor_account_id && $item->hospital_share < 100) {
+                $contractor = ContractorProfile::find($item->contractor_account_id);
+                if ($contractor) {
+                    $contractorShare = ($itemAmount * (100 - $item->hospital_share)) / 100;
+                    $businessShare = $itemAmount - $contractorShare;
+                    
+                    Log::info("Calculating shares for service delivery", [
+                        'total_amount' => $itemAmount,
+                        'hospital_share_percentage' => $item->hospital_share,
+                        'contractor_share_percentage' => 100 - $item->hospital_share,
+                        'contractor_share_amount' => $contractorShare,
+                        'business_share_amount' => $businessShare
+                    ]);
+                }
+            }
+            
+            // Transfer ONLY business share to business account
+            $generalSuspenseAccount = $this->getOrCreateGeneralSuspenseAccount($business);
             $this->transferMoney(
-                $this->getOrCreateGeneralSuspenseAccount($business),
+                $generalSuspenseAccount,
                 $businessAccount,
-                $itemAmount,
+                $businessShare,
                 'service_delivered',
                 $invoice,
                 $item,
@@ -1369,9 +1414,9 @@ class MoneyTrackingService
             BusinessBalanceHistory::recordChange(
                 $business->id,
                 $businessAccount->id,
-                $itemAmount,
+                $businessShare,
                 'credit',
-                "Service delivery payment for {$item->name} ({$serviceDeliveryQueue->quantity})",
+                "Service delivery payment for {$item->name} ({$serviceDeliveryQueue->quantity}) - Business share",
                 'service_delivery_queue',
                 $serviceDeliveryQueue->id,
                 [
@@ -1381,9 +1426,6 @@ class MoneyTrackingService
                 ],
                 $user ? $user->id : null
             );
-            
-            // Initialize business share amount (will be updated if contractor share exists)
-            $businessShare = $itemAmount;
             
             // Transfer service charge to Kashtre account
             if ($serviceCharge > 0) {
@@ -1416,18 +1458,15 @@ class MoneyTrackingService
                 );
             }
             
-            // Handle contractor share if item has contractor
-            if ($item->contractor_account_id) {
+            // Transfer ONLY contractor share to contractor account (if exists)
+            if ($contractorShare > 0 && $item->contractor_account_id) {
                 $contractor = ContractorProfile::find($item->contractor_account_id);
-                if ($contractor && $item->hospital_share < 100) {
-                    $contractorShare = ($itemAmount * (100 - $item->hospital_share)) / 100;
-                    $businessShare = $itemAmount - $contractorShare;
-                    
-                    // Transfer contractor share to contractor account
+                if ($contractor) {
                     $contractorAccount = $this->getOrCreateContractorAccount($contractor);
                     
+                    // Transfer contractor share directly from suspense to contractor account
                     $this->transferMoney(
-                        $businessAccount,
+                        $generalSuspenseAccount,
                         $contractorAccount,
                         $contractorShare,
                         'contractor_share',
@@ -1454,24 +1493,6 @@ class MoneyTrackingService
                         $user ? $user->id : null
                     );
                     
-                    // Record business balance statement for contractor share
-                    BusinessBalanceHistory::recordChange(
-                        $business->id,
-                        $businessAccount->id,
-                        $contractorShare,
-                        'debit',
-                        "Contractor share payment for {$item->name} ({$serviceDeliveryQueue->quantity})",
-                        'service_delivery_queue',
-                        $serviceDeliveryQueue->id,
-                        [
-                            'invoice_id' => $invoice->id,
-                            'item_id' => $item->id,
-                            'client_id' => $invoice->client_id,
-                            'contractor_id' => $contractor->id
-                        ],
-                        $user ? $user->id : null
-                    );
-                    
                     // Update contractor account balance
                     $contractor->increment('account_balance', $contractorShare);
                     
@@ -1480,30 +1501,21 @@ class MoneyTrackingService
                         $contractor->moneyAccount->credit($contractorShare);
                     }
                     
-                    // Update business account balance
-                    $business->increment('account_balance', $businessShare);
-                    
-                    // Sync with money account if it exists
-                    if ($business->businessMoneyAccount) {
-                        $business->businessMoneyAccount->credit($businessShare);
-                    }
-                } else {
-                    // No contractor share - business gets full amount
-                    $business->increment('account_balance', $businessShare);
-                    
-                    // Sync with money account if it exists
-                    if ($business->businessMoneyAccount) {
-                        $business->businessMoneyAccount->credit($businessShare);
-                    }
+                    Log::info("Contractor share processed", [
+                        'contractor_id' => $contractor->id,
+                        'contractor_name' => $contractor->name,
+                        'contractor_share_amount' => $contractorShare,
+                        'contractor_new_balance' => $contractor->fresh()->account_balance
+                    ]);
                 }
-            } else {
-                // No contractor - business gets full amount
-                $business->increment('account_balance', $businessShare);
-                
-                // Sync with money account if it exists
-                if ($business->businessMoneyAccount) {
-                    $business->businessMoneyAccount->credit($businessShare);
-                }
+            }
+            
+            // Update business account balance
+            $business->increment('account_balance', $businessShare);
+            
+            // Sync with money account if it exists
+            if ($business->businessMoneyAccount) {
+                $business->businessMoneyAccount->credit($businessShare);
             }
             
             DB::commit();
@@ -2144,37 +2156,12 @@ class MoneyTrackingService
             'contractor_account_id' => $item->contractor_account_id
         ]);
 
-        // First, transfer money from client suspense to business account
+        // Calculate business and contractor shares FIRST
         $businessAccount = $this->getOrCreateBusinessAccount($business);
-        
-        Log::info("Transferring money from client suspense to business account", [
-            'from_account_id' => $clientSuspenseAccount->id,
-            'to_account_id' => $businessAccount->id,
-            'amount' => $totalAmount,
-            'description' => "{$item->name} ({$quantity})"
-        ]);
-
-        $transfer = $this->transferMoney(
-            $clientSuspenseAccount,
-            $businessAccount,
-            $totalAmount,
-            'save_and_exit',
-            $invoice,
-            $item,
-            "{$item->name} ({$quantity})"
-        );
-
-        Log::info("Money transfer completed", [
-            'transfer_id' => $transfer->id,
-            'from_account_balance_after' => $clientSuspenseAccount->fresh()->balance,
-            'to_account_balance_after' => $businessAccount->fresh()->balance
-        ]);
-
-        // Initialize business share amount (will be updated if contractor share exists)
         $businessShare = $totalAmount;
         $contractorShare = 0;
 
-        // Handle contractor share if item has contractor and hospital share < 100%
+        // Check if item has contractor and calculate shares
         if ($item->contractor_account_id && $item->hospital_share < 100) {
             $contractor = ContractorProfile::find($item->contractor_account_id);
             
@@ -2189,12 +2176,44 @@ class MoneyTrackingService
                     'contractor_share_amount' => $contractorShare,
                     'business_share_amount' => $businessShare
                 ]);
-                
-                // Transfer contractor share to contractor account
+            }
+        }
+        
+        // Transfer ONLY business share from client suspense to business account
+        Log::info("Transferring money from client suspense to business account", [
+            'from_account_id' => $clientSuspenseAccount->id,
+            'to_account_id' => $businessAccount->id,
+            'amount' => $businessShare,
+            'description' => "{$item->name} ({$quantity})"
+        ]);
+
+        $transfer = $this->transferMoney(
+            $clientSuspenseAccount,
+            $businessAccount,
+            $businessShare,
+            'save_and_exit',
+            $invoice,
+            $item,
+            "{$item->name} ({$quantity})"
+        );
+
+        Log::info("Money transfer completed", [
+            'transfer_id' => $transfer->id,
+            'from_account_balance_after' => $clientSuspenseAccount->fresh()->balance,
+            'to_account_balance_after' => $businessAccount->fresh()->balance,
+            'business_share_transferred' => $businessShare
+        ]);
+
+        // Transfer ONLY contractor share to contractor account (if exists)
+        if ($contractorShare > 0 && $item->contractor_account_id) {
+            $contractor = ContractorProfile::find($item->contractor_account_id);
+            
+            if ($contractor) {
+                // Transfer contractor share directly from client suspense to contractor account
                 $contractorAccount = $this->getOrCreateContractorAccount($contractor);
                 
-                $this->transferMoney(
-                    $businessAccount,
+                $contractorTransfer = $this->transferMoney(
+                    $clientSuspenseAccount,
                     $contractorAccount,
                     $contractorShare,
                     'contractor_share',
@@ -2219,23 +2238,6 @@ class MoneyTrackingService
                     ]
                 );
                 
-                // Record business balance statement for contractor share payment
-                BusinessBalanceHistory::recordChange(
-                    $business->id,
-                    $businessAccount->id,
-                    $contractorShare,
-                    'debit',
-                    "Contractor share payment for {$item->name} ({$quantity})",
-                    'invoice',
-                    $invoice->id,
-                    [
-                        'invoice_number' => $invoice->invoice_number,
-                        'item_name' => $item->name,
-                        'contractor_id' => $contractor->id,
-                        'description' => "Contractor share payment for item: {$item->name}"
-                    ]
-                );
-                
                 // Update contractor account balance
                 $contractor->increment('account_balance', $contractorShare);
                 
@@ -2248,7 +2250,8 @@ class MoneyTrackingService
                     'contractor_id' => $contractor->id,
                     'contractor_name' => $contractor->name,
                     'contractor_share_amount' => $contractorShare,
-                    'contractor_new_balance' => $contractor->fresh()->account_balance
+                    'contractor_new_balance' => $contractor->fresh()->account_balance,
+                    'contractor_transfer_id' => $contractorTransfer->id
                 ]);
             } else {
                 Log::error("Contractor not found for item", [
@@ -3671,26 +3674,45 @@ class MoneyTrackingService
                             'item_name' => $item->name,
                             'total_amount' => $transfer->amount,
                             'hospital_share' => $item->hospital_share,
-                            'contractor_account_id' => $item->contractor_account_id
+                            'contractor_account_id' => $item->contractor_account_id,
+                            'invoice_id' => $invoice->id,
+                            'invoice_number' => $invoice->invoice_number,
+                            'suspense_account_id' => $generalSuspenseAccount->id,
+                            'suspense_account_name' => $generalSuspenseAccount->name,
+                            'suspense_account_balance_before' => $generalSuspenseAccount->balance,
+                            'business_account_id' => $businessAccount->id,
+                            'business_account_name' => $businessAccount->name,
+                            'business_account_balance_before' => $businessAccount->balance
                         ]);
 
-                        // Calculate shares
+                        // Calculate shares FIRST
                         $contractorShare = ($transfer->amount * (100 - $item->hospital_share)) / 100;
                         $businessShare = $transfer->amount - $contractorShare;
 
-                        Log::info("Hospital share calculation", [
+                        Log::info("💰 Hospital share calculation - SAVE & EXIT", [
                             'total_amount' => $transfer->amount,
                             'hospital_share_percentage' => $item->hospital_share,
                             'contractor_share_percentage' => 100 - $item->hospital_share,
                             'contractor_share_amount' => $contractorShare,
-                            'business_share_amount' => $businessShare
+                            'business_share_amount' => $businessShare,
+                            'verification' => ($businessShare + $contractorShare) == $transfer->amount ? '✅ CORRECT' : '❌ MISMATCH'
                         ]);
 
-                        // First, transfer full amount from suspense to business account
+                        // Transfer ONLY business share from suspense to business account
+                        Log::info("🔄 Transferring business share - SAVE & EXIT", [
+                            'from_account' => $generalSuspenseAccount->name,
+                            'from_account_id' => $generalSuspenseAccount->id,
+                            'from_account_balance_before' => $generalSuspenseAccount->balance,
+                            'to_account' => $businessAccount->name,
+                            'to_account_id' => $businessAccount->id,
+                            'to_account_balance_before' => $businessAccount->balance,
+                            'amount' => $businessShare
+                        ]);
+                        
                         $finalTransfer = $this->transferMoney(
                             $generalSuspenseAccount,
                             $businessAccount,
-                            $transfer->amount,
+                            $businessShare,
                             'suspense_to_final',
                             $invoice,
                             $item,
@@ -3698,14 +3720,49 @@ class MoneyTrackingService
                             null,
                             'debit'
                         );
+                        
+                        Log::info("✅ Business share transfer completed - SAVE & EXIT", [
+                            'transfer_id' => $finalTransfer->id,
+                            'from_account_balance_after' => $generalSuspenseAccount->fresh()->balance,
+                            'to_account_balance_after' => $businessAccount->fresh()->balance,
+                            'amount_transferred' => $businessShare
+                        ]);
 
-                        // Then transfer contractor share from business to contractor
+                        // Record business balance statement for business share
+                        \App\Models\BusinessBalanceHistory::recordChange(
+                            $business->id,
+                            $businessAccount->id,
+                            $businessShare,
+                            'credit',
+                            "{$item->name} (x1) - Business share",
+                            'invoice',
+                            $invoice->id,
+                            [
+                                'invoice_number' => $invoice->invoice_number,
+                                'item_name' => $item->name,
+                                'description' => "Business share for item: {$item->name}"
+                            ]
+                        );
+
+                        // Transfer ONLY contractor share from suspense to contractor account
                         $contractor = \App\Models\ContractorProfile::find($item->contractor_account_id);
-                        if ($contractor) {
+                        if ($contractor && $contractorShare > 0) {
                             $contractorAccount = $this->getOrCreateContractorAccount($contractor);
                             
+                            Log::info("🔄 Transferring contractor share - SAVE & EXIT", [
+                                'from_account' => $generalSuspenseAccount->name,
+                                'from_account_id' => $generalSuspenseAccount->id,
+                                'from_account_balance_before' => $generalSuspenseAccount->fresh()->balance,
+                                'to_account' => $contractorAccount->name,
+                                'to_account_id' => $contractorAccount->id,
+                                'to_account_balance_before' => $contractorAccount->balance,
+                                'contractor_id' => $contractor->id,
+                                'contractor_name' => $contractor->name,
+                                'amount' => $contractorShare
+                            ]);
+                            
                             $contractorTransfer = $this->transferMoney(
-                                $businessAccount,
+                                $generalSuspenseAccount,
                                 $contractorAccount,
                                 $contractorShare,
                                 'contractor_share',
@@ -3715,6 +3772,13 @@ class MoneyTrackingService
                                 null,
                                 'debit'
                             );
+                            
+                            Log::info("✅ Contractor share transfer completed - SAVE & EXIT", [
+                                'transfer_id' => $contractorTransfer->id,
+                                'from_account_balance_after' => $generalSuspenseAccount->fresh()->balance,
+                                'to_account_balance_after' => $contractorAccount->fresh()->balance,
+                                'amount_transferred' => $contractorShare
+                            ]);
 
                             // Record contractor balance statement
                             \App\Models\ContractorBalanceHistory::recordChange(
@@ -3732,23 +3796,6 @@ class MoneyTrackingService
                                 ]
                             );
 
-                            // Record business balance statement for contractor share payment
-                            \App\Models\BusinessBalanceHistory::recordChange(
-                                $business->id,
-                                $businessAccount->id,
-                                $contractorShare,
-                                'debit',
-                                "Contractor share payment for {$item->name} (x1)",
-                                'invoice',
-                                $invoice->id,
-                                [
-                                    'invoice_number' => $invoice->invoice_number,
-                                    'item_name' => $item->name,
-                                    'contractor_id' => $contractor->id,
-                                    'description' => "Contractor share payment for item: {$item->name}"
-                                ]
-                            );
-
                             // Update contractor account balance
                             $contractor->increment('account_balance', $contractorShare);
 
@@ -3757,16 +3804,20 @@ class MoneyTrackingService
                                 $contractor->moneyAccount->credit($contractorShare);
                             }
 
-                            Log::info("Contractor share processed", [
+                            Log::info("✅ Contractor share processed - SAVE & EXIT", [
                                 'contractor_id' => $contractor->id,
                                 'contractor_name' => $contractor->name,
                                 'contractor_share_amount' => $contractorShare,
-                                'contractor_new_balance' => $contractor->fresh()->account_balance
+                                'contractor_account_balance' => $contractor->fresh()->account_balance,
+                                'contractor_transfer_id' => $contractorTransfer->id
+                            ]);
+                        } else {
+                            Log::warning("⚠️ Contractor share skipped - SAVE & EXIT", [
+                                'contractor_account_id' => $item->contractor_account_id,
+                                'contractor_share' => $contractorShare,
+                                'reason' => $contractor ? 'Contractor share is 0' : 'Contractor not found'
                             ]);
                         }
-
-                        // Business has already been credited with the full amount during initial processing
-                        // No need to credit again here - the contractor share debit is sufficient
 
                         $transferRecords[] = [
                             'item_name' => $item->name,
@@ -3778,12 +3829,17 @@ class MoneyTrackingService
                             'transfer_id' => $finalTransfer->id
                         ];
 
-                        Log::info("✅ SAVE & EXIT: Hospital share item processed", [
+                        Log::info("🎉 SAVE & EXIT: Hospital share item processing COMPLETED", [
                             'item_name' => $item->name,
+                            'item_id' => $item->id,
                             'total_amount' => $transfer->amount,
                             'business_share' => $businessShare,
                             'contractor_share' => $contractorShare,
-                            'transfer_id' => $finalTransfer->id
+                            'business_transfer_id' => $finalTransfer->id,
+                            'contractor_transfer_id' => isset($contractorTransfer) ? $contractorTransfer->id : 'N/A',
+                            'final_suspense_balance' => $generalSuspenseAccount->fresh()->balance,
+                            'final_business_balance' => $businessAccount->fresh()->balance,
+                            'verification' => ($businessShare + $contractorShare) == $transfer->amount ? '✅ AMOUNTS MATCH' : '❌ AMOUNT MISMATCH'
                         ]);
                     } else {
                         // No hospital share - transfer full amount to business account

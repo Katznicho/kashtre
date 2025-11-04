@@ -23,7 +23,9 @@ class MoneyAccount extends Model
         'is_active',
         'status',
         'status_changed_at',
-        'status_notes'
+        'status_notes',
+        'source',
+        'destination'
     ];
 
     protected $casts = [

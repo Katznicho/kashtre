@@ -75,6 +75,11 @@ class Client extends Model
         return $this->hasMany(BalanceHistory::class);
     }
 
+    public function serviceDeliveryQueues()
+    {
+        return $this->hasMany(ServiceDeliveryQueue::class);
+    }
+
     /**
      * Get the full name of the client
      */

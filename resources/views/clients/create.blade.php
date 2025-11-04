@@ -50,7 +50,7 @@
                     </div>
                 @endif
 
-                <form action="{{ route('clients.store') }}" method="POST" class="space-y-8">
+                <form id="client-registration-form" action="{{ route('clients.store') }}" method="POST" class="space-y-8">
                     @csrf
                     
                     <!-- Personal Information Card -->
@@ -64,7 +64,7 @@
                             </h2>
                         </div>
                         <div class="p-6 space-y-6">
-                            <!-- Names -->
+                            <!-- Primary Information: Surname, First Name, Date of Birth -->
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div>
                                     <label for="surname" class="block text-sm font-medium text-gray-700 mb-2">
@@ -85,10 +85,48 @@
                                 </div>
                                 
                                 <div>
+                                    <label for="date_of_birth" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Date of Birth <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="date" name="date_of_birth" id="date_of_birth" value="{{ old('date_of_birth') }}" required 
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                </div>
+                            </div>
+
+                            <!-- Additional Names and Demographics -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div>
                                     <label for="other_names" class="block text-sm font-medium text-gray-700 mb-2">Other Names</label>
                                     <input type="text" name="other_names" id="other_names" value="{{ old('other_names') }}" 
                                            placeholder="Middle names (optional)"
                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                </div>
+                                
+                                <div>
+                                    <label for="sex" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Gender <span class="text-red-500">*</span>
+                                    </label>
+                                    <select name="sex" id="sex" required 
+                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                        <option value="">Select Gender</option>
+                                        <option value="male" {{ old('sex') == 'male' ? 'selected' : '' }}>Male</option>
+                                        <option value="female" {{ old('sex') == 'female' ? 'selected' : '' }}>Female</option>
+                                        <option value="other" {{ old('sex') == 'other' ? 'selected' : '' }}>Other</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label for="marital_status" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Marital Status <span class="text-red-500">*</span>
+                                    </label>
+                                    <select name="marital_status" id="marital_status" required
+                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                        <option value="">Select Status</option>
+                                        <option value="single" {{ old('marital_status') == 'single' ? 'selected' : '' }}>Single</option>
+                                        <option value="married" {{ old('marital_status') == 'married' ? 'selected' : '' }}>Married</option>
+                                        <option value="divorced" {{ old('marital_status') == 'divorced' ? 'selected' : '' }}>Divorced</option>
+                                        <option value="widowed" {{ old('marital_status') == 'widowed' ? 'selected' : '' }}>Widowed</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -115,44 +153,6 @@
                                             Same as NIN Number
                                         </button>
                                     </div>
-                                </div>
-                            </div>
-
-                            <!-- Demographics -->
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div>
-                                    <label for="sex" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Gender <span class="text-red-500">*</span>
-                                    </label>
-                                    <select name="sex" id="sex" required 
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
-                                        <option value="">Select Gender</option>
-                                        <option value="male" {{ old('sex') == 'male' ? 'selected' : '' }}>Male</option>
-                                        <option value="female" {{ old('sex') == 'female' ? 'selected' : '' }}>Female</option>
-                                        <option value="other" {{ old('sex') == 'other' ? 'selected' : '' }}>Other</option>
-                                    </select>
-                                </div>
-                                
-                                <div>
-                                    <label for="date_of_birth" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Date of Birth <span class="text-red-500">*</span>
-                                    </label>
-                                    <input type="date" name="date_of_birth" id="date_of_birth" value="{{ old('date_of_birth') }}" required 
-                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
-                                </div>
-                                
-                                <div>
-                                    <label for="marital_status" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Marital Status <span class="text-red-500">*</span>
-                                    </label>
-                                    <select name="marital_status" id="marital_status" required
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
-                                        <option value="">Select Status</option>
-                                        <option value="single" {{ old('marital_status') == 'single' ? 'selected' : '' }}>Single</option>
-                                        <option value="married" {{ old('marital_status') == 'married' ? 'selected' : '' }}>Married</option>
-                                        <option value="divorced" {{ old('marital_status') == 'divorced' ? 'selected' : '' }}>Divorced</option>
-                                        <option value="widowed" {{ old('marital_status') == 'widowed' ? 'selected' : '' }}>Widowed</option>
-                                    </select>
                                 </div>
                             </div>
 
@@ -493,6 +493,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const paymentPhoneSection = document.getElementById('payment_phone_section');
@@ -549,5 +550,172 @@
                 togglePaymentPhoneSection();
             }
         });
+
+        // Auto-fill form when surname, first name, and DOB match existing client
+        (function() {
+            const surnameInput = document.getElementById('surname');
+            const firstNameInput = document.getElementById('first_name');
+            const dobInput = document.getElementById('date_of_birth');
+            let searchTimeout = null;
+            let isAutoFilling = false;
+
+            function checkAndSearch() {
+                // Clear any existing timeout
+                if (searchTimeout) {
+                    clearTimeout(searchTimeout);
+                }
+
+                // Check if all three fields have values
+                if (!surnameInput.value.trim() || !firstNameInput.value.trim() || !dobInput.value) {
+                    return;
+                }
+
+                // Debounce the search - wait 500ms after user stops typing
+                searchTimeout = setTimeout(() => {
+                    if (isAutoFilling) return; // Prevent recursive calls
+
+                    // Make AJAX request to search for existing client
+                    fetch('{{ route("clients.search-existing") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            surname: surnameInput.value.trim(),
+                            first_name: firstNameInput.value.trim(),
+                            date_of_birth: dobInput.value
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.found && data.client) {
+                            // Show SweetAlert asking if user wants to use existing client data
+                            Swal.fire({
+                                title: 'Existing Client Found!',
+                                html: `
+                                    <p class="text-gray-700 mb-3">We found a client with matching details:</p>
+                                    <div class="text-left bg-gray-50 p-4 rounded-lg mb-3">
+                                        <p><strong>Client ID:</strong> ${data.client.client_id}</p>
+                                        <p><strong>Name:</strong> ${surnameInput.value} ${firstNameInput.value}</p>
+                                    </div>
+                                    <p class="text-gray-600">Would you like to auto-fill the form with their previous details and proceed to ordering?</p>
+                                `,
+                                icon: 'info',
+                                showCancelButton: true,
+                                confirmButtonColor: '#3085d6',
+                                cancelButtonColor: '#d33',
+                                confirmButtonText: 'Yes, Auto-fill & Continue',
+                                cancelButtonText: 'No, Continue Manually'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    // Redirect directly to POS with existing client (no new record needed)
+                                    window.location.href = `/pos/item-selection/${data.client.id}`;
+                                }
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error searching for existing client:', error);
+                        isAutoFilling = false;
+                    });
+                }, 500);
+            }
+
+            function autoFillForm(client) {
+                // Fill text inputs
+                if (client.other_names && document.getElementById('other_names')) {
+                    document.getElementById('other_names').value = client.other_names || '';
+                }
+                if (client.nin && document.getElementById('nin')) {
+                    document.getElementById('nin').value = client.nin || '';
+                }
+                if (client.tin_number && document.getElementById('tin_number')) {
+                    document.getElementById('tin_number').value = client.tin_number || '';
+                }
+                if (client.sex && document.getElementById('sex')) {
+                    document.getElementById('sex').value = client.sex;
+                }
+                if (client.marital_status && document.getElementById('marital_status')) {
+                    document.getElementById('marital_status').value = client.marital_status;
+                }
+                if (client.occupation && document.getElementById('occupation')) {
+                    document.getElementById('occupation').value = client.occupation || '';
+                }
+                if (client.phone_number && document.getElementById('phone_number')) {
+                    document.getElementById('phone_number').value = client.phone_number || '';
+                }
+                if (client.village && document.getElementById('village')) {
+                    document.getElementById('village').value = client.village || '';
+                }
+                if (client.county && document.getElementById('county')) {
+                    document.getElementById('county').value = client.county || '';
+                }
+                if (client.email && document.getElementById('email')) {
+                    document.getElementById('email').value = client.email || '';
+                }
+                if (client.services_category && document.getElementById('services_category')) {
+                    document.getElementById('services_category').value = client.services_category;
+                }
+                if (client.payment_phone_number && document.getElementById('payment_phone_number')) {
+                    document.getElementById('payment_phone_number').value = client.payment_phone_number || '';
+                }
+
+                // Fill payment methods checkboxes
+                if (client.payment_methods && Array.isArray(client.payment_methods)) {
+                    client.payment_methods.forEach(method => {
+                        // Checkbox IDs are formatted as 'payment_' + method (e.g., 'payment_mobile_money')
+                        const checkbox = document.getElementById('payment_' + method);
+                        if (checkbox) {
+                            checkbox.checked = true;
+                        }
+                    });
+                    // Trigger toggle for mobile money if needed
+                    if (client.payment_methods.includes('mobile_money')) {
+                        const mobileMoneyCheckbox = document.getElementById('payment_mobile_money');
+                        if (mobileMoneyCheckbox) {
+                            mobileMoneyCheckbox.dispatchEvent(new Event('change'));
+                        }
+                    }
+                }
+
+                // Fill Next of Kin fields
+                if (client.nok_surname && document.getElementById('nok_surname')) {
+                    document.getElementById('nok_surname').value = client.nok_surname || '';
+                }
+                if (client.nok_first_name && document.getElementById('nok_first_name')) {
+                    document.getElementById('nok_first_name').value = client.nok_first_name || '';
+                }
+                if (client.nok_other_names && document.getElementById('nok_other_names')) {
+                    document.getElementById('nok_other_names').value = client.nok_other_names || '';
+                }
+                if (client.nok_sex && document.getElementById('nok_sex')) {
+                    document.getElementById('nok_sex').value = client.nok_sex;
+                }
+                if (client.nok_marital_status && document.getElementById('nok_marital_status')) {
+                    document.getElementById('nok_marital_status').value = client.nok_marital_status;
+                }
+                if (client.nok_occupation && document.getElementById('nok_occupation')) {
+                    document.getElementById('nok_occupation').value = client.nok_occupation || '';
+                }
+                if (client.nok_phone_number && document.getElementById('nok_phone_number')) {
+                    document.getElementById('nok_phone_number').value = client.nok_phone_number || '';
+                }
+                if (client.nok_village && document.getElementById('nok_village')) {
+                    document.getElementById('nok_village').value = client.nok_village || '';
+                }
+                if (client.nok_county && document.getElementById('nok_county')) {
+                    document.getElementById('nok_county').value = client.nok_county || '';
+                }
+                
+                isAutoFilling = false;
+            }
+
+            // Add event listeners to the three fields
+            surnameInput.addEventListener('blur', checkAndSearch);
+            firstNameInput.addEventListener('blur', checkAndSearch);
+            dobInput.addEventListener('change', checkAndSearch);
+        })();
     </script>
 </x-app-layout>

@@ -85,6 +85,64 @@ class ClientController extends Controller
     }
 
     /**
+     * Search for existing client by surname, first name, and date of birth
+     */
+    public function searchExistingClient(Request $request)
+    {
+        $user = Auth::user();
+        $business = $user->business;
+        $currentBranch = $user->current_branch;
+
+        $request->validate([
+            'surname' => 'required|string',
+            'first_name' => 'required|string',
+            'date_of_birth' => 'required|date',
+        ]);
+
+        // Search for existing client with matching surname, first_name, and date_of_birth
+        $existingClient = Client::where('business_id', $business->id)
+            ->where('branch_id', $currentBranch->id)
+            ->where('surname', $request->surname)
+            ->where('first_name', $request->first_name)
+            ->where('date_of_birth', $request->date_of_birth)
+            ->first();
+
+        if ($existingClient) {
+            return response()->json([
+                'found' => true,
+                'client' => [
+                    'id' => $existingClient->id,
+                    'client_id' => $existingClient->client_id,
+                    'other_names' => $existingClient->other_names,
+                    'nin' => $existingClient->nin,
+                    'tin_number' => $existingClient->tin_number,
+                    'sex' => $existingClient->sex,
+                    'marital_status' => $existingClient->marital_status,
+                    'occupation' => $existingClient->occupation,
+                    'phone_number' => $existingClient->phone_number,
+                    'village' => $existingClient->village,
+                    'county' => $existingClient->county,
+                    'email' => $existingClient->email,
+                    'services_category' => $existingClient->services_category,
+                    'payment_methods' => $existingClient->payment_methods,
+                    'payment_phone_number' => $existingClient->payment_phone_number,
+                    'nok_surname' => $existingClient->nok_surname,
+                    'nok_first_name' => $existingClient->nok_first_name,
+                    'nok_other_names' => $existingClient->nok_other_names,
+                    'nok_sex' => $existingClient->nok_sex,
+                    'nok_marital_status' => $existingClient->nok_marital_status,
+                    'nok_occupation' => $existingClient->nok_occupation,
+                    'nok_phone_number' => $existingClient->nok_phone_number,
+                    'nok_village' => $existingClient->nok_village,
+                    'nok_county' => $existingClient->nok_county,
+                ]
+            ]);
+        }
+
+        return response()->json(['found' => false]);
+    }
+
+    /**
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
@@ -98,11 +156,28 @@ class ClientController extends Controller
             return redirect()->route('dashboard')->with('error', 'No branch assigned. Please contact administrator.');
         }
         
+        // Check if client already exists with same surname, first_name, and date_of_birth
+        $existingClient = Client::where('business_id', $business->id)
+            ->where('branch_id', $currentBranch->id)
+            ->where('surname', $request->surname)
+            ->where('first_name', $request->first_name)
+            ->where('date_of_birth', $request->date_of_birth)
+            ->first();
+
+        // If existing client found, redirect to POS with that client (no new record needed)
+        if ($existingClient) {
+            return redirect()->route('pos.item-selection', $existingClient)
+                ->with('success', 'Existing client found! Redirecting to ordering page. Client ID: ' . $existingClient->client_id);
+        }
+
+        // Validate NIN for new clients
+        $ninValidation = 'nullable|string|max:255|unique:clients,nin';
+
         $validated = $request->validate([
             'surname' => 'required|string|max:255',
             'first_name' => 'required|string|max:255',
             'other_names' => 'nullable|string|max:255',
-            'nin' => 'nullable|string|max:255|unique:clients,nin',
+            'nin' => $ninValidation,
             'tin_number' => 'nullable|string|max:255',
             'sex' => 'required|in:male,female,other',
             'date_of_birth' => 'required|date',
@@ -129,7 +204,7 @@ class ClientController extends Controller
             'nok_county' => 'required|string|max:255',
         ]);
         
-        // Generate client ID and visit ID
+        // Generate new client_id and visit_id for new client
         $clientId = Client::generateClientId($validated['nin'] ?? null, $business, $currentBranch);
         $visitId = Client::generateVisitId($business, $currentBranch);
         

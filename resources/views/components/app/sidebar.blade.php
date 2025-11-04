@@ -265,16 +265,6 @@
                                     </span>
                                 </a>
                             </li>
-                            <li>
-                                <a href="{{ route('finance.withdrawals.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
-                                    <span class="flex items-center">
-                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                                        </svg>
-                                        Withdrawal Requests
-                                    </span>
-                                </a>
-                            </li>
                             @endif
                             
                             <!-- Withdrawal Requests -->
@@ -312,9 +302,12 @@
                             @if(in_array('View Clients', $permissions))
                             <li><a href="{{ route('clients.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>View All Clients</a></li>
                             @endif
-                            {{-- @if(in_array('View Clients', $permissions)) --}}
-                            <li><a href="{{ route('daily-visits.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Daily Visits</a></li>
-                            {{-- @endif --}}
+                            @if(in_array('View Clients', $permissions))
+                            <li><a href="{{ route('clients.completed') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Completed Clients</a></li>
+                            @endif
+                            @if(in_array('View Visits', $permissions))
+                            <li><a href="{{ route('daily-visits.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Visits</a></li>
+                            @endif
                             @if(in_array('Add Clients', $permissions))
                             <li><a href="{{ route('clients.create') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Add New Client</a></li>
                             @endif
@@ -342,8 +335,8 @@
                     </li>
                     @endif
 
-                    <!-- Contractor Group (only for contractors, not visible for Kashtre/super business) -->
-                    @if(Auth::user()->contractorProfile && Auth::user()->business_id != 1)
+                    <!-- Contractor Group (only for contractors) -->
+                    @if(Auth::user()->contractorProfile)
                     <li>
                         <button @click="openGroup === 'contractor' ? openGroup = '' : openGroup = 'contractor'" :class="openGroup === 'contractor' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
                             <span class="flex items-center">
@@ -449,9 +442,9 @@
                             @if(in_array('View Withdrawal Settings', $permissions))
                             <li><a href="{{ route('withdrawal-settings.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Withdrawal Settings</a></li>
                             @endif
-                            @if(in_array('View Business Withdrawal Settings', $permissions))
+                            {{-- @if(in_array('View Business Withdrawal Settings', $permissions)) --}}
                             <li><a href="{{ route('business-withdrawal-settings.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Business Withdrawal Settings</a></li>
-                            @endif
+                            {{-- @endif --}}
                              @if(in_array('Bulk Validations Upload', $permissions)) 
                             <li><a href="{{ route('bulk.upload.form') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Bulk Upload</a></li>
                              @endif 

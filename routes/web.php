@@ -30,6 +30,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BulkUploadController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\CompletedClientsController;
 use App\Http\Controllers\DailyVisitsController;
 use App\Http\Controllers\ServiceChargeController;
 use App\Http\Controllers\ContractorServiceChargeController;
@@ -179,11 +180,14 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
         ->name('testing.clear-data')
         ->middleware('throttle:5,1'); // Max 5 requests per minute
     
+    Route::get('/clients/completed', [CompletedClientsController::class, 'index'])->name('clients.completed');
+    Route::get('/clients/{client}/completed-items', [CompletedClientsController::class, 'showCompletedItems'])->name('clients.completed-items');
+    Route::post('/clients/search-existing', [ClientController::class, 'searchExistingClient'])->name('clients.search-existing');
     Route::resource("clients", ClientController::class);
     Route::post('/clients/{client}/update-payment-methods', [ClientController::class, 'updatePaymentMethods'])->name('clients.update-payment-methods');
 Route::post('/clients/{client}/update-payment-phone', [ClientController::class, 'updatePaymentPhone'])->name('clients.update-payment-phone');
     
-    // Daily Visits
+    // Visits
     Route::get('/daily-visits', [DailyVisitsController::class, 'index'])->name('daily-visits.index');
     Route::view('/test-livewire', 'test-livewire')->name('test-livewire');
 
