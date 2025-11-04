@@ -6,7 +6,7 @@
             </h2>
             <a href="{{ route('contractor-balance-statement.show', $contractorProfile) }}" 
                class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
-                Back to Contractor Statement
+                Back to Contractor Account Statement
             </a>
         </div>
     </x-slot>

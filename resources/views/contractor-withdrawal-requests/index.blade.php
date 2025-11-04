@@ -7,7 +7,7 @@
             <div class="flex space-x-4">
                 <a href="{{ route('contractor-balance-statement.show', $contractorProfile) }}" 
                    class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
-                    Back to Balance Statement
+                    Back to Contractor Account Statement
                 </a>
                 <a href="{{ route('contractor-withdrawal-requests.create', $contractorProfile) }}" 
                    class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">

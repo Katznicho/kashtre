@@ -506,6 +506,7 @@
                 </div>
                 
                 <!-- Package Adjustment Details -->
+                {{-- Commented out for debugging purposes
                 <div id="package-adjustment-details" class="mb-6 hidden">
                     <h3 class="text-lg font-semibold text-gray-800 mb-3">Package Adjustments Applied</h3>
                     <div class="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -514,6 +515,7 @@
                         </div>
                     </div>
                 </div>
+                --}}
                 
                 <!-- Financial Summary -->
                 <div class="text-right space-y-2 text-sm">
@@ -946,6 +948,8 @@
             packageAdjustment = packageAdjustmentData.total_adjustment;
             
             // Show package adjustment details if any adjustments were made
+            // Commented out for debugging purposes - package adjustment details section removed
+            /*
             if (packageAdjustmentData.details && packageAdjustmentData.details.length > 0) {
                 const adjustmentDetailsContainer = document.getElementById('package-adjustment-details');
                 const adjustmentList = document.getElementById('package-adjustment-list');
@@ -975,6 +979,7 @@
             } else {
                 document.getElementById('package-adjustment-details').classList.add('hidden');
             }
+            */
             
             // Package Tracking Numbers section removed - was for testing purposes only
             

@@ -90,7 +90,7 @@
             </a>
             <a href="{{ route('contractor-balance-statement.show', $contractorProfile->id) }}" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center">
                 <i class="fas fa-history mr-2"></i>
-                View Balance Statement
+                View Contractor Account Statement
             </a>
         </div>
     </div>

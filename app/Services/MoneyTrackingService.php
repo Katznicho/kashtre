@@ -1472,7 +1472,7 @@ class MoneyTrackingService
                         'contractor_share',
                         $invoice,
                         $item,
-                        "Contractor share for {$item->name}"
+                        "{$item->name}"
                     );
                     
                     // Record contractor balance statement
@@ -1481,7 +1481,7 @@ class MoneyTrackingService
                         $contractorAccount->id,
                         $contractorShare,
                         'credit',
-                        "Contractor share for {$item->name}",
+                        "{$item->name}",
                         'service_delivery_queue',
                         $serviceDeliveryQueue->id,
                         [
@@ -2219,7 +2219,7 @@ class MoneyTrackingService
                     'contractor_share',
                     $invoice,
                     $item,
-                    "Contractor share for {$item->name}"
+                    "{$item->name}"
                 );
                 
                 // Record contractor balance statement
@@ -2228,13 +2228,13 @@ class MoneyTrackingService
                     $contractorAccount->id,
                     $contractorShare,
                     'credit',
-                    "Contractor share for {$item->name} ({$quantity})",
+                    "{$item->name} ({$quantity})",
                     'invoice',
                     $invoice->id,
                     [
                         'invoice_number' => $invoice->invoice_number,
                         'item_name' => $item->name,
-                        'description' => "Contractor share for item: {$item->name}"
+                        'description' => "{$item->name}"
                     ]
                 );
                 
@@ -2262,21 +2262,8 @@ class MoneyTrackingService
             }
         }
 
-        // Record business balance statement for business share
-        BusinessBalanceHistory::recordChange(
-            $business->id,
-            $businessAccount->id,
-            $businessShare,
-            'credit',
-            "{$item->name} ({$quantity})",
-            'invoice',
-            $invoice->id,
-            [
-                'invoice_number' => $invoice->invoice_number,
-                'item_name' => $item->name,
-                'description' => "Business share for item: {$item->name}"
-            ]
-        );
+        // Note: BusinessBalanceHistory record is already created by transferMoney() method
+        // No need to create it again here
 
         // Update business account balance
         $business->increment('account_balance', $businessShare);
@@ -3610,6 +3597,219 @@ class MoneyTrackingService
                 ]);
             }
 
+            // Process shared package items - debit business and credit contractor for their share
+            // This runs SEPARATELY from suspense processing because package money is already in business account
+            // when package items are consumed (money moved when package was purchased)
+            if ($hasPackageItemsBeingConsumed && !empty($items)) {
+                Log::info("🔍 === SAVE & EXIT: CHECKING PACKAGE ITEMS FOR CONTRACTOR SHARES ===", [
+                    'package_items_found' => $packageItemsFound,
+                    'invoice_items' => $invoice->items,
+                    'package_suspense_balance' => $packageSuspenseAccount->balance,
+                    'note' => 'Processing contractor shares regardless of suspense balance - money already in business account'
+                ]);
+
+                $businessAccount = $this->getOrCreateBusinessAccount($business);
+                $totalContractorShare = 0;
+                $contractorShares = [];
+
+                // Get package tracking for description
+                $packageTracking = \App\Models\PackageTracking::where('client_id', $client->id)
+                    ->where('business_id', $business->id)
+                    ->where('status', 'active')
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+                $trackingNumber = $packageTracking ? ($packageTracking->tracking_number ?? "PKG-{$packageTracking->id}") : null;
+
+                // Process each package item being consumed
+                foreach ($items as $itemData) {
+                    $itemId = $itemData['item_id'] ?? $itemData['id'] ?? null;
+                    if (!$itemId) continue;
+
+                    $actualItem = \App\Models\Item::find($itemId);
+                    if (!$actualItem) continue;
+
+                    // Check if this is a package adjustment item (item being consumed from package)
+                    $isPackageAdjustmentItem = false;
+                    if ($invoice->package_adjustment > 0) {
+                        $validPackages = \App\Models\PackageTracking::where('client_id', $invoice->client_id)
+                            ->where('business_id', $invoice->business_id)
+                            ->where('status', 'active')
+                            ->where('remaining_quantity', '>', 0)
+                            ->get();
+                        
+                        foreach ($validPackages as $packageTracking) {
+                            $packageItems = $packageTracking->packageItem->packageItems;
+                            foreach ($packageItems as $packageItem) {
+                                if ($packageItem->included_item_id == $actualItem->id) {
+                                    $isPackageAdjustmentItem = true;
+                                    break 2;
+                                }
+                            }
+                        }
+                    }
+
+                    // Only process if this is a package adjustment item (being consumed) and it's a shared item
+                    if ($isPackageAdjustmentItem && $actualItem->contractor_account_id && $actualItem->hospital_share < 100) {
+                        $contractor = \App\Models\ContractorProfile::find($actualItem->contractor_account_id);
+                        if ($contractor) {
+                            // Get the item amount from invoice (what was actually consumed)
+                            // Try to get total_amount first, otherwise calculate from price * quantity
+                            $quantity = $itemData['quantity'] ?? 1;
+                            if (isset($itemData['total_amount']) && $itemData['total_amount'] > 0) {
+                                $itemAmount = $itemData['total_amount'];
+                            } else {
+                                $itemPrice = $itemData['price'] ?? $actualItem->price ?? 0;
+                                $itemAmount = $itemPrice * $quantity;
+                            }
+
+                            // Calculate contractor share
+                            $contractorShare = ($itemAmount * (100 - $actualItem->hospital_share)) / 100;
+                            $businessShare = $itemAmount - $contractorShare;
+
+                            $totalContractorShare += $contractorShare;
+
+                            $contractorShares[] = [
+                                'item_id' => $actualItem->id,
+                                'item_name' => $actualItem->name,
+                                'item_amount' => $itemAmount,
+                                'contractor_share' => $contractorShare,
+                                'business_share' => $businessShare,
+                                'hospital_share_percentage' => $actualItem->hospital_share,
+                                'contractor_share_percentage' => 100 - $actualItem->hospital_share,
+                                'contractor_id' => $contractor->id,
+                                'contractor_name' => $contractor->name
+                            ];
+
+                            Log::info("💰 === SAVE & EXIT: PACKAGE ITEM CONTRACTOR SHARE CALCULATION ===", [
+                                'item_id' => $actualItem->id,
+                                'item_name' => $actualItem->name,
+                                'item_amount' => $itemAmount,
+                                'quantity' => $quantity,
+                                'contractor_share' => $contractorShare,
+                                'business_share' => $businessShare,
+                                'hospital_share_percentage' => $actualItem->hospital_share,
+                                'contractor_share_percentage' => 100 - $actualItem->hospital_share,
+                                'contractor_id' => $contractor->id,
+                                'contractor_name' => $contractor->name
+                            ]);
+
+                            // Get contractor account
+                            $contractorAccount = $this->getOrCreateContractorAccount($contractor);
+
+                            // Get balances BEFORE transfer (for history records)
+                            $businessAccountBalanceBefore = $businessAccount->fresh()->balance;
+                            $contractorAccountBalanceBefore = $contractorAccount->fresh()->balance;
+
+                            // Transfer contractor share from business account to contractor account
+                            // Money is already in business account from when package was purchased
+                            $contractorTransfer = $this->transferMoney(
+                                $businessAccount,
+                                $contractorAccount,
+                                $contractorShare,
+                                'suspense_to_final',
+                                $invoice,
+                                $actualItem,
+                                "{$actualItem->name} ({$quantity})",
+                                $trackingNumber,
+                                'debit'
+                            );
+
+                            $contractorTransfer->markMoneyMovedToFinalAccount();
+
+                            // Get balances AFTER transfer
+                            $businessAccountBalanceAfter = $businessAccount->fresh()->balance;
+                            $contractorAccountBalanceAfter = $contractorAccount->fresh()->balance;
+
+                            // Create BusinessBalanceHistory record for the debit from business account
+                            // Note: We manually create this because transferMoney only creates history for TO accounts when they're business accounts
+                            // The balance is already updated by transferMoney, so we use the correct previous balance
+                            \App\Models\BusinessBalanceHistory::create([
+                                'business_id' => $business->id,
+                                'money_account_id' => $businessAccount->id,
+                                'previous_balance' => $businessAccountBalanceBefore,
+                                'amount' => $contractorShare,
+                                'new_balance' => $businessAccountBalanceAfter,
+                                'type' => 'debit',
+                                'description' => "{$actualItem->name} ({$quantity})" . ($trackingNumber ? " (Ref: {$trackingNumber})" : ""),
+                                'reference_type' => 'invoice',
+                                'reference_id' => $invoice->id,
+                                'metadata' => [
+                                    'invoice_number' => $invoice->invoice_number,
+                                    'item_id' => $actualItem->id,
+                                    'item_name' => $actualItem->name,
+                                    'contractor_share' => $contractorShare,
+                                    'contractor_id' => $contractor->id,
+                                    'transfer_id' => $contractorTransfer->id,
+                                    'description' => "{$actualItem->name}"
+                                ],
+                                'user_id' => auth()->id()
+                            ]);
+
+                            // Create ContractorBalanceHistory record for the credit to contractor account
+                            // Note: transferMoney doesn't create contractor balance history, so we create it manually
+                            \App\Models\ContractorBalanceHistory::create([
+                                'contractor_profile_id' => $contractor->id,
+                                'money_account_id' => $contractorAccount->id,
+                                'previous_balance' => $contractorAccountBalanceBefore,
+                                'amount' => $contractorShare,
+                                'new_balance' => $contractorAccountBalanceAfter,
+                                'type' => 'credit',
+                                'description' => "{$actualItem->name} ({$quantity})" . ($trackingNumber ? " (Ref: {$trackingNumber})" : ""),
+                                'reference_type' => 'invoice',
+                                'reference_id' => $invoice->id,
+                                'metadata' => [
+                                    'invoice_number' => $invoice->invoice_number,
+                                    'item_id' => $actualItem->id,
+                                    'item_name' => $actualItem->name,
+                                    'contractor_share' => $contractorShare,
+                                    'transfer_id' => $contractorTransfer->id,
+                                    'description' => "{$actualItem->name}"
+                                ],
+                                'user_id' => auth()->id()
+                            ]);
+
+                            Log::info("✅ === SAVE & EXIT: PACKAGE ITEM CONTRACTOR SHARE TRANSFERRED ===", [
+                                'item_id' => $actualItem->id,
+                                'item_name' => $actualItem->name,
+                                'contractor_share' => $contractorShare,
+                                'transfer_id' => $contractorTransfer->id,
+                                'from_account' => $businessAccount->name,
+                                'to_account' => $contractorAccount->name,
+                                'business_account_balance_before' => $businessAccountBalanceBefore,
+                                'business_account_balance_after' => $businessAccountBalanceAfter,
+                                'contractor_account_balance_before' => $contractorAccountBalanceBefore,
+                                'contractor_account_balance_after' => $contractorAccountBalanceAfter,
+                                'business_balance_history_created' => true,
+                                'contractor_balance_history_created' => true
+                            ]);
+
+                            // Record the transfer
+                            $transferRecords[] = [
+                                'item_name' => $actualItem->name,
+                                'amount' => $contractorShare,
+                                'source_suspense' => $businessAccount->name,
+                                'destination' => $contractorAccount->name,
+                                'transfer_id' => $contractorTransfer->id,
+                                'type' => 'contractor_share'
+                            ];
+                        }
+                    }
+                }
+
+                if ($totalContractorShare > 0) {
+                    Log::info("✅ === SAVE & EXIT: PACKAGE ITEMS CONTRACTOR SHARES PROCESSED ===", [
+                        'total_contractor_share' => $totalContractorShare,
+                        'contractor_shares' => $contractorShares,
+                        'business_account_balance_after' => $businessAccount->fresh()->balance
+                    ]);
+                } else {
+                    Log::info("ℹ️ === SAVE & EXIT: NO CONTRACTOR SHARES FOR PACKAGE ITEMS ===", [
+                        'package_items_checked' => count($packageItemsFound),
+                        'reason' => 'No shared items found in package items being consumed'
+                    ]);
+                }
+            }
+
             // Process General Suspense Account - Create individual records for each item
             // BUT ONLY if there are no package items being consumed (package items should not be in general suspense)
             if ($generalSuspenseAccount->balance > 0 && !$hasPackageItemsBeingConsumed) {
@@ -3728,21 +3928,8 @@ class MoneyTrackingService
                             'amount_transferred' => $businessShare
                         ]);
 
-                        // Record business balance statement for business share
-                        \App\Models\BusinessBalanceHistory::recordChange(
-                            $business->id,
-                            $businessAccount->id,
-                            $businessShare,
-                            'credit',
-                            "{$item->name} (x1) - Business share",
-                            'invoice',
-                            $invoice->id,
-                            [
-                                'invoice_number' => $invoice->invoice_number,
-                                'item_name' => $item->name,
-                                'description' => "Business share for item: {$item->name}"
-                            ]
-                        );
+                        // Note: BusinessBalanceHistory record is already created by transferMoney() method
+                        // No need to create it again here
 
                         // Transfer ONLY contractor share from suspense to contractor account
                         $contractor = \App\Models\ContractorProfile::find($item->contractor_account_id);
@@ -3768,7 +3955,7 @@ class MoneyTrackingService
                                 'contractor_share',
                                 $invoice,
                                 $item,
-                                "Contractor share for {$item->name}",
+                                "{$item->name}",
                                 null,
                                 'debit'
                             );
@@ -3786,13 +3973,13 @@ class MoneyTrackingService
                                 $contractorAccount->id,
                                 $contractorShare,
                                 'credit',
-                                "Contractor share for {$item->name} (x1)",
+                                "{$item->name} (x1)",
                                 'invoice',
                                 $invoice->id,
                                 [
                                     'invoice_number' => $invoice->invoice_number,
                                     'item_name' => $item->name,
-                                    'description' => "Contractor share for item: {$item->name}"
+                                    'description' => "{$item->name}"
                                 ]
                             );
 

@@ -351,7 +351,7 @@
                         </button>
                         <ul x-show="openGroup === 'contractor'" x-collapse class="mt-1 space-y-1 pl-10">
                             <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Dashboard</a></li>
-                            <li><a href="{{ route('contractor-balance-statement.show', Auth::user()->contractorProfile->id) }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>My Balance Statement</a></li>
+                            <li><a href="{{ route('contractor-balance-statement.show', Auth::user()->contractorProfile->id) }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Contractor Account Statement</a></li>
                             <li><a href="{{ route('service-queues.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Service Queues</a></li>
                         </ul>
                     </li>

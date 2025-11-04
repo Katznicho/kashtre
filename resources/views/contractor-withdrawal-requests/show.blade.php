@@ -11,7 +11,7 @@
                 </a>
                 <a href="{{ route('contractor-balance-statement.show', $contractorWithdrawalRequest->contractorProfile) }}" 
                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                    View Balance Statement
+                    View Contractor Account Statement
                 </a>
             </div>
         </div>

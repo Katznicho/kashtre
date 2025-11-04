@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ $contractorProfile->user->name ?? 'Contractor' }} - Balance Statement
+                {{ $contractorProfile->user->name ?? 'Contractor' }} - Contractor Account Statement
             </h2>
             <div class="flex items-center space-x-3">
                 <a href="{{ route('contractor-withdrawal-requests.create', $contractorProfile) }}"
