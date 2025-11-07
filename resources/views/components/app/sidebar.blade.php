@@ -303,7 +303,7 @@
                             <li><a href="{{ route('clients.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>View All Clients</a></li>
                             @endif
                             @if(in_array('View Clients', $permissions))
-                            <li><a href="{{ route('clients.completed') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Completed Clients</a></li>
+                            <li><a href="{{ route('clients.completed') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Completed Items</a></li>
                             @endif
                             @if(in_array('View Visits', $permissions))
                             <li><a href="{{ route('daily-visits.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Visits</a></li>
@@ -398,7 +398,7 @@
                             @endif
 
                             @if(in_array('View Credit Note Workflows', $permissions))
-                            <li><a href="{{ route('credit-note-workflows.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Credit Note Workflows</a></li>
+                            <li><a href="{{ route('credit-note-workflows.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Refund Workflows</a></li>
                             @endif
 
                             @if(in_array('View Rooms', $permissions))

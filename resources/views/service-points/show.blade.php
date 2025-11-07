@@ -127,7 +127,7 @@
                                         class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
                                     <span class="flex items-center">
                                         <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                                        Completed Clients ({{ count(array_filter($clientsWithItems, function($client) { return isset($client['completed']) && count($client['completed']) > 0; })) }})
+                                        Completed Items ({{ count(array_filter($clientsWithItems, function($client) { return isset($client['completed']) && count($client['completed']) > 0; })) }})
                                     </span>
                                 </button>
                             </nav>
@@ -315,7 +315,7 @@
                                 @endif
                             </div>
 
-                            <!-- Completed Clients Tab -->
+                            <!-- Completed Items Tab -->
                             <div id="content-completed" class="tab-content hidden">
                                 @php
                                     $completedClients = array_filter($clientsWithItems, function($client) { 
@@ -400,7 +400,7 @@
                                     </div>
                                 @else
                                     <div class="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-                                        <div class="text-gray-500">No completed clients</div>
+                                        <div class="text-gray-500">No completed items</div>
                                     </div>
                                 @endif
                             </div>

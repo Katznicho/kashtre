@@ -1318,7 +1318,7 @@ class MoneyTrackingService
     }
 
     /**
-     * Process money transfers when service delivery item moves to partially done
+     * Process money transfers when service delivery item moves to in-progress status
      */
     public function processServiceDeliveryMoneyTransfer($serviceDeliveryQueue, $user = null)
     {

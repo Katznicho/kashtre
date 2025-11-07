@@ -99,7 +99,7 @@ class CreditNoteWorkflowController extends Controller
             ]);
 
             // Handle service point supervisors
-            // Supervisors can reassign "in progress" and "partially done" items to other users
+            // Supervisors can reassign items marked as "in progress" to other users
             if (isset($validated['service_point_supervisors'])) {
                 foreach ($validated['service_point_supervisors'] as $spData) {
                     $servicePointId = $spData['service_point_id'];
@@ -237,7 +237,7 @@ class CreditNoteWorkflowController extends Controller
             ]);
 
             // Handle service point supervisors
-            // Supervisors can reassign "in progress" and "partially done" items to other users
+            // Supervisors can reassign items marked as "in progress" to other users
             if (isset($validated['service_point_supervisors'])) {
                 foreach ($validated['service_point_supervisors'] as $spData) {
                     $servicePointId = $spData['service_point_id'];

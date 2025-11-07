@@ -110,8 +110,8 @@ class ListCompletedClients extends Component implements HasForms, HasTable
                     ->color('primary'),
             ])
             ->defaultSort('created_at', 'desc')
-            ->emptyStateHeading('No completed clients found')
-            ->emptyStateDescription('You have not completed any items for clients yet.')
+            ->emptyStateHeading('No completed items found')
+            ->emptyStateDescription('You have not completed any items yet.')
             ->emptyStateIcon('heroicon-o-check-circle');
     }
 

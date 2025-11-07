@@ -14,7 +14,7 @@ use Exception;
 class ServiceDeliveryQueueController extends Controller
 {
     /**
-     * Move an item to partially done status
+     * Move an item to in-progress status
      */
     public function moveToPartiallyDone(ServiceDeliveryQueue $serviceDeliveryQueue)
     {
@@ -31,7 +31,7 @@ class ServiceDeliveryQueueController extends Controller
             }
 
             // Log the action before processing money transfers
-            Log::info("=== MARKING ITEM AS PARTIALLY DONE ===", [
+            Log::info("=== MARKING ITEM AS IN PROGRESS ===", [
                 'service_delivery_queue_id' => $serviceDeliveryQueue->id,
                 'item_id' => $serviceDeliveryQueue->item_id,
                 'item_name' => $serviceDeliveryQueue->item_name,
@@ -57,7 +57,7 @@ class ServiceDeliveryQueueController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Item moved to partially done successfully. Money transfers processed.',
+                'message' => 'Item moved to in-progress status successfully. Money transfers processed.',
                 'data' => [
                     'id' => $serviceDeliveryQueue->id,
                     'status' => $serviceDeliveryQueue->status,
@@ -66,7 +66,7 @@ class ServiceDeliveryQueueController extends Controller
             ]);
 
         } catch (Exception $e) {
-            Log::error('Failed to move item to partially done', [
+            Log::error('Failed to move item to in-progress status', [
                 'item_id' => $serviceDeliveryQueue->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
@@ -74,7 +74,7 @@ class ServiceDeliveryQueueController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to move item to partially done. Please try again.',
+                'message' => 'Failed to move item to in-progress status. Please try again.',
                 'error' => $e->getMessage()
             ], 500);
         }
@@ -252,7 +252,7 @@ class ServiceDeliveryQueueController extends Controller
                 ->whereIn('status', ['pending', 'in_progress', 'partially_done'])
                 ->count();
 
-            // Reset all pending, in-progress, and partially done items
+        // Reset all pending and in-progress items
             ServiceDeliveryQueue::where('service_point_id', $servicePointId)
                 ->whereIn('status', ['pending', 'in_progress', 'partially_done'])
                 ->update([
@@ -307,7 +307,7 @@ class ServiceDeliveryQueueController extends Controller
             if (!in_array($serviceDeliveryQueue->status, ['in_progress', 'partially_done'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Only in-progress or partially done items can be reassigned.'
+                    'message' => 'Only items marked as in progress can be reassigned.'
                 ], 400);
             }
 

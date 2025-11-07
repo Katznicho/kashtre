@@ -159,7 +159,9 @@ class UserController extends Controller
         $user = User::with('business', 'branch')->findOrFail($id);
         $contractorProfile = null;
         if (in_array('Contractor', (array) $user->permissions)) {
-            $contractorProfile = \App\Models\ContractorProfile::where('business_id', $user->business_id)->first();
+            $contractorProfile = \App\Models\ContractorProfile::where('user_id', $user->id)
+                ->where('business_id', $user->business_id)
+                ->first();
         }
         $businesses = Business::all();
         // $permissions = $this->getAllPermissions();

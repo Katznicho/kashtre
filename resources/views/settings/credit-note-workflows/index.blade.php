@@ -4,10 +4,10 @@
         <!-- Header -->
         <div class="mb-6">
             <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-                Credit Note Workflow Settings
+                Refund Workflow Settings
             </h2>
             <p class="mt-1 text-sm text-gray-500">
-                Configure 3-step approval workflow (Supervisor per Service Point → Finance → CEO) for credit notes per business
+                Configure the 3-step approval workflow (Service Point Supervisor → Finance → CEO) for refunds per business
             </p>
         </div>
 

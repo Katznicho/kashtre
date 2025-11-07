@@ -2,7 +2,7 @@
     Unified Ordered Items (Requests/Orders) Component
     This component serves as a single source of truth for displaying ordered items
     across both POS item selection and Service Point client details pages.
-    It handles pending, partially done, and completed items with consistent styling.
+    It handles pending, in-progress, and completed items with consistent styling.
 --}}
 {{-- This component serves as the single source of truth for displaying ordered items --}}
 
@@ -54,7 +54,7 @@
                                             </label>
                                             <label class="flex items-center">
                                                 <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2">
-                                                <span class="text-sm">Partially Done</span>
+                                                <span class="text-sm">In Progress</span>
                                             </label>
                                             <label class="flex items-center">
                                                 <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2">
@@ -63,7 +63,7 @@
                                         @elseif($item->status === 'partially_done')
                                             <label class="flex items-center">
                                                 <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2" checked>
-                                                <span class="text-sm">Partially Done</span>
+                                                <span class="text-sm">In Progress</span>
                                             </label>
                                             <label class="flex items-center">
                                                 <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2">
@@ -97,7 +97,7 @@
                                     <div class="flex flex-col space-y-2">
                                         <label class="flex items-center">
                                             <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2" checked>
-                                            <span class="text-sm">Partially Done</span>
+                                            <span class="text-sm">In Progress</span>
                                         </label>
                                         <label class="flex items-center">
                                             <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2">

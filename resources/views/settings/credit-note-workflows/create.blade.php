@@ -12,7 +12,7 @@
                                     <svg class="flex-shrink-0 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                                         <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
                                     </svg>
-                                    <span class="sr-only">Credit Note Workflows</span>
+                                    <span class="sr-only">Refund Workflows</span>
                                 </a>
                             </div>
                         </li>
@@ -27,7 +27,7 @@
                     </ol>
                 </nav>
                 <h2 class="mt-2 text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-                    Create Credit Note Workflow
+                    Create Refund Workflow
                 </h2>
                 <p class="mt-1 text-sm text-gray-500">
                     Configure the 3-step approval workflow: Supervisor per Service Point (Verifies) → Finance (Authorizes) → CEO (Approves)
@@ -98,7 +98,7 @@
                                                 Service Point Supervisor Permissions
                                             </h3>
                                             <div class="mt-2 text-sm text-blue-700">
-                                                <p>Supervisors assigned to service points can <strong>reassign "in progress" and "partially done" items</strong> from one user to another. This helps manage workload distribution and handle reassignments when needed.</p>
+                                                <p>Supervisors assigned to service points can <strong>reassign "in progress" items</strong> from one user to another. This helps manage workload distribution and handle reassignments when needed.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -183,6 +183,73 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // All service points data with business_id
     const allServicePoints = @json($allServicePoints);
+
+    // Restore previous selections when the form is reloaded
+    const existingAssignments = @json(old('service_point_supervisors', []));
+
+    const normalize = (value) => (value || '').toString().toLowerCase();
+
+    function formatUserLabel(user) {
+        return `${user.name} (${user.email})`;
+    }
+
+    function initializeSupervisorSelect(selectElement, users, filterText = '', selectedValue = '') {
+        const normalizedFilter = normalize(filterText).trim();
+        const currentValue = selectedValue || selectElement.value || '';
+
+        selectElement.innerHTML = '<option value="">Use Default Supervisor</option>';
+
+        let hasSelectedOption = false;
+
+        users.forEach(user => {
+            const displayLabel = formatUserLabel(user);
+            const matchesFilter = !normalizedFilter || normalize(displayLabel).includes(normalizedFilter);
+
+            if (!matchesFilter) {
+                return;
+            }
+
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = displayLabel;
+
+            if (currentValue && Number(currentValue) === Number(user.id)) {
+                option.selected = true;
+                hasSelectedOption = true;
+            }
+
+            selectElement.appendChild(option);
+        });
+
+        // Preserve selection even if it does not match the current filter
+        if (currentValue && !hasSelectedOption) {
+            const existingUser = users.find(user => Number(user.id) === Number(currentValue));
+            if (existingUser) {
+                const option = document.createElement('option');
+                option.value = existingUser.id;
+                option.textContent = formatUserLabel(existingUser);
+                option.selected = true;
+                selectElement.appendChild(option);
+            }
+        }
+    }
+
+    function attachSupervisorSearch(rowElement, users, preselectedValue = '') {
+        const searchInput = rowElement.querySelector('.supervisor-search');
+        const selectElement = rowElement.querySelector('select');
+
+        if (!selectElement) {
+            return;
+        }
+
+        initializeSupervisorSelect(selectElement, users, '', preselectedValue);
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function () {
+                initializeSupervisorSelect(selectElement, users, this.value, selectElement.value);
+            });
+        }
+    }
     
     // Function to populate user dropdown
     function populateUserDropdown(selectElement, selectedValue = '') {
@@ -247,23 +314,27 @@ document.addEventListener('DOMContentLoaded', function() {
         // Create service point rows
         businessServicePoints.forEach(servicePoint => {
             const row = document.createElement('div');
-            row.className = 'border border-gray-200 rounded-md p-4';
+            row.className = 'border border-gray-200 rounded-md p-4 space-y-2';
+
+            const existingAssignmentData = existingAssignments[String(servicePoint.id)] || existingAssignments[servicePoint.id] || null;
+            const existingAssignment = existingAssignmentData ? (existingAssignmentData.supervisor_user_id || '') : '';
+
             row.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            ${servicePoint.name || 'Unnamed Service Point'}
-                            ${servicePoint.description ? `<span class="text-gray-500 text-xs">(${servicePoint.description})</span>` : ''}
-                        </label>
-                        <input type="hidden" name="service_point_supervisors[${servicePoint.id}][service_point_id]" value="${servicePoint.id}">
-                        <select name="service_point_supervisors[${servicePoint.id}][supervisor_user_id]" 
-                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                            <option value="">Use Default Supervisor</option>
-                            ${businessUsers.map(user => `<option value="${user.id}">${user.name} (${user.email})</option>`).join('')}
-                        </select>
-                    </div>
+                <div class="flex flex-col space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">
+                        ${servicePoint.name || 'Unnamed Service Point'}
+                        ${servicePoint.description ? `<span class="text-gray-500 text-xs">(${servicePoint.description})</span>` : ''}
+                    </label>
+                    <input type="hidden" name="service_point_supervisors[${servicePoint.id}][service_point_id]" value="${servicePoint.id}">
+                    <input type="text" class="supervisor-search block w-full rounded-md border border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Search staff...">
+                    <select name="service_point_supervisors[${servicePoint.id}][supervisor_user_id]" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        <option value="">Use Default Supervisor</option>
+                    </select>
+                    <p class="text-xs text-gray-500">Leave blank to use the default supervisor.</p>
                 </div>
             `;
+
+            attachSupervisorSearch(row, businessUsers, existingAssignment);
             servicePointsContainer.appendChild(row);
         });
         

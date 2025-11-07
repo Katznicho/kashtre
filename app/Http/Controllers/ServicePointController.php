@@ -85,7 +85,7 @@ class ServicePointController extends Controller
             $clientsWithItems[$clientId]['pending'][] = $queue;
         }
         
-        // Process partially done items
+        // Process in-progress items (partially_done)
         foreach ($servicePoint->partiallyDoneDeliveryQueues as $queue) {
             $clientId = $queue->client_id;
             if (!isset($clientsWithItems[$clientId])) {
@@ -191,7 +191,7 @@ class ServicePointController extends Controller
         // Get client notes (if you have a notes system)
         $clientNotes = []; // You can implement this based on your notes system
 
-        // Calculate correct total amount from service delivery queue items (only pending and partially done)
+        // Calculate correct total amount from service delivery queue items (only pending and in-progress)
         $correctTotalAmount = $pendingItems->sum(function ($item) {
             return $item->price * $item->quantity;
         }) + $partiallyDoneItems->sum(function ($item) {
@@ -339,7 +339,7 @@ class ServicePointController extends Controller
                         ]);
                         return response()->json([
                             'success' => false,
-                            'message' => 'Cannot reverse status from "Partially Done" to "Not Done"'
+                            'message' => 'Cannot reverse status from "In Progress" to "Not Done"'
                         ], 422);
                     }
                     

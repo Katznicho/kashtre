@@ -24,7 +24,7 @@ class ProcessExtendedServiceQueueItems extends Command
      *
      * @var string
      */
-    protected $description = 'Process service queue items that have passed their 24-hour extension period: mark partially done items as completed, mark pending items as not done (credit note creation is commented out)';
+    protected $description = 'Process service queue items that have passed their 24-hour extension period: mark in-progress items as completed, mark pending items as not done (credit note creation is commented out)';
 
     /**
      * Execute the console command.
@@ -125,7 +125,7 @@ class ProcessExtendedServiceQueueItems extends Command
             DB::commit();
 
             $this->info("\nProcessing complete!");
-            $this->info("Partially done items marked as completed: {$partiallyDoneCount}");
+            $this->info("In-progress items marked as completed: {$partiallyDoneCount}");
             $this->info("Pending items marked as not done: {$pendingCount}");
             // $this->info("Credit notes created: {$creditNotesCreated}"); // Commented out - credit note creation disabled
             

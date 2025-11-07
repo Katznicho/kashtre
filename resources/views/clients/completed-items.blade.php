@@ -13,7 +13,7 @@
                     </p>
                 </div>
                 <a href="{{ route('clients.completed') }}" class="text-sm px-4 py-2 rounded-md bg-gray-700 text-white hover:bg-gray-800">
-                    Back to Completed Clients
+                    Back to Completed Items
                 </a>
             </div>
 

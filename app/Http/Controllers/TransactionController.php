@@ -184,7 +184,7 @@ class TransactionController extends Controller
         $partiallyDoneItems = $clientItems->where('status', 'partially_done');
         // Note: We ignore completed items, same as client details page
 
-        // Calculate correct total amount (only pending and partially done)
+        // Calculate correct total amount (only pending and in-progress)
         $correctTotalAmount = $pendingItems->sum(function ($item) {
             return $item->price * $item->quantity;
         }) + $partiallyDoneItems->sum(function ($item) {
@@ -207,7 +207,7 @@ class TransactionController extends Controller
         ]);
 
         // Determine service point from the client's pending items
-        // Use the service_point_id from the first pending or partially done item
+        // Use the service_point_id from the first pending or in-progress item
         $firstItem = $clientItems->whereIn('status', ['pending', 'partially_done'])->first();
         $servicePoint = $firstItem ? $firstItem->service_point_id : null;
         

@@ -12,7 +12,7 @@
                                     <svg class="flex-shrink-0 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                                         <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
                                     </svg>
-                                    <span class="sr-only">Credit Note Workflows</span>
+                                    <span class="sr-only">Refund Workflows</span>
                                 </a>
                             </div>
                         </li>
@@ -27,7 +27,7 @@
                     </ol>
                 </nav>
                 <h2 class="mt-2 text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-                    Edit Credit Note Workflow
+                    Edit Refund Workflow
                 </h2>
                 <p class="mt-1 text-sm text-gray-500">
                     {{ $creditNoteWorkflow->business->name }}
@@ -100,7 +100,7 @@
                                                 Service Point Supervisor Permissions
                                             </h3>
                                             <div class="mt-2 text-sm text-blue-700">
-                                                <p>Supervisors assigned to service points can <strong>reassign "in progress" and "partially done" items</strong> from one user to another. This helps manage workload distribution and handle reassignments when needed.</p>
+                                                <p>Supervisors assigned to service points can <strong>reassign "in progress" items</strong> from one user to another. This helps manage workload distribution and handle reassignments when needed.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -113,27 +113,25 @@
                                             $existingSupervisor = $servicePointSupervisors->get($servicePoint->id);
                                             $selectedSupervisorId = $existingSupervisor ? $existingSupervisor->supervisor_user_id : '';
                                         @endphp
-                                        <div class="border border-gray-200 rounded-md p-4">
-                                            <div class="flex items-center justify-between">
-                                                <div class="flex-1">
-                                                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                                                        {{ $servicePoint->name }}
-                                                        @if($servicePoint->description)
-                                                            <span class="text-gray-500 text-xs">({{ $servicePoint->description }})</span>
-                                                        @endif
-                                                    </label>
-                                                    <input type="hidden" name="service_point_supervisors[{{ $servicePoint->id }}][service_point_id]" value="{{ $servicePoint->id }}">
-                                                    <select name="service_point_supervisors[{{ $servicePoint->id }}][supervisor_user_id]" 
-                                                            class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                                                        <option value="">Use Default Supervisor</option>
-                                                        @foreach($allUsers->where('business_id', $creditNoteWorkflow->business_id) as $user)
-                                                            <option value="{{ $user->id }}" {{ $user->id == $selectedSupervisorId ? 'selected' : '' }}>
-                                                                {{ $user->name }} ({{ $user->email }})
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                </div>
-                                            </div>
+                                        <div class="border border-gray-200 rounded-md p-4 space-y-2 service-point-supervisor">
+                                            <label class="block text-sm font-medium text-gray-700">
+                                                {{ $servicePoint->name }}
+                                                @if($servicePoint->description)
+                                                    <span class="text-gray-500 text-xs">({{ $servicePoint->description }})</span>
+                                                @endif
+                                            </label>
+                                            <input type="hidden" name="service_point_supervisors[{{ $servicePoint->id }}][service_point_id]" value="{{ $servicePoint->id }}">
+                                            <input type="text" class="supervisor-search block w-full rounded-md border border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Search staff...">
+                                            <select name="service_point_supervisors[{{ $servicePoint->id }}][supervisor_user_id]" 
+                                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                                <option value="">Use Default Supervisor</option>
+                                                @foreach($allUsers->where('business_id', $creditNoteWorkflow->business_id) as $user)
+                                                    <option value="{{ $user->id }}" {{ $user->id == $selectedSupervisorId ? 'selected' : '' }}>
+                                                        {{ $user->name }} ({{ $user->email }})
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <p class="text-xs text-gray-500">Leave blank to use the default supervisor.</p>
                                         </div>
                                     @endforeach
                                 </div>
@@ -200,154 +198,223 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const businessSelect = document.getElementById('business_id');
-    const defaultSupervisorSelect = document.getElementById('default_supervisor_user_id');
-    const financeSelect = document.getElementById('finance_user_id');
-    const ceoSelect = document.getElementById('ceo_user_id');
-    const servicePointsSection = document.getElementById('service-points-section');
-    const servicePointsContainer = document.getElementById('service-points-container');
-    
-    // All users data with business_id
-    const allUsers = @json($allUsers);
-    
-    // Current selected values (from old input or existing workflow)
-    const currentDefaultSupervisorValue = @json(old('default_supervisor_user_id', $creditNoteWorkflow->default_supervisor_user_id));
-    const currentFinanceValue = @json(old('finance_user_id', $creditNoteWorkflow->finance_user_id));
-    const currentCeoValue = @json(old('ceo_user_id', $creditNoteWorkflow->ceo_user_id));
-    
-    // Function to populate user dropdown
-    function populateUserDropdown(selectElement, selectedValue = '') {
-        const businessId = parseInt(businessSelect.value);
-        
-        if (!businessId) {
-            // No business selected - disable and clear
-            selectElement.disabled = true;
-            selectElement.classList.add('bg-gray-100');
-            selectElement.innerHTML = '<option value="">Please select a business first...</option>';
-            return;
+    document.addEventListener('DOMContentLoaded', function () {
+        const businessSelect = document.getElementById('business_id');
+        const defaultSupervisorSelect = document.getElementById('default_supervisor_user_id');
+        const financeSelect = document.getElementById('finance_user_id');
+        const ceoSelect = document.getElementById('ceo_user_id');
+        const servicePointsSection = document.getElementById('service-points-section');
+        const servicePointsContainer = document.getElementById('service-points-container');
+
+        const allUsers = @json($allUsers);
+        const allServicePoints = @json($servicePoints);
+        const existingSupervisors = @json($servicePointSupervisors);
+
+        const currentDefaultSupervisorValue = @json(old('default_supervisor_user_id', $creditNoteWorkflow->default_supervisor_user_id));
+        const currentFinanceValue = @json(old('finance_user_id', $creditNoteWorkflow->finance_user_id));
+        const currentCeoValue = @json(old('ceo_user_id', $creditNoteWorkflow->ceo_user_id));
+
+        const normalize = (value) => (value || '').toString().toLowerCase();
+
+        function formatUserLabel(user) {
+            return `${user.name} (${user.email})`;
         }
-        
-        // Filter users by selected business
-        const businessUsers = allUsers.filter(user => user.business_id === businessId);
-        
-        // Enable the dropdown
-        selectElement.disabled = false;
-        selectElement.classList.remove('bg-gray-100');
-        
-        // Clear and populate options
-        selectElement.innerHTML = '<option value="">Select user...</option>';
-        
-        if (businessUsers.length === 0) {
-            selectElement.innerHTML = '<option value="">No users available for this business</option>';
-            return;
-        }
-        
-        businessUsers.forEach(user => {
-            const option = document.createElement('option');
-            option.value = user.id;
-            option.textContent = `${user.name} (${user.email})`;
-            if (selectedValue && user.id == selectedValue) {
-                option.selected = true;
+
+        function initializeSupervisorSelect(selectElement, users, filterText = '', selectedValue = '') {
+            const normalizedFilter = normalize(filterText).trim();
+            const currentValue = selectedValue || selectElement.value || '';
+
+            selectElement.innerHTML = '<option value="">Use Default Supervisor</option>';
+
+            let hasSelectedOption = false;
+
+            users.forEach(user => {
+                const displayLabel = formatUserLabel(user);
+                const matchesFilter = !normalizedFilter || normalize(displayLabel).includes(normalizedFilter);
+                if (!matchesFilter) {
+                    return;
+                }
+
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = displayLabel;
+
+                if (currentValue && Number(currentValue) === Number(user.id)) {
+                    option.selected = true;
+                    hasSelectedOption = true;
+                }
+
+                selectElement.appendChild(option);
+            });
+
+            if (currentValue && !hasSelectedOption) {
+                const existingUser = users.find(user => Number(user.id) === Number(currentValue));
+                if (existingUser) {
+                    const option = document.createElement('option');
+                    option.value = existingUser.id;
+                    option.textContent = formatUserLabel(existingUser);
+                    option.selected = true;
+                    selectElement.appendChild(option);
+                }
             }
-            selectElement.appendChild(option);
-        });
-    }
-    
-    // Service points data for dynamic reloading if business changes
-    const allServicePoints = @json($servicePoints);
-    const existingSupervisors = @json($servicePointSupervisors);
-    
-    // Function to load service points for selected business (used when business changes)
-    function loadServicePointsForEdit(businessId) {
-        if (!businessId) {
-            if (servicePointsSection) {
+        }
+
+        function attachSupervisorSearch(rowElement, users, preselectedValue = '') {
+            const searchInput = rowElement.querySelector('.supervisor-search');
+            const selectElement = rowElement.querySelector('select');
+
+            if (!selectElement) {
+                return;
+            }
+
+            initializeSupervisorSelect(selectElement, users, '', preselectedValue);
+
+            if (searchInput) {
+                searchInput.addEventListener('input', function () {
+                    initializeSupervisorSelect(selectElement, users, this.value, selectElement.value);
+                });
+            }
+        }
+
+        function populateUserDropdown(selectElement, selectedValue = '') {
+            const businessId = parseInt(businessSelect.value);
+
+            if (!businessId) {
+                selectElement.disabled = true;
+                selectElement.classList.add('bg-gray-100');
+                selectElement.innerHTML = '<option value="">Please select a business first...</option>';
+                return;
+            }
+
+            const businessUsers = allUsers.filter(user => user.business_id === businessId);
+
+            selectElement.disabled = false;
+            selectElement.classList.remove('bg-gray-100');
+            selectElement.innerHTML = '<option value="">Select user...</option>';
+
+            if (businessUsers.length === 0) {
+                selectElement.innerHTML = '<option value="">No users available for this business</option>';
+                return;
+            }
+
+            businessUsers.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = formatUserLabel(user);
+                if (selectedValue && Number(user.id) === Number(selectedValue)) {
+                    option.selected = true;
+                }
+                selectElement.appendChild(option);
+            });
+        }
+
+        function getExistingSupervisorId(servicePointId) {
+            if (!servicePointId) {
+                return '';
+            }
+            const record = existingSupervisors[servicePointId];
+            return record ? (record.supervisor_user_id || '') : '';
+        }
+
+        function createServicePointRow(servicePoint, users, selectedSupervisorId = '') {
+            const row = document.createElement('div');
+            row.className = 'border border-gray-200 rounded-md p-4 space-y-2 service-point-supervisor';
+            row.innerHTML = `
+                <label class="block text-sm font-medium text-gray-700">
+                    ${servicePoint.name || 'Unnamed Service Point'}
+                    ${servicePoint.description ? `<span class="text-gray-500 text-xs">(${servicePoint.description})</span>` : ''}
+                </label>
+                <input type="hidden" name="service_point_supervisors[${servicePoint.id}][service_point_id]" value="${servicePoint.id}">
+                <input type="text" class="supervisor-search block w-full rounded-md border border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Search staff...">
+                <select name="service_point_supervisors[${servicePoint.id}][supervisor_user_id]" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <option value="">Use Default Supervisor</option>
+                </select>
+                <p class="text-xs text-gray-500">Leave blank to use the default supervisor.</p>
+            `;
+
+            attachSupervisorSearch(row, users, selectedSupervisorId);
+
+            return row;
+        }
+
+        function loadServicePointsForEdit(businessId) {
+            if (!businessId) {
+                if (servicePointsSection) {
+                    servicePointsSection.classList.add('hidden');
+                }
+                return;
+            }
+
+            if (!servicePointsContainer) {
+                return;
+            }
+
+            const businessServicePoints = allServicePoints.filter(sp => sp.business_id === parseInt(businessId));
+
+            if (businessServicePoints.length === 0) {
+                servicePointsContainer.innerHTML = '<p class="text-sm text-gray-500">No service points found for this business.</p>';
+                if (servicePointsSection) servicePointsSection.classList.remove('hidden');
+                return;
+            }
+
+            const businessUsers = allUsers.filter(user => user.business_id === parseInt(businessId));
+
+            servicePointsContainer.innerHTML = '';
+
+            businessServicePoints.forEach(servicePoint => {
+                const selectedSupervisorId = getExistingSupervisorId(servicePoint.id);
+                const row = createServicePointRow(servicePoint, businessUsers, selectedSupervisorId);
+                servicePointsContainer.appendChild(row);
+            });
+
+            if (servicePointsSection) servicePointsSection.classList.remove('hidden');
+        }
+
+        businessSelect.addEventListener('change', function () {
+            const businessId = parseInt(this.value);
+            const oldDefaultSupervisorValue = defaultSupervisorSelect.value || currentDefaultSupervisorValue || '';
+            const oldFinanceValue = financeSelect.value || currentFinanceValue || '';
+            const oldCeoValue = ceoSelect.value || currentCeoValue || '';
+
+            populateUserDropdown(defaultSupervisorSelect, oldDefaultSupervisorValue);
+            populateUserDropdown(financeSelect, oldFinanceValue);
+            populateUserDropdown(ceoSelect, oldCeoValue);
+
+            if (businessId) {
+                loadServicePointsForEdit(businessId);
+            } else if (servicePointsSection) {
                 servicePointsSection.classList.add('hidden');
             }
-            return;
-        }
-        
-        // Filter service points by selected business
-        const businessServicePoints = allServicePoints.filter(sp => sp.business_id === parseInt(businessId));
-        
-        if (!servicePointsContainer) return;
-        
-        if (businessServicePoints.length === 0) {
-            servicePointsContainer.innerHTML = '<p class="text-sm text-gray-500">No service points found for this business.</p>';
-            if (servicePointsSection) servicePointsSection.classList.remove('hidden');
-            return;
-        }
-        
-        // Clear container
-        servicePointsContainer.innerHTML = '';
-        
-        // Filter users by business
-        const businessUsers = allUsers.filter(user => user.business_id === parseInt(businessId));
-        
-        // Create service point rows
-        businessServicePoints.forEach(servicePoint => {
-            const existingSupervisor = existingSupervisors[servicePoint.id];
-            const selectedSupervisorId = existingSupervisor ? existingSupervisor.supervisor_user_id : '';
-            
-            const row = document.createElement('div');
-            row.className = 'border border-gray-200 rounded-md p-4';
-            row.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            ${servicePoint.name || 'Unnamed Service Point'}
-                            ${servicePoint.description ? `<span class="text-gray-500 text-xs">(${servicePoint.description})</span>` : ''}
-                        </label>
-                        <input type="hidden" name="service_point_supervisors[${servicePoint.id}][service_point_id]" value="${servicePoint.id}">
-                        <select name="service_point_supervisors[${servicePoint.id}][supervisor_user_id]" 
-                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                            <option value="">Use Default Supervisor</option>
-                            ${businessUsers.map(user => `<option value="${user.id}" ${user.id == selectedSupervisorId ? 'selected' : ''}>${user.name} (${user.email})</option>`).join('')}
-                        </select>
-                    </div>
-                </div>
-            `;
-            servicePointsContainer.appendChild(row);
         });
-        
-        if (servicePointsSection) servicePointsSection.classList.remove('hidden');
-    }
-    
-    // Handle business selection change
-    businessSelect.addEventListener('change', function() {
-        const businessId = parseInt(this.value);
-        const oldDefaultSupervisorValue = defaultSupervisorSelect.value || currentDefaultSupervisorValue || '';
-        const oldFinanceValue = financeSelect.value || currentFinanceValue || '';
-        const oldCeoValue = ceoSelect.value || currentCeoValue || '';
-        
-        populateUserDropdown(defaultSupervisorSelect, oldDefaultSupervisorValue);
-        populateUserDropdown(financeSelect, oldFinanceValue);
-        populateUserDropdown(ceoSelect, oldCeoValue);
-        
-        // Reload service points if business changes
-        if (businessId) {
-            loadServicePointsForEdit(businessId);
-        } else if (servicePointsSection) {
-            servicePointsSection.classList.add('hidden');
+
+        const initialBusinessId = parseInt(businessSelect.value);
+
+        if (initialBusinessId) {
+            populateUserDropdown(defaultSupervisorSelect, currentDefaultSupervisorValue);
+            populateUserDropdown(financeSelect, currentFinanceValue);
+            populateUserDropdown(ceoSelect, currentCeoValue);
+        } else {
+            populateUserDropdown(defaultSupervisorSelect);
+            populateUserDropdown(financeSelect);
+            populateUserDropdown(ceoSelect);
+        }
+
+        const existingRows = document.querySelectorAll('.service-point-supervisor');
+        if (existingRows.length > 0) {
+            const initialUsers = allUsers.filter(user => user.business_id === initialBusinessId);
+            existingRows.forEach(row => {
+                const hiddenInput = row.querySelector('input[type="hidden"][name*="[service_point_id]"]');
+                const servicePointId = hiddenInput ? parseInt(hiddenInput.value) : null;
+                const selectedSupervisorId = getExistingSupervisorId(servicePointId);
+                attachSupervisorSearch(row, initialUsers, selectedSupervisorId);
+            });
+            if (servicePointsSection) servicePointsSection.classList.remove('hidden');
+        }
+
+        if (initialBusinessId) {
+            loadServicePointsForEdit(initialBusinessId);
         }
     });
-    
-    // Initialize on page load - populate dropdowns based on current business
-    // Service points are already rendered server-side in the view
-    if (businessSelect.value) {
-        populateUserDropdown(defaultSupervisorSelect, currentDefaultSupervisorValue || '');
-        populateUserDropdown(financeSelect, currentFinanceValue || '');
-        populateUserDropdown(ceoSelect, currentCeoValue || '');
-    } else {
-        // No business selected - disable all dropdowns
-        defaultSupervisorSelect.disabled = true;
-        defaultSupervisorSelect.classList.add('bg-gray-100');
-        financeSelect.disabled = true;
-        financeSelect.classList.add('bg-gray-100');
-        ceoSelect.disabled = true;
-        ceoSelect.classList.add('bg-gray-100');
-    }
-});
 </script>
 </x-app-layout>
 
