@@ -3521,7 +3521,7 @@ class MoneyTrackingService
             // Get all suspense accounts for this client
             $packageSuspenseAccount = $this->getOrCreatePackageSuspenseAccount($business, $client->id);
             $generalSuspenseAccount = $this->getOrCreateGeneralSuspenseAccount($business, $client->id);
-            $kashtreSuspenseAccount = $this->getOrCreateKashtreSuspenseAccount($business, $client->id);
+            $kashtreSuspenseAccount = $this->getOrCreateKashtreSuspenseAccount($business);
 
             Log::info("💰 === SAVE & EXIT: SUSPENSE ACCOUNT BALANCES BEFORE PROCESSING ===", [
                 'package_suspense_account_id' => $packageSuspenseAccount->id,
