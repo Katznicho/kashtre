@@ -985,7 +985,7 @@ class MoneyTrackingService
 
                 $destinationAccount = $isDepositOnlyInvoice
                     ? $this->getOrCreateKashtreAccount()
-                    : $this->getOrCreateKashtreSuspenseAccount($business, $client->id);
+                    : $this->getOrCreateKashtreSuspenseAccount($business);
 
                 $transferDescription = "Service Fee - {$invoice->service_charge} UGX";
                 $routingReason = "Service fee from invoice service_charge field";
