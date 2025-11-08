@@ -157,18 +157,19 @@ class SuspenseAccountsTable extends Component implements HasTable, HasForms
                     ->sortable()
                     ->limit(50),
                 
-                TextColumn::make('source')
-                    ->label('Source')
-                    ->searchable()
-                    ->sortable()
-                    ->formatStateUsing(fn ($state) => $state ?? 'N/A')
-                    ->limit(50),
-                
-                TextColumn::make('destination')
-                    ->label('Destination')
-                    ->searchable()
-                    ->sortable()
-                    ->formatStateUsing(fn ($state) => $state ?? 'N/A')
+                TextColumn::make('source_destination')
+                    ->label('Source / Destination')
+                    ->state(function (MoneyTransfer $record): string {
+                        if ($record->type === 'credit') {
+                            return $record->source
+                                ?? $record->fromAccount->name
+                                ?? 'N/A';
+                        }
+
+                        return $record->destination
+                            ?? $record->toAccount->name
+                            ?? 'N/A';
+                    })
                     ->limit(50),
                 
                 TextColumn::make('amount')
