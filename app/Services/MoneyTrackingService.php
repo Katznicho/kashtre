@@ -522,6 +522,12 @@ class MoneyTrackingService
                 return $name === 'deposit';
             });
 
+            $invoiceItems = collect($invoice->items ?? []);
+            $isDepositOnlyInvoice = $invoiceItems->isNotEmpty() && $invoiceItems->every(function ($item) {
+                $name = Str::lower(trim((string)($item['displayName'] ?? $item['name'] ?? $item['item_name'] ?? '')));
+                return $name === 'deposit';
+            });
+
             Log::info("=== PAYMENT COMPLETED - CREATING BALANCE STATEMENTS ===", [
                 'invoice_id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
