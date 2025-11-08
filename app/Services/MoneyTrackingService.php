@@ -529,6 +529,13 @@ class MoneyTrackingService
                 'account_balance_adjustment' => $invoice->account_balance_adjustment
             ]);
 
+            $invoiceItems = collect($invoice->items ?? []);
+            $isDepositItem = static function (array $item): bool {
+                $name = Str::lower(trim((string)($item['displayName'] ?? $item['name'] ?? $item['item_name'] ?? '')));
+                return $name === 'deposit';
+            };
+            $isDepositOnlyInvoice = $invoiceItems->isNotEmpty() && $invoiceItems->every($isDepositItem);
+
             // First, create CREDIT record for payment received
             if ($invoice->amount_paid > 0) {
                 $paymentMethods = $invoice->payment_methods ?? [];
@@ -552,7 +559,7 @@ class MoneyTrackingService
             }
 
             // Create CREDIT record for balance adjustment if used
-            if ($invoice->account_balance_adjustment > 0) {
+            if ($invoice->account_balance_adjustment > 0 && ! $isDepositOnlyInvoice) {
                 $balanceCreditRecord = BalanceHistory::recordCredit(
                     $client,
                     $invoice->account_balance_adjustment,
