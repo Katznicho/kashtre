@@ -35,13 +35,6 @@
             </div>
             <div class="mt-4 flex md:mt-0 md:ml-4 space-x-3">
                 @if(in_array('Edit Credit Note Workflows', auth()->user()->permissions ?? []))
-                <a href="{{ route('credit-note-workflows.bulk-upload', $creditNoteWorkflow) }}" 
-                   class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
-                    <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                    </svg>
-                    Bulk Assign Supervisors
-                </a>
                 <a href="{{ route('credit-note-workflows.edit', $creditNoteWorkflow) }}" 
                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -95,18 +88,40 @@
                             <dd class="mt-1 text-xs text-gray-500">Step 1: Verifies refund requests</dd>
                         </div>
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">Finance</dt>
+                            <dt class="text-sm font-medium text-gray-500">Authorizers</dt>
                             <dd class="mt-1 text-sm text-gray-900">
-                                {{ $creditNoteWorkflow->finance ? $creditNoteWorkflow->finance->name . ' (' . $creditNoteWorkflow->finance->email . ')' : 'Not Set' }}
+                                @php
+                                    $authorizerList = $creditNoteWorkflow->authorizers->map(fn($user) => $user->name . ' (' . $user->email . ')');
+                                @endphp
+                                @if($authorizerList->isNotEmpty())
+                                    <ul class="space-y-1">
+                                        @foreach($authorizerList as $name)
+                                            <li>{{ $name }}</li>
+                                        @endforeach
+                                    </ul>
+                                @else
+                                    <span class="text-gray-400">Not Set</span>
+                                @endif
                             </dd>
-                            <dd class="mt-1 text-xs text-gray-500">Step 2: Authorizes refund</dd>
+                            <dd class="mt-1 text-xs text-gray-500">Step 2: Authorizes refund (1-3 members)</dd>
                         </div>
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">CEO</dt>
+                            <dt class="text-sm font-medium text-gray-500">Approvers</dt>
                             <dd class="mt-1 text-sm text-gray-900">
-                                {{ $creditNoteWorkflow->ceo ? $creditNoteWorkflow->ceo->name . ' (' . $creditNoteWorkflow->ceo->email . ')' : 'Not Set' }}
+                                @php
+                                    $approverList = $creditNoteWorkflow->approvers->map(fn($user) => $user->name . ' (' . $user->email . ')');
+                                @endphp
+                                @if($approverList->isNotEmpty())
+                                    <ul class="space-y-1">
+                                        @foreach($approverList as $name)
+                                            <li>{{ $name }}</li>
+                                        @endforeach
+                                    </ul>
+                                @else
+                                    <span class="text-gray-400">Not Set</span>
+                                @endif
                             </dd>
-                            <dd class="mt-1 text-xs text-gray-500">Step 3: Final approval</dd>
+                            <dd class="mt-1 text-xs text-gray-500">Step 3: Final approval (1-3 members)</dd>
                         </div>
                     </dl>
                 </div>
@@ -135,8 +150,8 @@
                     <div class="space-y-4">
                         @foreach($servicePoints as $servicePoint)
                             @php
-                                $supervisor = $servicePointSupervisors->get($servicePoint->id);
-                                $effectiveSupervisor = $supervisor ? $supervisor->supervisor : $creditNoteWorkflow->defaultSupervisor;
+                                $assignments = $servicePointSupervisors->get($servicePoint->id, collect());
+                                $assignedSupervisors = collect($assignments)->map(fn($assignment) => $assignment->supervisor)->filter();
                             @endphp
                             <div class="border border-gray-200 rounded-md p-4">
                                 <div class="flex items-center justify-between">
@@ -147,24 +162,25 @@
                                                 <span class="text-gray-500 text-xs">({{ $servicePoint->description }})</span>
                                             @endif
                                         </h4>
-                                        <p class="mt-1 text-sm text-gray-600">
-                                            <span class="font-medium">Supervisor:</span> 
-                                            @if($effectiveSupervisor)
-                                                {{ $effectiveSupervisor->name }} ({{ $effectiveSupervisor->email }})
-                                                @if($supervisor)
-                                                    <span class="text-xs text-blue-600">(Specific)</span>
-                                                @else
-                                                    <span class="text-xs text-gray-500">(Default)</span>
-                                                @endif
+                                        <div class="mt-2 text-sm text-gray-600">
+                                            <span class="font-medium">Supervisors:</span>
+                                            @if($assignedSupervisors->isNotEmpty())
+                                                <ul class="mt-1 space-y-1">
+                                                    @foreach($assignedSupervisors as $supervisorUser)
+                                                        <li>{{ $supervisorUser->name }} ({{ $supervisorUser->email }})</li>
+                                                    @endforeach
+                                                </ul>
+                                            @elseif($creditNoteWorkflow->defaultSupervisor)
+                                                <span class="text-gray-500">Default: {{ $creditNoteWorkflow->defaultSupervisor->name }} ({{ $creditNoteWorkflow->defaultSupervisor->email }})</span>
                                             @else
                                                 <span class="text-gray-400">Not Set</span>
                                             @endif
-                                        </p>
+                                        </div>
                                         <p class="mt-1 text-xs text-gray-500">
                                             <svg class="inline w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                             </svg>
-                                            Can reassign in-progress items to other users
+                                            Up to 4 supervisors can reassign in-progress items
                                         </p>
                                     </div>
                                 </div>

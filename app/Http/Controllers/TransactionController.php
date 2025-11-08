@@ -79,6 +79,8 @@ class TransactionController extends Controller
             abort(403, 'Unauthorized access to client.');
         }
 
+        $client->ensureActiveVisitId();
+
         // Get current branch
         $currentBranch = $user->currentBranch;
 

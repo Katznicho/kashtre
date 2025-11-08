@@ -45,6 +45,32 @@ class CreditNoteWorkflow extends Model
         return $this->belongsTo(User::class, 'ceo_user_id');
     }
 
+    public function authorizers()
+    {
+        return $this->belongsToMany(User::class, 'credit_note_workflow_authorizers')
+            ->withTimestamps();
+    }
+
+    public function approvers()
+    {
+        return $this->belongsToMany(User::class, 'credit_note_workflow_approvers')
+            ->withTimestamps();
+    }
+
+    public function syncAuthorizers(array $userIds): void
+    {
+        $this->authorizers()->sync(array_unique($userIds));
+        $this->finance_user_id = $userIds[0] ?? null;
+        $this->save();
+    }
+
+    public function syncApprovers(array $userIds): void
+    {
+        $this->approvers()->sync(array_unique($userIds));
+        $this->ceo_user_id = $userIds[0] ?? null;
+        $this->save();
+    }
+
     protected static function booted()
     {
         static::creating(function ($workflow) {

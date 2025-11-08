@@ -1098,6 +1098,27 @@
                 return;
             }
             
+            // Determine if this invoice only contains deposit items
+            const isDepositOnlyInvoice = cart.length > 0 && cart.every(item => {
+                const rawName = (item.displayName || item.name || '').toString().trim().toLowerCase();
+                return rawName === 'deposit';
+            });
+
+            const hasDeposit = cart.some(item => {
+                const rawName = (item.displayName || item.name || '').toString().trim().toLowerCase();
+                return rawName === 'deposit';
+            });
+
+            if (hasDeposit && !isDepositOnlyInvoice) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Invalid Deposit Invoice',
+                    text: 'A deposit must be the only item on the invoice. Please remove other items.',
+                });
+                return;
+            }
+
+
             // Check if service charge is required and present
             const serviceChargeElement = document.getElementById('service-charge-display');
             const serviceChargeNote = document.getElementById('service-charge-note');

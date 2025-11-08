@@ -30,12 +30,12 @@
                     Create Refund Workflow
                 </h2>
                 <p class="mt-1 text-sm text-gray-500">
-                    Configure the 3-step approval workflow: Supervisor per Service Point (Verifies) → Finance (Authorizes) → CEO (Approves)
+                    Mirror the Excel template: choose Approvers, then Authorizers, then assign supervisors to every service point (1-4 per row).
                 </p>
             </div>
         </div>
 
-        <!-- Alert Messages -->
+        <!-- Alerts -->
         @if(session('error'))
             <div class="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
                 <span class="block sm:inline">{{ session('error') }}</span>
@@ -45,120 +45,118 @@
         <!-- Form -->
         <div class="mt-8">
             <div class="bg-white shadow sm:rounded-lg">
-                <form action="{{ route('credit-note-workflows.store') }}" method="POST" class="px-4 py-5 sm:p-6">
+                <form action="{{ route('credit-note-workflows.store') }}" method="POST" class="px-4 py-5 sm:p-6 space-y-6">
                     @csrf
-                    
-                    <div class="grid grid-cols-1 gap-6">
-                        <!-- Business Selection -->
-                        <div>
-                            <label for="business_id" class="block text-sm font-medium text-gray-700">
-                                Business <span class="text-red-500">*</span>
-                            </label>
-                            <select name="business_id" id="business_id" required
-                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm @error('business_id') border-red-300 @enderror">
-                                <option value="">Select a business...</option>
-                                @foreach($businesses as $business)
-                                    <option value="{{ $business->id }}" {{ old('business_id') == $business->id ? 'selected' : '' }}>
-                                        {{ $business->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('business_id')
-                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
 
-                        <!-- Default Technical Supervisor -->
-                        <div>
-                            <label for="default_supervisor_user_id" class="block text-sm font-medium text-gray-700">
-                                Default Technical Supervisor (Step 1: Verifies)
-                            </label>
-                            <select name="default_supervisor_user_id" id="default_supervisor_user_id" disabled
-                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-100 @error('default_supervisor_user_id') border-red-300 @enderror">
-                                <option value="">Please select a business first...</option>
-                            </select>
-                            @error('default_supervisor_user_id')
-                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                            <p class="mt-2 text-sm text-gray-500">Default supervisor for all service points. Can be overridden per service point below.</p>
-                        </div>
-
-                        <!-- Service Points Section -->
-                        <div id="service-points-section" class="hidden">
-                            <div class="border-t border-gray-200 pt-6">
-                                <div class="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
-                                    <div class="flex">
-                                        <div class="flex-shrink-0">
-                                            <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                                            </svg>
-                                        </div>
-                                        <div class="ml-3">
-                                            <h3 class="text-sm font-medium text-blue-800">
-                                                Service Point Supervisor Permissions
-                                            </h3>
-                                            <div class="mt-2 text-sm text-blue-700">
-                                                <p>Supervisors assigned to service points can <strong>reassign "in progress" items</strong> from one user to another. This helps manage workload distribution and handle reassignments when needed.</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <h3 class="text-lg font-medium text-gray-900 mb-4">Service Point Supervisors</h3>
-                                <p class="text-sm text-gray-500 mb-4">Assign specific supervisors to each service point. Leave empty to use the default supervisor. These supervisors can reassign in-progress items to other users.</p>
-                                <div id="service-points-container" class="space-y-4">
-                                    <!-- Service points will be dynamically inserted here -->
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Finance (Authorizes Refund) -->
-                        <div>
-                            <label for="finance_user_id" class="block text-sm font-medium text-gray-700">
-                                Finance (Authorizes Refund)
-                            </label>
-                            <select name="finance_user_id" id="finance_user_id" disabled
-                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-100 @error('finance_user_id') border-red-300 @enderror">
-                                <option value="">Please select a business first...</option>
-                            </select>
-                            @error('finance_user_id')
-                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                            <p class="mt-2 text-sm text-gray-500">Step 2: Authorizes the refund</p>
-                        </div>
-
-                        <!-- CEO (Approves Refund) -->
-                        <div>
-                            <label for="ceo_user_id" class="block text-sm font-medium text-gray-700">
-                                CEO (Approves Refund)
-                            </label>
-                            <select name="ceo_user_id" id="ceo_user_id" disabled
-                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-100 @error('ceo_user_id') border-red-300 @enderror">
-                                <option value="">Please select a business first...</option>
-                            </select>
-                            @error('ceo_user_id')
-                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                            <p class="mt-2 text-sm text-gray-500">Step 3: Final approval for the refund</p>
-                        </div>
-
-                        <!-- Active Status -->
-                        <div class="flex items-center">
-                            <input type="checkbox" name="is_active" id="is_active" value="1" 
-                                   {{ old('is_active', true) ? 'checked' : '' }}
-                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="is_active" class="ml-2 block text-sm text-gray-900">
-                                Active
-                            </label>
-                        </div>
+                    <!-- Business -->
+                    <div>
+                        <label for="business_id" class="block text-sm font-medium text-gray-700">
+                            Business <span class="text-red-500">*</span>
+                        </label>
+                        <select name="business_id" id="business_id" required
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm @error('business_id') border-red-300 @enderror">
+                            <option value="">Select a business...</option>
+                            @foreach($businesses as $business)
+                                <option value="{{ $business->id }}" {{ old('business_id') == $business->id ? 'selected' : '' }}>
+                                    {{ $business->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('business_id')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                        @error('approver_user_ids.*')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                        @error('staff_selection')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
 
-                    <!-- Form Actions -->
-                    <div class="mt-6 flex items-center justify-end space-x-3">
-                        <a href="{{ route('credit-note-workflows.index') }}" 
+                    <!-- Approvers -->
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <label for="approver_user_ids" class="block text-sm font-medium text-gray-700">Approvers <span class="text-red-500">*</span></label>
+                            <span class="text-xs text-gray-500">Select 1&ndash;3 people. Hold Cmd/Ctrl to pick multiple.</span>
+                        </div>
+                        <select multiple size="6" id="approver_user_ids" name="approver_user_ids[]"
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm @error('approver_user_ids') border-red-300 @enderror" disabled>
+                            <option value="" disabled>Select a business first...</option>
+                        </select>
+                        @error('approver_user_ids')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                        @error('authorizer_user_ids.*')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Spacer to reflect template -->
+                    <div class="border-t border-dashed border-gray-200"></div>
+
+                    <!-- Authorizers -->
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <label for="authorizer_user_ids" class="block text-sm font-medium text-gray-700">Authorizers <span class="text-red-500">*</span></label>
+                            <span class="text-xs text-gray-500">Select 1&ndash;3 people. Hold Cmd/Ctrl to pick multiple.</span>
+                        </div>
+                        <select multiple size="6" id="authorizer_user_ids" name="authorizer_user_ids[]"
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm @error('authorizer_user_ids') border-red-300 @enderror" disabled>
+                            <option value="" disabled>Select a business first...</option>
+                        </select>
+                        @error('authorizer_user_ids')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Spacer to reflect template -->
+                    <div class="border-t border-dashed border-gray-200"></div>
+
+                    <!-- Service Points -->
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900">Service Points</h3>
+                        <p class="mt-1 text-sm text-gray-500">Assign 1&ndash;4 supervisors to every service point. These align with the rows in the spreadsheet.</p>
+                        <div id="service-points-section" class="mt-4 space-y-4 hidden">
+                            <div id="service-points-container" class="space-y-4"></div>
+                        </div>
+                        <p id="service-points-placeholder" class="mt-2 text-sm text-gray-400">
+                            Select a business to load service points.
+                        </p>
+                        @error('service_point_supervisors')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                        @error('service_point_supervisors.*')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Optional Default Supervisor -->
+                    <div>
+                        <label for="default_supervisor_user_id" class="block text-sm font-medium text-gray-700">Optional Fallback Supervisor</label>
+                        <select name="default_supervisor_user_id" id="default_supervisor_user_id"
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm @error('default_supervisor_user_id') border-red-300 @enderror" disabled>
+                            <option value="">Select a business first...</option>
+                        </select>
+                        <p class="mt-2 text-xs text-gray-500">Used only if a service point has no direct supervisors.</p>
+                        @error('default_supervisor_user_id')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Status -->
+                    <div class="flex items-center">
+                        <input type="checkbox" name="is_active" id="is_active" value="1" {{ old('is_active', true) ? 'checked' : '' }}
+                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="is_active" class="ml-2 block text-sm text-gray-900">Active</label>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex items-center justify-end space-x-3">
+                        <a href="{{ route('credit-note-workflows.index') }}"
                            class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                             Cancel
                         </a>
-                        <button type="submit" 
+                        <button type="submit"
                                 class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                             Create Workflow
                         </button>
@@ -170,195 +168,295 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const businessSelect = document.getElementById('business_id');
-    const defaultSupervisorSelect = document.getElementById('default_supervisor_user_id');
-    const financeSelect = document.getElementById('finance_user_id');
-    const ceoSelect = document.getElementById('ceo_user_id');
-    const servicePointsSection = document.getElementById('service-points-section');
-    const servicePointsContainer = document.getElementById('service-points-container');
-    
-    // All users data with business_id
-    const allUsers = @json($allUsers);
-    
-    // All service points data with business_id
-    const allServicePoints = @json($allServicePoints);
+    document.addEventListener('DOMContentLoaded', () => {
+        const MAX_APPROVERS = 3;
+        const MAX_AUTHORIZERS = 3;
+        const MAX_SUPERVISORS = 4;
 
-    // Restore previous selections when the form is reloaded
-    const existingAssignments = @json(old('service_point_supervisors', []));
+        const businessSelect = document.getElementById('business_id');
+        const approverSelect = document.getElementById('approver_user_ids');
+        const authorizerSelect = document.getElementById('authorizer_user_ids');
+        const defaultSupervisorSelect = document.getElementById('default_supervisor_user_id');
+        const servicePointsSection = document.getElementById('service-points-section');
+        const servicePointsContainer = document.getElementById('service-points-container');
+        const servicePointsPlaceholder = document.getElementById('service-points-placeholder');
 
-    const normalize = (value) => (value || '').toString().toLowerCase();
+        const allUsers = @json($allUsers);
+        const allServicePoints = @json($allServicePoints);
+        const initialApproverIds = new Set((@json(old('approver_user_ids', [])) || []).map(Number));
+        const initialAuthorizerIds = new Set((@json(old('authorizer_user_ids', [])) || []).map(Number));
+        let initialSupervisorMap = (() => {
+            const raw = @json(old('service_point_supervisors', [])) || {};
+            const map = new Map();
+            Object.entries(raw).forEach(([servicePointId, value]) => {
+                const selectedValues = Array.isArray(value) ? value : Object.values(value || {});
+                map.set(Number(servicePointId), new Set(selectedValues.map(Number)));
+            });
+            return map;
+        })();
+        const initialDefaultSupervisorId = Number(@json(old('default_supervisor_user_id')) || 0) || null;
 
-    function formatUserLabel(user) {
-        return `${user.name} (${user.email})`;
-    }
+        let approverSelection = new Set(initialApproverIds);
+        let authorizerSelection = new Set(initialAuthorizerIds);
+        let supervisorSelections = new Map(initialSupervisorMap);
+        let defaultSupervisorSelection = initialDefaultSupervisorId;
 
-    function initializeSupervisorSelect(selectElement, users, filterText = '', selectedValue = '') {
-        const normalizedFilter = normalize(filterText).trim();
-        const currentValue = selectedValue || selectElement.value || '';
+        function getSelectedValues(selectElement) {
+            return new Set(Array.from(selectElement.selectedOptions).map((opt) => Number(opt.value)));
+        }
 
-        selectElement.innerHTML = '<option value="">Use Default Supervisor</option>';
+        function applySelection(selectElement, selectedSet) {
+            Array.from(selectElement.options).forEach((option) => {
+                if (!option.value) {
+                    return;
+                }
+                option.selected = selectedSet.has(Number(option.value));
+            });
+        }
 
-        let hasSelectedOption = false;
+        function populateMulti(selectElement, users, selectedSet) {
+            selectElement.innerHTML = '';
 
-        users.forEach(user => {
-            const displayLabel = formatUserLabel(user);
-            const matchesFilter = !normalizedFilter || normalize(displayLabel).includes(normalizedFilter);
-
-            if (!matchesFilter) {
+            if (!users.length) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.disabled = true;
+                option.textContent = 'No staff available for this business';
+                selectElement.appendChild(option);
+                selectElement.disabled = true;
                 return;
             }
 
-            const option = document.createElement('option');
-            option.value = user.id;
-            option.textContent = displayLabel;
-
-            if (currentValue && Number(currentValue) === Number(user.id)) {
-                option.selected = true;
-                hasSelectedOption = true;
-            }
-
-            selectElement.appendChild(option);
-        });
-
-        // Preserve selection even if it does not match the current filter
-        if (currentValue && !hasSelectedOption) {
-            const existingUser = users.find(user => Number(user.id) === Number(currentValue));
-            if (existingUser) {
+            users.forEach((user) => {
                 const option = document.createElement('option');
-                option.value = existingUser.id;
-                option.textContent = formatUserLabel(existingUser);
-                option.selected = true;
+                option.value = user.id;
+                option.textContent = `${user.name} (${user.email})`;
+                if (selectedSet.has(Number(user.id))) {
+                    option.selected = true;
+                }
                 selectElement.appendChild(option);
+            });
+
+            selectElement.disabled = false;
+        }
+
+        function populateSingle(selectElement, users, selectedId) {
+            selectElement.innerHTML = '<option value="">No fallback supervisor</option>';
+
+            if (!users.length) {
+                selectElement.disabled = true;
+                selectElement.classList.add('bg-gray-100');
+                return;
             }
+
+            users.forEach((user) => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.name} (${user.email})`;
+                if (selectedId && Number(user.id) === Number(selectedId)) {
+                    option.selected = true;
+                }
+                selectElement.appendChild(option);
+            });
+
+            selectElement.disabled = false;
+            selectElement.classList.remove('bg-gray-100');
         }
-    }
 
-    function attachSupervisorSearch(rowElement, users, preselectedValue = '') {
-        const searchInput = rowElement.querySelector('.supervisor-search');
-        const selectElement = rowElement.querySelector('select');
+        function syncRoleExclusion() {
+            Array.from(approverSelect.options).forEach((option) => {
+                if (!option.value) {
+                    return;
+                }
+                const value = Number(option.value);
+                option.disabled = !approverSelection.has(value) && authorizerSelection.has(value);
+            });
 
-        if (!selectElement) {
-            return;
-        }
-
-        initializeSupervisorSelect(selectElement, users, '', preselectedValue);
-
-        if (searchInput) {
-            searchInput.addEventListener('input', function () {
-                initializeSupervisorSelect(selectElement, users, this.value, selectElement.value);
+            Array.from(authorizerSelect.options).forEach((option) => {
+                if (!option.value) {
+                    return;
+                }
+                const value = Number(option.value);
+                option.disabled = !authorizerSelection.has(value) && approverSelection.has(value);
             });
         }
-    }
-    
-    // Function to populate user dropdown
-    function populateUserDropdown(selectElement, selectedValue = '') {
-        const businessId = parseInt(businessSelect.value);
-        
-        if (!businessId) {
-            // No business selected - disable and clear
-            selectElement.disabled = true;
-            selectElement.classList.add('bg-gray-100');
-            selectElement.innerHTML = '<option value="">Please select a business first...</option>';
-            return;
+
+        function captureCurrentServicePointSelections() {
+            const map = new Map();
+            document.querySelectorAll('[data-service-point-id]').forEach((wrapper) => {
+                const servicePointId = Number(wrapper.dataset.servicePointId);
+                const select = wrapper.querySelector('select');
+                if (!select) {
+                    return;
+                }
+                map.set(servicePointId, getSelectedValues(select));
+            });
+            return map;
         }
-        
-        // Filter users by selected business
-        const businessUsers = allUsers.filter(user => user.business_id === businessId);
-        
-        // Enable the dropdown
-        selectElement.disabled = false;
-        selectElement.classList.remove('bg-gray-100');
-        
-        // Clear and populate options
-        selectElement.innerHTML = '<option value="">Select user...</option>';
-        
-        if (businessUsers.length === 0) {
-            selectElement.innerHTML = '<option value="">No users available for this business</option>';
-            return;
-        }
-        
-        businessUsers.forEach(user => {
-            const option = document.createElement('option');
-            option.value = user.id;
-            option.textContent = `${user.name} (${user.email})`;
-            if (selectedValue && user.id == selectedValue) {
-                option.selected = true;
+
+        function enforceSupervisorLimit(selectElement, servicePointId) {
+            const previousSelection = supervisorSelections.get(servicePointId) || new Set();
+            const currentSelection = getSelectedValues(selectElement);
+
+            if (currentSelection.size > MAX_SUPERVISORS) {
+                window.alert(`You can assign at most ${MAX_SUPERVISORS} supervisors to a service point.`);
+                applySelection(selectElement, previousSelection);
+                return;
             }
-            selectElement.appendChild(option);
-        });
-    }
-    
-    // Function to load service points for selected business
-    function loadServicePoints(businessId) {
-        if (!businessId) {
-            servicePointsSection.classList.add('hidden');
-            return;
+
+            supervisorSelections.set(servicePointId, currentSelection);
         }
-        
-        // Filter service points by selected business
-        const businessServicePoints = allServicePoints.filter(sp => sp.business_id === parseInt(businessId));
-        
-        if (businessServicePoints.length === 0) {
-            servicePointsContainer.innerHTML = '<p class="text-sm text-gray-500">No service points found for this business.</p>';
+
+        function renderServicePoints(businessId) {
+            supervisorSelections = captureCurrentServicePointSelections();
+
+            const servicePoints = allServicePoints.filter((sp) => sp.business_id === businessId);
+            const businessUsers = allUsers.filter((user) => user.business_id === businessId);
+
+            servicePointsContainer.innerHTML = '';
+
+            if (!servicePoints.length) {
+                servicePointsPlaceholder.textContent = 'No service points found for this business.';
+                servicePointsPlaceholder.classList.remove('hidden');
+                servicePointsSection.classList.add('hidden');
+                return;
+            }
+
+            servicePointsPlaceholder.classList.add('hidden');
             servicePointsSection.classList.remove('hidden');
-            return;
+
+            servicePoints.forEach((servicePoint) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'border border-gray-200 rounded-md p-4';
+                wrapper.dataset.servicePointId = servicePoint.id;
+
+                const selectedSet = supervisorSelections.get(servicePoint.id)
+                    || initialSupervisorMap.get(servicePoint.id)
+                    || new Set();
+
+                wrapper.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900">${servicePoint.name || 'Unnamed Service Point'}</h4>
+                            ${servicePoint.description ? `<p class="text-xs text-gray-500">${servicePoint.description}</p>` : ''}
+                        </div>
+                        <span class="text-xs text-gray-400">Pick 1-4</span>
+                    </div>
+                    <select multiple size="5" name="service_point_supervisors[${servicePoint.id}][]"
+                        class="mt-2 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></select>
+                `;
+
+                const selectElement = wrapper.querySelector('select');
+                businessUsers.forEach((user) => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = `${user.name} (${user.email})`;
+                    if (selectedSet.has(Number(user.id))) {
+                        option.selected = true;
+                    }
+                    selectElement.appendChild(option);
+                });
+
+                // Enforce limit immediately in case old data exceeded it
+                if (selectedSet.size > MAX_SUPERVISORS) {
+                    const trimmed = new Set(Array.from(selectedSet).slice(0, MAX_SUPERVISORS));
+                    applySelection(selectElement, trimmed);
+                    supervisorSelections.set(servicePoint.id, trimmed);
+                } else {
+                    supervisorSelections.set(servicePoint.id, selectedSet);
+                }
+
+                selectElement.addEventListener('change', () => {
+                    enforceSupervisorLimit(selectElement, servicePoint.id);
+                });
+
+                servicePointsContainer.appendChild(wrapper);
+            });
         }
-        
-        // Clear container
-        servicePointsContainer.innerHTML = '';
-        
-        // Filter users by business
-        const businessUsers = allUsers.filter(user => user.business_id === parseInt(businessId));
-        
-        // Create service point rows
-        businessServicePoints.forEach(servicePoint => {
-            const row = document.createElement('div');
-            row.className = 'border border-gray-200 rounded-md p-4 space-y-2';
 
-            const existingAssignmentData = existingAssignments[String(servicePoint.id)] || existingAssignments[servicePoint.id] || null;
-            const existingAssignment = existingAssignmentData ? (existingAssignmentData.supervisor_user_id || '') : '';
+        function handleBusinessChange() {
+            const businessId = Number(businessSelect.value);
 
-            row.innerHTML = `
-                <div class="flex flex-col space-y-2">
-                    <label class="block text-sm font-medium text-gray-700">
-                        ${servicePoint.name || 'Unnamed Service Point'}
-                        ${servicePoint.description ? `<span class="text-gray-500 text-xs">(${servicePoint.description})</span>` : ''}
-                    </label>
-                    <input type="hidden" name="service_point_supervisors[${servicePoint.id}][service_point_id]" value="${servicePoint.id}">
-                    <input type="text" class="supervisor-search block w-full rounded-md border border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Search staff...">
-                    <select name="service_point_supervisors[${servicePoint.id}][supervisor_user_id]" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                        <option value="">Use Default Supervisor</option>
-                    </select>
-                    <p class="text-xs text-gray-500">Leave blank to use the default supervisor.</p>
-                </div>
-            `;
+            if (!businessId) {
+                approverSelect.innerHTML = '<option value="" disabled>Select a business first...</option>';
+                approverSelect.disabled = true;
+                authorizerSelect.innerHTML = '<option value="" disabled>Select a business first...</option>';
+                authorizerSelect.disabled = true;
+                defaultSupervisorSelect.innerHTML = '<option value="">Select a business first...</option>';
+                defaultSupervisorSelect.disabled = true;
+                defaultSupervisorSelect.classList.add('bg-gray-100');
+                servicePointsContainer.innerHTML = '';
+                servicePointsPlaceholder.textContent = 'Select a business to load service points.';
+                servicePointsPlaceholder.classList.remove('hidden');
+                servicePointsSection.classList.add('hidden');
+                syncRoleExclusion();
+                return;
+            }
 
-            attachSupervisorSearch(row, businessUsers, existingAssignment);
-            servicePointsContainer.appendChild(row);
+            const businessUsers = allUsers.filter((user) => user.business_id === businessId);
+            populateMulti(approverSelect, businessUsers, approverSelection);
+            populateMulti(authorizerSelect, businessUsers, authorizerSelection);
+            populateSingle(defaultSupervisorSelect, businessUsers, defaultSupervisorSelection);
+            syncRoleExclusion();
+            renderServicePoints(businessId);
+        }
+
+        approverSelect.addEventListener('change', () => {
+            const newSelection = getSelectedValues(approverSelect);
+            if (newSelection.size > MAX_APPROVERS) {
+                window.alert(`Select at most ${MAX_APPROVERS} approvers.`);
+                applySelection(approverSelect, approverSelection);
+                return;
+            }
+
+            const overlap = Array.from(newSelection).filter((value) => authorizerSelection.has(value));
+            if (overlap.length > 0) {
+                window.alert('Approvers and authorizers must be different people.');
+                applySelection(approverSelect, approverSelection);
+                return;
+            }
+
+            approverSelection = newSelection;
+            syncRoleExclusion();
         });
-        
-        servicePointsSection.classList.remove('hidden');
-    }
-    
-    // Handle business selection change
-    businessSelect.addEventListener('change', function() {
-        const businessId = parseInt(this.value);
-        const oldDefaultSupervisorValue = defaultSupervisorSelect.value;
-        const oldFinanceValue = financeSelect.value;
-        const oldCeoValue = ceoSelect.value;
-        
-        populateUserDropdown(defaultSupervisorSelect, oldDefaultSupervisorValue);
-        populateUserDropdown(financeSelect, oldFinanceValue);
-        populateUserDropdown(ceoSelect, oldCeoValue);
-        loadServicePoints(businessId);
+
+        authorizerSelect.addEventListener('change', () => {
+            const newSelection = getSelectedValues(authorizerSelect);
+            if (newSelection.size > MAX_AUTHORIZERS) {
+                window.alert(`Select at most ${MAX_AUTHORIZERS} authorizers.`);
+                applySelection(authorizerSelect, authorizerSelection);
+                return;
+            }
+
+            const overlap = Array.from(newSelection).filter((value) => approverSelection.has(value));
+            if (overlap.length > 0) {
+                window.alert('Approvers and authorizers must be different people.');
+                applySelection(authorizerSelect, authorizerSelection);
+                return;
+            }
+
+            authorizerSelection = newSelection;
+            syncRoleExclusion();
+        });
+
+        defaultSupervisorSelect.addEventListener('change', () => {
+            const value = Number(defaultSupervisorSelect.value);
+            defaultSupervisorSelection = value ? value : null;
+        });
+
+        businessSelect.addEventListener('change', () => {
+            approverSelection.clear();
+            authorizerSelection.clear();
+            supervisorSelections.clear();
+            defaultSupervisorSelection = null;
+            initialSupervisorMap = new Map();
+            handleBusinessChange();
+        });
+
+        if (businessSelect.value) {
+            handleBusinessChange();
+        }
     });
-    
-    // Initialize - if business is pre-selected (from old input), populate dropdowns
-    if (businessSelect.value) {
-        businessSelect.dispatchEvent(new Event('change'));
-    }
-});
 </script>
 </x-app-layout>
 

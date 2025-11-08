@@ -166,6 +166,8 @@ class ClientController extends Controller
 
         // If existing client found, redirect to POS with that client (no new record needed)
         if ($existingClient) {
+            $existingClient->ensureActiveVisitId();
+
             return redirect()->route('pos.item-selection', $existingClient)
                 ->with('success', 'Existing client found! Redirecting to ordering page. Client ID: ' . $existingClient->client_id);
         }
@@ -209,7 +211,7 @@ class ClientController extends Controller
         $visitId = Client::generateVisitId($business, $currentBranch);
         
         // Set visit expiration to next midnight (24 hours from creation)
-        $visitExpiresAt = \Carbon\Carbon::today()->addDay()->startOfDay();
+        $visitExpiresAt = \Carbon\Carbon::tomorrow()->startOfDay();
         
         // Generate full name by concatenating the name fields
         $fullName = trim($validated['surname'] . ' ' . $validated['first_name'] . ' ' . ($validated['other_names'] ?? ''));

@@ -1,5 +1,26 @@
 <div class="space-y-6">
-    
+
+    @if(empty(auth()->user()->two_factor_secret))
+    <div class="bg-orange-500/95 border border-orange-400 rounded-xl px-5 py-4 text-white flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-sm">
+        <div class="flex items-start md:items-center gap-3">
+            <span class="inline-flex items-center justify-center rounded-full bg-white/20 text-white h-10 w-10">
+                <i class="fas fa-lock"></i>
+            </span>
+            <div>
+                <p class="text-sm font-semibold tracking-wide uppercase">Security Alert: Enable Two-Factor Authentication</p>
+                <p class="text-sm text-white/90">
+                    Protect admin and server accounts with an extra layer of security. Enable 2FA before launch to secure transactions and sensitive data.
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="{{ route('profile.show') }}#two-factor" class="inline-flex items-center px-4 py-2 text-sm font-semibold text-orange-600 bg-white rounded-full shadow hover:bg-orange-100 transition-colors">
+                <i class="fas fa-lock mr-2"></i> Setup 2FA
+            </a>
+        </div>
+    </div>
+    @endif
+
     <!-- Quick Actions -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
@@ -13,7 +34,7 @@
             @if(in_array('View Clients', auth()->user()->permissions ?? []))
             <a href="{{ route('clients.index') }}" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center">
                 <i class="fas fa-users mr-2"></i>
-                View All Clients
+                Registered Clients
             </a>
             @endif
             
@@ -164,16 +185,6 @@
         </div>
         @endif
 
-    </div>
-
-    <!-- Recent Clients -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Clients</h3>
-            <a href="{{ route('clients.index') }}" class="text-[#011478] hover:text-[#011478]/80 text-sm font-medium">View All</a>
-        </div>
-        
-        @livewire('recent-clients-table')
     </div>
 
     <!-- Recent Transactions -->

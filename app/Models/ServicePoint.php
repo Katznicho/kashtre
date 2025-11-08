@@ -76,9 +76,14 @@ class ServicePoint extends Model
         return $this->serviceQueues()->completed()->today()->orderBy('completed_at', 'desc');
     }
 
+    public function supervisors()
+    {
+        return $this->hasMany(ServicePointSupervisor::class);
+    }
+
     public function supervisor()
     {
-        return $this->hasOne(ServicePointSupervisor::class);
+        return $this->hasOne(ServicePointSupervisor::class)->latestOfMany();
     }
 
     /**

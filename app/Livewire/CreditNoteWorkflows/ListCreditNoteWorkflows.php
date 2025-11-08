@@ -42,13 +42,13 @@ class ListCreditNoteWorkflows extends Component implements HasForms, HasTable
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('finance.name')
-                    ->label('Finance')
+                    ->label('Authorizer')
                     ->formatStateUsing(fn ($state) => $state ?: 'Not Set')
                     ->searchable()
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('ceo.name')
-                    ->label('CEO')
+                    ->label('Approver')
                     ->formatStateUsing(fn ($state) => $state ?: 'Not Set')
                     ->searchable()
                     ->sortable(),

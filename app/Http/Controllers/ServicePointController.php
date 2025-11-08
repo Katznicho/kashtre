@@ -171,6 +171,7 @@ class ServicePointController extends Controller
 
         // Get client data
         $client = \App\Models\Client::findOrFail($clientId);
+        $client->ensureActiveVisitId();
         
         // Get all items for this client at this service point
         $clientItems = \App\Models\ServiceDeliveryQueue::where('service_point_id', $servicePoint->id)

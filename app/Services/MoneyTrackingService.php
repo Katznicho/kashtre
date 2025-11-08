@@ -17,6 +17,7 @@ use App\Models\BusinessBalanceHistory;
 use App\Models\ContractorBalanceHistory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Exception;
 
 class MoneyTrackingService
@@ -216,6 +217,123 @@ class MoneyTrackingService
     }
 
     /**
+     * Record a direct client deposit that should remain available for future use.
+     */
+    public function processClientDeposit(Client $client, float $amount, Invoice $invoice, array $items = [])
+    {
+        if ($amount <= 0) {
+            Log::info('Skipping client deposit processing because amount is not greater than zero.', [
+                'client_id' => $client->id,
+                'invoice_id' => $invoice->id,
+                'amount' => $amount,
+            ]);
+            return null;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $clientAccount = $this->getOrCreateClientAccount($client);
+            $clientSuspenseAccount = $this->getOrCreateClientSuspenseAccount($client);
+
+            if ($clientSuspenseAccount->balance >= $amount) {
+                Log::info('Transferring deposit from client suspense to client account', [
+                    'client_id' => $client->id,
+                    'invoice_id' => $invoice->id,
+                    'amount' => $amount,
+                    'client_suspense_balance' => $clientSuspenseAccount->balance,
+                ]);
+
+                $transfer = $this->transferMoney(
+                    $clientSuspenseAccount,
+                    $clientAccount,
+                    $amount,
+                    'client_deposit',
+                    $invoice,
+                    null,
+                    "Client deposit credited",
+                    null,
+                    'credit'
+                );
+            } else {
+                Log::warning('Client suspense balance insufficient for deposit transfer, falling back to direct credit.', [
+                    'client_id' => $client->id,
+                    'invoice_id' => $invoice->id,
+                    'amount' => $amount,
+                    'client_suspense_balance' => $clientSuspenseAccount->balance,
+                ]);
+
+                $transfer = MoneyTransfer::create([
+                    'business_id' => $client->business_id,
+                    'from_account_id' => null,
+                    'to_account_id' => $clientAccount->id,
+                    'amount' => $amount,
+                    'currency' => 'UGX',
+                    'status' => 'completed',
+                    'type' => 'credit',
+                    'transfer_type' => 'client_deposit',
+                    'invoice_id' => $invoice->id,
+                    'client_id' => $client->id,
+                    'description' => "Client deposit recorded for invoice {$invoice->invoice_number}",
+                    'metadata' => [
+                        'items' => $items,
+                        'fallback' => true,
+                    ],
+                    'processed_at' => now(),
+                    'source' => $invoice->client_name ?? $client->name,
+                    'destination' => $client->name . ' - ' . $clientAccount->name,
+                ]);
+
+                $clientAccount->credit($amount);
+            }
+
+            $depositItems = collect($items ?? [])->filter(function ($item) {
+                $name = Str::lower(trim((string)($item['displayName'] ?? $item['name'] ?? $item['item_name'] ?? '')));
+                return $name === 'deposit';
+            });
+
+            $description = 'Deposit Credited';
+            if ($depositItems->isNotEmpty()) {
+                $deposit = $depositItems->first();
+                $displayName = $deposit['displayName'] ?? $deposit['name'] ?? 'Deposit';
+                $quantity = $deposit['quantity'] ?? 1;
+                $description = sprintf('%s (x%s)', $displayName, $quantity);
+            }
+
+            $balanceRecord = BalanceHistory::recordCredit(
+                $client,
+                $amount,
+                $description,
+                $invoice->invoice_number,
+                'Deposit captured on POS invoice',
+                'deposit'
+            );
+
+            DB::commit();
+
+            Log::info('Client deposit processed successfully.', [
+                'client_id' => $client->id,
+                'invoice_id' => $invoice->id,
+                'amount' => $amount,
+                'money_transfer_id' => $transfer->id,
+                'balance_history_id' => $balanceRecord->id ?? null,
+            ]);
+
+            return $transfer;
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to process client deposit.', [
+                'client_id' => $client->id,
+                'invoice_id' => $invoice->id,
+                'amount' => $amount,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
      * Step 2: Order confirmed - DO NOT create balance statements yet
      * Balance statements should only be created after payment is completed
      * This method now only logs the order confirmation
@@ -392,13 +510,19 @@ class MoneyTrackingService
             $business = $invoice->business;
             $debitRecords = [];
 
+            $itemsCollection = collect($items ?? []);
+            $itemsToProcess = $itemsCollection->reject(function ($itemData) {
+                $name = Str::lower(trim((string)($itemData['displayName'] ?? $itemData['name'] ?? $itemData['item_name'] ?? '')));
+                return $name === 'deposit';
+            })->values();
+
             Log::info("=== PAYMENT COMPLETED - CREATING BALANCE STATEMENTS ===", [
                 'invoice_id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
                 'client_id' => $client->id,
                 'client_name' => $client->name,
                 'business_id' => $business->id,
-                'items_count' => count($items),
+                'items_count' => $itemsToProcess->count(),
                 'total_amount' => $invoice->total_amount,
                 'service_charge' => $invoice->service_charge,
                 'amount_paid' => $invoice->amount_paid,
@@ -444,7 +568,7 @@ class MoneyTrackingService
                 ]);
             }
 
-            foreach ($items as $index => $itemData) {
+            foreach ($itemsToProcess as $index => $itemData) {
                 $itemId = $itemData['item_id'] ?? $itemData['id'] ?? null;
                 if (!$itemId) continue;
                 
@@ -610,17 +734,23 @@ class MoneyTrackingService
             $clientSuspenseAccount = $this->getOrCreateClientSuspenseAccount($client);
             $suspenseMovements = [];
 
+            $itemsCollection = collect($items ?? []);
+            $itemsToProcess = $itemsCollection->reject(function ($itemData) {
+                $name = Str::lower(trim((string)($itemData['displayName'] ?? $itemData['name'] ?? $itemData['item_name'] ?? '')));
+                return $name === 'deposit';
+            })->values();
+
             Log::info("=== PROCESSING SUSPENSE ACCOUNT MOVEMENTS ===", [
                 'invoice_id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
                 'client_id' => $client->id,
                 'business_id' => $business->id,
-                'items_count' => count($items),
+                'items_count' => $itemsToProcess->count(),
                 'client_suspense_balance_before' => $clientSuspenseAccount->balance
             ]);
 
             // Process regular items
-            foreach ($items as $index => $itemData) {
+            foreach ($itemsToProcess as $index => $itemData) {
                 $itemId = $itemData['item_id'] ?? $itemData['id'] ?? null;
                 if (!$itemId) continue;
                 
@@ -840,14 +970,14 @@ class MoneyTrackingService
                     'invoice_number' => $invoice->invoice_number
                 ]);
 
-                // Service Fee always goes to Kashtre Suspense
-                $destinationAccount = $this->getOrCreateKashtreSuspenseAccount($business, $client->id);
+                // Service Fee moves directly from client suspense to Kashtre account
+                $destinationAccount = $this->getOrCreateKashtreAccount();
                 $transferDescription = "Service Fee - {$invoice->service_charge} UGX";
                 $routingReason = "Service fee from invoice service_charge field";
 
                 Log::info("✅ SERVICE FEE ROUTED TO KASHTRE SUSPENSE", [
                     'service_charge' => $invoice->service_charge,
-                    'destination_account_type' => 'kashtre_suspense_account',
+                    'destination_account_type' => 'kashtre_account',
                     'routing_reason' => $routingReason
                 ]);
 
@@ -865,9 +995,9 @@ class MoneyTrackingService
                     $clientSuspenseAccount,
                     $destinationAccount,
                     $invoice->service_charge,
-                    'suspense_movement',
+                    'service_charge',
                     $invoice,
-                    null, // No item for service fee
+                    null,
                     $transferDescription
                 );
 

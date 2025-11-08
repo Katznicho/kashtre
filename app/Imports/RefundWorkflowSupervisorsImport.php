@@ -2,145 +2,305 @@
 
 namespace App\Imports;
 
+use App\Models\Business;
 use App\Models\CreditNoteWorkflow;
 use App\Models\ServicePoint;
 use App\Models\ServicePointSupervisor;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToCollection;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\HeadingRowFormatter;
 
-HeadingRowFormatter::default('snake');
-
-class RefundWorkflowSupervisorsImport implements ToCollection, WithHeadingRow
+class RefundWorkflowSupervisorsImport implements ToCollection
 {
+    protected Business $business;
+
     protected CreditNoteWorkflow $workflow;
+
+    protected bool $workflowCreated;
 
     protected array $summary = [
         'updated' => 0,
         'unchanged' => 0,
         'errors' => [],
+        'workflow_status' => null,
     ];
 
-    public function __construct(CreditNoteWorkflow $workflow)
+    protected bool $hasBlockingErrors = false;
+
+    public function __construct(Business $business, CreditNoteWorkflow $workflow)
     {
+        $this->business = $business;
         $this->workflow = $workflow;
+        $this->workflow->business_id = $business->id;
+        $this->workflowCreated = !$workflow->exists;
     }
 
     public function collection(Collection $rows)
     {
-        $businessId = $this->workflow->business_id;
+        if ($rows->isEmpty()) {
+            $this->summary['errors'][] = 'The uploaded template is empty.';
+            return;
+        }
 
-        $validServicePointIds = ServicePoint::where('business_id', $businessId)
-            ->pluck('id')
-            ->toArray();
-
-        $validSupervisorIds = User::where('business_id', $businessId)
+        $businessUsers = User::where('business_id', $this->business->id)
             ->where('status', 'active')
-            ->pluck('id')
-            ->toArray();
+            ->get(['id', 'email', 'name']);
 
+        if ($businessUsers->isEmpty()) {
+            $this->recordError('No active staff members are available for this business.');
+            throw new \RuntimeException('No active staff members are available for this business.');
+        }
+
+        $headerRow = $rows->shift();
+        $columnUsers = $this->mapHeaderToUserIds($headerRow, $businessUsers);
+
+        if (empty($columnUsers)) {
+            $this->recordError('No staff columns were detected in the template.');
+            throw new \RuntimeException('No staff columns were detected in the template.');
+        }
+
+        $validServicePoints = ServicePoint::where('business_id', $this->business->id)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        if ($validServicePoints->isEmpty()) {
+            $this->recordError('No service points are configured for this business.');
+            throw new \RuntimeException('No service points are configured for this business.');
+        }
+
+        // Approver row (row number 2 in the spreadsheet)
+        $approverRow = $rows->shift();
+        $approverIds = $this->resolveSelectionsFromRow(
+            $approverRow,
+            $columnUsers,
+            'Approver',
+            1,
+            3,
+            2
+        );
+
+        // Spacer row between Approver and Authorizer
+        $rows->shift();
+
+        // Authorizer row (row number 3 in the spreadsheet)
+        $authorizerRow = $rows->shift();
+        $authorizerIds = $this->resolveSelectionsFromRow(
+            $authorizerRow,
+            $columnUsers,
+            'Authorizer',
+            1,
+            3,
+            4
+        );
+
+        // Spacer row before the service point title
+        $rows->shift();
+
+        // Service Points title row
+        $rows->shift();
+
+        $overlap = collect($approverIds)->intersect($authorizerIds);
+        if ($overlap->isNotEmpty()) {
+            $this->recordError('Approvers and authorizers must be different people.');
+            throw new \RuntimeException('Approvers and authorizers must be different people.');
+        }
+
+        $servicePointAssignments = [];
         foreach ($rows as $index => $row) {
-            $rowNumber = $index + 2; // Account for heading row
+            $rowNumber = $index + 6; // header + roles + spacer + title
+            $label = trim((string) ($row[0] ?? ''));
 
-            $servicePointId = (int) ($row['service_point_id'] ?? 0);
-
-            if (!$servicePointId || !in_array($servicePointId, $validServicePointIds, true)) {
-                $this->summary['errors'][] = "Row {$rowNumber}: Invalid or missing service_point_id.";
+            if ($label === '') {
                 continue;
             }
 
-            $selectedSupervisorId = $this->resolveSupervisorFromRow($row, $validSupervisorIds, $rowNumber);
+            $servicePoint = $validServicePoints->firstWhere('name', $label);
+            if (! $servicePoint) {
+                $this->recordError("Row {$rowNumber}: Service point '{$label}' is not recognized for this business.");
+                continue;
+            }
 
+            $selectedSupervisorIds = $this->resolveSelectionsFromRow($row, $columnUsers, 'Service Point', 1, 4, $rowNumber);
+
+            if (empty($selectedSupervisorIds)) {
+                continue;
+            }
+
+            $servicePointAssignments[$servicePoint->id] = $selectedSupervisorIds;
+        }
+
+        foreach ($validServicePoints as $servicePoint) {
+            if (empty($servicePointAssignments[$servicePoint->id] ?? [])) {
+                $this->recordError("Service point '{$servicePoint->name}' must have at least one supervisor selected.");
+            }
+        }
+
+        if ($this->hasBlockingErrors || ! empty($this->summary['errors'])) {
+            $message = $this->summary['errors'][0] ?? 'Import aborted due to template errors.';
+            throw new \RuntimeException($message);
+        }
+
+        $this->workflow->default_supervisor_user_id = null;
+        $this->workflow->is_active = true;
+        $this->workflow->save();
+
+        $this->workflowCreated = $this->workflowCreated || $this->workflow->wasRecentlyCreated;
+
+        if (! empty($approverIds)) {
+            $this->workflow->syncApprovers($approverIds);
+        }
+
+        if (! empty($authorizerIds)) {
+            $this->workflow->syncAuthorizers($authorizerIds);
+        }
+
+        $updated = 0;
+        $unchanged = 0;
+
+        foreach ($servicePointAssignments as $servicePointId => $supervisorIds) {
             try {
-                $this->applySupervisorAssignment($servicePointId, $selectedSupervisorId);
-                $selectedSupervisorId === null
-                    ? $this->summary['unchanged']++
-                    : $this->summary['updated']++;
+                $changed = $this->applySupervisorAssignments($servicePointId, $supervisorIds);
+                $changed ? $updated++ : $unchanged++;
             } catch (\Throwable $e) {
                 Log::error('Failed to assign supervisor from bulk import', [
-                    'workflow_id' => $this->workflow->id,
+                    'business_id' => $this->business->id,
                     'service_point_id' => $servicePointId,
                     'error' => $e->getMessage(),
                 ]);
-                $this->summary['errors'][] = "Row {$rowNumber}: {$e->getMessage()}";
+                $this->recordError("Service Point {$servicePointId}: {$e->getMessage()}");
+                throw new \RuntimeException("Service Point {$servicePointId}: {$e->getMessage()}");
             }
         }
+
+        $this->summary['updated'] = $updated;
+        $this->summary['unchanged'] = $unchanged;
+        $this->summary['workflow_status'] = $this->workflow->is_active ? 'Active' : 'Inactive';
     }
 
-    protected function resolveSupervisorFromRow(Collection $row, array $validSupervisorIds, int $rowNumber): ?int
+    protected function mapHeaderToUserIds($headerRow, Collection $businessUsers): array
     {
-        $selectedSupervisorId = null;
+        $columnUsers = [];
 
-        foreach ($row as $heading => $value) {
-            if ($heading === 'service_point_id' || $heading === 'service_point_name' || $heading === 'service_point_description' || $heading === 'notes') {
+        if ($headerRow instanceof Collection) {
+            $headerRow = $headerRow->toArray();
+        }
+
+        foreach ($headerRow as $index => $cell) {
+            if ($index === 0) {
                 continue;
             }
 
-            if ($heading === 'use_default_supervisor') {
-                if ($this->isTruthy($value)) {
-                    return $this->workflow->default_supervisor_user_id ?: null;
+            $value = trim((string) $cell);
+            if ($value === '') {
+                continue;
+            }
+
+            if (preg_match('/\(([^)]+)\)\s*$/', $value, $matches)) {
+                $email = strtolower(trim($matches[1]));
+                $user = $businessUsers->first(function ($staff) use ($email) {
+                    return strtolower($staff->email) === $email;
+                });
+
+                if ($user) {
+                    $columnUsers[$index] = (int) $user->id;
+                } else {
+                    $this->recordError("Column '{$value}' does not match any active staff email.");
                 }
-                continue;
-            }
-
-            if (!Str::startsWith($heading, 'supervisor_id_')) {
-                continue;
-            }
-
-            if (!$this->isTruthy($value)) {
-                continue;
-            }
-
-            if ($selectedSupervisorId !== null) {
-                $this->summary['errors'][] = "Row {$rowNumber}: Multiple supervisors selected. Only the first selection will be applied.";
-                continue;
-            }
-
-            $extractedId = $this->extractSupervisorIdFromHeading($heading);
-
-            if ($extractedId && in_array($extractedId, $validSupervisorIds, true)) {
-                $selectedSupervisorId = $extractedId;
-            } else {
-                $this->summary['errors'][] = "Row {$rowNumber}: Supervisor referenced in column '{$heading}' is not valid for this business.";
             }
         }
 
-        return $selectedSupervisorId;
+        return $columnUsers;
     }
 
-    protected function extractSupervisorIdFromHeading(string $heading): ?int
+    protected function resolveSelectionsFromRow($row, array $columnUsers, string $context, int $min, int $max, ?int $rowNumber = null): array
     {
-        if (preg_match('/supervisor_id_(\d+)/', $heading, $matches)) {
-            return (int) $matches[1];
+        if ($row instanceof Collection) {
+            $row = $row->toArray();
         }
 
-        return null;
+        if ($row === null) {
+            $row = [];
+        }
+
+        $label = trim((string) ($row[0] ?? ''));
+
+        if ($label === '') {
+            $this->recordError(($rowNumber ? "Row {$rowNumber}: " : '') . "{$context} row is missing.");
+            return [];
+        }
+
+        $selectedIds = [];
+
+        foreach ($columnUsers as $index => $userId) {
+            $value = $row[$index] ?? null;
+
+            if (! $this->isTruthy($value)) {
+                continue;
+            }
+
+            if (! in_array($userId, $selectedIds, true)) {
+                $selectedIds[] = $userId;
+            }
+        }
+
+        $count = count($selectedIds);
+
+        if ($count < $min) {
+            $message = ($rowNumber ? "Row {$rowNumber}: " : '') . "{$context} requires at least {$min} staff member(s) marked with 'Y'.";
+            $this->recordError($message);
+            return [];
+        }
+
+        if ($count > $max) {
+            $message = ($rowNumber ? "Row {$rowNumber}: " : '') . "{$context} can have at most {$max} staff member(s) marked with 'Y'.";
+            $this->recordError($message);
+            return [];
+        }
+
+        return $selectedIds;
     }
 
-    protected function applySupervisorAssignment(int $servicePointId, ?int $supervisorUserId): void
+    protected function applySupervisorAssignments(int $servicePointId, array $supervisorUserIds): bool
     {
-        $existingSupervisor = ServicePointSupervisor::where('service_point_id', $servicePointId)
-            ->where('business_id', $this->workflow->business_id)
-            ->first();
+        $supervisorUserIds = array_values(array_unique($supervisorUserIds));
 
-        if ($supervisorUserId) {
-            if ($existingSupervisor) {
-                $existingSupervisor->update(['supervisor_user_id' => $supervisorUserId]);
+        $existingAssignments = ServicePointSupervisor::withTrashed()
+            ->where('service_point_id', $servicePointId)
+            ->where('business_id', $this->business->id)
+            ->get();
+
+        $activeAssignments = $existingAssignments->whereNull('deleted_at');
+        $currentIds = $activeAssignments->pluck('supervisor_user_id')->sort()->values()->toArray();
+        $desiredIds = collect($supervisorUserIds)->sort()->values()->toArray();
+
+        if ($currentIds === $desiredIds) {
+            return false;
+        }
+
+        foreach ($supervisorUserIds as $userId) {
+            $assignment = $existingAssignments->firstWhere('supervisor_user_id', $userId);
+
+            if ($assignment) {
+                if ($assignment->trashed()) {
+                    $assignment->restore();
+                }
             } else {
                 ServicePointSupervisor::create([
                     'service_point_id' => $servicePointId,
-                    'supervisor_user_id' => $supervisorUserId,
-                    'business_id' => $this->workflow->business_id,
+                    'supervisor_user_id' => $userId,
+                    'business_id' => $this->business->id,
                 ]);
             }
-        } elseif ($existingSupervisor) {
-            // No supervisor selected and default supervisor not available - remove specific assignment
-            $existingSupervisor->delete();
         }
+
+        foreach ($existingAssignments as $assignment) {
+            if (! in_array($assignment->supervisor_user_id, $supervisorUserIds, true)) {
+                $assignment->delete();
+            }
+        }
+
+        return true;
     }
 
     protected function isTruthy($value): bool
@@ -149,33 +309,33 @@ class RefundWorkflowSupervisorsImport implements ToCollection, WithHeadingRow
             return false;
         }
 
-        if (is_numeric($value)) {
-            return (int) $value === 1;
-        }
-
         $normalized = strtolower(trim((string) $value));
 
-        return in_array($normalized, ['1', 'yes', 'y', 'true', 'assigned'], true);
+        return in_array($normalized, ['1', 'y', 'yes', 'true'], true);
     }
 
     public function getSummary(): array
     {
-        $message = 'Bulk assignment completed.';
+        $message = $this->workflowCreated
+            ? 'Workflow created and assignments saved.'
+            : 'Workflow updated and assignments saved.';
 
-        if ($this->summary['updated'] > 0) {
-            $message .= ' Updated ' . $this->summary['updated'] . ' service point(s).';
-        }
-
-        $message .= ' ' . $this->summary['unchanged'] . ' service point(s) unchanged.';
-
-        if (!empty($this->summary['errors'])) {
-            $message .= ' Some rows could not be processed. Please review the error list below.';
+        if (! empty($this->summary['errors'])) {
+            $message .= ' Please review the warnings below.';
         }
 
         return array_merge($this->summary, [
-            'message' => trim($message),
+            'message' => $message,
         ]);
     }
-}
 
+    protected function recordError(string $message, bool $blocking = true): void
+    {
+        $this->summary['errors'][] = $message;
+
+        if ($blocking) {
+            $this->hasBlockingErrors = true;
+        }
+    }
+}
 

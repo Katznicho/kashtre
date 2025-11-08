@@ -172,9 +172,9 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::post("maturation-periods/{maturationPeriod}/toggle-status", [MaturationPeriodController::class, 'toggleStatus'])->name('maturation-periods.toggle-status');
     
     // Credit Note Workflow Settings (Kashtre only)
-    Route::get('credit-note-workflows/{credit_note_workflow}/bulk-upload', [CreditNoteWorkflowBulkUploadController::class, 'show'])->name('credit-note-workflows.bulk-upload');
-    Route::get('credit-note-workflows/{credit_note_workflow}/bulk-upload/template', [CreditNoteWorkflowBulkUploadController::class, 'downloadTemplate'])->name('credit-note-workflows.bulk-upload.template');
-    Route::post('credit-note-workflows/{credit_note_workflow}/bulk-upload/import', [CreditNoteWorkflowBulkUploadController::class, 'import'])->name('credit-note-workflows.bulk-upload.import');
+    Route::get('credit-note-workflows/bulk-upload', [CreditNoteWorkflowBulkUploadController::class, 'index'])->name('credit-note-workflows.bulk-upload.index');
+    Route::get('credit-note-workflows/bulk-upload/template', [CreditNoteWorkflowBulkUploadController::class, 'downloadTemplate'])->name('credit-note-workflows.bulk-upload.template');
+    Route::post('credit-note-workflows/bulk-upload/import', [CreditNoteWorkflowBulkUploadController::class, 'import'])->name('credit-note-workflows.bulk-upload.import');
 
     Route::resource("credit-note-workflows", CreditNoteWorkflowController::class);
     

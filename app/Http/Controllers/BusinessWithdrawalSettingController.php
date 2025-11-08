@@ -19,7 +19,7 @@ class BusinessWithdrawalSettingController extends Controller
     public function index()
     {
         // Check if user has permission
-        if (!in_array('View Business Withdrawal Settings', Auth::user()->permissions ?? [])) {
+        if (!in_array('View Business Withdrawal Charges', Auth::user()->permissions ?? [])) {
             return redirect()->route('dashboard')->with('error', 'You do not have permission to view business withdrawal charges.');
         }
 
@@ -32,7 +32,7 @@ class BusinessWithdrawalSettingController extends Controller
     public function create()
     {
         // Check if user has permission
-        if (!in_array('Add Business Withdrawal Settings', Auth::user()->permissions ?? [])) {
+        if (!in_array('Add Business Withdrawal Charges', Auth::user()->permissions ?? [])) {
             return redirect()->route('business-withdrawal-settings.index')->with('error', 'You do not have permission to add business withdrawal charges.');
         }
 
@@ -47,7 +47,7 @@ class BusinessWithdrawalSettingController extends Controller
     public function store(Request $request)
     {
         // Check if user has permission
-        if (!in_array('Add Business Withdrawal Settings', Auth::user()->permissions ?? [])) {
+        if (!in_array('Add Business Withdrawal Charges', Auth::user()->permissions ?? [])) {
             return redirect()->route('business-withdrawal-settings.index')->with('error', 'You do not have permission to add business withdrawal charges.');
         }
 
@@ -93,7 +93,7 @@ class BusinessWithdrawalSettingController extends Controller
     public function show(BusinessWithdrawalSetting $businessWithdrawalSetting)
     {
         // Check if user has permission
-        if (!in_array('View Business Withdrawal Settings', Auth::user()->permissions ?? [])) {
+        if (!in_array('View Business Withdrawal Charges', Auth::user()->permissions ?? [])) {
             return redirect()->route('dashboard')->with('error', 'You do not have permission to view business withdrawal charges.');
         }
 
@@ -113,7 +113,7 @@ class BusinessWithdrawalSettingController extends Controller
     public function edit(BusinessWithdrawalSetting $businessWithdrawalSetting)
     {
         // Check if user has permission
-        if (!in_array('Edit Business Withdrawal Settings', Auth::user()->permissions ?? [])) {
+        if (!in_array('Edit Business Withdrawal Charges', Auth::user()->permissions ?? [])) {
             return redirect()->route('business-withdrawal-settings.index')->with('error', 'You do not have permission to edit business withdrawal charges.');
         }
 
@@ -133,7 +133,7 @@ class BusinessWithdrawalSettingController extends Controller
     public function update(Request $request, BusinessWithdrawalSetting $businessWithdrawalSetting)
     {
         // Check if user has permission
-        if (!in_array('Edit Business Withdrawal Settings', Auth::user()->permissions ?? [])) {
+        if (!in_array('Edit Business Withdrawal Charges', Auth::user()->permissions ?? [])) {
             return redirect()->route('business-withdrawal-settings.index')->with('error', 'You do not have permission to edit business withdrawal charges.');
         }
 

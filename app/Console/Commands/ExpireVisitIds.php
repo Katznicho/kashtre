@@ -65,25 +65,18 @@ class ExpireVisitIds extends Command
                     'reason' => 'Has pending/in-progress items'
                 ]);
             } else {
-                // Reset visit ID - generate new one
-                $business = $client->business;
-                $branch = $client->branch;
-                
-                if ($business && $branch) {
-                    $newVisitId = Client::generateVisitId($business, $branch);
-                    $client->visit_id = $newVisitId;
-                    $client->visit_expires_at = $nextMidnight;
-                    $client->save();
-                    $resetCount++;
-                    
-                    Log::info('Visit ID reset for client', [
-                        'client_id' => $client->id,
-                        'old_visit_id' => $client->getOriginal('visit_id'),
-                        'new_visit_id' => $newVisitId,
-                        'new_expiry' => $client->visit_expires_at,
-                        'reason' => 'No pending/in-progress items'
-                    ]);
-                }
+                // Clear visit ID so a fresh one is issued on next visit
+                $originalVisitId = $client->visit_id;
+                $client->visit_id = null;
+                $client->visit_expires_at = null;
+                $client->save();
+                $resetCount++;
+
+                Log::info('Visit ID cleared for client', [
+                    'client_id' => $client->id,
+                    'old_visit_id' => $originalVisitId,
+                    'reason' => 'No pending/in-progress items'
+                ]);
             }
         }
 

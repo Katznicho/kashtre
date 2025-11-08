@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Carbon\Carbon;
 
 class Client extends Model
 {
@@ -103,20 +104,17 @@ class Client extends Model
      */
     public function getTotalBalanceAttribute()
     {
-        // Total balance should be the money in suspense accounts
-        // This represents the actual money the client has paid
-        return $this->getSuspenseBalanceAttribute();
+        return $this->getAvailableBalanceAttribute() + $this->getSuspenseBalanceAttribute();
     }
 
     /**
      * Get the client's available balance (money available for transactions)
-     * This should be 0 since money is in suspense accounts
      */
     public function getAvailableBalanceAttribute()
     {
-        // Available balance should be 0 since money is locked in suspense accounts
-        // This represents money that the client can actually use for new transactions
-        return 0;
+        return MoneyAccount::where('client_id', $this->id)
+            ->where('type', 'client_account')
+            ->sum('balance');
     }
 
     /**
@@ -190,34 +188,66 @@ class Client extends Model
      */
     public static function generateVisitId($business, $branch)
     {
-        // Get the first letter of the first two words of business name
-        $businessWords = explode(' ', $business->name);
+        // Build prefix from business and branch context
+        $businessWords = preg_split('/\s+/', trim($business->name));
         $businessPrefix = '';
+
         if (count($businessWords) >= 2) {
             $businessPrefix = strtoupper(substr($businessWords[0], 0, 1) . substr($businessWords[1], 0, 1));
         } else {
             $businessPrefix = strtoupper(substr($business->name, 0, 2));
         }
 
-        // Get the first letter of branch name
         $branchLetter = strtoupper(substr($branch->name, 0, 1));
 
-        // Get today's count for this business and branch
-        $todayCount = self::where('business_id', $business->id)
-            ->where('branch_id', $branch->id)
-            ->whereDate('created_at', today())
-            ->count() + 1;
+        $dateSegment = now()->format('ymd');
 
-        // Format the count as 2-digit number
-        $countStr = str_pad($todayCount, 2, '0', STR_PAD_LEFT);
+        do {
+            $randomSegment = strtoupper(Str::random(3));
+            $candidate = sprintf('%s%s-%s-%s', $businessPrefix, $branchLetter, $dateSegment, $randomSegment);
+        } while (
+            self::withTrashed()
+                ->where('business_id', $business->id)
+                ->where('branch_id', $branch->id)
+                ->where('visit_id', $candidate)
+                ->exists()
+        );
 
-        // If count exceeds 99, reset to 01 and increment branch letter
-        if ($todayCount > 99) {
-            $countStr = '01';
-            $branchLetter = chr(ord($branchLetter) + 1);
+        return $candidate;
+    }
+
+    /**
+     * Ensure the client has a valid visit ID for the current day.
+     */
+    public function ensureActiveVisitId(bool $force = false): void
+    {
+        $needsRefresh = $force
+            || empty($this->visit_id)
+            || empty($this->visit_expires_at)
+            || Carbon::parse($this->visit_expires_at)->isPast();
+
+        if (! $needsRefresh) {
+            return;
         }
 
-        return $businessPrefix . $countStr . $branchLetter;
+        $this->issueNewVisitId();
+    }
+
+    /**
+     * Issue a new visit ID and extend validity to the next midnight.
+     */
+    public function issueNewVisitId(): void
+    {
+        $business = $this->business ?: Business::find($this->business_id);
+        $branch = $this->branch ?: Branch::find($this->branch_id);
+
+        if (! $business || ! $branch) {
+            return;
+        }
+
+        $this->visit_id = self::generateVisitId($business, $branch);
+        $this->visit_expires_at = Carbon::tomorrow()->startOfDay();
+        $this->save();
     }
 
     /**

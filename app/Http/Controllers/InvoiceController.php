@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class InvoiceController extends Controller
 {
@@ -332,10 +333,55 @@ class InvoiceController extends Controller
             
             // Get client
             $client = Client::find($validated['client_id']);
-            
-            // Validate service charge for non-package invoices
-            if ($validated['package_adjustment'] <= 0) {
-                // For non-package invoices, ensure service charge is applied
+
+            // Normalize items for further processing
+            $itemsCollection = collect($validated['items'])->map(function (array $item) {
+                if (!isset($item['total_amount'])) {
+                    $quantity = (float) ($item['quantity'] ?? 1);
+                    $price = (float) ($item['price'] ?? 0);
+                    $item['total_amount'] = $price * $quantity;
+                }
+                return $item;
+            });
+
+            $isDepositItem = function (array $item): bool {
+                $name = Str::lower(trim((string)($item['displayName'] ?? $item['name'] ?? $item['item_name'] ?? '')));
+                return $name === 'deposit';
+            };
+
+            $depositItems = $itemsCollection->filter($isDepositItem);
+            $nonDepositItems = $itemsCollection->reject($isDepositItem)->values();
+            $isDepositOnlyInvoice = $depositItems->isNotEmpty() && $nonDepositItems->isEmpty();
+            $depositTotalAmount = (float) round($depositItems->sum(function (array $item) {
+                return (float) ($item['total_amount'] ?? 0);
+            }), 2);
+
+            if ($isDepositOnlyInvoice) {
+                Log::info('Deposit-only invoice detected', [
+                    'client_id' => $client->id,
+                    'deposit_total_amount' => $depositTotalAmount,
+                    'items_count' => $itemsCollection->count(),
+                ]);
+            }
+
+            if ($depositItems->isNotEmpty() && $nonDepositItems->isNotEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Deposits must be the only item on the invoice.',
+                    'errors' => ['items' => ['Deposits cannot be combined with other items on the same invoice.']],
+                ], 422);
+            }
+
+            if ($depositItems->isNotEmpty() && $validated['service_charge'] <= 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'A service charge is required for deposit invoices.',
+                    'errors' => ['service_charge' => ['Service charge must be configured for deposit invoices.']],
+                ], 422);
+            }
+
+            // Validate service charge for non-package, non-deposit invoices
+            if (!$isDepositOnlyInvoice && $validated['package_adjustment'] <= 0) {
                 if ($validated['service_charge'] <= 0) {
                     return response()->json([
                         'success' => false,
@@ -360,7 +406,7 @@ class InvoiceController extends Controller
                 'client_phone' => $validated['client_phone'],
                 'payment_phone' => $validated['payment_phone'],
                 'visit_id' => $validated['visit_id'],
-                'items' => $validated['items'],
+                'items' => $itemsCollection->toArray(),
                 'subtotal' => $validated['subtotal'],
                 'package_adjustment' => $validated['package_adjustment'] ?? 0,
                 'account_balance_adjustment' => $validated['account_balance_adjustment'] ?? 0,
@@ -494,15 +540,14 @@ class InvoiceController extends Controller
             }
             
             // MONEY TRACKING: Step 2 - Process order confirmation (includes service charge)
-            if ($validated['status'] === 'confirmed') {
+            if ($validated['status'] === 'confirmed' && $nonDepositItems->isNotEmpty()) {
                 Log::info("Processing order confirmation", [
                     'invoice_id' => $invoice->id,
                     'invoice_number' => $invoice->invoice_number,
-                    'items_count' => count($validated['items'])
+                    'items_count' => $nonDepositItems->count()
                 ]);
 
-                $items = $validated['items'];
-                $orderConfirmationResult = $moneyTrackingService->processOrderConfirmed($invoice, $items);
+                $orderConfirmationResult = $moneyTrackingService->processOrderConfirmed($invoice, $nonDepositItems->toArray());
                 
                 Log::info("Order confirmation processed", [
                     'invoice_id' => $invoice->id,
@@ -546,7 +591,7 @@ class InvoiceController extends Controller
             // EXCEPTION: For zero-amount transactions (due to package adjustments OR balance adjustments), queue immediately
             // BUT ONLY if it's not a REAL mobile money transaction (which should remain pending until payment confirmation)
             // Zero-amount transactions should always be auto-completed regardless of payment method
-            if ($validated['total_amount'] == 0) {
+            if ($validated['total_amount'] == 0 && $nonDepositItems->isNotEmpty()) {
                 Log::info("Zero-amount transaction detected - auto-completing and queuing items", [
                     'invoice_id' => $invoice->id,
                     'invoice_number' => $invoice->invoice_number,
@@ -600,7 +645,7 @@ class InvoiceController extends Controller
                 ]);
                 
                 // Queue items immediately for zero-amount transactions
-                $this->queueItemsAtServicePoints($invoice, $validated['items']);
+                $this->queueItemsAtServicePoints($invoice, $nonDepositItems->toArray());
                 
                 Log::info("Zero-amount transaction auto-completed and items queued", [
                     'invoice_id' => $invoice->id,
@@ -611,6 +656,19 @@ class InvoiceController extends Controller
             // Generate next invoice number (default to proforma type)
             $nextInvoiceNumber = Invoice::generateInvoiceNumber($business->id, 'proforma');
             
+            // Handle direct client deposits
+            if ($depositTotalAmount > 0) {
+                $moneyTrackingService->processClientDeposit($client, $depositTotalAmount, $invoice, $depositItems->values()->toArray());
+
+                $newAmountPaid = ($invoice->amount_paid ?? 0) + $depositTotalAmount;
+                $newBalanceDue = max($invoice->total_amount - $newAmountPaid, 0);
+                $invoice->update([
+                    'amount_paid' => $newAmountPaid,
+                    'balance_due' => $newBalanceDue,
+                    'payment_status' => $newBalanceDue <= 0 ? 'paid' : $invoice->payment_status,
+                ]);
+            }
+
             DB::commit();
             
             Log::info("=== INVOICE CREATION COMPLETED SUCCESSFULLY ===", [
@@ -1798,14 +1856,27 @@ class InvoiceController extends Controller
      */
     private function queueItemsAtServicePoints($invoice, $items)
     {
+        $filteredItems = collect($items)->reject(function ($item) {
+            $name = Str::lower(trim((string)($item['displayName'] ?? $item['name'] ?? $item['item_name'] ?? '')));
+            return $name === 'deposit';
+        })->values();
+
         Log::info("=== QUEUEING ITEMS AT SERVICE POINTS STARTED ===", [
             'invoice_id' => $invoice->id,
             'invoice_number' => $invoice->invoice_number,
-            'items_count' => count($items),
-            'items' => $items
+            'items_count' => $filteredItems->count(),
+            'items' => $filteredItems->toArray()
         ]);
+
+        if ($filteredItems->isEmpty()) {
+            Log::info('No queueable items found after filtering deposits.', [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+            ]);
+            return;
+        }
         
-        foreach ($items as $item) {
+        foreach ($filteredItems as $item) {
             $itemId = $item['id'] ?? $item['item_id'] ?? null;
             if (!$itemId) {
                 Log::warning("Skipping item - no item ID", ['item' => $item]);
