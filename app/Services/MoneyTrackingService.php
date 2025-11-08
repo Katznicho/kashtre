@@ -516,6 +516,12 @@ class MoneyTrackingService
                 return $name === 'deposit';
             })->values();
 
+            $invoiceItems = collect($invoice->items ?? []);
+            $isDepositOnlyInvoice = $invoiceItems->isNotEmpty() && $invoiceItems->every(function ($item) {
+                $name = Str::lower(trim((string)($item['displayName'] ?? $item['name'] ?? $item['item_name'] ?? '')));
+                return $name === 'deposit';
+            });
+
             Log::info("=== PAYMENT COMPLETED - CREATING BALANCE STATEMENTS ===", [
                 'invoice_id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
@@ -977,15 +983,18 @@ class MoneyTrackingService
                     'invoice_number' => $invoice->invoice_number
                 ]);
 
-                // Service Fee moves directly from client suspense to Kashtre account
-                $destinationAccount = $this->getOrCreateKashtreAccount();
+                $destinationAccount = $isDepositOnlyInvoice
+                    ? $this->getOrCreateKashtreAccount()
+                    : $this->getOrCreateKashtreSuspenseAccount($business, $client->id);
+
                 $transferDescription = "Service Fee - {$invoice->service_charge} UGX";
                 $routingReason = "Service fee from invoice service_charge field";
 
-                Log::info("✅ SERVICE FEE ROUTED TO KASHTRE SUSPENSE", [
+                Log::info("✅ SERVICE FEE ROUTED", [
                     'service_charge' => $invoice->service_charge,
-                    'destination_account_type' => 'kashtre_account',
-                    'routing_reason' => $routingReason
+                    'destination_account_type' => $isDepositOnlyInvoice ? 'kashtre_account' : 'kashtre_suspense_account',
+                    'routing_reason' => $routingReason,
+                    'is_deposit_only_invoice' => $isDepositOnlyInvoice
                 ]);
 
                 // Transfer money from client suspense to Kashtre Suspense
