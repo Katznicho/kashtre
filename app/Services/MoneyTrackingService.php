@@ -745,6 +745,8 @@ class MoneyTrackingService
      */
     public function processSuspenseAccountMovements(Invoice $invoice, $items)
     {
+        $isDepositOnlyInvoice = false;
+
         try {
             DB::beginTransaction();
 
