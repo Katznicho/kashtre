@@ -993,7 +993,7 @@ class MoneyTrackingService
 
                 $destinationAccount = $isDepositOnlyInvoice
                     ? $this->getOrCreateKashtreAccount()
-                    : $this->getOrCreateKashtreSuspenseAccount($business);
+                    : $this->getOrCreateKashtreSuspenseAccount($business, $client->id);
 
                 $transferDescription = "Service Fee - {$invoice->service_charge} UGX";
                 $routingReason = "Service fee from invoice service_charge field";
@@ -1584,7 +1584,7 @@ class MoneyTrackingService
             // Transfer service charge to Kashtre account
             if ($serviceCharge > 0) {
                 $this->transferMoney(
-                    $this->getOrCreateKashtreSuspenseAccount($business),
+                    $this->getOrCreateKashtreSuspenseAccount($business, $invoice->client_id),
                     $kashtreAccount,
                     $serviceCharge,
                     'service_charge',
@@ -3521,7 +3521,7 @@ class MoneyTrackingService
             // Get all suspense accounts for this client
             $packageSuspenseAccount = $this->getOrCreatePackageSuspenseAccount($business, $client->id);
             $generalSuspenseAccount = $this->getOrCreateGeneralSuspenseAccount($business, $client->id);
-            $kashtreSuspenseAccount = $this->getOrCreateKashtreSuspenseAccount($business);
+            $kashtreSuspenseAccount = $this->getOrCreateKashtreSuspenseAccount($business, $client->id);
 
             Log::info("💰 === SAVE & EXIT: SUSPENSE ACCOUNT BALANCES BEFORE PROCESSING ===", [
                 'package_suspense_account_id' => $packageSuspenseAccount->id,
