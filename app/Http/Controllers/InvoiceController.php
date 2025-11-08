@@ -372,7 +372,7 @@ class InvoiceController extends Controller
                 ], 422);
             }
 
-            if ($depositItems->isNotEmpty() && $validated['service_charge'] <= 0) {
+        if ($depositItems->isNotEmpty() && $validated['service_charge'] <= 0) {
                 return response()->json([
                     'success' => false,
                     'message' => 'A service charge is required for deposit invoices.',
@@ -381,8 +381,12 @@ class InvoiceController extends Controller
             }
 
             // Validate service charge for non-package, non-deposit invoices
-            if (!$isDepositOnlyInvoice && $validated['package_adjustment'] <= 0) {
-                if ($validated['service_charge'] <= 0) {
+        if (
+            !$isDepositOnlyInvoice &&
+            ($validated['package_adjustment'] ?? 0) <= 0 &&
+            ($validated['total_amount'] ?? 0) > 0
+        ) {
+            if ($validated['service_charge'] <= 0) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Service charge not configured. Please contact support.',

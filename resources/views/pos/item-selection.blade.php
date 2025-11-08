@@ -1118,73 +1118,10 @@
                 return;
             }
 
-
-            // Check if service charge is required and present
-            const serviceChargeElement = document.getElementById('service-charge-display');
             const serviceChargeNote = document.getElementById('service-charge-note');
-            const serviceChargeText = serviceChargeElement ? serviceChargeElement.textContent : 'UGX 0.00';
-            const serviceChargeValue = parseFloat(serviceChargeText.replace(/[^0-9.-]/g, '')) || 0;
-            
-            // Check if service charges are not configured (note is visible)
-            const isServiceChargeNotConfigured = serviceChargeNote && serviceChargeNote.style.display !== 'none';
-            
-            // Debug logging for service charge validation
-            console.log('=== SERVICE CHARGE VALIDATION DEBUG ===');
-            console.log('Service charge validation debug:', {
-                serviceChargeValue: serviceChargeValue,
-                serviceChargeText: serviceChargeText,
-                isServiceChargeNotConfigured: isServiceChargeNotConfigured,
-                noteDisplay: serviceChargeNote ? serviceChargeNote.style.display : 'note not found',
-                serviceChargeElement: serviceChargeElement ? 'found' : 'not found',
-                serviceChargeNote: serviceChargeNote ? 'found' : 'not found',
-                willBlock: (isServiceChargeNotConfigured || serviceChargeValue === 0),
-                timestamp: new Date().toISOString()
-            });
-            
-            // Additional element inspection
-            if (serviceChargeElement) {
-                console.log('Service charge element details:', {
-                    textContent: serviceChargeElement.textContent,
-                    innerHTML: serviceChargeElement.innerHTML,
-                    style: serviceChargeElement.style.cssText
-                });
-            }
-            
-            if (serviceChargeNote) {
-                console.log('Service charge note details:', {
-                    textContent: serviceChargeNote.textContent,
-                    innerHTML: serviceChargeNote.innerHTML,
-                    style: serviceChargeNote.style.cssText,
-                    computedStyle: window.getComputedStyle(serviceChargeNote).display
-                });
-            }
-            
-            // Check if this is a package invoice (has package adjustment)
-            const packageAdjustmentElement = document.getElementById('package-adjustment-display');
-            const packageAdjustmentText = packageAdjustmentElement ? packageAdjustmentElement.textContent : 'UGX 0.00';
-            const packageAdjustmentValue = parseFloat(packageAdjustmentText.replace(/[^0-9.-]/g, '')) || 0;
-            const isPackageInvoice = packageAdjustmentValue > 0;
-            
-            // Block if service charges are not configured OR if it's a non-package invoice with no service charge
-            if (isServiceChargeNotConfigured || (!isPackageInvoice && serviceChargeValue <= 0)) {
-                const errorTitle = isServiceChargeNotConfigured ? 'Service Charges Not Configured' : 'Service Charge Required';
-                const errorMessage = isServiceChargeNotConfigured 
-                    ? 'Service charges not configured. Please contact support.'
-                    : 'Service charge not configured. Please contact support.';
-                
-                console.log('=== BLOCKING SAVE - SERVICE CHARGE VALIDATION IF NOT PACKAGE INVOICE ===');
-                console.log('Showing error modal:', { errorTitle, errorMessage, isPackageInvoice, serviceChargeValue });
-                Swal.fire({
-                    icon: 'error',
-                    title: errorTitle,
-                    text: errorMessage,
-                    confirmButtonText: 'OK'
-                });
-                return;
-            } else {
-                console.log('=== VALIDATION PASSED - PROCEEDING WITH SAVE ===');
-                console.log('Service charge validation passed, continuing with save process');
-            }
+            const isServiceChargeNotConfigured = serviceChargeNote
+                ? window.getComputedStyle(serviceChargeNote).display !== 'none'
+                : false;
             
             // Confirm with SweetAlert2
             const result = await Swal.fire({
@@ -1237,6 +1174,38 @@
                 // Ensure totalAmount never goes below 0
                 if (totalAmount < 0) {
                     totalAmount = 0;
+                }
+
+                const serviceChargeNumeric = parseFloat(serviceCharge) || 0;
+                const requiresServiceCharge = !isDepositOnlyInvoice && packageAdjustment <= 0 && totalAmount > 0;
+
+                if (isDepositOnlyInvoice && serviceChargeNumeric <= 0) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Service Charge Required',
+                        text: 'Deposit invoices must include a service charge. Please configure the service charge and try again.',
+                        confirmButtonText: 'OK'
+                    });
+                    button.textContent = originalText;
+                    button.disabled = false;
+                    return;
+                }
+
+                if (requiresServiceCharge && (isServiceChargeNotConfigured || serviceChargeNumeric <= 0)) {
+                    const errorTitle = isServiceChargeNotConfigured ? 'Service Charges Not Configured' : 'Service Charge Required';
+                    const errorMessage = isServiceChargeNotConfigured
+                        ? 'Service charges not configured. Please contact support.'
+                        : 'Service charge not configured. Please contact support.';
+
+                    Swal.fire({
+                        icon: 'error',
+                        title: errorTitle,
+                        text: errorMessage,
+                        confirmButtonText: 'OK'
+                    });
+                    button.textContent = originalText;
+                    button.disabled = false;
+                    return;
                 }
                 
                 console.log('Calculated values:', {
