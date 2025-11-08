@@ -793,12 +793,13 @@ class MoneyTrackingService
                 
                 $quantity = $itemData['quantity'] ?? 1;
                 $totalAmount = $itemData['total_amount'] ?? ($item->default_price * $quantity);
+                $displayQuantity = $this->resolveQuantityForDisplay($quantity, $itemData, $totalAmount, $item);
 
                 Log::info("🔍 PROCESSING SUSPENSE MOVEMENT FOR ITEM " . ($index + 1), [
                     'item_id' => $itemId,
                     'item_name' => $item->name,
                     'item_type' => $item->type,
-                    'quantity' => $quantity,
+                    'quantity' => $displayQuantity,
                     'total_amount' => $totalAmount,
                     'item_data' => $itemData
                 ]);
@@ -811,7 +812,7 @@ class MoneyTrackingService
                 // Check if this is a service fee (should go to Kashtre Suspense)
                 if ($item->name === 'Service Fee' || str_contains(strtolower($item->name), 'service fee')) {
                     $destinationAccount = $this->getOrCreateKashtreSuspenseAccount($business, $client->id);
-                    $transferDescription = "Service Fee - {$item->name} ({$quantity})";
+                    $transferDescription = "Service Fee - {$item->name} ({$displayQuantity})";
                     $routingReason = "Service fee detected by name match";
                     
                     Log::info("✅ ITEM ROUTED TO KASHTRE SUSPENSE", [
@@ -856,7 +857,7 @@ class MoneyTrackingService
                     }
                     
                     $destinationAccount = $this->getOrCreatePackageSuspenseAccount($business, $client->id);
-                    $transferDescription = "Package Item - {$item->name} ({$quantity})" . 
+                    $transferDescription = "Package Item - {$item->name} ({$displayQuantity})" . 
                         ($packageTrackingNumber ? " - Tracking: {$packageTrackingNumber}" : "");
                     $routingReason = "Package/procedure item detected by name or type";
                     
@@ -905,7 +906,7 @@ class MoneyTrackingService
                     } else {
                         // Not a package adjustment item, route to general suspense
                         $destinationAccount = $this->getOrCreateGeneralSuspenseAccount($business, $client->id);
-                        $transferDescription = "General Item - {$item->name} ({$quantity})";
+                        $transferDescription = "General Item - {$item->name} ({$displayQuantity})";
                         $routingReason = "Item not part of package adjustment";
                         
                         Log::info("✅ ITEM ROUTED TO GENERAL SUSPENSE (NOT PACKAGE ADJUSTMENT)", [
@@ -922,7 +923,7 @@ class MoneyTrackingService
                 // All other items go to General Suspense
                 else {
                     $destinationAccount = $this->getOrCreateGeneralSuspenseAccount($business, $client->id);
-                    $transferDescription = "General Item - {$item->name} ({$quantity})";
+                    $transferDescription = "General Item - {$item->name} ({$displayQuantity})";
                     $routingReason = "Default routing for non-package, non-service items";
                     
                     Log::info("✅ ITEM ROUTED TO GENERAL SUSPENSE", [
@@ -963,7 +964,7 @@ class MoneyTrackingService
 
                 $suspenseMovements[] = [
                     'item_name' => $item->name,
-                    'quantity' => $quantity,
+                    'quantity' => $displayQuantity,
                     'amount' => $totalAmount,
                     'source_account' => $clientSuspenseAccount->name,
                     'destination_account' => $destinationAccount->name,
@@ -4458,5 +4459,38 @@ class MoneyTrackingService
             ]);
             // Don't throw the exception - this is not critical for money movement
         }
+    }
+
+    private function resolveQuantityForDisplay($rawQuantity, array $itemData = [], $totalAmount = null, ?Item $item = null): string
+    {
+        $resolved = null;
+
+        if (is_numeric($rawQuantity) && (float) $rawQuantity > 0) {
+            $resolved = (float) $rawQuantity;
+        }
+
+        if ($resolved === null) {
+            $unitPrice = null;
+
+            if (isset($itemData['price']) && is_numeric($itemData['price'])) {
+                $unitPrice = (float) $itemData['price'];
+            } elseif ($item && is_numeric($item->default_price)) {
+                $unitPrice = (float) $item->default_price;
+            }
+
+            if ($unitPrice && $unitPrice > 0 && $totalAmount !== null && is_numeric($totalAmount)) {
+                $resolved = (float) $totalAmount / $unitPrice;
+            }
+        }
+
+        if ($resolved === null || $resolved <= 0) {
+            $resolved = 1.0;
+        }
+
+        if (floor($resolved) == $resolved) {
+            return (string) (int) $resolved;
+        }
+
+        return rtrim(rtrim(number_format($resolved, 2, '.', ''), '0'), '.');
     }
 }
