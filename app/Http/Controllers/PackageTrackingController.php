@@ -178,7 +178,7 @@ class PackageTrackingController extends Controller
         $user = Auth::user();
         
         // Check if user has access to this client
-        if ($client->business_id !== $user->business_id) {
+        if ($user->business_id !== 1 && $client->business_id !== $user->business_id) {
             abort(403, 'Unauthorized access to client.');
         }
 

@@ -1545,7 +1545,7 @@ class InvoiceController extends Controller
             $user = Auth::user();
             
             // Check if user has access to this invoice
-            if ($invoice->business_id !== $user->business_id) {
+            if ($user->business_id !== 1 && $invoice->business_id !== $user->business_id) {
                 abort(403, 'Unauthorized access to invoice.');
             }
             
@@ -1661,7 +1661,7 @@ class InvoiceController extends Controller
         $user = Auth::user();
         
         // Check if user has access to this invoice
-        if ($invoice->business_id !== $user->business_id) {
+        if ($user->business_id !== 1 && $invoice->business_id !== $user->business_id) {
             abort(403, 'Unauthorized access to invoice.');
         }
         
@@ -1679,7 +1679,7 @@ class InvoiceController extends Controller
         $user = Auth::user();
         
         // Check if user has access to this invoice
-        if ($invoice->business_id !== $user->business_id) {
+        if ($user->business_id !== 1 && $invoice->business_id !== $user->business_id) {
             abort(403, 'Unauthorized access to invoice.');
         }
         
@@ -1697,7 +1697,7 @@ class InvoiceController extends Controller
         $user = Auth::user();
         
         // Check if user has access to this invoice
-        if ($invoice->business_id !== $user->business_id) {
+        if ($user->business_id !== 1 && $invoice->business_id !== $user->business_id) {
             abort(403, 'Unauthorized access to invoice.');
         }
         
@@ -2141,7 +2141,7 @@ class InvoiceController extends Controller
             $user = Auth::user();
             
             // Check if user has access to this invoice
-            if ($invoice->business_id !== $user->business_id) {
+            if ($user->business_id !== 1 && $invoice->business_id !== $user->business_id) {
                 abort(403, 'Unauthorized access to invoice.');
             }
             

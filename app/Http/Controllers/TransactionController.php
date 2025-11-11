@@ -75,7 +75,7 @@ class TransactionController extends Controller
     {
         // Check if user has access to this client
         $user = auth()->user();
-        if ($client->business_id !== $user->business_id) {
+        if ($user->business_id !== 1 && $client->business_id !== $user->business_id) {
             abort(403, 'Unauthorized access to client.');
         }
 

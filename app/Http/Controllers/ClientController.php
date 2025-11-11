@@ -272,7 +272,7 @@ class ClientController extends Controller
         $business = $user->business;
         
         // Check if user has access to this client
-        if ($client->business_id !== $business->id) {
+        if ($user->business_id !== 1 && $client->business_id !== $business->id) {
             abort(403, 'Unauthorized access to client.');
         }
         
@@ -288,7 +288,7 @@ class ClientController extends Controller
         $business = $user->business;
         
         // Check if user has access to this client
-        if ($client->business_id !== $business->id) {
+        if ($user->business_id !== 1 && $client->business_id !== $business->id) {
             abort(403, 'Unauthorized access to client.');
         }
         
@@ -304,7 +304,7 @@ class ClientController extends Controller
         $business = $user->business;
         
         // Check if user has access to this client
-        if ($client->business_id !== $business->id) {
+        if ($user->business_id !== 1 && $client->business_id !== $business->id) {
             abort(403, 'Unauthorized access to client.');
         }
         
@@ -350,7 +350,7 @@ class ClientController extends Controller
         $business = $user->business;
         
         // Check if user has access to this client
-        if ($client->business_id !== $business->id) {
+        if ($user->business_id !== 1 && $client->business_id !== $business->id) {
             abort(403, 'Unauthorized access to client.');
         }
         
@@ -369,7 +369,7 @@ class ClientController extends Controller
         $business = $user->business;
         
         // Check if user has access to this client
-        if ($client->business_id !== $business->id) {
+        if ($user->business_id !== 1 && $client->business_id !== $business->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized access to client.'
@@ -401,7 +401,7 @@ class ClientController extends Controller
         $business = $user->business;
         
         // Check if user has access to this client
-        if ($client->business_id !== $business->id) {
+        if ($user->business_id !== 1 && $client->business_id !== $business->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized access to client.'

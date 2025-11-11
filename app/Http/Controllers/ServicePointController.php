@@ -535,23 +535,42 @@ class ServicePointController extends Controller
                             'new_status' => $status,
                             'money_moved_at' => $item->money_moved_at
                         ]);
-                        $item->status = $status;
-                        // Assign to current user when marking as partially_done or completed
-                        if (in_array($status, ['partially_done', 'completed'])) {
-                            $item->assigned_to = auth()->id();
+                        if ($status === 'partially_done' && $item->status !== 'partially_done') {
+                            $item->markAsPartiallyDone(auth()->id());
+                        } elseif ($status === 'completed' && $item->status !== 'completed') {
+                            $item->markAsCompleted(auth()->id());
+                        } else {
+                            $item->status = $status;
+                            if (in_array($status, ['partially_done', 'completed'])) {
+                                $item->assigned_to = auth()->id();
+                            }
+                            $item->save();
                         }
-                        $item->save();
+
+                        if (in_array($status, ['partially_done', 'completed'])) {
+                            \App\Models\Sale::recordFromQueue(
+                                $item->fresh(['client', 'invoice', 'item', 'servicePoint', 'business', 'branch']),
+                                $status,
+                                auth()->id()
+                            );
+                        }
+
                         $updatedCount++;
                         continue;
                     }
                     
-                    // Update the status and assign to current user
-                    $item->status = $status;
-                    // Assign to current user when marking as partially_done or completed
-                    if (in_array($status, ['partially_done', 'completed'])) {
-                        $item->assigned_to = auth()->id();
+                    // Update the status using model helpers to ensure sales are recorded
+                    if ($status === 'partially_done') {
+                        $item->markAsPartiallyDone(auth()->id());
+                    } elseif ($status === 'completed') {
+                        $item->markAsCompleted(auth()->id());
+                    } else {
+                        $item->status = $status;
+                        if (in_array($status, ['partially_done', 'completed'])) {
+                            $item->assigned_to = auth()->id();
+                        }
+                        $item->save();
                     }
-                    $item->save();
 
                     \Illuminate\Support\Facades\Log::info("Item status updated", [
                         'item_id' => $item->id,
