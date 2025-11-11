@@ -4010,6 +4010,11 @@ class MoneyTrackingService
                     'filtered_transfer_ids' => $generalTransfers->pluck('id')->toArray()
                 ]);
 
+                $itemDataById = collect($items)->mapWithKeys(function ($itemData) {
+                    $key = $itemData['item_id'] ?? $itemData['id'] ?? null;
+                    return $key ? [$key => $itemData] : [];
+                });
+
                 foreach ($generalTransfers as $transfer) {
                     // Get the item information for proper description
                     $item = null;
@@ -4018,8 +4023,24 @@ class MoneyTrackingService
                     }
 
                     $description = "General Item - Final Transfer";
+                    $displayQuantity = null;
+
                     if ($item) {
-                        $description = "{$item->name} (x1)";
+                        $itemDataForDisplay = $itemDataById[$item->id] ?? null;
+                        $rawQuantity = $itemDataForDisplay['quantity'] ?? null;
+                        $totalAmountForDisplay = $itemDataForDisplay['total_amount'] ?? $transfer->amount;
+                        $displayQuantity = $this->resolveQuantityForDisplay(
+                            $rawQuantity,
+                            $itemDataForDisplay ?? [],
+                            $totalAmountForDisplay,
+                            $item
+                        );
+                        $description = "{$item->name} ({$displayQuantity})";
+                    } elseif (!empty($transfer->description)) {
+                        if (preg_match('/\((x?\d+(?:\.\d+)?)\)/i', $transfer->description, $matches)) {
+                            $displayQuantity = ltrim($matches[1], 'xX');
+                            $description = "{$transfer->description}";
+                        }
                     }
 
                     // Check if item has hospital share and contractor

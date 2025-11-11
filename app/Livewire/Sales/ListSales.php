@@ -2,6 +2,9 @@
 
 namespace App\Livewire\Sales;
 
+use App\Models\Branch;
+use App\Models\Business;
+use App\Models\Client;
 use App\Models\Sale;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -116,6 +119,24 @@ class ListSales extends Component implements HasForms, HasTable
                         'partially_done' => 'Partially Done',
                         'completed' => 'Completed',
                     ]),
+                Tables\Filters\SelectFilter::make('business_id')
+                    ->label('Business')
+                    ->options(fn () => Business::orderBy('name')->pluck('name', 'id')->all())
+                    ->searchable(),
+                Tables\Filters\SelectFilter::make('branch_id')
+                    ->label('Branch')
+                    ->options(fn () => Branch::orderBy('name')->pluck('name', 'id')->all())
+                    ->searchable(),
+                Tables\Filters\SelectFilter::make('client_id')
+                    ->label('Client')
+                    ->options(function () {
+                        return Client::orderBy('surname')
+                            ->orderBy('first_name')
+                            ->get()
+                            ->mapWithKeys(fn (Client $client) => [$client->id => $client->full_name ?? $client->name ?? "Client #{$client->id}"])
+                            ->all();
+                    })
+                    ->searchable(),
             ])
             ->actions([
                 Tables\Actions\Action::make('invoice')

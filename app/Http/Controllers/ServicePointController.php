@@ -87,6 +87,9 @@ class ServicePointController extends Controller
         
         // Process in-progress items (partially_done)
         foreach ($servicePoint->partiallyDoneDeliveryQueues as $queue) {
+            if ($user->business_id !== 1 && $queue->assigned_to && $queue->assigned_to !== $user->id) {
+                continue;
+            }
             $clientId = $queue->client_id;
             if (!isset($clientsWithItems[$clientId])) {
                 $clientsWithItems[$clientId] = [
@@ -107,6 +110,14 @@ class ServicePointController extends Controller
         
         // Process completed items
         foreach ($servicePoint->serviceDeliveryQueues as $queue) {
+            if (
+                $queue->status === 'partially_done' &&
+                $user->business_id !== 1 &&
+                $queue->assigned_to &&
+                $queue->assigned_to !== $user->id
+            ) {
+                continue;
+            }
             $clientId = $queue->client_id;
             if (!isset($clientsWithItems[$clientId])) {
                 $clientsWithItems[$clientId] = [
@@ -174,10 +185,28 @@ class ServicePointController extends Controller
         $client->ensureActiveVisitId();
         
         // Get all items for this client at this service point
-        $clientItems = \App\Models\ServiceDeliveryQueue::where('service_point_id', $servicePoint->id)
+        $clientItemsQuery = \App\Models\ServiceDeliveryQueue::where('service_point_id', $servicePoint->id)
             ->where('client_id', $clientId)
             ->with(['item', 'invoice', 'startedByUser'])
-            ->get();
+            ->when($user->business_id !== 1, function ($query) use ($user) {
+                $query->where(function ($inner) use ($user) {
+                    $inner->whereNull('assigned_to')
+                        ->orWhere('assigned_to', $user->id)
+                        ->orWhere('status', 'pending')
+                        ->orWhere('status', 'completed');
+                });
+            });
+
+        $clientItems = $clientItemsQuery->get();
+
+        if ($user->business_id !== 1) {
+            $clientItems = $clientItems->filter(function ($item) use ($user) {
+                if ($item->status === 'partially_done' && $item->assigned_to && $item->assigned_to !== $user->id) {
+                    return false;
+                }
+                return true;
+            })->values();
+        }
 
         // Group items by status
         $pendingItems = $clientItems->where('status', 'pending');
