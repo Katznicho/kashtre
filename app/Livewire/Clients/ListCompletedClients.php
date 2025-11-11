@@ -23,66 +23,72 @@ class ListCompletedClients extends Component implements HasForms, HasTable
     {
         $user = Auth::user();
 
-        // Get unique clients who have completed items assigned to this user
-        $query = Client::query()
-            ->distinct()
-            ->whereHas('serviceDeliveryQueues', function ($q) use ($user) {
-                $q->where('status', 'completed')
-                  ->where('assigned_to', $user->id);
-            })
-            ->with(['business', 'branch'])
-            ->orderBy('created_at', 'desc');
+        $query = ServiceDeliveryQueue::query()
+            ->where('status', 'completed')
+            ->where('assigned_to', $user->id)
+            ->with([
+                'client.business',
+                'client.branch',
+                'invoice',
+                'item',
+                'servicePoint',
+            ])
+            ->orderByDesc('completed_at');
 
-        // Restrict by business
         if (Auth::check() && Auth::user()->business_id !== 1) {
             $query->where('business_id', Auth::user()->business_id);
         } else {
-            // Kashtre can see all
             $query->where('business_id', '!=', 1);
+        }
+
+        if (!empty($user->branch_id)) {
+            $query->where('branch_id', $user->branch_id);
         }
 
         return $table
             ->query($query)
             ->columns([
-                Tables\Columns\TextColumn::make('client_id')
-                    ->label('Client ID')
-                    ->searchable()
+                Tables\Columns\TextColumn::make('completed_at')
+                    ->label('Completed At')
+                    ->dateTime('M d, Y g:i A')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('full_name')
-                    ->label('Client Name')
-                    ->searchable(['surname', 'first_name', 'other_names'])
-                    ->formatStateUsing(fn (Client $record): string => $record->full_name),
-
-                Tables\Columns\TextColumn::make('phone_number')
-                    ->label('Phone')
+                Tables\Columns\TextColumn::make('item_name')
+                    ->label('Item')
                     ->searchable()
                     ->toggleable(),
 
-                Tables\Columns\TextColumn::make('completed_items_count')
-                    ->label('Completed Items')
-                    ->getStateUsing(function (Client $record) {
-                        return ServiceDeliveryQueue::where('client_id', $record->id)
-                            ->where('status', 'completed')
-                            ->where('assigned_to', Auth::id())
-                            ->count();
-                    })
-                    ->badge()
-                    ->color('success'),
+                Tables\Columns\TextColumn::make('quantity')
+                    ->label('Qty')
+                    ->state(fn (ServiceDeliveryQueue $record) => $record->quantity ?? 1)
+                    ->sortable()
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('price')
+                    ->label('Price')
+                    ->money('UGX', true)
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('invoice.invoice_number')
+                    ->label('Invoice')
+                    ->searchable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('servicePoint.name')
+                    ->label('Service Point')
+                    ->searchable()
+                    ->toggleable(),
 
                 ...(Auth::check() && Auth::user()->business_id === 1 ? [
-                    Tables\Columns\TextColumn::make('business.name')
+                    Tables\Columns\TextColumn::make('client.business.name')
                         ->label('Business')
-                        ->sortable()
-                        ->searchable(),
-                    Tables\Columns\TextColumn::make('branch.name')
+                        ->sortable(),
+                    Tables\Columns\TextColumn::make('client.branch.name')
                         ->label('Branch')
-                        ->sortable()
-                        ->searchable(),
+                        ->sortable(),
                 ] : []),
             ])
             ->filters([
-                // Date filter for completion date
                 Tables\Filters\Filter::make('completion_date')
                     ->form([
                         \Filament\Forms\Components\DatePicker::make('completed_at')
@@ -90,11 +96,7 @@ class ListCompletedClients extends Component implements HasForms, HasTable
                     ])
                     ->query(function ($query, array $data) {
                         if (!empty($data['completed_at'])) {
-                            $query->whereHas('serviceDeliveryQueues', function ($q) use ($data) {
-                                $q->where('status', 'completed')
-                                  ->where('assigned_to', Auth::id())
-                                  ->whereDate('completed_at', $data['completed_at']);
-                            });
+                            $query->whereDate('completed_at', $data['completed_at']);
                         }
                     })
                     ->indicateUsing(function (array $data): ?string {
@@ -105,13 +107,20 @@ class ListCompletedClients extends Component implements HasForms, HasTable
             ])
             ->actions([
                 Tables\Actions\Action::make('view')
-                    ->label('View')
-                    ->url(fn (Client $record): string => route('clients.completed-items', $record))
-                    ->color('primary'),
+                    ->label('Client')
+                    ->url(fn (ServiceDeliveryQueue $record): string => route('clients.show', $record->client_id))
+                    ->icon('heroicon-m-user')
+                    ->visible(fn (ServiceDeliveryQueue $record) => !empty($record->client_id)),
+                Tables\Actions\Action::make('invoice')
+                    ->label('Invoice')
+                    ->icon('heroicon-m-receipt-percent')
+                    ->url(fn (ServiceDeliveryQueue $record): string => route('invoices.show', $record->invoice_id))
+                    ->openUrlInNewTab()
+                    ->visible(fn (ServiceDeliveryQueue $record) => !empty($record->invoice_id)),
             ])
-            ->defaultSort('created_at', 'desc')
-            ->emptyStateHeading('No completed items found')
-            ->emptyStateDescription('You have not completed any items yet.')
+            ->defaultSort('completed_at', 'desc')
+            ->emptyStateHeading('No completed transactions found')
+            ->emptyStateDescription('Completed items assigned to you will appear here once processed.')
             ->emptyStateIcon('heroicon-o-check-circle');
     }
 

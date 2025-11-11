@@ -44,6 +44,7 @@ use App\Http\Controllers\BalanceHistoryController;
 use App\Http\Controllers\BusinessBalanceHistoryController;
 use App\Http\Controllers\ContractorBalanceHistoryController;
 use App\Http\Controllers\ServiceDeliveryController;
+use App\Http\Controllers\SalesController;
 use App\Http\Controllers\MoneyTrackingController;
 use App\Http\Controllers\SuspenseAccountController;
 use App\Http\Controllers\ServiceQueueController;
@@ -93,6 +94,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource("branches", BranchController::class);
     Route::resource("support", SupportController::class);
     Route::resource("transactions", TransactionController::class);
+    Route::get('/sales', [SalesController::class, 'index'])->name('sales.index');
     Route::resource("users", UserController::class);
     Route::resource("roles", RoleController::class);
     Route::resource("departments", DepartmentController::class);

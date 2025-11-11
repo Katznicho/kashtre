@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Sale;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -173,6 +174,9 @@ class ServiceDeliveryQueue extends Model
             'started_by_user_id' => $userId,
             'assigned_to' => $userId // Assign to user when marking as partially_done
         ]);
+
+        $this->refresh();
+        Sale::recordFromQueue($this, 'partially_done', $userId);
     }
 
     public function markAsCompleted($userId = null)
@@ -183,6 +187,9 @@ class ServiceDeliveryQueue extends Model
             'completed_at' => now(),
             'assigned_to' => $userId // Assign to user when marking as completed
         ]);
+
+        $this->refresh();
+        Sale::recordFromQueue($this, 'completed', $userId);
     }
 
     public function markAsCancelled()

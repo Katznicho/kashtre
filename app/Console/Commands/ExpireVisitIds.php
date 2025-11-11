@@ -22,7 +22,7 @@ class ExpireVisitIds extends Command
      *
      * @var string
      */
-    protected $description = 'Expire visit IDs at midnight. Extend visit IDs for clients with pending/in-progress items by 24 hours.';
+    protected $description = 'Expire visit IDs at midnight by clearing the stored ID and expiry timestamp.';
 
     /**
      * Execute the console command.
@@ -41,53 +41,32 @@ class ExpireVisitIds extends Command
             ->whereNull('deleted_at')
             ->get();
 
-        $extendedCount = 0;
-        $resetCount = 0;
-        $midnight = Carbon::today()->startOfDay();
-        $nextMidnight = $midnight->copy()->addDay();
+        $clearedCount = 0;
 
         foreach ($clients as $client) {
-            // Check if client has pending or in-progress items
-            $hasPendingItems = ServiceDeliveryQueue::where('client_id', $client->id)
-                ->whereIn('status', ['pending', 'in_progress', 'partially_done'])
-                ->exists();
+            $originalVisitId = $client->visit_id;
 
-            if ($hasPendingItems) {
-                // Extend visit ID for another 24 hours
-                $client->visit_expires_at = $nextMidnight;
-                $client->save();
-                $extendedCount++;
-                
-                Log::info('Visit ID extended for client', [
-                    'client_id' => $client->id,
-                    'visit_id' => $client->visit_id,
-                    'new_expiry' => $client->visit_expires_at,
-                    'reason' => 'Has pending/in-progress items'
-                ]);
-            } else {
-                // Clear visit ID so a fresh one is issued on next visit
-                $originalVisitId = $client->visit_id;
-                $client->visit_id = null;
-                $client->visit_expires_at = null;
-                $client->save();
-                $resetCount++;
-
-                Log::info('Visit ID cleared for client', [
-                    'client_id' => $client->id,
-                    'old_visit_id' => $originalVisitId,
-                    'reason' => 'No pending/in-progress items'
-                ]);
+            if (empty($originalVisitId) && empty($client->visit_expires_at)) {
+                continue;
             }
+
+            $client->visit_id = null;
+            $client->visit_expires_at = null;
+            $client->save();
+            $clearedCount++;
+
+            Log::info('Visit ID cleared for client', [
+                'client_id' => $client->id,
+                'old_visit_id' => $originalVisitId,
+                'reason' => 'Midnight expiration policy',
+            ]);
         }
 
-        $this->info("Completed visit ID expiration:");
-        $this->info("  - Extended: {$extendedCount} clients");
-        $this->info("  - Reset: {$resetCount} clients");
+        $this->info("Completed visit ID expiration: cleared {$clearedCount} clients");
 
         Log::info('=== CRON JOB COMPLETED: ExpireVisitIds ===', [
             'timestamp' => now(),
-            'extended_count' => $extendedCount,
-            'reset_count' => $resetCount,
+            'cleared_count' => $clearedCount,
         ]);
 
         return 0;

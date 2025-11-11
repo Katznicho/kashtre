@@ -70,6 +70,19 @@
                     </li>
                     @endif
 
+                    @if(Auth::user()->business_id == 1 && in_array('View Sales', $permissions))
+                    <li>
+                        <a href="{{ route('sales.index') }}" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md {{ request()->routeIs('sales.index') ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700' }}">
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18M9 8h12M9 13h12M3 18h18M3 8h3M3 13h3"></path>
+                                </svg>
+                                <span class="ml-3">Sales</span>
+                            </span>
+                        </a>
+                    </li>
+                    @endif
+
                     <!-- Admin Group -->
                     @if(Auth::user()->business_id == 1)
                     <li>

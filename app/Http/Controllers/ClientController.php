@@ -174,7 +174,7 @@ class ClientController extends Controller
 
         // Validate NIN for new clients
         $ninValidation = 'nullable|string|max:255|unique:clients,nin';
-
+        
         $validated = $request->validate([
             'surname' => 'required|string|max:255',
             'first_name' => 'required|string|max:255',
@@ -207,7 +207,12 @@ class ClientController extends Controller
         ]);
         
         // Generate new client_id and visit_id for new client
-        $clientId = Client::generateClientId($validated['nin'] ?? null, $business, $currentBranch);
+        $clientId = Client::generateClientId(
+            $business,
+            $validated['surname'] ?? '',
+            $validated['first_name'] ?? '',
+            $validated['date_of_birth'] ?? null
+        );
         $visitId = Client::generateVisitId($business, $currentBranch);
         
         // Set visit expiration to next midnight (24 hours from creation)
