@@ -262,14 +262,14 @@
                 // Kashtre user - show all transactions from all businesses
                 $allTransactions = $transactionQuery
                     ->orderBy('created_at', 'desc')
-                    ->limit(20) // Show more for Kashtre since they see all businesses
+                    ->limit(5)
                     ->get();
             } else {
                 // Regular business - show only their transactions
                 $allTransactions = $transactionQuery
                     ->where('business_id', $business->id)
                     ->orderBy('created_at', 'desc')
-                    ->limit(10)
+                    ->limit(5)
                     ->get();
             }
             
@@ -299,14 +299,14 @@
                 // Kashtre user - show all pending transactions from all businesses
                 $pendingTransactions = $pendingQuery
                     ->orderBy('created_at', 'desc')
-                    ->limit(20)
+                    ->limit(5)
                     ->get();
             } else {
                 // Regular business - show only their pending transactions
                 $pendingTransactions = $pendingQuery
                     ->where('business_id', $business->id)
                     ->orderBy('created_at', 'desc')
-                    ->limit(10)
+                    ->limit(5)
                     ->get();
             }
             
@@ -329,14 +329,14 @@
                 // Kashtre user - show all completed transactions from all businesses
                 $completedTransactions = $completedQuery
                     ->orderBy('created_at', 'desc')
-                    ->limit(20)
+                    ->limit(5)
                     ->get();
             } else {
                 // Regular business - show only their completed transactions
                 $completedTransactions = $completedQuery
                     ->where('business_id', $business->id)
                     ->orderBy('created_at', 'desc')
-                    ->limit(10)
+                    ->limit(5)
                     ->get();
             }
             
@@ -359,14 +359,14 @@
                 // Kashtre user - show all failed transactions from all businesses
                 $failedTransactions = $failedQuery
                     ->orderBy('created_at', 'desc')
-                    ->limit(20)
+                    ->limit(5)
                     ->get();
             } else {
                 // Regular business - show only their failed transactions
                 $failedTransactions = $failedQuery
                     ->where('business_id', $business->id)
                     ->orderBy('created_at', 'desc')
-                    ->limit(10)
+                    ->limit(5)
                     ->get();
             }
             

@@ -189,7 +189,6 @@ class Transactions extends Component implements HasForms, HasTable
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
                 Tables\Actions\Action::make('reinitiate')
                     ->label('Retry')
                     ->icon('heroicon-o-arrow-path')
@@ -237,12 +236,8 @@ class Transactions extends Component implements HasForms, HasTable
                                 ->send();
                         }
                     }),
-                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
             ])
             ->defaultSort('created_at', 'desc');
     }
