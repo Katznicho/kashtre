@@ -118,10 +118,30 @@ class SuspenseAccountsTable extends Component implements HasTable, HasForms
         return $table
             ->query($query)
             ->columns([
-                TextColumn::make('type')
+                TextColumn::make('movement_type')
                     ->label('Type')
                     ->badge()
-                    ->color(fn ($state) => $state === 'credit' ? 'success' : 'warning'),
+                    ->state(function (MoneyTransfer $record) use ($accountType, $businessId) {
+                        $matchesDestination = $record->toAccount
+                            && $record->toAccount->type === $accountType
+                            && ($businessId == 1 || $record->toAccount->business_id == $businessId);
+
+                        $matchesSource = $record->fromAccount
+                            && $record->fromAccount->type === $accountType
+                            && ($businessId == 1 || $record->fromAccount->business_id == $businessId);
+
+                        if ($matchesSource && ! $matchesDestination) {
+                            return 'debit';
+                        }
+
+                        if ($matchesDestination && ! $matchesSource) {
+                            return 'credit';
+                        }
+
+                        // Fall back to original transfer type if both sides match (rare) or neither
+                        return $record->type === 'debit' ? 'debit' : 'credit';
+                    })
+                    ->color(fn ($state) => $state === 'debit' ? 'danger' : 'success'),
                 
                 TextColumn::make('created_at')
                     ->label('Date')

@@ -234,11 +234,17 @@ class ServiceDeliveryQueue extends Model
         return $this->status === 'not_done';
     }
 
-    public function markAsNotDone()
+    public function markAsNotDone($userId = null)
     {
-        $this->update([
-            'status' => 'not_done'
-        ]);
+        $attributes = [
+            'status' => 'not_done',
+        ];
+
+        if ($userId) {
+            $attributes['assigned_to'] = $userId;
+        }
+
+        $this->update($attributes);
     }
 
     public function extend()

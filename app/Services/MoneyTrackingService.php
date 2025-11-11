@@ -13,6 +13,7 @@ use App\Models\Item;
 use App\Models\Business;
 use App\Models\ContractorProfile;
 use App\Models\BalanceHistory;
+use App\Models\CreditNote;
 use App\Models\BusinessBalanceHistory;
 use App\Models\ContractorBalanceHistory;
 use Illuminate\Support\Facades\DB;
@@ -1251,30 +1252,207 @@ class MoneyTrackingService
     /**
      * Process refund
      */
-    public function processRefund(Client $client, $amount, $reason, $approvedBy = null)
+    public function processRefund(Client $client, $amount, $reason, $approvedBy = null, CreditNote $creditNote = null)
     {
         try {
             DB::beginTransaction();
 
             $clientAccount = $this->getOrCreateClientAccount($client);
-            
-            // Create transfer record (from client account to external)
-            $transfer = MoneyTransfer::create([
-                'business_id' => $client->business_id,
-                'from_account_id' => $clientAccount->id,
-                'to_account_id' => null, // External refund
-                'amount' => $amount,
-                'currency' => 'UGX',
-                'status' => 'completed',
-                'transfer_type' => 'refund_approved',
-                'client_id' => $client->id,
-                'description' => "Refund: {$reason}",
-                'metadata' => ['approved_by' => $approvedBy],
-                'processed_at' => now()
+            $previousBalance = $clientAccount->balance;
+
+            $loadedCreditNote = $creditNote?->loadMissing([
+                'serviceDeliveryQueue.item',
+                'serviceDeliveryQueue.invoice',
+                'invoice',
+                'business',
             ]);
 
-            // Debit client account
-            $clientAccount->credit($amount);
+            $invoice = $loadedCreditNote?->invoice ?? $loadedCreditNote?->serviceDeliveryQueue?->invoice;
+            $item = $loadedCreditNote?->serviceDeliveryQueue?->item;
+            $business = $invoice?->business ?? $loadedCreditNote?->business;
+
+            if (! $business && $client->business_id) {
+                $business = Business::find($client->business_id);
+            }
+
+            $sourceAccount = $this->resolveRefundSourceAccount($client, $loadedCreditNote, $invoice, $item);
+
+            if (! $sourceAccount) {
+                throw new Exception('Unable to determine suspense account for refund processing.');
+            }
+
+            $sourceAccountStartingBalance = $sourceAccount->balance;
+            $sourceAccountType = $sourceAccount->type;
+            $sourceAccountBusinessId = $sourceAccount->business_id;
+            $sourceAccountId = $sourceAccount->id;
+
+            $description = "Refund: {$reason}";
+
+            $transfer = $this->transferMoney(
+                $sourceAccount,
+                $clientAccount,
+                $amount,
+                'refund_approved',
+                $invoice,
+                $item,
+                $description,
+                null,
+                'debit'
+            );
+
+            $newBalance = $clientAccount->fresh()->balance;
+
+            BalanceHistory::create([
+                'client_id' => $client->id,
+                'business_id' => $client->business_id,
+                'branch_id' => $client->branch_id,
+                'user_id' => $approvedBy,
+                'previous_balance' => $previousBalance,
+                'change_amount' => $amount,
+                'new_balance' => $newBalance,
+                'transaction_type' => 'credit',
+                'description' => "Refund credited for {$reason}",
+                'reference_number' => $loadedCreditNote?->credit_note_number,
+                'notes' => 'Credit note workflow refund',
+                'payment_method' => 'refund',
+            ]);
+
+            $sourceAccountFresh = $sourceAccount->fresh();
+            $sourceAccountEndingBalance = $sourceAccountFresh->balance;
+
+            if (in_array($sourceAccountType, [
+                'general_suspense_account',
+                'package_suspense_account',
+                'kashtre_suspense_account',
+            ])) {
+                $rawQuantity = $loadedCreditNote?->serviceDeliveryQueue?->quantity ?? 1;
+                $displayQuantity = $this->resolveQuantityForDisplay($rawQuantity, [], null, $item);
+
+                $shouldRecordSuspenseHistory = true;
+
+                if ($loadedCreditNote) {
+                    $shouldRecordSuspenseHistory = ! BusinessBalanceHistory::where('money_account_id', $sourceAccountId)
+                        ->where('reference_type', 'credit_note')
+                        ->where('reference_id', $loadedCreditNote->id)
+                        ->where('type', 'debit')
+                        ->exists();
+                }
+
+                if ($shouldRecordSuspenseHistory) {
+                    $history = new BusinessBalanceHistory();
+                    $history->business_id = $sourceAccountBusinessId;
+                    $history->money_account_id = $sourceAccountId;
+                    $history->previous_balance = $sourceAccountStartingBalance;
+                    $history->amount = -1 * abs($amount);
+                    $history->new_balance = $sourceAccountEndingBalance;
+                    $history->type = 'debit';
+                    $history->description = $item
+                        ? "Refund debit for {$item->name} ({$displayQuantity})"
+                        : "Refund debit processed";
+                    $history->reference_type = $loadedCreditNote ? 'credit_note' : null;
+                    $history->reference_id = $loadedCreditNote?->id;
+                    $history->metadata = [
+                        'credit_note_number' => $loadedCreditNote?->credit_note_number,
+                        'transfer_id' => $transfer->id,
+                        'invoice_id' => $invoice?->id,
+                        'item_id' => $item?->id,
+                        'type' => 'item_refund',
+                    ];
+                    $history->user_id = $approvedBy;
+                    $history->save();
+
+                    $sourceAccountFresh->forceFill(['balance' => $sourceAccountEndingBalance])->save();
+                }
+            }
+
+            if ($invoice && $invoice->service_charge > 0 && $business) {
+                $invoiceItems = collect($invoice->items ?? []);
+                $billableItemsCount = $invoiceItems->filter(function ($invoiceItem) {
+                    return ! empty($invoiceItem['id']);
+                })->count();
+
+                $refundItemMatchesInvoice = $item
+                    ? $invoiceItems->contains(function ($invoiceItem) use ($item) {
+                        return (string) ($invoiceItem['id'] ?? null) === (string) $item->id;
+                    })
+                    : false;
+
+                if ($billableItemsCount <= 1 && $refundItemMatchesInvoice) {
+                    $kashtreSuspenseAccount = $this->getOrCreateKashtreSuspenseAccount($business, $client->id);
+                    $kashtreStartingBalance = $kashtreSuspenseAccount->balance;
+
+                    $serviceFeeDescription = "Service fee refund for {$invoice->invoice_number}";
+
+                    $hasExistingServiceFeeHistory = BusinessBalanceHistory::where('money_account_id', $kashtreSuspenseAccount->id)
+                        ->where('reference_type', 'credit_note')
+                        ->where('reference_id', $loadedCreditNote?->id)
+                        ->where('type', 'debit')
+                        ->where('description', 'like', 'Service fee refund%')
+                        ->exists();
+
+                    if (! $hasExistingServiceFeeHistory) {
+                        $serviceFeeTransfer = $this->transferMoney(
+                            $kashtreSuspenseAccount,
+                            $clientAccount,
+                            $invoice->service_charge,
+                            'service_fee_refund',
+                            $invoice,
+                            null,
+                            $serviceFeeDescription,
+                            null,
+                            'debit'
+                        );
+
+                        $kashtreEndingBalance = $kashtreSuspenseAccount->fresh()->balance;
+
+                        $serviceFeeHistory = new BusinessBalanceHistory();
+                        $serviceFeeHistory->business_id = $kashtreSuspenseAccount->business_id;
+                        $serviceFeeHistory->money_account_id = $kashtreSuspenseAccount->id;
+                        $serviceFeeHistory->previous_balance = $kashtreStartingBalance;
+                        $serviceFeeHistory->amount = -1 * abs($invoice->service_charge);
+                        $serviceFeeHistory->new_balance = $kashtreEndingBalance;
+                        $serviceFeeHistory->type = 'debit';
+                        $serviceFeeHistory->description = $serviceFeeDescription;
+                        $serviceFeeHistory->reference_type = $loadedCreditNote ? 'credit_note' : null;
+                        $serviceFeeHistory->reference_id = $loadedCreditNote?->id;
+                        $serviceFeeHistory->metadata = [
+                            'credit_note_number' => $loadedCreditNote?->credit_note_number,
+                            'transfer_id' => $serviceFeeTransfer->id ?? null,
+                            'invoice_id' => $invoice->id,
+                            'type' => 'service_fee_refund',
+                        ];
+                        $serviceFeeHistory->user_id = $approvedBy;
+                        $serviceFeeHistory->save();
+
+                        $kashtreSuspenseAccount->forceFill(['balance' => $kashtreEndingBalance])->save();
+
+                        $hasClientServiceFeeHistory = BalanceHistory::where('client_id', $client->id)
+                            ->where('transaction_type', 'credit')
+                            ->where('description', $serviceFeeDescription)
+                            ->where('reference_number', $loadedCreditNote?->credit_note_number)
+                            ->exists();
+
+                        if (! $hasClientServiceFeeHistory) {
+                            BalanceHistory::create([
+                                'client_id' => $client->id,
+                                'business_id' => $client->business_id,
+                                'branch_id' => $client->branch_id,
+                                'user_id' => $approvedBy,
+                                'previous_balance' => $newBalance,
+                                'change_amount' => $invoice->service_charge,
+                                'new_balance' => $newBalance + $invoice->service_charge,
+                                'transaction_type' => 'credit',
+                                'description' => $serviceFeeDescription,
+                                'reference_number' => $loadedCreditNote?->credit_note_number,
+                                'notes' => 'Credit note workflow service fee refund',
+                                'payment_method' => 'refund',
+                            ]);
+
+                            $newBalance = $clientAccount->fresh()->balance;
+                        }
+                    }
+                }
+            }
 
             DB::commit();
 
@@ -1282,7 +1460,8 @@ class MoneyTrackingService
                 'client_id' => $client->id,
                 'amount' => $amount,
                 'reason' => $reason,
-                'approved_by' => $approvedBy
+                'approved_by' => $approvedBy,
+                'transfer_id' => $transfer->id,
             ]);
 
             return $transfer;
@@ -1296,6 +1475,62 @@ class MoneyTrackingService
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * Helper method to transfer money between accounts
+     */
+    private function resolveRefundSourceAccount(Client $client, ?CreditNote $creditNote, ?Invoice $invoice, ?Item $item): ?MoneyAccount
+    {
+        $business = null;
+
+        if ($invoice) {
+            $invoice->loadMissing('business');
+            $business = $invoice->business;
+        }
+
+        if (! $business && $creditNote) {
+            $creditNote->loadMissing('business');
+            $business = $creditNote->business;
+        }
+
+        if (! $business && $client->business_id) {
+            $business = Business::find($client->business_id);
+        }
+
+        $suspenseAccount = null;
+
+        if ($invoice || $item) {
+            $suspenseTransferQuery = MoneyTransfer::where('transfer_type', 'suspense_movement');
+
+            if ($invoice) {
+                $suspenseTransferQuery->where('invoice_id', $invoice->id);
+            }
+
+            if ($item) {
+                $suspenseTransferQuery->where('item_id', $item->id);
+            }
+
+            $suspenseTransfer = $suspenseTransferQuery->latest()->first();
+
+            if ($suspenseTransfer && $suspenseTransfer->to_account_id) {
+                $suspenseAccount = MoneyAccount::find($suspenseTransfer->to_account_id);
+            }
+        }
+
+        if (! $suspenseAccount && $business) {
+            if ($item && $item->type === 'package') {
+                $suspenseAccount = $this->getOrCreatePackageSuspenseAccount($business, $client->id);
+            } else {
+                $suspenseAccount = $this->getOrCreateGeneralSuspenseAccount($business, $client->id);
+            }
+        }
+
+        if (! $suspenseAccount && $business) {
+            $suspenseAccount = $this->getOrCreateGeneralSuspenseAccount($business, $client->id);
+        }
+
+        return $suspenseAccount;
     }
 
     /**

@@ -350,7 +350,7 @@ class ServicePointController extends Controller
         try {
             $request->validate([
                 'item_statuses' => 'nullable|array',
-                'item_statuses.*' => 'required|in:pending,partially_done,completed'
+                'item_statuses.*' => 'required|in:not_done,partially_done,completed'
             ]);
 
             $itemStatuses = $request->input('item_statuses', []);
@@ -361,7 +361,7 @@ class ServicePointController extends Controller
                 $item = \App\Models\ServiceDeliveryQueue::find($itemId);
                 if ($item) {
                     // Prevent going backwards in status progression
-                    if ($item->status === 'partially_done' && $status === 'pending') {
+                    if ($item->status === 'partially_done' && $status === 'not_done') {
                         \Illuminate\Support\Facades\Log::warning("Status reversal validation failed", [
                             'item_id' => $itemId,
                             'current_status' => $item->status,
@@ -373,7 +373,7 @@ class ServicePointController extends Controller
                         ], 422);
                     }
                     
-                    if ($item->status === 'completed' && in_array($status, ['pending', 'partially_done'])) {
+                    if ($item->status === 'completed' && in_array($status, ['not_done', 'partially_done'])) {
                         \Illuminate\Support\Facades\Log::warning("Status reversal validation failed", [
                             'item_id' => $itemId,
                             'current_status' => $item->status,
@@ -433,13 +433,75 @@ class ServicePointController extends Controller
                     'new_status' => $status
                 ]);
 
-                $item = \App\Models\ServiceDeliveryQueue::where('id', $itemId)
-                    ->where('service_point_id', $servicePoint->id)
-                    ->where('client_id', $clientId)
-                    ->with(['item', 'invoice'])
-                    ->first();
+                $itemQuery = \App\Models\ServiceDeliveryQueue::where('id', $itemId)
+                    ->where('client_id', $clientId);
 
-                if ($item && in_array($status, ['partially_done', 'completed']) && $item->status !== $status) {
+                if ($servicePoint) {
+                    $itemQuery->where('service_point_id', $servicePoint->id);
+                }
+
+                $item = $itemQuery->with(['item', 'invoice', 'creditNote'])->first();
+
+                if (! $item) {
+                    \Illuminate\Support\Facades\Log::warning("Service delivery queue item not found for status update", [
+                        'item_id' => $itemId,
+                        'client_id' => $clientId,
+                        'service_point_id' => $servicePoint?->id,
+                        'requested_status' => $status,
+                    ]);
+                    continue;
+                }
+
+                if ($status === 'not_done') {
+                    if ($item->status === 'completed') {
+                        \Illuminate\Support\Facades\Log::warning("Cannot mark completed item as not done", [
+                            'item_id' => $item->id,
+                            'current_status' => $item->status,
+                            'requested_status' => $status,
+                        ]);
+                        continue;
+                    }
+
+                    if ($item->status !== 'not_done') {
+                        $item->markAsNotDone(auth()->id());
+
+                        \Illuminate\Support\Facades\Log::info("Item marked as not done; initiating refund workflow", [
+                            'item_id' => $item->id,
+                            'invoice_id' => $item->invoice_id,
+                            'client_id' => $item->client_id,
+                            'business_id' => $item->business_id,
+                            'amount' => $item->price * $item->quantity,
+                        ]);
+
+                        $creditNoteService = app(\App\Services\CreditNoteService::class);
+                        $createdCreditNote = $creditNoteService->initiateRefundWorkflow($item, auth()->user(), [
+                            'trigger' => 'service_point_not_done',
+                            'service_point_id' => $servicePoint?->id,
+                        ]);
+
+                        if ($createdCreditNote) {
+                            \Illuminate\Support\Facades\Log::info("Refund workflow initiated successfully", [
+                                'credit_note_id' => $createdCreditNote->id,
+                                'credit_note_number' => $createdCreditNote->credit_note_number,
+                                'current_stage' => $createdCreditNote->current_stage,
+                            ]);
+                        } else {
+                            \Illuminate\Support\Facades\Log::warning("Refund workflow could not be initiated", [
+                                'item_id' => $item->id,
+                                'client_id' => $item->client_id,
+                            ]);
+                        }
+                    } else {
+                        \Illuminate\Support\Facades\Log::info("Item already marked as not done; skipping reprocessing", [
+                            'item_id' => $item->id,
+                        ]);
+                    }
+
+                    $updatedCount++;
+                    continue;
+                }
+
+                if (in_array($status, ['partially_done', 'completed']) && $item->status !== $status) {
                     // Set the invoice if not already set
                     if (!$invoice) {
                         $invoice = $item->invoice;

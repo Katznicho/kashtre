@@ -11,6 +11,10 @@ class CreditNote extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const STAGE_SUPERVISOR = 'supervisor';
+    public const STAGE_AUTHORIZER = 'authorizer';
+    public const STAGE_APPROVER = 'approver';
+
     protected $fillable = [
         'uuid',
         'service_delivery_queue_id',
@@ -22,8 +26,10 @@ class CreditNote extends Model
         'amount',
         'reason',
         'status',
+        'current_stage',
         'processed_at',
         'processed_by',
+        'initiated_by',
     ];
 
     protected $casts = [
@@ -77,5 +83,66 @@ class CreditNote extends Model
     public function processedBy()
     {
         return $this->belongsTo(User::class, 'processed_by');
+    }
+
+    public function initiator()
+    {
+        return $this->belongsTo(User::class, 'initiated_by');
+    }
+
+    public function approvals()
+    {
+        return $this->hasMany(CreditNoteApproval::class);
+    }
+
+    public static function stageOrder(): array
+    {
+        return [
+            self::STAGE_SUPERVISOR,
+            self::STAGE_AUTHORIZER,
+            self::STAGE_APPROVER,
+        ];
+    }
+
+    public function pendingApprovalForUser(?User $user): ?CreditNoteApproval
+    {
+        if (! $user) {
+            return null;
+        }
+
+        $this->loadMissing('approvals');
+
+        return $this->approvals
+            ->where('status', 'pending')
+            ->first(function (CreditNoteApproval $approval) use ($user) {
+                $assigned = $approval->assigned_user_id;
+
+                return $approval->stage === $this->current_stage
+                    && ($assigned === null || (int) $assigned === (int) $user->id);
+            });
+    }
+
+    public function userCanApprove(?User $user): bool
+    {
+        return (bool) $this->pendingApprovalForUser($user);
+    }
+
+    public function hasPendingApprovalsForStage(string $stage): bool
+    {
+        return $this->approvals()
+            ->where('stage', $stage)
+            ->where('status', 'pending')
+            ->exists();
+    }
+
+    public function markCancelled(?User $user = null, ?string $reason = null): void
+    {
+        $this->forceFill([
+            'status' => 'cancelled',
+            'current_stage' => 'cancelled',
+            'processed_by' => $user?->id,
+            'processed_at' => now(),
+            'reason' => $reason ?? $this->reason,
+        ])->save();
     }
 }

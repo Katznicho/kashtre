@@ -249,7 +249,16 @@
                         <ul x-show="openGroup === 'finance'" x-collapse class="mt-1 space-y-1 pl-10">
                             <!-- Business Account Statement - Only for regular businesses (not Kashtre) -->
                             @if(Auth::user()->business_id != 1)
-                            <li><a href="{{ route('business-balance-statement.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Business Account Statement</a></li>
+                            <li>
+                                <a href="{{ route('business-balance-statement.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Business Account Statement
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('refunds.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Refunds
+                                </a>
+                            </li>
                             @endif
                             
                             <!-- Kashtre Account Statement - Only for super business (Kashtre) -->

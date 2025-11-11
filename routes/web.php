@@ -56,6 +56,7 @@ use App\Http\Controllers\BusinessWithdrawalSettingController;
 use App\Http\Controllers\WithdrawalRequestController;
 use App\Http\Controllers\CreditNoteWorkflowController;
 use App\Http\Controllers\CreditNoteWorkflowBulkUploadController;
+use App\Http\Controllers\RefundController;
 use App\Http\Controllers\ServicePointSupervisorController;
 use Illuminate\Support\Facades\Route;
 
@@ -95,6 +96,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource("support", SupportController::class);
     Route::resource("transactions", TransactionController::class);
     Route::get('/sales', [SalesController::class, 'index'])->name('sales.index');
+    Route::get('/refunds', [RefundController::class, 'index'])->name('refunds.index');
     Route::resource("users", UserController::class);
     Route::resource("roles", RoleController::class);
     Route::resource("departments", DepartmentController::class);

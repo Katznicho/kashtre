@@ -49,7 +49,7 @@
                                     <div class="flex flex-col space-y-2">
                                         @if($item->status === 'pending')
                                             <label class="flex items-center">
-                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="pending" class="mr-2">
+                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="not_done" class="mr-2">
                                                 <span class="text-sm">Not Done</span>
                                             </label>
                                             <label class="flex items-center">
