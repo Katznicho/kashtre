@@ -79,8 +79,8 @@
             confirmButtonColor: "#3a57e8"
         });
     @endif
-    {{-- Warning Message -- Only show in production --}}
-    @if (Session::has('warning') && config('app.env') === 'production')
+    {{-- Warning Message -- Show in all environments --}}
+    @if (Session::has('warning'))
         Swal.fire({
             icon: 'warning',
             title: 'Security Required',
