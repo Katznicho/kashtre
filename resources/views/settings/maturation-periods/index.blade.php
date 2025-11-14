@@ -5,10 +5,10 @@
         <div class="md:flex md:items-center md:justify-between">
             <div class="flex-1 min-w-0">
                 <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-                    Maturation Periods Settings
+                    Payment Methods and Maturation Periods
                 </h2>
                 <p class="mt-1 text-sm text-gray-500">
-                    Configure maturation periods for different payment methods by entity
+                    Configure payment method accounts and maturation periods for different payment methods by entity
                 </p>
             </div>
             @if(in_array('Add Maturation Periods', auth()->user()->permissions ?? []))
@@ -63,6 +63,17 @@
                                                         <p class="text-sm text-gray-500">
                                                             {{ $period->payment_method_name }} - {{ $period->formatted_maturation_period }}
                                                         </p>
+                                                        @if($period->paymentMethodAccount)
+                                                            <p class="text-sm text-blue-600 mt-1">
+                                                                Account: {{ $period->paymentMethodAccount->name }} 
+                                                                @if($period->paymentMethodAccount->provider)
+                                                                    ({{ $period->paymentMethodAccount->provider }})
+                                                                @endif
+                                                                @if($period->paymentMethodAccount->balance != 0)
+                                                                    - Balance: {{ number_format($period->paymentMethodAccount->balance, 2) }} {{ $period->paymentMethodAccount->currency }}
+                                                                @endif
+                                                            </p>
+                                                        @endif
                                                         @if($period->description)
                                                             <p class="text-sm text-gray-400 mt-1">{{ $period->description }}</p>
                                                         @endif
@@ -116,8 +127,8 @@
                     <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                     </svg>
-                    <h3 class="mt-2 text-sm font-medium text-gray-900">No maturation periods</h3>
-                    <p class="mt-1 text-sm text-gray-500">Get started by creating a new maturation period.</p>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No payment methods and maturation periods</h3>
+                    <p class="mt-1 text-sm text-gray-500">Get started by creating a new payment method and maturation period.</p>
                     @if(in_array('Add Maturation Periods', auth()->user()->permissions ?? []))
                     <div class="mt-6">
                         <a href="{{ route('maturation-periods.create') }}" 

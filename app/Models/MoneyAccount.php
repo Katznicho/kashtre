@@ -15,6 +15,7 @@ class MoneyAccount extends Model
         'name',
         'type',
         'business_id',
+        'branch_id',
         'client_id',
         'contractor_profile_id',
         'balance',
@@ -38,6 +39,11 @@ class MoneyAccount extends Model
     public function business()
     {
         return $this->belongsTo(Business::class);
+    }
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function client()

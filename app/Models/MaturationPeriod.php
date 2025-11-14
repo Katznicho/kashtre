@@ -11,6 +11,7 @@ class MaturationPeriod extends Model
 
     protected $fillable = [
         'business_id',
+        'payment_method_account_id',
         'payment_method',
         'maturation_days',
         'description',
@@ -29,6 +30,12 @@ class MaturationPeriod extends Model
     {
         return $this->belongsTo(Business::class);
     }
+
+    public function paymentMethodAccount()
+    {
+        return $this->belongsTo(PaymentMethodAccount::class, 'payment_method_account_id');
+    }
+
 
     public function createdBy()
     {
@@ -60,13 +67,13 @@ class MaturationPeriod extends Model
     public function getPaymentMethodNameAttribute()
     {
         $methodNames = [
-            'insurance' => '🛡️ Insurance',
-            'credit_arrangement' => '💳 Credit Arrangement',
-            'mobile_money' => '📱 MM (Mobile Money)',
-            'v_card' => '💳 V Card (Virtual Card)',
-            'p_card' => '💳 P Card (Physical Card)',
-            'bank_transfer' => '🏦 Bank Transfer',
-            'cash' => '💵 Cash',
+            'insurance' => 'Insurance',
+            'credit_arrangement' => 'Credit Arrangement',
+            'mobile_money' => 'Mobile Money',
+            'v_card' => 'V Card (Virtual Card)',
+            'p_card' => 'P Card (Physical Card)',
+            'bank_transfer' => 'Bank Transfer',
+            'cash' => 'Cash',
         ];
 
         return $methodNames[$this->payment_method] ?? ucfirst(str_replace('_', ' ', $this->payment_method));

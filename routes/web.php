@@ -51,6 +51,7 @@ use App\Http\Controllers\ServiceQueueController;
 use App\Http\Controllers\ServiceDeliveryQueueController;
 use App\Http\Controllers\TestingController;
 use App\Http\Controllers\MaturationPeriodController;
+use App\Http\Controllers\PaymentMethodAccountController;
 use App\Http\Controllers\WithdrawalSettingController;
 use App\Http\Controllers\BusinessWithdrawalSettingController;
 use App\Http\Controllers\WithdrawalRequestController;
@@ -59,6 +60,7 @@ use App\Http\Controllers\CreditNoteWorkflowBulkUploadController;
 use App\Http\Controllers\RefundController;
 use App\Http\Controllers\ServicePointSupervisorController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
 
 
@@ -172,8 +174,27 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::resource("admins", AdminController::class);
     
     // Maturation Periods Settings (Kashtre only)
-    Route::resource("maturation-periods", MaturationPeriodController::class);
+    Route::get("maturation-periods", function () {
+        return view('settings.maturation-periods.index-livewire');
+    })->name('maturation-periods.index');
+    Route::get("maturation-periods/check-account", [MaturationPeriodController::class, 'checkAccount'])->name('maturation-periods.check-account');
+    Route::resource("maturation-periods", MaturationPeriodController::class)->except(['index']);
     Route::post("maturation-periods/{maturationPeriod}/toggle-status", [MaturationPeriodController::class, 'toggleStatus'])->name('maturation-periods.toggle-status');
+    
+    // Payment Method Account Transactions
+    Route::get("payment-method-accounts/{paymentMethodAccount}/transactions", [PaymentMethodAccountController::class, 'transactions'])->name('payment-method-accounts.transactions');
+    
+    // API route for fetching branches by business
+    Route::get('/api/branches', function (Request $request) {
+        $businessId = $request->query('business_id');
+        if (!$businessId) {
+            return response()->json([], 400);
+        }
+        $branches = \App\Models\Branch::where('business_id', $businessId)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+        return response()->json($branches);
+    })->name('api.branches');
     
     // Credit Note Workflow Settings (Kashtre only)
     Route::get('credit-note-workflows/bulk-upload', [CreditNoteWorkflowBulkUploadController::class, 'index'])->name('credit-note-workflows.bulk-upload.index');
