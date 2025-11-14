@@ -16,6 +16,11 @@ class RequireTwoFactorForKashtre
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Only enforce 2FA in production environment
+        if (config('app.env') !== 'production') {
+            return $next($request);
+        }
+
         // Only check for authenticated users
         if (!Auth::check()) {
             return $next($request);
