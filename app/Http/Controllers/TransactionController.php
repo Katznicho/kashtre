@@ -79,7 +79,8 @@ class TransactionController extends Controller
             abort(403, 'Unauthorized access to client.');
         }
 
-        $client->ensureActiveVisitId();
+        // Don't regenerate visit_id if it was cleared/expired - only generate when creating invoice
+        // $client->ensureActiveVisitId();
 
         // Get current branch
         $currentBranch = $user->currentBranch;

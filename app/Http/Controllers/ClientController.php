@@ -166,7 +166,8 @@ class ClientController extends Controller
 
         // If existing client found, redirect to POS with that client (no new record needed)
         if ($existingClient) {
-            $existingClient->ensureActiveVisitId();
+            // Don't regenerate visit_id if it was cleared/expired - only generate when creating invoice
+            // $existingClient->ensureActiveVisitId();
 
             return redirect()->route('pos.item-selection', $existingClient)
                 ->with('success', 'Existing client found! Redirecting to ordering page. Client ID: ' . $existingClient->client_id);

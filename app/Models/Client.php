@@ -198,10 +198,36 @@ class Client extends Model
             return 'XX';
         }
 
-        $letters = strtoupper(preg_replace('/[^A-Z]/i', '', $businessName));
-        $prefix = substr($letters, 0, 2);
-
-        return str_pad($prefix ?: 'XX', 2, 'X');
+        // Split business name into words
+        $words = preg_split('/\s+/', $businessName);
+        
+        // Take first letter from first word and first letter from second word
+        $firstLetter = '';
+        $secondLetter = '';
+        
+        if (isset($words[0]) && !empty($words[0])) {
+            // Extract first alphabetic letter from first word
+            if (preg_match('/[A-Za-z]/', $words[0], $matches)) {
+                $firstLetter = strtoupper($matches[0]);
+            }
+        }
+        
+        if (isset($words[1]) && !empty($words[1])) {
+            // Extract first alphabetic letter from second word
+            if (preg_match('/[A-Za-z]/', $words[1], $matches)) {
+                $secondLetter = strtoupper($matches[0]);
+            }
+        }
+        
+        // If we don't have two letters, use fallbacks
+        if (empty($firstLetter)) {
+            $firstLetter = 'X';
+        }
+        if (empty($secondLetter)) {
+            $secondLetter = 'X';
+        }
+        
+        return $firstLetter . $secondLetter;
     }
 
     protected static function normalizeDateForClientId(?string $dateOfBirth): string
@@ -223,11 +249,53 @@ class Client extends Model
         $hash = strtoupper(base_convert(md5($source), 16, 36));
         $clean = preg_replace('/[^A-Z0-9]/', '', $hash);
 
-        if ($clean === '' || strlen($clean) < 7) {
-            $clean = str_pad($clean, 7, 'X');
+        // Separate letters and numbers from the hash
+        $letters = preg_replace('/[^A-Z]/', '', $clean);
+        $numbers = preg_replace('/[^0-9]/', '', $clean);
+
+        // Character sets for fallback generation
+        $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $digits = '0123456789';
+
+        // Use a source for generating additional characters (ensure it's not empty)
+        $sourceString = $clean ?: $hash ?: $source;
+        $sourceLength = strlen($sourceString);
+        
+        if ($sourceLength === 0) {
+            $sourceString = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            $sourceLength = strlen($sourceString);
         }
 
-        return substr($clean, 0, 7);
+        // Generate additional letters if needed (deterministically from hash)
+        while (strlen($letters) < 5) {
+            $pos = strlen($letters) % $sourceLength;
+            $char = $sourceString[$pos];
+            // Convert to letter if not already a letter
+            if (preg_match('/[A-Z]/', $char)) {
+                $letters .= $char;
+            } else {
+                $index = ord($char) % strlen($alphabet);
+                $letters .= $alphabet[$index];
+            }
+        }
+
+        // Generate additional numbers if needed (deterministically from hash)
+        while (strlen($numbers) < 2) {
+            $pos = strlen($numbers) % $sourceLength;
+            $char = $sourceString[$pos];
+            // Convert to number if not already a number
+            if (preg_match('/[0-9]/', $char)) {
+                $numbers .= $char;
+            } else {
+                $index = ord($char) % strlen($digits);
+                $numbers .= $digits[$index];
+            }
+        }
+
+        // Build pattern: 3 letters, 2 numbers, 2 letters
+        $code = substr($letters, 0, 3) . substr($numbers, 0, 2) . substr($letters, 3, 2);
+
+        return $code;
     }
 
     /**

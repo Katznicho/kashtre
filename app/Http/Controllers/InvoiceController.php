@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\ServiceCharge;
 use App\Models\Client;
 use App\Services\MoneyTrackingService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -316,7 +317,7 @@ class InvoiceController extends Controller
                 'client_name' => 'required|string',
                 'client_phone' => 'required|string',
                 'payment_phone' => 'nullable|string',
-                'visit_id' => 'required|string',
+                'visit_id' => 'nullable|string',
                 'items' => 'required|array',
                 'subtotal' => 'required|numeric|min:0',
                 'package_adjustment' => 'nullable|numeric',
@@ -333,6 +334,27 @@ class InvoiceController extends Controller
             
             // Get client
             $client = Client::find($validated['client_id']);
+
+            // Generate visit_id if client doesn't have one (only when creating invoice/transaction)
+            // This is the only place where we regenerate visit_id after it's been cleared/expired by cron
+            $needsNewVisitId = empty($client->visit_id) 
+                || empty($client->visit_expires_at)
+                || Carbon::parse($client->visit_expires_at)->isPast();
+                
+            if ($needsNewVisitId) {
+                $client->issueNewVisitId();
+                $validated['visit_id'] = $client->visit_id;
+                
+                Log::info('Generated new visit_id for client during invoice creation', [
+                    'client_id' => $client->id,
+                    'visit_id' => $client->visit_id,
+                    'visit_expires_at' => $client->visit_expires_at,
+                    'reason' => empty($client->visit_id) ? 'no_visit_id' : 'expired',
+                ]);
+            } else {
+                // Use existing visit_id even if not sent from frontend
+                $validated['visit_id'] = $client->visit_id;
+            }
 
             // Normalize items for further processing
             $itemsCollection = collect($validated['items'])->map(function (array $item) {

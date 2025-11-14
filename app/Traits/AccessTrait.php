@@ -82,6 +82,7 @@ trait AccessTrait
         "Insurance Companies" => ['View Insurance Companies', 'Edit Insurance Companies', 'Add Insurance Companies', 'Bulky Update Insurance Companies'],
         "Sub Groups" => ['View Sub Groups', 'Edit Sub Groups', 'Add Sub Groups', 'Bulky Update Sub Groups'],
         "Maturation Periods" => ['View Maturation Periods', 'Edit Maturation Periods', 'Add Maturation Periods', 'Manage Maturation Periods'],
+        "Bank Schedules" => ['View Bank Schedules', 'Edit Bank Schedules', 'Add Bank Schedules', 'Manage Bank Schedules'],
         "Withdrawal Settings" => ['View Withdrawal Settings', 'Edit Withdrawal Settings', 'Add Withdrawal Settings'],
         "Business Withdraw Charges" => ['View Business Withdrawal Charges', 'Edit Business Withdrawal Charges', 'Add Business Withdrawal Charges'],
         "Refund Workflows" => ['View Credit Note Workflows', 'Edit Credit Note Workflows', 'Add Credit Note Workflows'],

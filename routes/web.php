@@ -52,6 +52,7 @@ use App\Http\Controllers\ServiceDeliveryQueueController;
 use App\Http\Controllers\TestingController;
 use App\Http\Controllers\MaturationPeriodController;
 use App\Http\Controllers\PaymentMethodAccountController;
+use App\Http\Controllers\BankScheduleController;
 use App\Http\Controllers\WithdrawalSettingController;
 use App\Http\Controllers\BusinessWithdrawalSettingController;
 use App\Http\Controllers\WithdrawalRequestController;
@@ -184,6 +185,12 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     // Payment Method Account Transactions
     Route::get("payment-method-accounts/{paymentMethodAccount}/transactions", [PaymentMethodAccountController::class, 'transactions'])->name('payment-method-accounts.transactions');
     Route::get("payment-method-accounts/{paymentMethodAccount}/transactions/{transaction}", [PaymentMethodAccountController::class, 'show'])->name('payment-method-accounts.transactions.show');
+    
+    // Bank Schedules
+    Route::get("bank-schedules", function () {
+        return view('bank-schedules.index-livewire');
+    })->name('bank-schedules.index');
+    Route::resource("bank-schedules", BankScheduleController::class)->except(['index']);
     
     // API route for fetching branches by business
     Route::get('/api/branches', function (Request $request) {

@@ -182,7 +182,8 @@ class ServicePointController extends Controller
 
         // Get client data
         $client = \App\Models\Client::findOrFail($clientId);
-        $client->ensureActiveVisitId();
+        // Don't regenerate visit_id if it was cleared/expired - only generate when creating invoice
+        // $client->ensureActiveVisitId();
         
         // Get all items for this client at this service point
         $clientItemsQuery = \App\Models\ServiceDeliveryQueue::where('service_point_id', $servicePoint->id)
