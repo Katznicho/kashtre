@@ -53,9 +53,8 @@ class WithdrawalSettingController extends Controller
         $withdrawalTypes = Constants::WITHDRAWAL_TYPES;
         
         // Get all users with their business info for dynamic filtering
-        // For business approvers, we only want business users (not contractors)
+        // Show all users for the business (including contractors)
         $users = User::where('status', 'active')
-            ->whereDoesntHave('contractorProfile') // Exclude contractors from business approver selection
             ->select('id', 'name', 'email', 'business_id')
             ->get();
 
@@ -222,9 +221,8 @@ class WithdrawalSettingController extends Controller
         $withdrawalTypes = Constants::WITHDRAWAL_TYPES;
         
         // Get all users with their business info for dynamic filtering
-        // For business approvers, we only want business users (not contractors)
+        // Show all users for the business (including contractors)
         $users = User::where('status', 'active')
-            ->whereDoesntHave('contractorProfile') // Exclude contractors from business approver selection
             ->select('id', 'name', 'email', 'business_id')
             ->get();
 

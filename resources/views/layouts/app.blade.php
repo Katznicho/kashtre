@@ -106,6 +106,19 @@
             confirmButtonColor: "#3a57e8"
         });
     @endif
+    {{-- Warning Message --}}
+    @if (Session::has('warning'))
+        Swal.fire({
+            icon: 'warning',
+            title: 'Security Required',
+            text: '{{ Session::get('warning') }}',
+            confirmButtonText: 'Setup 2FA',
+            confirmButtonColor: "#f59e0b",
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showCancelButton: false
+        });
+    @endif
     {{-- Errors Message --}}
     @if (Session::has('error'))
         Swal.fire({

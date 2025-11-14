@@ -218,7 +218,7 @@
                     <!-- Business Approvers Selection -->
                     <div class="bg-gray-50 rounded-lg p-6">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Business Approvers Selection</h3>
-                        <p class="text-sm text-gray-600 mb-4">Only business employees/staff are shown (contractors are excluded from business approval roles).</p>
+                        <p class="text-sm text-gray-600 mb-4">All users for the business are shown.</p>
                         
                         <!-- Level 1: Initiators -->
                         <div class="mb-6">

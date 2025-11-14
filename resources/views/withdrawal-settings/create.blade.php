@@ -213,7 +213,7 @@
                             </svg>
                             Business Approvers Selection <span class="text-red-500">*</span>
                         </h3>
-                        <p class="text-sm text-gray-600 mb-4">Only business employees/staff are shown (contractors are excluded from business approval roles).</p>
+                        <p class="text-sm text-gray-600 mb-4">All users for the selected business are shown.</p>
                         
                         <div id="business-approvers-container" class="space-y-6">
                             <div class="text-gray-500 text-sm italic">Please select a business first</div>
@@ -338,7 +338,7 @@
                 // Clear current content
                 businessApproversContainer.innerHTML = '';
                 
-                // Filter users by selected business (contractors are already excluded from allUsers)
+                // Filter users by selected business
                 const businessUsers = allUsers.filter(user => user.business_id === selectedBusinessId);
                 
                 if (businessUsers.length === 0) {
