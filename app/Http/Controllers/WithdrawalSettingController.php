@@ -341,13 +341,24 @@ class WithdrawalSettingController extends Controller
         if (count($parts) === 2) {
             [$type, $id] = $parts;
             
-            WithdrawalSettingApprover::create([
-                'withdrawal_setting_id' => $withdrawalSetting->id,
-                'approver_id' => $id,
-                'approver_type' => $type,
-                'approver_level' => $approverLevel,
-                'approval_level' => $approvalLevel
-            ]);
+            // Use updateOrCreate to handle duplicates gracefully
+            // This ensures we don't create duplicates if the same approver is added multiple times
+            WithdrawalSettingApprover::updateOrCreate(
+                [
+                    'withdrawal_setting_id' => $withdrawalSetting->id,
+                    'approver_id' => $id,
+                    'approver_type' => $type,
+                    'approver_level' => $approverLevel,
+                    'approval_level' => $approvalLevel
+                ],
+                [
+                    'withdrawal_setting_id' => $withdrawalSetting->id,
+                    'approver_id' => $id,
+                    'approver_type' => $type,
+                    'approver_level' => $approverLevel,
+                    'approval_level' => $approvalLevel
+                ]
+            );
         }
     }
 

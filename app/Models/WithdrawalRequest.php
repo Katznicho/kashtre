@@ -337,8 +337,9 @@ class WithdrawalRequest extends Model
                 $this->approved_at = now();
                 $this->save();
                 
-                // Process the withdrawal automatically
-                $this->processWithdrawal();
+                // Instead of processing withdrawal immediately, create a bank schedule
+                // Money will move when the bank schedule is processed
+                $this->createBankSchedule();
             }
         }
     }
@@ -432,7 +433,7 @@ class WithdrawalRequest extends Model
     }
 
     /**
-     * Process the withdrawal when fully approved
+     * Process the withdrawal when fully approved (legacy - now handled by bank schedule)
      */
     public function processWithdrawal()
     {
@@ -441,6 +442,78 @@ class WithdrawalRequest extends Model
             return $withdrawalService->processWithdrawal($this);
         } catch (\Exception $e) {
             \Log::error("Failed to process withdrawal automatically", [
+                'withdrawal_request_id' => $this->id,
+                'uuid' => $this->uuid,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Create a bank schedule when withdrawal request is fully approved
+     * This replaces automatic money movement - money will move when bank schedule is processed
+     */
+    public function createBankSchedule()
+    {
+        try {
+            // Only create bank schedule for bank transfers
+            if ($this->payment_method !== 'bank_transfer') {
+                \Log::info("Skipping bank schedule creation - not a bank transfer", [
+                    'withdrawal_request_id' => $this->id,
+                    'payment_method' => $this->payment_method
+                ]);
+                // For mobile money, still process withdrawal immediately
+                $this->processWithdrawal();
+                return null;
+            }
+
+            // Check if bank schedule already exists
+            $existingSchedule = \App\Models\BankSchedule::where('withdrawal_request_id', $this->id)->first();
+            if ($existingSchedule) {
+                \Log::info("Bank schedule already exists for withdrawal request", [
+                    'withdrawal_request_id' => $this->id,
+                    'bank_schedule_id' => $existingSchedule->id
+                ]);
+                return $existingSchedule;
+            }
+
+            // Get the requester name
+            $requester = $this->requester;
+            $clientName = $this->account_name ?? ($requester ? $requester->name : 'Unknown');
+
+            // Get the last Kashtre approver (who just approved step 3)
+            $lastApproval = $this->kashtreApprovals()
+                ->where('approval_step', 3)
+                ->where('action', 'approved')
+                ->latest()
+                ->first();
+            $createdBy = $lastApproval ? $lastApproval->approver_id : (auth()->id() ?? 1);
+
+            // Create bank schedule
+            $bankSchedule = \App\Models\BankSchedule::create([
+                'business_id' => $this->business_id,
+                'client_name' => $clientName,
+                'amount' => $this->net_amount, // Use net amount (amount after charge)
+                'withdrawal_charge' => $this->withdrawal_charge, // Include withdrawal charge
+                'bank_name' => $this->bank_name ?? 'Not specified',
+                'bank_account' => $this->account_number ?? 'Not specified',
+                'withdrawal_request_id' => $this->id,
+                'status' => 'pending',
+                'reference_id' => $this->uuid,
+                'created_by' => $createdBy, // Use the last Kashtre approver
+            ]);
+
+            \Log::info("Bank schedule created for withdrawal request", [
+                'withdrawal_request_id' => $this->id,
+                'bank_schedule_id' => $bankSchedule->id,
+                'amount' => $bankSchedule->amount,
+                'business_id' => $this->business_id
+            ]);
+
+            return $bankSchedule;
+        } catch (\Exception $e) {
+            \Log::error("Failed to create bank schedule for withdrawal request", [
                 'withdrawal_request_id' => $this->id,
                 'uuid' => $this->uuid,
                 'error' => $e->getMessage()

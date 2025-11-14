@@ -190,7 +190,7 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::get("bank-schedules", function () {
         return view('bank-schedules.index-livewire');
     })->name('bank-schedules.index');
-    Route::resource("bank-schedules", BankScheduleController::class)->except(['index']);
+    Route::resource("bank-schedules", BankScheduleController::class)->only(['show']);
     
     // API route for fetching branches by business
     Route::get('/api/branches', function (Request $request) {

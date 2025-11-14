@@ -4,15 +4,14 @@ namespace App\Livewire\BankSchedules;
 
 use App\Models\BankSchedule;
 use App\Models\Business;
+use App\Services\BankScheduleProcessingService;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Tables;
-use Filament\Tables\Actions\CreateAction;
-use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
-use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\BulkActionGroup;
-use Filament\Tables\Actions\DeleteBulkAction;
+use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
@@ -27,6 +26,16 @@ class ListBankSchedules extends Component implements HasForms, HasTable
     use InteractsWithForms;
     use InteractsWithTable;
 
+    public string $activeTab = 'pending';
+
+    public function setActiveTab(string $tab): void
+    {
+        $this->activeTab = $tab;
+        
+        // Force refresh the table data
+        $this->resetTable();
+    }
+
     public function table(Table $table): Table
     {
         // Only Kashtre users can access
@@ -36,6 +45,12 @@ class ListBankSchedules extends Component implements HasForms, HasTable
 
         $query = BankSchedule::query()
             ->with(['business', 'withdrawalRequest', 'creator'])
+            ->when($this->activeTab === 'pending', function ($query) {
+                return $query->where('status', 'pending');
+            })
+            ->when($this->activeTab === 'completed', function ($query) {
+                return $query->where('status', 'processed');
+            })
             ->latest();
 
         return $table
@@ -56,6 +71,13 @@ class ListBankSchedules extends Component implements HasForms, HasTable
                     ->money('UGX')
                     ->sortable()
                     ->alignRight(),
+
+                TextColumn::make('withdrawal_charge')
+                    ->label('Charge')
+                    ->money('UGX')
+                    ->sortable()
+                    ->alignRight()
+                    ->toggleable(isToggledHiddenByDefault: false),
 
                 TextColumn::make('bank_name')
                     ->label('Bank Name')
@@ -111,37 +133,147 @@ class ListBankSchedules extends Component implements HasForms, HasTable
                     ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
                     ->searchable()
                     ->multiple(),
-
-                SelectFilter::make('status')
-                    ->label('Status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'processed' => 'Processed',
-                        'cancelled' => 'Cancelled',
-                    ]),
             ])
             ->actions([
                 ViewAction::make()
                     ->url(fn (BankSchedule $record): string => route('bank-schedules.show', $record)),
-                EditAction::make()
-                    ->url(fn (BankSchedule $record): string => route('bank-schedules.edit', $record))
-                    ->color('warning')
-                    ->visible(fn() => in_array('Manage Bank Schedules', auth()->user()->permissions ?? [])),
-                DeleteAction::make()
-                    ->successNotificationTitle('Bank schedule deleted successfully.')
-                    ->visible(fn() => in_array('Manage Bank Schedules', auth()->user()->permissions ?? [])),
-            ])
-            ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ])
-            ->headerActions([
-                CreateAction::make()
-                    ->label('Create Bank Schedule')
-                    ->url(route('bank-schedules.create'))
+                Action::make('markAsDone')
+                    ->label('Mark as Done')
+                    ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn() => in_array('Manage Bank Schedules', auth()->user()->permissions ?? [])),
+                    ->visible(fn (BankSchedule $record) => $record->status === 'pending' && $this->activeTab === 'pending')
+                    ->requiresConfirmation()
+                    ->modalHeading('Mark Bank Schedule as Done')
+                    ->modalDescription('Are you sure you want to mark this bank schedule as done? This will process the money transfer.')
+                    ->modalSubmitActionLabel('Yes, mark as done')
+                    ->action(function (BankSchedule $record) {
+                        if ($record->status !== 'pending') {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Invalid action')
+                                ->body('Only pending bank schedules can be marked as done.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+                        
+                        $processingService = app(BankScheduleProcessingService::class);
+                        
+                        try {
+                            $processingService->processBankSchedule($record);
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('Bank schedule processed successfully')
+                                ->success()
+                                ->send();
+                            
+                            // Refresh the table
+                            $this->resetTable();
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Failed to process bank schedule')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+            ])
+            ->bulkActions([])
+            ->headerActions([
+                Action::make('markAllAsDone')
+                    ->label('Mark All Pending as Done')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->visible(fn() => $this->activeTab === 'pending')
+                    ->requiresConfirmation()
+                    ->modalHeading('Mark All Pending Bank Schedules as Done')
+                    ->modalDescription('Are you sure you want to mark all pending bank schedules on this page as done? This will process the money transfers for all pending schedules.')
+                    ->modalSubmitActionLabel('Yes, mark all as done')
+                    ->action(function () {
+                        try {
+                            // Check if we're on the pending tab
+                            if ($this->activeTab !== 'pending') {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Invalid action')
+                                    ->body('You can only mark bank schedules as done from the Pending tab.')
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+                            
+                            // Get all pending bank schedules from the current query
+                            $bankSchedules = BankSchedule::where('status', 'pending')
+                                ->get();
+                            
+                            if ($bankSchedules->isEmpty()) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('No pending schedules')
+                                    ->body('There are no pending bank schedules to process.')
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+                            
+                            $processingService = app(BankScheduleProcessingService::class);
+                            $bankScheduleIds = $bankSchedules->pluck('id')->toArray();
+                            
+                            \Log::info('Starting bank schedule processing', [
+                                'count' => count($bankScheduleIds),
+                                'ids' => $bankScheduleIds
+                            ]);
+                            
+                            $results = $processingService->processBankSchedules($bankScheduleIds);
+                            
+                            $successCount = count($results['success']);
+                            $failedCount = count($results['failed']);
+                            
+                            \Log::info('Bank schedule processing completed', [
+                                'success_count' => $successCount,
+                                'failed_count' => $failedCount,
+                                'results' => $results
+                            ]);
+                            
+                            if ($successCount > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title("Successfully processed {$successCount} bank schedule(s)")
+                                    ->success()
+                                    ->send();
+                            }
+                            
+                            if ($failedCount > 0) {
+                                $errorMessages = collect($results['failed'])
+                                    ->pluck('error')
+                                    ->unique()
+                                    ->implode(', ');
+                                    
+                                \Filament\Notifications\Notification::make()
+                                    ->title("Failed to process {$failedCount} bank schedule(s)")
+                                    ->body($errorMessages)
+                                    ->danger()
+                                    ->send();
+                            } elseif ($successCount === 0) {
+                                // If nothing succeeded and nothing failed, there might be an issue
+                                \Filament\Notifications\Notification::make()
+                                    ->title('No schedules were processed')
+                                    ->body('No bank schedules were processed. Please check the logs for details.')
+                                    ->warning()
+                                    ->send();
+                            }
+                            
+                            // Refresh the table
+                            $this->resetTable();
+                        } catch (\Exception $e) {
+                            \Log::error('Error in markAllAsDone action', [
+                                'error' => $e->getMessage(),
+                                'trace' => $e->getTraceAsString()
+                            ]);
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('Error processing bank schedules')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
             ])
             ->defaultSort('created_at', 'desc')
             ->poll('30s');

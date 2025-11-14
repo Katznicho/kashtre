@@ -55,6 +55,7 @@ class BankScheduleController extends Controller
             'business_id' => 'required|exists:businesses,id|not_in:1', // Cannot create for Kashtre business
             'client_name' => 'required|string|max:255',
             'amount' => 'required|numeric|min:0.01',
+            'withdrawal_charge' => 'nullable|numeric|min:0',
             'bank_name' => 'required|string|max:255',
             'bank_account' => 'required|string|max:255',
             'withdrawal_request_id' => 'nullable|exists:withdrawal_requests,id',
@@ -69,6 +70,7 @@ class BankScheduleController extends Controller
                 'business_id' => $validated['business_id'],
                 'client_name' => $validated['client_name'],
                 'amount' => $validated['amount'],
+                'withdrawal_charge' => $validated['withdrawal_charge'] ?? 0,
                 'bank_name' => $validated['bank_name'],
                 'bank_account' => $validated['bank_account'],
                 'withdrawal_request_id' => $validated['withdrawal_request_id'] ?? null,
@@ -119,6 +121,7 @@ class BankScheduleController extends Controller
             'business_id' => 'required|exists:businesses,id|not_in:1', // Cannot update to Kashtre business
             'client_name' => 'required|string|max:255',
             'amount' => 'required|numeric|min:0.01',
+            'withdrawal_charge' => 'nullable|numeric|min:0',
             'bank_name' => 'required|string|max:255',
             'bank_account' => 'required|string|max:255',
             'withdrawal_request_id' => 'nullable|exists:withdrawal_requests,id',
@@ -127,6 +130,8 @@ class BankScheduleController extends Controller
         ]);
 
         try {
+            // Ensure withdrawal_charge defaults to 0 if not provided
+            $validated['withdrawal_charge'] = $validated['withdrawal_charge'] ?? 0;
             $bankSchedule->update($validated);
 
             return redirect()->route('bank-schedules.index')

@@ -14,6 +14,7 @@ class BankSchedule extends Model
         'business_id',
         'client_name',
         'amount',
+        'withdrawal_charge',
         'bank_name',
         'bank_account',
         'withdrawal_request_id',
@@ -24,6 +25,7 @@ class BankSchedule extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'withdrawal_charge' => 'decimal:2',
     ];
 
     // Relationships
