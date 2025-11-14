@@ -16,11 +16,8 @@ class RequireTwoFactorForKashtre
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Only enforce 2FA in production environment
-        if (config('app.env') !== 'production') {
-            return $next($request);
-        }
-
+        // Enforce 2FA in all environments (removed production-only check)
+        
         // Only check for authenticated users
         if (!Auth::check()) {
             return $next($request);
@@ -45,6 +42,11 @@ class RequireTwoFactorForKashtre
         // Check if current route is allowed (handle case where route might be null)
         $routeName = $request->route()?->getName();
         if ($routeName && in_array($routeName, $allowedRoutes)) {
+            return $next($request);
+        }
+
+        // Allow Livewire requests (needed for 2FA enable button and other Livewire components)
+        if ($request->is('livewire/*') || $request->header('X-Livewire')) {
             return $next($request);
         }
 
