@@ -31,4 +31,27 @@ class PaymentMethodAccountController extends Controller
 
         return view('settings.payment-method-accounts.transactions', compact('paymentMethodAccount'));
     }
+
+    public function show(PaymentMethodAccount $paymentMethodAccount, \App\Models\PaymentMethodAccountTransaction $transaction)
+    {
+        if (!in_array('View Maturation Periods', auth()->user()->permissions ?? [])) {
+            abort(403, 'Access denied. You do not have permission to view payment method account transactions.');
+        }
+
+        // Ensure the transaction belongs to the account
+        if ($transaction->payment_method_account_id !== $paymentMethodAccount->id) {
+            abort(404, 'Transaction not found.');
+        }
+
+        // Ensure the account belongs to the current business
+        if ($paymentMethodAccount->business_id !== auth()->user()->business_id) {
+            abort(403, 'Access denied. You do not have permission to view this account.');
+        }
+
+        // Load relationships
+        $transaction->load(['client', 'invoice', 'createdBy', 'business', 'paymentMethodAccount']);
+        $paymentMethodAccount->load(['business']);
+
+        return view('settings.payment-method-accounts.transaction-show', compact('paymentMethodAccount', 'transaction'));
+    }
 }

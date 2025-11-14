@@ -8,6 +8,7 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
@@ -102,18 +103,6 @@ class TransactionsTable extends Component implements HasForms, HasTable
                     ->color(fn ($record) => $record->type === 'credit' ? 'success' : 'danger')
                     ->alignRight(),
 
-                TextColumn::make('balance_before')
-                    ->label('Balance Before')
-                    ->sortable()
-                    ->formatStateUsing(fn ($state, $record) => $state ? number_format($state, 2) . ' ' . ($record->currency ?? 'UGX') : 'N/A')
-                    ->alignRight(),
-
-                TextColumn::make('balance_after')
-                    ->label('Balance After')
-                    ->sortable()
-                    ->formatStateUsing(fn ($state, $record) => $state ? number_format($state, 2) . ' ' . ($record->currency ?? 'UGX') : 'N/A')
-                    ->alignRight(),
-
                 TextColumn::make('client.name')
                     ->label('Client')
                     ->searchable()
@@ -151,6 +140,14 @@ class TransactionsTable extends Component implements HasForms, HasTable
                         'failed' => 'Failed',
                         'cancelled' => 'Cancelled',
                     ]),
+            ])
+            ->actions([
+                ViewAction::make()
+                    ->label('View Details')
+                    ->url(fn ($record) => route('payment-method-accounts.transactions.show', [
+                        'paymentMethodAccount' => $this->paymentMethodAccount->id,
+                        'transaction' => $record->id
+                    ])),
             ])
             ->defaultSort('created_at', 'desc')
             ->paginated([10, 25, 50, 100]);

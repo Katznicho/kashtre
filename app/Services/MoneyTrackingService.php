@@ -16,6 +16,7 @@ use App\Models\BalanceHistory;
 use App\Models\CreditNote;
 use App\Models\BusinessBalanceHistory;
 use App\Models\ContractorBalanceHistory;
+use App\Models\PaymentMethodAccount;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -156,9 +157,53 @@ class MoneyTrackingService
 
             DB::beginTransaction();
 
+            // STEP 1: Check if PaymentMethodAccount exists for this business and payment method
+            // If it exists, debit it FIRST before anything else
+            $paymentMethodAccount = null;
+            if ($paymentMethod) {
+                // Normalize payment method (e.g., 'mobile_money', 'cash', 'bank_transfer')
+                $normalizedPaymentMethod = $this->normalizePaymentMethod($paymentMethod);
+                
+                $paymentMethodAccount = PaymentMethodAccount::forBusiness($client->business_id)
+                    ->forPaymentMethod($normalizedPaymentMethod)
+                    ->active()
+                    ->first();
+                
+                if ($paymentMethodAccount) {
+                    Log::info("Payment method account found - debiting first", [
+                        'business_id' => $client->business_id,
+                        'payment_method' => $normalizedPaymentMethod,
+                        'payment_method_account_id' => $paymentMethodAccount->id,
+                        'payment_method_account_name' => $paymentMethodAccount->name,
+                        'amount_to_debit' => $amount
+                    ]);
+                    
+                    // Debit the payment method account
+                    $paymentMethodAccount->debit(
+                        $amount,
+                        $reference,
+                        "Payment received from client {$client->full_name}",
+                        $client->id,
+                        $metadata['invoice_id'] ?? null,
+                        $metadata
+                    );
+                    
+                    Log::info("Payment method account debited successfully", [
+                        'payment_method_account_id' => $paymentMethodAccount->id,
+                        'amount_debited' => $amount,
+                        'new_balance' => $paymentMethodAccount->fresh()->balance
+                    ]);
+                } else {
+                    Log::info("No payment method account found for business and payment method - continuing with existing flow", [
+                        'business_id' => $client->business_id,
+                        'payment_method' => $normalizedPaymentMethod
+                    ]);
+                }
+            }
+
             $clientSuspenseAccount = $this->getOrCreateClientSuspenseAccount($client);
             
-            // Create or get Mobile Money account
+            // Create or get Mobile Money account (legacy - keeping for backward compatibility)
             $mobileMoneyAccount = $this->getOrCreateMobileMoneyAccount($client->business);
             
             // Create transfer record
@@ -4748,5 +4793,44 @@ class MoneyTrackingService
         }
 
         return rtrim(rtrim(number_format($resolved, 2, '.', ''), '0'), '.');
+    }
+
+    /**
+     * Normalize payment method string to match PaymentMethodAccount enum values
+     * Handles variations like 'mobile_money', 'mobile-money', 'Mobile Money', etc.
+     */
+    private function normalizePaymentMethod($paymentMethod): string
+    {
+        if (empty($paymentMethod)) {
+            return 'cash'; // Default to cash
+        }
+
+        // Convert to lowercase and replace spaces/hyphens with underscores
+        $normalized = strtolower(trim((string)$paymentMethod));
+        $normalized = str_replace([' ', '-'], '_', $normalized);
+
+        // Map common variations to standard enum values
+        $mapping = [
+            'mobile_money' => 'mobile_money',
+            'mobilemoney' => 'mobile_money',
+            'mobile' => 'mobile_money',
+            'mtn' => 'mobile_money',
+            'airtel' => 'mobile_money',
+            'yo' => 'mobile_money',
+            'cash' => 'cash',
+            'bank_transfer' => 'bank_transfer',
+            'banktransfer' => 'bank_transfer',
+            'bank' => 'bank_transfer',
+            'transfer' => 'bank_transfer',
+            'insurance' => 'insurance',
+            'credit_arrangement' => 'credit_arrangement',
+            'credit' => 'credit_arrangement',
+            'v_card' => 'v_card',
+            'virtual_card' => 'v_card',
+            'p_card' => 'p_card',
+            'physical_card' => 'p_card',
+        ];
+
+        return $mapping[$normalized] ?? $normalized;
     }
 }

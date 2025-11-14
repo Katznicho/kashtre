@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class PaymentMethodAccount extends Model
 {
@@ -99,7 +100,7 @@ class PaymentMethodAccount extends Model
             'currency' => $this->currency,
             'transaction_for' => 'payment_received',
             'metadata' => $metadata,
-            'created_by' => auth()->id(),
+            'created_by' => auth()->id() ?? null,
         ]);
         
         return $this;
@@ -129,7 +130,7 @@ class PaymentMethodAccount extends Model
             'currency' => $this->currency,
             'transaction_for' => 'manual_adjustment',
             'metadata' => $metadata,
-            'created_by' => auth()->id(),
+            'created_by' => auth()->id() ?? null,
         ]);
         
         return $this;

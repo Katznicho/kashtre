@@ -183,6 +183,7 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     
     // Payment Method Account Transactions
     Route::get("payment-method-accounts/{paymentMethodAccount}/transactions", [PaymentMethodAccountController::class, 'transactions'])->name('payment-method-accounts.transactions');
+    Route::get("payment-method-accounts/{paymentMethodAccount}/transactions/{transaction}", [PaymentMethodAccountController::class, 'show'])->name('payment-method-accounts.transactions.show');
     
     // API route for fetching branches by business
     Route::get('/api/branches', function (Request $request) {
