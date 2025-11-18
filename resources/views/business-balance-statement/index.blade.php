@@ -124,7 +124,7 @@
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
-                        @forelse($businessBalanceHistories->take(10) as $history)
+                        @forelse($businessBalanceHistories as $history)
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                     @if(auth()->user()->business_id == 1)
@@ -179,6 +179,13 @@
                     </tbody>
                 </table>
             </div>
+            
+            <!-- Pagination -->
+            @if($businessBalanceHistories->hasPages())
+                <div class="px-6 py-4 border-t border-gray-200">
+                    {{ $businessBalanceHistories->links() }}
+                </div>
+            @endif
         </div>
 
         <!-- Navigation -->
