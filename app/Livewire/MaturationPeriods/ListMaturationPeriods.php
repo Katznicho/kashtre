@@ -13,6 +13,7 @@ use Filament\Tables\Actions\CreateAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Tables\Columns\TextColumn;
@@ -146,9 +147,45 @@ class ListMaturationPeriods extends Component implements HasForms, HasTable
                     ->visible(fn() => in_array('Edit Maturation Periods', auth()->user()->permissions ?? []))
                     ->url(fn (MaturationPeriod $record): string => route('maturation-periods.edit', $record))
                     ->color('warning'),
+                Action::make('toggleStatus')
+                    ->label(fn (MaturationPeriod $record): string => $record->is_active ? 'Deactivate' : 'Activate')
+                    ->icon(fn (MaturationPeriod $record): string => $record->is_active ? 'heroicon-o-x-circle' : 'heroicon-o-check-circle')
+                    ->color(fn (MaturationPeriod $record): string => $record->is_active ? 'danger' : 'success')
+                    ->visible(fn() => in_array('Manage Maturation Periods', auth()->user()->permissions ?? []))
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (MaturationPeriod $record): string => $record->is_active ? 'Deactivate Payment Method' : 'Activate Payment Method')
+                    ->modalDescription(fn (MaturationPeriod $record): string => 
+                        $record->is_active 
+                            ? "Are you sure you want to deactivate this payment method? It will no longer be available for client registration until reactivated."
+                            : "Are you sure you want to activate this payment method? It will be available for client registration."
+                    )
+                    ->modalSubmitActionLabel(fn (MaturationPeriod $record): string => $record->is_active ? 'Deactivate' : 'Activate')
+                    ->action(function (MaturationPeriod $record) {
+                        $record->update([
+                            'is_active' => !$record->is_active,
+                            'updated_by' => Auth::id(),
+                        ]);
+                        
+                        $status = $record->is_active ? 'activated' : 'deactivated';
+                        
+                        Notification::make()
+                            ->title("Payment method {$status} successfully")
+                            ->success()
+                            ->send();
+                    }),
                 DeleteAction::make()
                     ->visible(fn() => in_array('Delete Maturation Periods', auth()->user()->permissions ?? []))
-                    ->successNotificationTitle('Maturation period deleted successfully.'),
+                    ->requiresConfirmation()
+                    ->modalHeading('Delete Payment Method')
+                    ->modalDescription('Are you sure you want to delete this payment method? This action cannot be undone and will remove it from all client registration options.')
+                    ->successNotificationTitle('Payment method deleted successfully.')
+                    ->action(function (MaturationPeriod $record) {
+                        $record->delete();
+                        Notification::make()
+                            ->title('Payment method deleted successfully')
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
