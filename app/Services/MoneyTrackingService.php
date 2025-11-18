@@ -54,6 +54,11 @@ class MoneyTrackingService
                 'name' => 'Kashtre Account',
                 'type' => 'kashtre_account',
                 'description' => 'Holds KASHTRE funds'
+            ],
+            [
+                'name' => 'Withdrawal Suspense Account',
+                'type' => 'withdrawal_suspense_account',
+                'description' => 'Holds funds for pending withdrawal requests'
             ]
         ];
 
@@ -2233,6 +2238,23 @@ class MoneyTrackingService
         ], [
             'name' => "Package Suspense Account - {$business->name}" . ($clientId ? " - Client {$clientId}" : ""),
             'description' => "Package suspense account for {$business->name}" . ($clientId ? " - Client {$clientId}" : ""),
+            'balance' => 0,
+            'currency' => 'UGX',
+            'is_active' => true
+        ]);
+    }
+
+    /**
+     * Get or create withdrawal suspense account
+     */
+    public function getOrCreateWithdrawalSuspenseAccount(Business $business)
+    {
+        return MoneyAccount::firstOrCreate([
+            'business_id' => $business->id,
+            'type' => 'withdrawal_suspense_account'
+        ], [
+            'name' => "Withdrawal Suspense Account - {$business->name}",
+            'description' => "Holds funds for pending withdrawal requests for {$business->name}",
             'balance' => 0,
             'currency' => 'UGX',
             'is_active' => true

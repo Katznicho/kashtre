@@ -1,6 +1,6 @@
 <div class="space-y-6">
 
-    @if(empty(auth()->user()->two_factor_secret))
+    @if(empty(auth()->user()->two_factor_secret) && config('app.env') !== 'local')
     <div class="bg-orange-500/95 border border-orange-400 rounded-xl px-5 py-4 text-white flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-sm">
         <div class="flex items-start md:items-center gap-3">
             <span class="inline-flex items-center justify-center rounded-full bg-white/20 text-white h-10 w-10">
@@ -9,7 +9,7 @@
             <div>
                 <p class="text-sm font-semibold tracking-wide uppercase">Security Alert: Enable Two-Factor Authentication</p>
                 <p class="text-sm text-white/90">
-                    Protect admin and server accounts with an extra layer of security. Enable 2FA before launch to secure transactions and sensitive data.
+                    Two-factor authentication (2FA) is required for all users. Enable 2FA to secure your account and protect sensitive data.
                 </p>
             </div>
         </div>

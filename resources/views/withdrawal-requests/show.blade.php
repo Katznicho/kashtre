@@ -143,7 +143,8 @@
                                 </div>
                             </div>
 
-                            <!-- Kashtre Progress -->
+                            <!-- Kashtre Progress - Only visible to Kashtre users -->
+                            @if(Auth::user()->business_id == 1)
                             <div>
                                 <div class="flex justify-between items-center mb-2">
                                     <span class="font-semibold text-gray-700">Kashtre Approval</span>
@@ -159,19 +160,33 @@
                                     <span class="text-xs text-gray-500">Step 3: Approver</span>
                                 </div>
                             </div>
+                            @endif
 
-                            <!-- Overall Progress -->
+                            <!-- Overall Progress - Show different info for business vs Kashtre users -->
                             <div class="bg-gray-50 p-4 rounded-lg">
                                 <div class="flex justify-between items-center mb-2">
                                     <span class="font-semibold text-gray-700">Overall Progress</span>
-                                    <span class="text-sm text-gray-600">{{ $progress['overall']['completed'] }}/{{ $progress['overall']['total'] }} approvals</span>
+                                    @if(Auth::user()->business_id == 1)
+                                        <span class="text-sm text-gray-600">{{ $progress['overall']['completed'] }}/{{ $progress['overall']['total'] }} approvals</span>
+                                    @else
+                                        <span class="text-sm text-gray-600">{{ $progress['business']['completed'] }}/{{ $progress['business']['total'] }} business approvals</span>
+                                    @endif
                                 </div>
                                 <div class="w-full bg-gray-200 rounded-full h-3">
-                                    <div class="bg-purple-600 h-3 rounded-full transition-all duration-300" 
-                                         style="width: {{ $progress['overall']['percentage'] }}%"></div>
+                                    @if(Auth::user()->business_id == 1)
+                                        <div class="bg-purple-600 h-3 rounded-full transition-all duration-300" 
+                                             style="width: {{ $progress['overall']['percentage'] }}%"></div>
+                                    @else
+                                        <div class="bg-purple-600 h-3 rounded-full transition-all duration-300" 
+                                             style="width: {{ $progress['business']['percentage'] }}%"></div>
+                                    @endif
                                 </div>
                                 <div class="text-center mt-2">
-                                    <span class="text-sm font-semibold text-gray-700">{{ $progress['overall']['percentage'] }}% Complete</span>
+                                    @if(Auth::user()->business_id == 1)
+                                        <span class="text-sm font-semibold text-gray-700">{{ $progress['overall']['percentage'] }}% Complete</span>
+                                    @else
+                                        <span class="text-sm font-semibold text-gray-700">{{ $progress['business']['percentage'] }}% Business Complete</span>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -260,7 +275,8 @@
                             </div>
                         </div>
 
-                        <!-- Kashtre Approval -->
+                        <!-- Kashtre Approval - Only visible to Kashtre users -->
+                        @if(Auth::user()->business_id == 1)
                         <div>
                             <h4 class="font-semibold text-gray-900 mb-3">Kashtre Approval</h4>
                             <div class="space-y-2">
@@ -334,6 +350,7 @@
                                 @endif
                             </div>
                         </div>
+                        @endif
                     </div>
 
                     <!-- Approval Progress -->
@@ -341,14 +358,24 @@
                         <h4 class="font-semibold text-gray-900 mb-3">Approval Progress</h4>
                         <div class="bg-gray-200 rounded-full h-2">
                             @php
-                                $totalApprovals = $withdrawalRequest->required_business_approvals + $withdrawalRequest->required_kashtre_approvals;
-                                // Count all actual approval records (already includes initiator's approval)
-                                $receivedApprovals = $totalBusinessApprovals + $actualKashtreApprovals;
+                                if (Auth::user()->business_id == 1) {
+                                    $totalApprovals = $withdrawalRequest->required_business_approvals + $withdrawalRequest->required_kashtre_approvals;
+                                    $receivedApprovals = $totalBusinessApprovals + $actualKashtreApprovals;
+                                } else {
+                                    $totalApprovals = $withdrawalRequest->required_business_approvals;
+                                    $receivedApprovals = $totalBusinessApprovals;
+                                }
                                 $progress = $totalApprovals > 0 ? ($receivedApprovals / $totalApprovals) * 100 : 0;
                             @endphp
                             <div class="bg-green-600 h-2 rounded-full transition-all duration-300" style="width: {{ $progress }}%"></div>
                         </div>
-                        <p class="text-sm text-gray-600 mt-2">{{ $receivedApprovals }} of {{ $totalApprovals }} approvals received</p>
+                        <p class="text-sm text-gray-600 mt-2">
+                            @if(Auth::user()->business_id == 1)
+                                {{ $receivedApprovals }} of {{ $totalApprovals }} approvals received
+                            @else
+                                {{ $receivedApprovals }} of {{ $totalApprovals }} business approvals received
+                            @endif
+                        </p>
                     </div>
 
                     <!-- Approval Actions -->

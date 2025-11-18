@@ -339,7 +339,17 @@ class WithdrawalRequest extends Model
                 
                 // Instead of processing withdrawal immediately, create a bank schedule
                 // Money will move when the bank schedule is processed
-                $this->createBankSchedule();
+                try {
+                    $this->createBankSchedule();
+                } catch (\Exception $e) {
+                    \Log::error("Error creating bank schedule in moveToNextStep", [
+                        'withdrawal_request_id' => $this->id,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    // Re-throw to ensure the error is handled upstream
+                    throw $e;
+                }
             }
         }
     }
@@ -457,16 +467,8 @@ class WithdrawalRequest extends Model
     public function createBankSchedule()
     {
         try {
-            // Only create bank schedule for bank transfers
-            if ($this->payment_method !== 'bank_transfer') {
-                \Log::info("Skipping bank schedule creation - not a bank transfer", [
-                    'withdrawal_request_id' => $this->id,
-                    'payment_method' => $this->payment_method
-                ]);
-                // For mobile money, still process withdrawal immediately
-                $this->processWithdrawal();
-                return null;
-            }
+            // Create bank schedule for ALL payment methods (bank transfer and mobile money)
+            // Money will only move when bank schedule is marked as done
 
             // Check if bank schedule already exists
             $existingSchedule = \App\Models\BankSchedule::where('withdrawal_request_id', $this->id)->first();
@@ -496,8 +498,8 @@ class WithdrawalRequest extends Model
                 'client_name' => $clientName,
                 'amount' => $this->net_amount, // Use net amount (amount after charge)
                 'withdrawal_charge' => $this->withdrawal_charge, // Include withdrawal charge
-                'bank_name' => $this->bank_name ?? 'Not specified',
-                'bank_account' => $this->account_number ?? 'Not specified',
+                'bank_name' => $this->bank_name ?? ($this->payment_method === 'mobile_money' ? 'Mobile Money' : 'Not specified'),
+                'bank_account' => $this->account_number ?? $this->mobile_money_number ?? 'Not specified',
                 'withdrawal_request_id' => $this->id,
                 'status' => 'pending',
                 'reference_id' => $this->uuid,
@@ -508,6 +510,7 @@ class WithdrawalRequest extends Model
                 'withdrawal_request_id' => $this->id,
                 'bank_schedule_id' => $bankSchedule->id,
                 'amount' => $bankSchedule->amount,
+                'payment_method' => $this->payment_method,
                 'business_id' => $this->business_id
             ]);
 

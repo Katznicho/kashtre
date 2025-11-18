@@ -15,6 +15,8 @@ class WithdrawalSetting extends Model
         'business_id',
         'minimum_withdrawal_amount',
         'number_of_free_withdrawals_per_day',
+        'max_approval_time',
+        'max_approval_time_unit',
         'min_business_initiators',
         'max_business_initiators',
         'min_business_authorizers',
@@ -34,6 +36,8 @@ class WithdrawalSetting extends Model
     protected $casts = [
         'minimum_withdrawal_amount' => 'decimal:2',
         'number_of_free_withdrawals_per_day' => 'integer',
+        'max_approval_time' => 'integer',
+        'max_approval_time_unit' => 'string',
         'min_business_initiators' => 'integer',
         'max_business_initiators' => 'integer',
         'min_business_authorizers' => 'integer',

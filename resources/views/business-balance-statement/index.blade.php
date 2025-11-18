@@ -57,7 +57,7 @@
                     <div class="ml-4">
                         <h3 class="text-lg font-semibold text-gray-900">Available Balance</h3>
                         <p class="text-2xl font-bold text-blue-600">
-                            UGX {{ number_format($businessBalanceHistories->where('type', 'credit')->sum('amount') - $businessBalanceHistories->where('type', 'debit')->sum('amount'), 2) }}
+                            UGX {{ number_format(($totalCredits ?? 0) - ($totalDebits ?? 0), 2) }}
                         </p>
                     </div>
                 </div>
@@ -74,7 +74,7 @@
                     <div class="ml-4">
                         <h3 class="text-lg font-semibold text-gray-900">Total Balance</h3>
                         <p class="text-2xl font-bold text-green-600">
-                            UGX {{ number_format($businessBalanceHistories->where('type', 'credit')->sum('amount') - $businessBalanceHistories->where('type', 'debit')->sum('amount'), 2) }}
+                            UGX {{ number_format(($totalCredits ?? 0) - ($totalDebits ?? 0), 2) }}
                         </p>
                     </div>
                 </div>
@@ -91,7 +91,7 @@
                     <div class="ml-4">
                         <h3 class="text-lg font-semibold text-gray-900">Total Debits</h3>
                         <p class="text-2xl font-bold text-red-600">
-                            UGX {{ number_format($businessBalanceHistories->where('type', 'debit')->sum('amount'), 2) }}
+                            UGX {{ number_format($totalDebits ?? 0, 2) }}
                         </p>
                     </div>
                 </div>

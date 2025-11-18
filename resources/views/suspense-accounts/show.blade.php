@@ -47,6 +47,9 @@
                                             @case('kashtre_suspense_account')
                                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Kashtre Suspense</span>
                                                 @break
+                                            @case('withdrawal_suspense_account')
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Withdrawal Suspense</span>
+                                                @break
                                             @default
                                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ ucfirst(str_replace('_', ' ', $account->type)) }}</span>
                                         @endswitch
@@ -72,10 +75,16 @@
                                         @endif
                                     </span>
                                 </div>
-                                @if($account->client)
+                                @if($account->client && $account->type !== 'withdrawal_suspense_account')
                                     <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                         <span class="font-medium text-gray-600">Client:</span>
                                         <span class="text-gray-900">{{ $account->client->name }}</span>
+                                    </div>
+                                @endif
+                                @if($account->type === 'withdrawal_suspense_account')
+                                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                                        <span class="font-medium text-gray-600">Business:</span>
+                                        <span class="text-gray-900">{{ $account->business->name }}</span>
                                     </div>
                                 @endif
                                 @if($account->description)
@@ -116,6 +125,14 @@
                                             <i class="fas fa-hand-holding-usd mr-2"></i>Kashtre Suspense Account
                                         </h5>
                                         <p class="text-green-800">Holds all service fees charged on the invoice. For services paid for but not yet offered. Includes service fees for deposits.</p>
+                                    </div>
+                                    @break
+                                @case('withdrawal_suspense_account')
+                                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                        <h5 class="text-purple-900 font-semibold flex items-center mb-2">
+                                            <i class="fas fa-money-bill-wave mr-2"></i>Withdrawal Suspense Account
+                                        </h5>
+                                        <p class="text-purple-800">Holds funds for pending withdrawal requests from businesses. Funds are held here until the withdrawal is approved and processed, or rejected and returned to the business account.</p>
                                     </div>
                                     @break
                                 @default
@@ -237,17 +254,41 @@
                                                     {{ $history->created_at->format('M d, Y H:i') }}
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    @if($history->transaction_type === 'credit')
-                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Credit</span>
+                                                    @if(isset($history->transaction_type))
+                                                        {{-- BalanceHistory (client-level) --}}
+                                                        @if($history->transaction_type === 'credit')
+                                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Credit</span>
+                                                        @else
+                                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Debit</span>
+                                                        @endif
                                                     @else
-                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Debit</span>
+                                                        {{-- BusinessBalanceHistory (business-level) --}}
+                                                        @if($history->type === 'credit')
+                                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Credit</span>
+                                                        @elseif($history->type === 'package')
+                                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Package</span>
+                                                        @else
+                                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Debit</span>
+                                                        @endif
                                                     @endif
                                                 </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold {{ $history->transaction_type === 'credit' ? 'text-green-600' : 'text-red-600' }}">
-                                                    {{ $history->transaction_type === 'credit' ? '+' : '-' }}{{ number_format($history->amount, 0) }} UGX
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold {{ (isset($history->transaction_type) && $history->transaction_type === 'credit') || (isset($history->type) && $history->type === 'credit') ? 'text-green-600' : 'text-red-600' }}">
+                                                    @if(isset($history->transaction_type))
+                                                        {{-- BalanceHistory (client-level) --}}
+                                                        {{ $history->transaction_type === 'credit' ? '+' : '-' }}{{ number_format($history->amount, 0) }} UGX
+                                                    @else
+                                                        {{-- BusinessBalanceHistory (business-level) --}}
+                                                        {{ $history->type === 'credit' ? '+' : '-' }}{{ number_format($history->amount, 0) }} UGX
+                                                    @endif
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                                                    {{ number_format($history->balance_after, 0) }} UGX
+                                                    @if(isset($history->balance_after))
+                                                        {{-- BalanceHistory (client-level) --}}
+                                                        {{ number_format($history->balance_after, 0) }} UGX
+                                                    @else
+                                                        {{-- BusinessBalanceHistory (business-level) --}}
+                                                        {{ number_format($history->new_balance, 0) }} UGX
+                                                    @endif
                                                 </td>
                                                 <td class="px-6 py-4 text-sm text-gray-500">
                                                     {{ $history->description }}

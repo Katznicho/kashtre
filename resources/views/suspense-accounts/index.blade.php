@@ -18,7 +18,7 @@
 
 
             <!-- Summary Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <!-- Package Suspense Card -->
                     <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
                         <div class="flex items-center justify-between mb-4">
@@ -55,18 +55,30 @@
                         <p class="text-green-200 text-sm mt-2">Service fees and deposits</p>
                     </div>
 
-                    <!-- Total Suspense Balance Card -->
-                    <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white">
+                    <!-- Withdrawal Suspense Card -->
+                    <div class="bg-gradient-to-r from-red-500 to-red-600 rounded-xl p-6 text-white">
                         <div class="flex items-center justify-between mb-4">
                             <div class="p-3 bg-white/20 rounded-lg">
-                                <i class="fas fa-calculator text-2xl"></i>
+                                <i class="fas fa-money-bill-wave text-2xl"></i>
                             </div>
                         </div>
-                        <h3 class="text-2xl font-bold mb-2">{{ number_format($totalSuspenseBalance, 0) }} UGX</h3>
-                        <p class="text-purple-100 font-medium">Total Suspense Balance</p>
-                        <p class="text-purple-200 text-sm mt-2">Sum of all suspense accounts</p>
+                        <h3 class="text-2xl font-bold mb-2">{{ number_format($totalWithdrawalSuspense, 0) }} UGX</h3>
+                        <p class="text-red-100 font-medium">Withdrawal Suspense</p>
+                        <p class="text-red-200 text-sm mt-2">Held funds for pending withdrawals</p>
                     </div>
                 </div>
+
+            <!-- Total Suspense Balance Card -->
+            <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 bg-white/20 rounded-lg">
+                        <i class="fas fa-calculator text-2xl"></i>
+                    </div>
+                </div>
+                <h3 class="text-2xl font-bold mb-2">{{ number_format($totalSuspenseBalance, 0) }} UGX</h3>
+                <p class="text-purple-100 font-medium">Total Suspense Balance</p>
+                <p class="text-purple-200 text-sm mt-2">Sum of all suspense accounts</p>
+            </div>
 
             <!-- Livewire Table Component -->
             <livewire:suspense-accounts-table />

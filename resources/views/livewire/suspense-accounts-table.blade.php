@@ -26,6 +26,11 @@
                     <i class="fas fa-hand-holding-usd mr-2"></i>
                     Kashtre Suspense
                 </button>
+                <button wire:click="setActiveTab('withdrawal')" 
+                        class="py-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'withdrawal' ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+                    <i class="fas fa-money-bill-wave mr-2"></i>
+                    Withdrawal Suspense
+                </button>
             </nav>
         </div>
         

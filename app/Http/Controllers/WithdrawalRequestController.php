@@ -7,6 +7,12 @@ use App\Models\WithdrawalRequestApproval;
 use App\Models\WithdrawalSetting;
 use App\Models\BusinessWithdrawalSetting;
 use App\Models\Business;
+use App\Models\MoneyAccount;
+use App\Models\BusinessBalanceHistory;
+use App\Models\MoneyTransfer;
+use App\Models\User;
+use App\Services\MoneyTrackingService;
+use App\Notifications\WithdrawalRequestNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -50,17 +56,6 @@ class WithdrawalRequestController extends Controller
                 ->with('error', 'You do not have permission to create withdrawal requests. Please ensure withdrawal settings are configured and you are assigned as an initiator.');
         }
 
-        // Check if user already has a pending withdrawal request
-        $pendingRequest = WithdrawalRequest::where('business_id', $user->business_id)
-            ->where('requested_by', $user->id)
-            ->whereIn('status', ['pending', 'business_approved', 'kashtre_approved', 'approved', 'processing'])
-            ->first();
-
-        if ($pendingRequest) {
-            return redirect()->route('withdrawal-requests.show', $pendingRequest)
-                ->with('info', 'You already have a pending withdrawal request. Please wait for it to be processed before creating a new one.');
-        }
-
         // Get withdrawal settings for the business
         $withdrawalSettings = WithdrawalSetting::where('business_id', $user->business_id)
             ->where('is_active', true)
@@ -84,8 +79,22 @@ class WithdrawalRequestController extends Controller
 
         $business = $user->business;
         
-        // Get current account balance
-        $currentBalance = $business->account_balance ?? 0;
+        // Calculate current account balance from BusinessBalanceHistory (source of truth)
+        // Only consider business_account records, not suspense accounts
+        $businessAccount = \App\Models\MoneyAccount::where('business_id', $business->id)
+            ->where('type', 'business_account')
+            ->first();
+        
+        $currentBalance = 0;
+        if ($businessAccount) {
+            $businessBalanceHistories = \App\Models\BusinessBalanceHistory::where('business_id', $business->id)
+                ->where('money_account_id', $businessAccount->id)
+                ->get();
+            
+            $totalCredits = $businessBalanceHistories->where('type', 'credit')->sum('amount');
+            $totalDebits = $businessBalanceHistories->where('type', 'debit')->sum('amount');
+            $currentBalance = $totalCredits - $totalDebits;
+        }
 
         return view('withdrawal-requests.create', compact('withdrawalSettings', 'withdrawalCharges', 'business', 'currentBalance'));
     }
@@ -101,17 +110,6 @@ class WithdrawalRequestController extends Controller
         if (!$this->canUserCreateWithdrawal($user)) {
             return redirect()->route('business-balance-statement.index')
                 ->with('error', 'You do not have permission to create withdrawal requests.');
-        }
-
-        // Check if user already has a pending withdrawal request
-        $pendingRequest = WithdrawalRequest::where('business_id', $user->business_id)
-            ->where('requested_by', $user->id)
-            ->whereIn('status', ['pending', 'business_approved', 'kashtre_approved', 'approved', 'processing'])
-            ->first();
-
-        if ($pendingRequest) {
-            return redirect()->route('withdrawal-requests.show', $pendingRequest)
-                ->with('info', 'You already have a pending withdrawal request. Please wait for it to be processed before creating a new one.');
         }
 
         $request->validate([
@@ -146,8 +144,30 @@ class WithdrawalRequestController extends Controller
                 'user_id' => $user->id,
             ]);
             
-            // Total to be deducted from balance is amount + charge (handled at processing)
+            // Total to be held in suspense is amount + charge
             $totalDeduction = $request->amount + $withdrawalCharge;
+
+            // Check if business has sufficient balance
+            $businessAccount = MoneyAccount::where('business_id', $user->business_id)
+                ->where('type', 'business_account')
+                ->first();
+
+            if (!$businessAccount) {
+                throw new \Exception('Business account not found. Please contact administrator.');
+            }
+
+            // Calculate current balance from BusinessBalanceHistory
+            $businessBalanceHistories = BusinessBalanceHistory::where('business_id', $user->business_id)
+                ->where('money_account_id', $businessAccount->id)
+                ->get();
+            
+            $totalCredits = $businessBalanceHistories->where('type', 'credit')->sum('amount');
+            $totalDebits = $businessBalanceHistories->where('type', 'debit')->sum('amount');
+            $currentBalance = $totalCredits - $totalDebits;
+
+            if ($currentBalance < $totalDeduction) {
+                throw new \Exception('Insufficient balance. Your account balance (' . number_format($currentBalance, 2) . ' UGX) is insufficient to cover the total deduction (' . number_format($totalDeduction, 2) . ' UGX). Please reduce the withdrawal amount.');
+            }
 
             // Create a single withdrawal request entry (no separate charge row)
             $withdrawalRequest = WithdrawalRequest::create([
@@ -175,6 +195,59 @@ class WithdrawalRequestController extends Controller
                 'status' => $withdrawalRequest->status,
             ]);
 
+            // Hold funds in withdrawal suspense account
+            $moneyTrackingService = new MoneyTrackingService();
+            $withdrawalSuspenseAccount = $moneyTrackingService->getOrCreateWithdrawalSuspenseAccount($user->business);
+
+            // Debit from business_account
+            BusinessBalanceHistory::recordChange(
+                $user->business_id,
+                $businessAccount->id,
+                $totalDeduction,
+                'debit',
+                "Withdrawal Request Hold - {$withdrawalRequest->uuid}",
+                WithdrawalRequest::class,
+                $withdrawalRequest->id,
+                ['withdrawal_request_uuid' => $withdrawalRequest->uuid],
+                $user->id
+            );
+
+            // Credit to withdrawal suspense account
+            BusinessBalanceHistory::recordChange(
+                $user->business_id,
+                $withdrawalSuspenseAccount->id,
+                $totalDeduction,
+                'credit',
+                "Withdrawal Request Hold - {$withdrawalRequest->uuid}",
+                WithdrawalRequest::class,
+                $withdrawalRequest->id,
+                ['withdrawal_request_uuid' => $withdrawalRequest->uuid],
+                $user->id
+            );
+
+            // Create MoneyTransfer record for consistency with other suspense accounts (same table format)
+            MoneyTransfer::create([
+                'business_id' => $user->business_id,
+                'from_account_id' => $businessAccount->id,
+                'to_account_id' => $withdrawalSuspenseAccount->id,
+                'amount' => $totalDeduction,
+                'currency' => 'UGX',
+                'status' => 'completed',
+                'type' => 'credit',
+                'transfer_type' => 'withdrawal_hold',
+                'description' => "Withdrawal Request Hold - {$withdrawalRequest->uuid}",
+                'source' => $businessAccount->name,
+                'destination' => $withdrawalSuspenseAccount->name,
+                'processed_at' => now(),
+            ]);
+
+            Log::info('WR Funds held in suspense', [
+                'withdrawal_request_id' => $withdrawalRequest->id,
+                'total_deduction' => $totalDeduction,
+                'business_account_id' => $businessAccount->id,
+                'withdrawal_suspense_account_id' => $withdrawalSuspenseAccount->id,
+            ]);
+
             // Auto-approve step 1 if creator is an initiator
             // Check if user is assigned as initiator at business level
             $withdrawalSetting = WithdrawalSetting::where('business_id', $user->business_id)
@@ -189,28 +262,59 @@ class WithdrawalRequestController extends Controller
                     ->exists();
 
                 if ($isInitiator && $withdrawalRequest->getCurrentStepNumber() == 1) {
-                    // Create approval record for step 1
-                    WithdrawalRequestApproval::create([
-                        'withdrawal_request_id' => $withdrawalRequest->id,
-                        'approver_id' => $user->id,
-                        'approver_type' => 'user',
-                        'approver_level' => 'business',
-                        'approval_step' => 1,
-                        'action' => 'approved',
-                        'comment' => 'Auto-approved by initiator upon creation',
-                    ]);
+                    // Check if approval already exists to avoid duplicate entry error
+                    $existingApproval = WithdrawalRequestApproval::where('withdrawal_request_id', $withdrawalRequest->id)
+                        ->where('approver_id', $user->id)
+                        ->first();
 
-                    // Update step-specific approval counts
-                    $this->updateStepApprovalCounts($withdrawalRequest, $user);
+                    if (!$existingApproval) {
+                        // Create approval record for step 1
+                        WithdrawalRequestApproval::create([
+                            'withdrawal_request_id' => $withdrawalRequest->id,
+                            'approver_id' => $user->id,
+                            'approver_type' => 'user',
+                            'approver_level' => 'business',
+                            'approval_step' => 1,
+                            'action' => 'approved',
+                            'comment' => 'Auto-approved by initiator upon creation',
+                        ]);
 
-                    // Refresh to get updated counts
-                    $withdrawalRequest->refresh();
+                        // Update step-specific approval counts
+                        $this->updateStepApprovalCounts($withdrawalRequest, $user);
 
-                    // Check if step 1 is complete and move to step 2
-                    if ($withdrawalRequest->hasApprovedCurrentStep()) {
-                        $withdrawalRequest->moveToNextStep();
+                        // Refresh to get updated counts
+                        $withdrawalRequest->refresh();
+
+                        // Check if step 1 is complete and move to step 2
+                        if ($withdrawalRequest->hasApprovedCurrentStep()) {
+                            $withdrawalRequest->moveToNextStep();
+                            // Notify approvers at step 2
+                            $this->notifyNextStepApprovers($withdrawalRequest);
+                        } else {
+                            // Notify approvers at step 2 (authorizers) that a new request needs approval
+                            $this->notifyNextStepApprovers($withdrawalRequest);
+                        }
+                    } else {
+                        // Notify approvers at step 2 (authorizers) that a new request needs approval
+                        $this->notifyNextStepApprovers($withdrawalRequest);
                     }
+                } else {
+                    // Notify approvers at step 2 (authorizers) that a new request needs approval
+                    $this->notifyNextStepApprovers($withdrawalRequest);
                 }
+            } else {
+                // Notify approvers at step 2 (authorizers) that a new request needs approval
+                $this->notifyNextStepApprovers($withdrawalRequest);
+            }
+
+            // Notify requester that request was created
+            $requester = $withdrawalRequest->requester;
+            if ($requester) {
+                $requester->notify(new WithdrawalRequestNotification(
+                    $withdrawalRequest,
+                    'created',
+                    "Your withdrawal request for " . number_format($withdrawalRequest->amount, 2) . " UGX has been created and is pending approval."
+                ));
             }
 
             DB::commit();
@@ -388,8 +492,71 @@ class WithdrawalRequestController extends Controller
             $this->updateStepApprovalCounts($withdrawalRequest, $user);
 
             // Check if current step is completed and move to next step
+            $movedToNextStep = false;
             if ($withdrawalRequest->hasApprovedCurrentStep()) {
+                $oldStatus = $withdrawalRequest->status;
                 $withdrawalRequest->moveToNextStep();
+                // Refresh after moveToNextStep to get updated status
+                $withdrawalRequest->refresh();
+                $movedToNextStep = true;
+                
+                // Notify approvers at next step
+                $this->notifyNextStepApprovers($withdrawalRequest);
+                
+                // If moved from business_approved to approved, notify requester
+                if ($withdrawalRequest->status === 'approved') {
+                    // Update the description in BusinessBalanceHistory from "Hold" to "Accepted"
+                    $businessAccount = MoneyAccount::where('business_id', $withdrawalRequest->business_id)
+                        ->where('type', 'business_account')
+                        ->first();
+                    
+                    if ($businessAccount) {
+                        BusinessBalanceHistory::where('business_id', $withdrawalRequest->business_id)
+                            ->where('money_account_id', $businessAccount->id)
+                            ->where('reference_type', WithdrawalRequest::class)
+                            ->where('reference_id', $withdrawalRequest->id)
+                            ->where('description', 'like', '%Withdrawal Request Hold%')
+                            ->update([
+                                'description' => "Withdrawal Request Accepted - {$withdrawalRequest->uuid}"
+                            ]);
+                    }
+                    
+                    // Verify bank schedule was created
+                    $bankSchedule = \App\Models\BankSchedule::where('withdrawal_request_id', $withdrawalRequest->id)->first();
+                    if (!$bankSchedule) {
+                        // Bank schedule was not created, try to create it again
+                        \Log::warning('Bank schedule not found after approval, attempting to create', [
+                            'withdrawal_request_id' => $withdrawalRequest->id
+                        ]);
+                        try {
+                            $withdrawalRequest->createBankSchedule();
+                        } catch (\Exception $e) {
+                            \Log::error('Failed to create bank schedule after approval', [
+                                'withdrawal_request_id' => $withdrawalRequest->id,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+                    }
+                    
+                    $requester = $withdrawalRequest->requester;
+                    if ($requester) {
+                        $requester->notify(new WithdrawalRequestNotification(
+                            $withdrawalRequest,
+                            'fully_approved',
+                            "Your withdrawal request for " . number_format($withdrawalRequest->amount, 2) . " UGX has been fully approved and will be processed."
+                        ));
+                    }
+                } elseif ($oldStatus === 'pending' && $withdrawalRequest->status === 'business_approved') {
+                    // Business approval complete, notify requester
+                    $requester = $withdrawalRequest->requester;
+                    if ($requester) {
+                        $requester->notify(new WithdrawalRequestNotification(
+                            $withdrawalRequest,
+                            'step_completed',
+                            "Your withdrawal request for " . number_format($withdrawalRequest->amount, 2) . " UGX has been approved by business and is now pending Kashtre approval."
+                        ));
+                    }
+                }
             }
 
             DB::commit();
@@ -450,6 +617,79 @@ class WithdrawalRequestController extends Controller
                     'rejection_reason' => 'Related request rejected',
                     'rejected_at' => now(),
                 ]);
+            }
+
+            // Release funds from withdrawal suspense account back to business account
+            $business = $withdrawalRequest->business;
+            $totalDeduction = $withdrawalRequest->amount + $withdrawalRequest->withdrawal_charge;
+
+            $businessAccount = MoneyAccount::where('business_id', $business->id)
+                ->where('type', 'business_account')
+                ->first();
+
+            if ($businessAccount) {
+                $moneyTrackingService = new MoneyTrackingService();
+                $withdrawalSuspenseAccount = $moneyTrackingService->getOrCreateWithdrawalSuspenseAccount($business);
+
+                // Debit from withdrawal_suspense_account (create debit entry in suspense account history)
+                BusinessBalanceHistory::recordChange(
+                    $business->id,
+                    $withdrawalSuspenseAccount->id,
+                    $totalDeduction,
+                    'debit',
+                    "Withdrawal Request Rejected - {$withdrawalRequest->uuid}",
+                    WithdrawalRequest::class,
+                    $withdrawalRequest->id,
+                    ['withdrawal_request_uuid' => $withdrawalRequest->uuid],
+                    $user->id
+                );
+
+                // Credit back to business_account
+                BusinessBalanceHistory::recordChange(
+                    $business->id,
+                    $businessAccount->id,
+                    $totalDeduction,
+                    'credit',
+                    "Withdrawal Request Rejected - {$withdrawalRequest->uuid}",
+                    WithdrawalRequest::class,
+                    $withdrawalRequest->id,
+                    ['withdrawal_request_uuid' => $withdrawalRequest->uuid],
+                    $user->id
+                );
+
+                // Create MoneyTransfer record for consistency with other suspense accounts (same table format)
+                // This represents the return of funds from withdrawal suspense back to business account
+                MoneyTransfer::create([
+                    'business_id' => $business->id,
+                    'from_account_id' => $withdrawalSuspenseAccount->id,
+                    'to_account_id' => $businessAccount->id,
+                    'amount' => $totalDeduction,
+                    'currency' => 'UGX',
+                    'status' => 'completed',
+                    'type' => 'credit',
+                    'transfer_type' => 'withdrawal_rejected',
+                    'description' => "Withdrawal Request Rejected - {$withdrawalRequest->uuid}",
+                    'source' => $withdrawalSuspenseAccount->name,
+                    'destination' => $businessAccount->name,
+                    'processed_at' => now(),
+                ]);
+
+                Log::info('WR Funds released from suspense on rejection', [
+                    'withdrawal_request_id' => $withdrawalRequest->id,
+                    'total_deduction' => $totalDeduction,
+                    'business_account_id' => $businessAccount->id,
+                    'withdrawal_suspense_account_id' => $withdrawalSuspenseAccount->id,
+                ]);
+            }
+
+            // Notify requester that request was rejected
+            $requester = $withdrawalRequest->requester;
+            if ($requester) {
+                $requester->notify(new WithdrawalRequestNotification(
+                    $withdrawalRequest,
+                    'rejected',
+                    "Your withdrawal request for " . number_format($withdrawalRequest->amount, 2) . " UGX has been rejected. Reason: " . ($request->comment ?? 'No reason provided')
+                ));
             }
 
             DB::commit();
@@ -582,6 +822,60 @@ class WithdrawalRequestController extends Controller
                 'kashtre_approved_at' => $withdrawalRequest->kashtre_approved_at,
                 'approved_at' => $withdrawalRequest->approved_at,
             ]);
+        }
+    }
+
+    /**
+     * Notify approvers at the next step that they need to approve
+     */
+    private function notifyNextStepApprovers(WithdrawalRequest $withdrawalRequest)
+    {
+        $withdrawalSetting = WithdrawalSetting::where('business_id', $withdrawalRequest->business_id)
+            ->where('withdrawal_type', $withdrawalRequest->withdrawal_type)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$withdrawalSetting) {
+            return;
+        }
+
+        $currentLevel = $withdrawalRequest->getCurrentApprovalLevel();
+        $currentStep = $withdrawalRequest->getCurrentStepNumber();
+
+        // Get approvers for the current step
+        $approvers = collect();
+        
+        if ($currentLevel === 'business') {
+            $stepApprovalLevel = $withdrawalRequest->getStepApprovalLevel($currentStep);
+            $approvers = $withdrawalSetting->allBusinessApprovers()
+                ->where('approver_type', 'user')
+                ->where('approval_level', $stepApprovalLevel)
+                ->with('user')
+                ->get()
+                ->pluck('user')
+                ->filter();
+        } elseif ($currentLevel === 'kashtre') {
+            $stepApprovalLevel = $withdrawalRequest->getStepApprovalLevel($currentStep);
+            $approvers = $withdrawalSetting->allKashtreApprovers()
+                ->where('approver_type', 'user')
+                ->where('approval_level', $stepApprovalLevel)
+                ->with('user')
+                ->get()
+                ->pluck('user')
+                ->filter();
+        }
+
+        // Send notification to each approver
+        foreach ($approvers as $approver) {
+            if ($approver) {
+                $stepName = ucfirst($stepApprovalLevel);
+                $levelName = ucfirst($currentLevel);
+                $approver->notify(new WithdrawalRequestNotification(
+                    $withdrawalRequest,
+                    'pending_approval',
+                    "A withdrawal request for " . number_format($withdrawalRequest->amount, 2) . " UGX from {$withdrawalRequest->business->name} requires your approval at {$levelName} {$stepName} level."
+                ));
+            }
         }
     }
 }

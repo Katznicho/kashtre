@@ -13,10 +13,18 @@ class BusinessBalanceHistoryController extends Controller
     {
         $user = Auth::user();
         
+        // Get business account IDs for filtering (only show business_account type, not suspense accounts)
+        $businessAccountIds = \App\Models\MoneyAccount::where('type', 'business_account')
+            ->when($user->business_id != 1, function($query) use ($user) {
+                return $query->where('business_id', $user->business_id);
+            })
+            ->pluck('id');
+        
         // For super business (Kashtre), show all businesses
         if ($user->business_id == 1) {
             $businesses = Business::all();
             $businessBalanceHistories = BusinessBalanceHistory::with('business')
+                ->whereIn('money_account_id', $businessAccountIds)
                 ->orderBy('created_at', 'desc')
                 ->paginate(20);
         } else {
@@ -24,11 +32,27 @@ class BusinessBalanceHistoryController extends Controller
             $businesses = Business::where('id', $user->business_id)->get();
             $businessBalanceHistories = BusinessBalanceHistory::with('business')
                 ->where('business_id', $user->business_id)
+                ->whereIn('money_account_id', $businessAccountIds)
                 ->orderBy('created_at', 'desc')
                 ->paginate(20);
         }
 
-        return view('business-balance-statement.index', compact('businessBalanceHistories', 'businesses'))
+        // Calculate totals from filtered records
+        $totalCredits = BusinessBalanceHistory::whereIn('money_account_id', $businessAccountIds)
+            ->when($user->business_id != 1, function($query) use ($user) {
+                return $query->where('business_id', $user->business_id);
+            })
+            ->where('type', 'credit')
+            ->sum('amount');
+        
+        $totalDebits = BusinessBalanceHistory::whereIn('money_account_id', $businessAccountIds)
+            ->when($user->business_id != 1, function($query) use ($user) {
+                return $query->where('business_id', $user->business_id);
+            })
+            ->where('type', 'debit')
+            ->sum('amount');
+
+        return view('business-balance-statement.index', compact('businessBalanceHistories', 'businesses', 'totalCredits', 'totalDebits'))
             ->with('canUserCreateWithdrawal', function($user) {
                 return $this->canUserCreateWithdrawal($user);
             });
@@ -43,7 +67,13 @@ class BusinessBalanceHistoryController extends Controller
             abort(403, 'Unauthorized access to business balance statement.');
         }
 
+        // Get business account IDs for filtering (only show business_account type, not suspense accounts)
+        $businessAccountIds = \App\Models\MoneyAccount::where('business_id', $business->id)
+            ->where('type', 'business_account')
+            ->pluck('id');
+
         $businessBalanceHistories = BusinessBalanceHistory::where('business_id', $business->id)
+            ->whereIn('money_account_id', $businessAccountIds)
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 

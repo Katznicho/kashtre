@@ -45,6 +45,7 @@ class SuspenseAccountsTable extends Component implements HasTable, HasForms
             'package' => 'package_suspense_account',
             'general' => 'general_suspense_account',
             'kashtre' => 'kashtre_suspense_account',
+            'withdrawal' => 'withdrawal_suspense_account',
             default => 'package_suspense_account'
         };
 
@@ -82,42 +83,86 @@ class SuspenseAccountsTable extends Component implements HasTable, HasForms
             'package' => 'package_suspense_account',
             'general' => 'general_suspense_account',
             'kashtre' => 'kashtre_suspense_account',
+            'withdrawal' => 'withdrawal_suspense_account',
             default => 'package_suspense_account'
         };
 
-
-
-        // For Kashtre (business_id = 1), show transfers from all businesses
-        if ($businessId == 1) {
-            $query = MoneyTransfer::query()
-                ->where(function($query) use ($accountType) {
-                    $query->whereHas('toAccount', function($q) use ($accountType) {
-                        $q->where('type', $accountType);
-                    })->orWhereHas('fromAccount', function($q) use ($accountType) {
-                        $q->where('type', $accountType);
-                    });
-                })
-                ->with(['fromAccount.client', 'fromAccount.business', 'toAccount.client', 'toAccount.business', 'invoice.client', 'client', 'business'])
-                ->orderBy('created_at', 'desc');
+        // All suspense accounts use MoneyTransfer for consistency (same table format)
+        // For withdrawal suspense accounts, only show withdrawal-related transfers
+        if ($accountType === 'withdrawal_suspense_account') {
+            // For withdrawal suspense, only show withdrawal-related transfers
+            if ($businessId == 1) {
+                $query = MoneyTransfer::query()
+                    ->where(function($query) use ($accountType) {
+                        $query->whereHas('toAccount', function($q) use ($accountType) {
+                            $q->where('type', $accountType);
+                        })->orWhereHas('fromAccount', function($q) use ($accountType) {
+                            $q->where('type', $accountType);
+                        });
+                    })
+                    ->where(function($query) {
+                        $query->where('transfer_type', 'withdrawal_hold')
+                              ->orWhere('transfer_type', 'withdrawal_processed')
+                              ->orWhere('transfer_type', 'withdrawal_rejected')
+                              ->orWhere('description', 'like', '%Withdrawal%')
+                              ->orWhere('description', 'like', '%Bank Schedule%');
+                    })
+                    ->with(['fromAccount.client', 'fromAccount.business', 'toAccount.client', 'toAccount.business', 'invoice.client', 'client', 'business'])
+                    ->orderBy('created_at', 'desc');
+            } else {
+                // For regular businesses, only show their own withdrawal transfers
+                $query = MoneyTransfer::query()
+                    ->where(function($query) use ($businessId, $accountType) {
+                        $query->whereHas('toAccount', function($q) use ($businessId, $accountType) {
+                            $q->where('business_id', $businessId)
+                              ->where('type', $accountType);
+                        })->orWhereHas('fromAccount', function($q) use ($businessId, $accountType) {
+                            $q->where('business_id', $businessId)
+                              ->where('type', $accountType);
+                        });
+                    })
+                    ->where(function($query) {
+                        $query->where('transfer_type', 'withdrawal_hold')
+                              ->orWhere('transfer_type', 'withdrawal_processed')
+                              ->orWhere('transfer_type', 'withdrawal_rejected')
+                              ->orWhere('description', 'like', '%Withdrawal%')
+                              ->orWhere('description', 'like', '%Bank Schedule%');
+                    })
+                    ->with(['fromAccount.client', 'fromAccount.business', 'toAccount.client', 'toAccount.business', 'invoice.client', 'client', 'business'])
+                    ->orderBy('created_at', 'desc');
+            }
         } else {
-            // For regular businesses, only show their own transfers
-            $query = MoneyTransfer::query()
-                ->where(function($query) use ($businessId, $accountType) {
-                    $query->whereHas('toAccount', function($q) use ($businessId, $accountType) {
-                        $q->where('business_id', $businessId)
-                          ->where('type', $accountType);
-                    })->orWhereHas('fromAccount', function($q) use ($businessId, $accountType) {
-                        $q->where('business_id', $businessId)
-                          ->where('type', $accountType);
-                    });
-                })
-                ->with(['fromAccount.client', 'fromAccount.business', 'toAccount.client', 'toAccount.business', 'invoice.client', 'client', 'business'])
-                ->orderBy('created_at', 'desc');
+            // For other suspense accounts, use the normal query
+            if ($businessId == 1) {
+                $query = MoneyTransfer::query()
+                    ->where(function($query) use ($accountType) {
+                        $query->whereHas('toAccount', function($q) use ($accountType) {
+                            $q->where('type', $accountType);
+                        })->orWhereHas('fromAccount', function($q) use ($accountType) {
+                            $q->where('type', $accountType);
+                        });
+                    })
+                    ->with(['fromAccount.client', 'fromAccount.business', 'toAccount.client', 'toAccount.business', 'invoice.client', 'client', 'business'])
+                    ->orderBy('created_at', 'desc');
+            } else {
+                // For regular businesses, only show their own transfers
+                $query = MoneyTransfer::query()
+                    ->where(function($query) use ($businessId, $accountType) {
+                        $query->whereHas('toAccount', function($q) use ($businessId, $accountType) {
+                            $q->where('business_id', $businessId)
+                              ->where('type', $accountType);
+                        })->orWhereHas('fromAccount', function($q) use ($businessId, $accountType) {
+                            $q->where('business_id', $businessId)
+                              ->where('type', $accountType);
+                        });
+                    })
+                    ->with(['fromAccount.client', 'fromAccount.business', 'toAccount.client', 'toAccount.business', 'invoice.client', 'client', 'business'])
+                    ->orderBy('created_at', 'desc');
+            }
         }
 
-        return $table
-            ->query($query)
-            ->columns([
+        // All suspense accounts use the same columns (same table format)
+        $columns = [
                 TextColumn::make('movement_type')
                     ->label('Type')
                     ->badge()
@@ -151,7 +196,8 @@ class SuspenseAccountsTable extends Component implements HasTable, HasForms
                 TextColumn::make('client.name')
                     ->label('Client')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->visible(fn () => $this->activeTab !== 'withdrawal'),
                 
                 TextColumn::make('business.name')
                     ->label('Business')
@@ -196,7 +242,11 @@ class SuspenseAccountsTable extends Component implements HasTable, HasForms
                     ->label('Amount')
                     ->money('UGX')
                     ->sortable(),
-            ])
+        ];
+
+        return $table
+            ->query($query)
+            ->columns($columns)
             ->filters([
                 // Filters removed for cleaner interface
             ])

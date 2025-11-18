@@ -83,6 +83,37 @@
                         </div>
                     </div>
 
+                    <!-- Maximum Approval Time -->
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                        <h3 class="text-lg font-semibold text-yellow-900 mb-2">Maximum Approval Time</h3>
+                        <p class="text-sm text-yellow-700 mb-4">Set the maximum time allowed for withdrawal approval. If exceeded, funds will be automatically refunded.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="max_approval_time" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Maximum Approval Time
+                                </label>
+                                <input type="number" name="max_approval_time" id="max_approval_time" 
+                                       value="{{ old('max_approval_time') }}" 
+                                       min="1" step="1"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent"
+                                       placeholder="e.g., 24">
+                            </div>
+                            
+                            <div>
+                                <label for="max_approval_time_unit" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Time Unit
+                                </label>
+                                <select name="max_approval_time_unit" id="max_approval_time_unit" 
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                                    <option value="hours" {{ old('max_approval_time_unit', 'hours') == 'hours' ? 'selected' : '' }}>Hours</option>
+                                    <option value="days" {{ old('max_approval_time_unit') == 'days' ? 'selected' : '' }}>Days</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Leave empty to disable automatic refund on timeout.</p>
+                    </div>
+
                     <!-- 3-Level Approval Configuration -->
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
                         <h3 class="text-lg font-semibold text-blue-900 mb-4">3-Level Approval Configuration</h3>
@@ -236,9 +267,15 @@
                             <!-- Level 1: Initiators -->
                             <div class="border border-gray-200 rounded-lg p-4 bg-white">
                                 <h4 class="text-md font-semibold text-gray-700 mb-3">Level 1: Initiators</h4>
-                                <div class="space-y-2">
+                                <div class="mb-3">
+                                    <input type="text" 
+                                           id="search-kashtre-initiators" 
+                                           placeholder="Search initiators by name or email..." 
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                                </div>
+                                <div class="space-y-2" id="kashtre-initiators-list">
                                     @foreach($users->where('business_id', 1) as $user)
-                                        <div class="flex items-center space-x-3">
+                                        <div class="flex items-center space-x-3 kashtre-initiator-item" data-name="{{ strtolower($user->name) }}" data-email="{{ strtolower($user->email) }}">
                                             <input type="checkbox" 
                                                    name="kashtre_initiators[]" 
                                                    value="user:{{ $user->id }}"
@@ -255,9 +292,15 @@
                             <!-- Level 2: Authorizers -->
                             <div class="border border-gray-200 rounded-lg p-4 bg-white">
                                 <h4 class="text-md font-semibold text-gray-700 mb-3">Level 2: Authorizers</h4>
-                                <div class="space-y-2">
+                                <div class="mb-3">
+                                    <input type="text" 
+                                           id="search-kashtre-authorizers" 
+                                           placeholder="Search authorizers by name or email..." 
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                                </div>
+                                <div class="space-y-2" id="kashtre-authorizers-list">
                                     @foreach($users->where('business_id', 1) as $user)
-                                        <div class="flex items-center space-x-3">
+                                        <div class="flex items-center space-x-3 kashtre-authorizer-item" data-name="{{ strtolower($user->name) }}" data-email="{{ strtolower($user->email) }}">
                                             <input type="checkbox" 
                                                    name="kashtre_authorizers[]" 
                                                    value="user:{{ $user->id }}"
@@ -274,9 +317,15 @@
                             <!-- Level 3: Approvers -->
                             <div class="border border-gray-200 rounded-lg p-4 bg-white">
                                 <h4 class="text-md font-semibold text-gray-700 mb-3">Level 3: Approvers</h4>
-                                <div class="space-y-2">
+                                <div class="mb-3">
+                                    <input type="text" 
+                                           id="search-kashtre-approvers" 
+                                           placeholder="Search approvers by name or email..." 
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                                </div>
+                                <div class="space-y-2" id="kashtre-approvers-list">
                             @foreach($users->where('business_id', 1) as $user)
-                                <div class="flex items-center space-x-3">
+                                <div class="flex items-center space-x-3 kashtre-approver-item" data-name="{{ strtolower($user->name) }}" data-email="{{ strtolower($user->email) }}">
                                     <input type="checkbox" 
                                            name="kashtre_approvers[]" 
                                            value="user:{{ $user->id }}"
@@ -316,6 +365,40 @@
             </div>
         </div>
     </div>
+
+    <!-- JavaScript to handle search functionality for Kashtre approvers -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Search functionality for Kashtre approver levels
+            const kashtreSearchInputs = {
+                'search-kashtre-initiators': '.kashtre-initiator-item',
+                'search-kashtre-authorizers': '.kashtre-authorizer-item',
+                'search-kashtre-approvers': '.kashtre-approver-item'
+            };
+
+            Object.keys(kashtreSearchInputs).forEach(searchId => {
+                const searchInput = document.getElementById(searchId);
+                if (searchInput) {
+                    searchInput.addEventListener('input', function() {
+                        const searchTerm = this.value.toLowerCase().trim();
+                        const itemSelector = kashtreSearchInputs[searchId];
+                        const items = document.querySelectorAll(itemSelector);
+                        
+                        items.forEach(item => {
+                            const name = item.getAttribute('data-name') || '';
+                            const email = item.getAttribute('data-email') || '';
+                            
+                            if (searchTerm === '' || name.includes(searchTerm) || email.includes(searchTerm)) {
+                                item.style.display = 'flex';
+                            } else {
+                                item.style.display = 'none';
+                            }
+                        });
+                    });
+                }
+            });
+        });
+    </script>
 
     <!-- JavaScript to handle 3-level approval system -->
     <script>
@@ -360,6 +443,12 @@
                     levelDiv.innerHTML = `
                         <h4 class="text-md font-semibold text-gray-700 mb-3">${level.title}</h4>
                         <p class="text-xs text-gray-500 mb-3">${level.description}</p>
+                        <div class="mb-3">
+                            <input type="text" 
+                                   id="search-business-${level.name}" 
+                                   placeholder="Search ${level.name} by name or email..." 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                        </div>
                         <div class="space-y-2" id="business-${level.name}-container">
                         </div>
                     `;
@@ -368,7 +457,9 @@
                     
                     businessUsers.forEach(user => {
                         const checkboxDiv = document.createElement('div');
-                        checkboxDiv.className = 'flex items-center space-x-3';
+                        checkboxDiv.className = 'flex items-center space-x-3 business-' + level.name + '-item';
+                        checkboxDiv.setAttribute('data-name', user.name.toLowerCase());
+                        checkboxDiv.setAttribute('data-email', user.email.toLowerCase());
                         checkboxDiv.innerHTML = `
                             <input type="checkbox" 
                                    name="business_${level.name}[]" 
@@ -383,6 +474,26 @@
                     });
                     
                     businessApproversContainer.appendChild(levelDiv);
+                    
+                    // Add search functionality for this level
+                    const searchInput = levelDiv.querySelector(`#search-business-${level.name}`);
+                    if (searchInput) {
+                        searchInput.addEventListener('input', function() {
+                            const searchTerm = this.value.toLowerCase().trim();
+                            const items = container.querySelectorAll('.business-' + level.name + '-item');
+                            
+                            items.forEach(item => {
+                                const name = item.getAttribute('data-name') || '';
+                                const email = item.getAttribute('data-email') || '';
+                                
+                                if (searchTerm === '' || name.includes(searchTerm) || email.includes(searchTerm)) {
+                                    item.style.display = 'flex';
+                                } else {
+                                    item.style.display = 'none';
+                                }
+                            });
+                        });
+                    }
                 });
             });
         });

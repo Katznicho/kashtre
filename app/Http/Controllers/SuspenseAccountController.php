@@ -26,7 +26,8 @@ class SuspenseAccountController extends Controller
                 $suspenseAccounts = MoneyAccount::whereIn('type', [
                     'package_suspense_account',
                     'general_suspense_account', 
-                    'kashtre_suspense_account'
+                    'kashtre_suspense_account',
+                    'withdrawal_suspense_account'
                 ])
                 ->with(['business', 'client'])
                 ->orderBy('type')
@@ -37,7 +38,8 @@ class SuspenseAccountController extends Controller
                 $clientSuspenseAccounts = MoneyAccount::whereIn('type', [
                     'package_suspense_account',
                     'general_suspense_account', 
-                    'kashtre_suspense_account'
+                    'kashtre_suspense_account',
+                    'withdrawal_suspense_account'
                 ])
                 ->whereNotNull('client_id')
                 ->with('client')
@@ -49,7 +51,8 @@ class SuspenseAccountController extends Controller
                     ->whereIn('type', [
                         'package_suspense_account',
                         'general_suspense_account', 
-                        'kashtre_suspense_account'
+                        'kashtre_suspense_account',
+                        'withdrawal_suspense_account'
                     ])
                     ->with(['business', 'client'])
                     ->orderBy('type')
@@ -61,7 +64,8 @@ class SuspenseAccountController extends Controller
                     ->whereIn('type', [
                         'package_suspense_account',
                         'general_suspense_account', 
-                        'kashtre_suspense_account'
+                        'kashtre_suspense_account',
+                        'withdrawal_suspense_account'
                     ])
                     ->whereNotNull('client_id')
                     ->with('client')
@@ -73,20 +77,21 @@ class SuspenseAccountController extends Controller
             $totalPackageSuspense = $suspenseAccounts->where('type', 'package_suspense_account')->sum('balance');
             $totalGeneralSuspense = $suspenseAccounts->where('type', 'general_suspense_account')->sum('balance');
             $totalKashtreSuspense = $suspenseAccounts->where('type', 'kashtre_suspense_account')->sum('balance');
+            $totalWithdrawalSuspense = $suspenseAccounts->where('type', 'withdrawal_suspense_account')->sum('balance');
             $totalClientSuspense = $clientSuspenseAccounts->sum('balance');
             
             // Calculate total suspense balance (sum of all suspense accounts)
-            $totalSuspenseBalance = $totalPackageSuspense + $totalGeneralSuspense + $totalKashtreSuspense;
+            $totalSuspenseBalance = $totalPackageSuspense + $totalGeneralSuspense + $totalKashtreSuspense + $totalWithdrawalSuspense;
 
 
             // Get recent money movements
             if ($businessId == 1) {
                 // For Kashtre, show movements from all businesses
                 $recentMovements = \App\Models\MoneyTransfer::whereHas('fromAccount', function($query) {
-                        $query->whereIn('type', ['package_suspense_account', 'general_suspense_account', 'kashtre_suspense_account']);
+                        $query->whereIn('type', ['package_suspense_account', 'general_suspense_account', 'kashtre_suspense_account', 'withdrawal_suspense_account']);
                     })
                     ->orWhereHas('toAccount', function($query) {
-                        $query->whereIn('type', ['package_suspense_account', 'general_suspense_account', 'kashtre_suspense_account']);
+                        $query->whereIn('type', ['package_suspense_account', 'general_suspense_account', 'kashtre_suspense_account', 'withdrawal_suspense_account']);
                     })
                     ->with(['fromAccount', 'toAccount'])
                     ->orderBy('created_at', 'desc')
@@ -113,7 +118,9 @@ class SuspenseAccountController extends Controller
                 'client_suspense_accounts_count' => $clientSuspenseAccounts->count(),
                 'total_package_suspense' => $totalPackageSuspense,
                 'total_general_suspense' => $totalGeneralSuspense,
-                'total_kashtre_suspense' => $totalKashtreSuspense
+                'total_kashtre_suspense' => $totalKashtreSuspense,
+                'total_withdrawal_suspense' => $totalWithdrawalSuspense,
+                'total_suspense_balance' => $totalSuspenseBalance
             ]);
 
             return view('suspense-accounts.index', compact(
@@ -123,6 +130,7 @@ class SuspenseAccountController extends Controller
                 'totalPackageSuspense',
                 'totalGeneralSuspense',
                 'totalKashtreSuspense',
+                'totalWithdrawalSuspense',
                 'totalClientSuspense',
                 'totalSuspenseBalance',
                 'recentMovements'
@@ -159,10 +167,32 @@ class SuspenseAccountController extends Controller
                 ->paginate(20);
 
             // Get balance history
-            $balanceHistory = \App\Models\BalanceHistory::where('account_id', $account->id)
-                ->orderBy('created_at', 'desc')
-                ->limit(50)
-                ->get();
+            // For withdrawal suspense accounts (business-level), use BusinessBalanceHistory
+            // For other suspense accounts (client-level), use BalanceHistory
+            if ($account->type === 'withdrawal_suspense_account') {
+                // Ensure we only get records for this specific withdrawal suspense account
+                // Double-check by verifying the money_account type matches
+                // Also exclude any records that look like invoice/package transactions (they shouldn't be here)
+                $balanceHistory = \App\Models\BusinessBalanceHistory::where('business_balance_histories.money_account_id', $account->id)
+                    ->where('business_balance_histories.business_id', $account->business_id)
+                    ->whereHas('moneyAccount', function($query) {
+                        $query->where('type', 'withdrawal_suspense_account');
+                    })
+                    ->where(function($query) {
+                        // Only show withdrawal-related records
+                        $query->where('description', 'like', '%Withdrawal%')
+                              ->orWhere('description', 'like', '%Bank Schedule%');
+                    })
+                    ->with(['business', 'user', 'moneyAccount'])
+                    ->orderBy('business_balance_histories.created_at', 'desc')
+                    ->limit(50)
+                    ->get();
+            } else {
+                $balanceHistory = \App\Models\BalanceHistory::where('account_id', $account->id)
+                    ->orderBy('created_at', 'desc')
+                    ->limit(50)
+                    ->get();
+            }
 
             Log::info("Suspense account details accessed", [
                 'account_id' => $account->id,
@@ -197,7 +227,8 @@ class SuspenseAccountController extends Controller
                 ->whereIn('type', [
                     'package_suspense_account',
                     'general_suspense_account', 
-                    'kashtre_suspense_account'
+                    'kashtre_suspense_account',
+                    'withdrawal_suspense_account'
                 ])
                 ->with(['business', 'client'])
                 ->get();
@@ -214,6 +245,10 @@ class SuspenseAccountController extends Controller
                 'kashtre_suspense' => [
                     'accounts' => $suspenseAccounts->where('type', 'kashtre_suspense_account'),
                     'total_balance' => $suspenseAccounts->where('type', 'kashtre_suspense_account')->sum('balance')
+                ],
+                'withdrawal_suspense' => [
+                    'accounts' => $suspenseAccounts->where('type', 'withdrawal_suspense_account'),
+                    'total_balance' => $suspenseAccounts->where('type', 'withdrawal_suspense_account')->sum('balance')
                 ]
             ];
 

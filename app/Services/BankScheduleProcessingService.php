@@ -9,6 +9,7 @@ use App\Models\BusinessBalanceHistory;
 use App\Models\ContractorBalanceHistory;
 use App\Models\WithdrawalRequest;
 use App\Models\ContractorWithdrawalRequest;
+use App\Models\MoneyTransfer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -73,7 +74,7 @@ class BankScheduleProcessingService
             // Calculate amounts
             $amount = $bankSchedule->amount;
             $charge = $bankSchedule->withdrawal_charge ?? 0;
-            $totalDebit = $amount + $charge; // Total to debit from business/contractor
+            $totalDebit = $amount + $charge; // Total to debit from withdrawal suspense account
 
             Log::info("=== BANK SCHEDULE PROCESSING STARTED ===", [
                 'bank_schedule_id' => $bankSchedule->id,
@@ -158,15 +159,16 @@ class BankScheduleProcessingService
      */
     private function processBusinessWithdrawal(BankSchedule $bankSchedule, Business $business, $amount, $charge, $totalDebit, MoneyAccount $kashtreAccount, $withdrawalRequest = null)
     {
-        // Check if business has sufficient balance
-        if ($business->account_balance < $totalDebit) {
-            throw new \Exception("Insufficient business account balance for bank schedule processing");
+        // Get withdrawal suspense account
+        $moneyTrackingService = new \App\Services\MoneyTrackingService();
+        $withdrawalSuspenseAccount = $moneyTrackingService->getOrCreateWithdrawalSuspenseAccount($business);
+
+        // Check if withdrawal suspense account has sufficient balance
+        if ($withdrawalSuspenseAccount->balance < $totalDebit) {
+            throw new \Exception("Insufficient balance in withdrawal suspense account. Available: " . number_format($withdrawalSuspenseAccount->balance, 2) . " UGX, Required: " . number_format($totalDebit, 2) . " UGX");
         }
 
-        // Get or create business account
-        $businessAccount = $this->getOrCreateBusinessAccount($business);
-
-        // Credit charge to Kashtre account first (if any)
+        // Credit charge to Kashtre account statement (if any)
         if ($charge > 0) {
             // Record Kashtre balance statement for charge (this will update the account balance)
             BusinessBalanceHistory::recordChange(
@@ -189,11 +191,11 @@ class BankScheduleProcessingService
             );
         }
 
-        // Record business balance statement for withdrawal (amount + charge)
-        // This will update the business account balance automatically
+        // Debit from withdrawal suspense account (create debit entry in suspense account history)
+        // Note: recordChange() already updates the account balance, so we don't need to decrement separately
         BusinessBalanceHistory::recordChange(
             $business->id,
-            $businessAccount->id,
+            $withdrawalSuspenseAccount->id,
             $totalDebit,
             'debit',
             "Bank Schedule Processed - " . ($bankSchedule->reference_id ?? $bankSchedule->id),
@@ -212,14 +214,30 @@ class BankScheduleProcessingService
             auth()->id()
         );
 
-        // Update business account balance (sync with business model)
-        $business->decrement('account_balance', $totalDebit);
+        // Create MoneyTransfer record for consistency with other suspense accounts (same table format)
+        // This represents the debit from withdrawal suspense account when bank schedule is processed
+        MoneyTransfer::create([
+            'business_id' => $business->id,
+            'from_account_id' => $withdrawalSuspenseAccount->id,
+            'to_account_id' => null, // Money leaves the system
+            'amount' => $totalDebit,
+            'currency' => 'UGX',
+            'status' => 'completed',
+            'type' => 'debit',
+            'transfer_type' => 'withdrawal_processed',
+            'description' => "Bank Schedule Processed - " . ($bankSchedule->reference_id ?? $bankSchedule->id),
+            'source' => $withdrawalSuspenseAccount->name,
+            'destination' => "External Payment",
+            'processed_at' => now(),
+        ]);
 
-        // Sync with business money account if it exists
-        if ($business->businessMoneyAccount) {
-            $business->businessMoneyAccount->refresh();
-            // Don't call debit() here as recordChange already updated the balance
-        }
+        Log::info("Bank schedule processed - funds debited from withdrawal suspense account", [
+            'bank_schedule_id' => $bankSchedule->id,
+            'withdrawal_suspense_account_id' => $withdrawalSuspenseAccount->id,
+            'total_debit' => $totalDebit,
+            'charge_credited_to_kashtre' => $charge,
+            'remaining_suspense_balance' => $withdrawalSuspenseAccount->fresh()->balance
+        ]);
     }
 
     /**

@@ -75,6 +75,8 @@ class WithdrawalSettingController extends Controller
             'business_id' => 'required|exists:businesses,id',
             'minimum_withdrawal_amount' => 'required|numeric|min:0',
             'number_of_free_withdrawals_per_day' => 'required|integer|min:0',
+            'max_approval_time' => 'nullable|integer|min:1',
+            'max_approval_time_unit' => 'nullable|in:hours,days',
             'withdrawal_type' => 'required|in:regular,express',
             'is_active' => 'boolean',
             
@@ -124,6 +126,8 @@ class WithdrawalSettingController extends Controller
             $existingSetting->update([
                 'minimum_withdrawal_amount' => $request->minimum_withdrawal_amount,
                 'number_of_free_withdrawals_per_day' => $request->number_of_free_withdrawals_per_day,
+                'max_approval_time' => $request->max_approval_time,
+                'max_approval_time_unit' => $request->max_approval_time_unit ?? 'hours',
                 'withdrawal_type' => $request->withdrawal_type,
                 'is_active' => $request->has('is_active'),
                 
@@ -155,6 +159,8 @@ class WithdrawalSettingController extends Controller
                 'business_id' => $request->business_id,
                 'minimum_withdrawal_amount' => $request->minimum_withdrawal_amount,
                 'number_of_free_withdrawals_per_day' => $request->number_of_free_withdrawals_per_day,
+                'max_approval_time' => $request->max_approval_time,
+                'max_approval_time_unit' => $request->max_approval_time_unit ?? 'hours',
                 'withdrawal_type' => $request->withdrawal_type,
                 'is_active' => $request->has('is_active'),
                 
@@ -248,6 +254,8 @@ class WithdrawalSettingController extends Controller
             'business_id' => 'required|exists:businesses,id',
             'minimum_withdrawal_amount' => 'required|numeric|min:0',
             'number_of_free_withdrawals_per_day' => 'required|integer|min:0',
+            'max_approval_time' => 'nullable|integer|min:1',
+            'max_approval_time_unit' => 'nullable|in:hours,days',
             'min_business_approvers' => 'required|integer|min:1',
             'min_kashtre_approvers' => 'required|integer|min:1',
             'withdrawal_type' => 'required|in:regular,express',
@@ -275,6 +283,8 @@ class WithdrawalSettingController extends Controller
             'business_id' => $request->business_id,
             'minimum_withdrawal_amount' => $request->minimum_withdrawal_amount,
             'number_of_free_withdrawals_per_day' => $request->number_of_free_withdrawals_per_day,
+            'max_approval_time' => $request->max_approval_time,
+            'max_approval_time_unit' => $request->max_approval_time_unit ?? 'hours',
             'min_business_approvers' => $request->min_business_approvers,
             'min_kashtre_approvers' => $request->min_kashtre_approvers,
             'withdrawal_type' => $request->withdrawal_type,

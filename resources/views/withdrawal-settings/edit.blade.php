@@ -84,6 +84,37 @@
                         </div>
                     </div>
 
+                    <!-- Maximum Approval Time -->
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+                        <h3 class="text-lg font-semibold text-yellow-900 mb-2">Maximum Approval Time</h3>
+                        <p class="text-sm text-yellow-700 mb-4">Set the maximum time allowed for withdrawal approval. If exceeded, funds will be automatically refunded.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="max_approval_time" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Maximum Approval Time
+                                </label>
+                                <input type="number" name="max_approval_time" id="max_approval_time" 
+                                       value="{{ old('max_approval_time', $withdrawalSetting->max_approval_time) }}" 
+                                       min="1" step="1"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent"
+                                       placeholder="e.g., 24">
+                            </div>
+                            
+                            <div>
+                                <label for="max_approval_time_unit" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Time Unit
+                                </label>
+                                <select name="max_approval_time_unit" id="max_approval_time_unit" 
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                                    <option value="hours" {{ old('max_approval_time_unit', $withdrawalSetting->max_approval_time_unit ?? 'hours') == 'hours' ? 'selected' : '' }}>Hours</option>
+                                    <option value="days" {{ old('max_approval_time_unit', $withdrawalSetting->max_approval_time_unit) == 'days' ? 'selected' : '' }}>Days</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Leave empty to disable automatic refund on timeout.</p>
+                    </div>
+
                     <!-- 3-Level Approval Configuration -->
                     <div class="bg-blue-50 rounded-lg p-6">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">3-Level Approval Configuration</h3>
@@ -223,10 +254,16 @@
                         <!-- Level 1: Initiators -->
                         <div class="mb-6">
                             <h4 class="text-md font-medium text-gray-800 mb-3">Level 1: Initiators</h4>
+                            <div class="mb-3">
+                                <input type="text" 
+                                       id="search-business-initiators" 
+                                       placeholder="Search initiators by name or email..." 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
                             <div id="business-initiators-container" class="space-y-3">
                                 <div class="text-sm font-medium text-gray-700 mb-2">Users</div>
                                 @foreach($users->where('business_id', $withdrawalSetting->business_id) as $user)
-                                    <div class="flex items-center space-x-3">
+                                    <div class="flex items-center space-x-3 business-initiator-item" data-name="{{ strtolower($user->name) }}" data-email="{{ strtolower($user->email) }}">
                                         <input type="checkbox" 
                                                name="business_initiators[]" 
                                                value="user:{{ $user->id }}"
@@ -247,10 +284,16 @@
                         <!-- Level 2: Authorizers -->
                         <div class="mb-6">
                             <h4 class="text-md font-medium text-gray-800 mb-3">Level 2: Authorizers</h4>
+                            <div class="mb-3">
+                                <input type="text" 
+                                       id="search-business-authorizers" 
+                                       placeholder="Search authorizers by name or email..." 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
                             <div id="business-authorizers-container" class="space-y-3">
                                 <div class="text-sm font-medium text-gray-700 mb-2">Users</div>
                                 @foreach($users->where('business_id', $withdrawalSetting->business_id) as $user)
-                                    <div class="flex items-center space-x-3">
+                                    <div class="flex items-center space-x-3 business-authorizer-item" data-name="{{ strtolower($user->name) }}" data-email="{{ strtolower($user->email) }}">
                                         <input type="checkbox" 
                                                name="business_authorizers[]" 
                                                value="user:{{ $user->id }}"
@@ -271,10 +314,16 @@
                         <!-- Level 3: Approvers -->
                         <div>
                             <h4 class="text-md font-medium text-gray-800 mb-3">Level 3: Approvers</h4>
+                            <div class="mb-3">
+                                <input type="text" 
+                                       id="search-business-approvers" 
+                                       placeholder="Search approvers by name or email..." 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
                         <div id="business-approvers-container" class="space-y-3">
                             <div class="text-sm font-medium text-gray-700 mb-2">Users</div>
                             @foreach($users->where('business_id', $withdrawalSetting->business_id) as $user)
-                                <div class="flex items-center space-x-3">
+                                <div class="flex items-center space-x-3 business-approver-item" data-name="{{ strtolower($user->name) }}" data-email="{{ strtolower($user->email) }}">
                                     <input type="checkbox" 
                                            name="business_approvers[]" 
                                            value="user:{{ $user->id }}"
@@ -300,10 +349,16 @@
                         <!-- Level 1: Initiators -->
                         <div class="mb-6">
                             <h4 class="text-md font-medium text-gray-800 mb-3">Level 1: Initiators</h4>
+                            <div class="mb-3">
+                                <input type="text" 
+                                       id="search-kashtre-initiators" 
+                                       placeholder="Search initiators by name or email..." 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
                             <div id="kashtre-initiators-container" class="space-y-3">
                                 <div class="text-sm font-medium text-gray-700 mb-2">Users</div>
                                 @foreach($users->where('business_id', 1) as $user)
-                                    <div class="flex items-center space-x-3">
+                                    <div class="flex items-center space-x-3 kashtre-initiator-item" data-name="{{ strtolower($user->name) }}" data-email="{{ strtolower($user->email) }}">
                                         <input type="checkbox" 
                                                name="kashtre_initiators[]" 
                                                value="user:{{ $user->id }}"
@@ -324,10 +379,16 @@
                         <!-- Level 2: Authorizers -->
                         <div class="mb-6">
                             <h4 class="text-md font-medium text-gray-800 mb-3">Level 2: Authorizers</h4>
+                            <div class="mb-3">
+                                <input type="text" 
+                                       id="search-kashtre-authorizers" 
+                                       placeholder="Search authorizers by name or email..." 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
                             <div id="kashtre-authorizers-container" class="space-y-3">
                                 <div class="text-sm font-medium text-gray-700 mb-2">Users</div>
                                 @foreach($users->where('business_id', 1) as $user)
-                                    <div class="flex items-center space-x-3">
+                                    <div class="flex items-center space-x-3 kashtre-authorizer-item" data-name="{{ strtolower($user->name) }}" data-email="{{ strtolower($user->email) }}">
                                         <input type="checkbox" 
                                                name="kashtre_authorizers[]" 
                                                value="user:{{ $user->id }}"
@@ -348,10 +409,16 @@
                         <!-- Level 3: Approvers -->
                         <div>
                             <h4 class="text-md font-medium text-gray-800 mb-3">Level 3: Approvers</h4>
+                            <div class="mb-3">
+                                <input type="text" 
+                                       id="search-kashtre-approvers" 
+                                       placeholder="Search approvers by name or email..." 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                            </div>
                             <div id="kashtre-approvers-container" class="space-y-3">
                                 <div class="text-sm font-medium text-gray-700 mb-2">Users</div>
                                 @foreach($users->where('business_id', 1) as $user)
-                                    <div class="flex items-center space-x-3">
+                                    <div class="flex items-center space-x-3 kashtre-approver-item" data-name="{{ strtolower($user->name) }}" data-email="{{ strtolower($user->email) }}">
                                         <input type="checkbox" 
                                                name="kashtre_approvers[]" 
                                                value="user:{{ $user->id }}"
@@ -385,6 +452,43 @@
             </div>
         </div>
     </div>
+
+    <!-- JavaScript to handle search functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Search functionality for all approver levels
+            const searchInputs = {
+                'search-business-initiators': '.business-initiator-item',
+                'search-business-authorizers': '.business-authorizer-item',
+                'search-business-approvers': '.business-approver-item',
+                'search-kashtre-initiators': '.kashtre-initiator-item',
+                'search-kashtre-authorizers': '.kashtre-authorizer-item',
+                'search-kashtre-approvers': '.kashtre-approver-item'
+            };
+
+            Object.keys(searchInputs).forEach(searchId => {
+                const searchInput = document.getElementById(searchId);
+                if (searchInput) {
+                    searchInput.addEventListener('input', function() {
+                        const searchTerm = this.value.toLowerCase().trim();
+                        const itemSelector = searchInputs[searchId];
+                        const items = document.querySelectorAll(itemSelector);
+                        
+                        items.forEach(item => {
+                            const name = item.getAttribute('data-name') || '';
+                            const email = item.getAttribute('data-email') || '';
+                            
+                            if (searchTerm === '' || name.includes(searchTerm) || email.includes(searchTerm)) {
+                                item.style.display = 'flex';
+                            } else {
+                                item.style.display = 'none';
+                            }
+                        });
+                    });
+                }
+            });
+        });
+    </script>
 
     <!-- JavaScript to update minimum display values and filter approvers -->
     <script>

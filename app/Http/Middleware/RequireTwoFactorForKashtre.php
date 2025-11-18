@@ -16,7 +16,10 @@ class RequireTwoFactorForKashtre
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Enforce 2FA in all environments (removed production-only check)
+        // Skip 2FA enforcement in local development
+        if (config('app.env') === 'local') {
+            return $next($request);
+        }
         
         // Only check for authenticated users
         if (!Auth::check()) {
@@ -25,10 +28,7 @@ class RequireTwoFactorForKashtre
 
         $user = Auth::user();
 
-        // Only enforce 2FA for Kashtre users (business_id == 1)
-        if ($user->business_id != 1) {
-            return $next($request);
-        }
+        // Enforce 2FA for ALL users (not just Kashtre) in non-local environments
 
         // Allow access to these routes to avoid redirect loops
         $allowedRoutes = [
@@ -72,7 +72,7 @@ class RequireTwoFactorForKashtre
         // Check if 2FA is enabled (two_factor_confirmed_at is set)
         if (empty($user->two_factor_confirmed_at)) {
             return redirect()->route('profile.show')
-                ->with('warning', 'Two-factor authentication (2FA) is required for all Kashtre users. You must enable 2FA before accessing other parts of the system. Please set up 2FA in your profile settings below.');
+                ->with('warning', 'Two-factor authentication (2FA) is required for all users. You must enable 2FA before accessing other parts of the system. Please set up 2FA in your profile settings below.');
         }
 
         return $next($request);

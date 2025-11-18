@@ -22,6 +22,9 @@ class Kernel extends ConsoleKernel
         
         // Expire visit IDs at midnight, extend for clients with pending/in-progress items
         $schedule->command('visits:expire')->dailyAt('00:00');
+        
+        // Check and auto-reject overdue withdrawal requests every hour
+        $schedule->command('withdrawals:auto-reject-overdue')->hourly();
     }
 
     /**
