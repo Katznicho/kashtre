@@ -372,6 +372,13 @@
                         <p class="mt-1 text-sm text-gray-500">Number of days the package is valid after purchase</p>
                     </div>
 
+                    <!-- Max Qty (for package items) -->
+                    <div id="max_qty_div" @if($item->type !== 'package') style="display: none;" @endif>
+                        <label for="max_qty" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Maximum Total Quantity</label>
+                        <input type="number" name="max_qty" id="max_qty" min="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value="{{ old('max_qty', $item->max_qty) }}" placeholder="Leave empty for unlimited">
+                        <p class="mt-1 text-sm text-gray-500">Maximum total combined quantity that can be consumed across all package usages. Leave empty for unlimited.</p>
+                    </div>
+
                     <div class="mt-6 flex justify-end">
                         <a href="{{ route('items.index') }}" class="mr-4 inline-flex items-center px-4 py-2 bg-gray-300 text-gray-800 text-sm font-semibold rounded-md hover:bg-gray-400 transition duration-150">
                             Cancel
@@ -400,6 +407,7 @@
             const packageItemsSection = document.getElementById('package_items_section');
             const bulkItemsSection = document.getElementById('bulk_items_section');
             const validityDaysDiv = document.getElementById('validity_days_div');
+            const maxQtyDiv = document.getElementById('max_qty_div');
             const addPackageItemBtn = document.getElementById('add_package_item');
             const addBulkItemBtn = document.getElementById('add_bulk_item');
 
@@ -440,6 +448,7 @@
                 packageItemsSection.style.display = 'none';
                 bulkItemsSection.style.display = 'none';
                 validityDaysDiv.style.display = 'none';
+                maxQtyDiv.style.display = 'none';
                 
                 // Reset validity days requirement
                 if (validityDaysInput) {
@@ -488,6 +497,7 @@
                 if (selectedType === 'package') {
                     packageItemsSection.style.display = 'block';
                     validityDaysDiv.style.display = 'block';
+                    maxQtyDiv.style.display = 'block';
                     // Make validity days required for packages
                     if (validityDaysInput) {
                         validityDaysInput.required = true;

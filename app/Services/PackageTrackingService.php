@@ -313,6 +313,50 @@ class PackageTrackingService
                 $quantityToUse = min($remainingQuantityToAdjust, $availableQuantityInTrackingItem);
 
                 if ($quantityToUse > 0) {
+                    // Get the package item (the actual package, not the included item)
+                    $packageItem = $trackingItem->packageTracking->packageItem;
+                    
+                    // Check max_qty constraint if set
+                    if ($packageItem && $packageItem->max_qty !== null) {
+                        // Calculate total consumed quantity across all uses for this package item
+                        $totalConsumedQty = PackageTracking::where('package_item_id', $packageItem->id)
+                            ->sum('used_quantity');
+                        
+                        // Check if consuming this quantity would exceed max_qty
+                        if (($totalConsumedQty + $quantityToUse) > $packageItem->max_qty) {
+                            $allowedQty = max(0, $packageItem->max_qty - $totalConsumedQty);
+                            
+                            if ($allowedQty <= 0) {
+                                Log::warning("Package max_qty exceeded - cannot use any more quantity", [
+                                    'package_item_id' => $packageItem->id,
+                                    'package_name' => $packageItem->name,
+                                    'max_qty' => $packageItem->max_qty,
+                                    'total_consumed_qty' => $totalConsumedQty,
+                                    'requested_quantity' => $quantityToUse
+                                ]);
+                                continue; // Skip this package, try next one
+                            }
+                            
+                            // Limit quantity to what's allowed
+                            $quantityToUse = min($quantityToUse, $allowedQty);
+                            
+                            Log::info("Package max_qty constraint applied - limiting quantity", [
+                                'package_item_id' => $packageItem->id,
+                                'package_name' => $packageItem->name,
+                                'max_qty' => $packageItem->max_qty,
+                                'total_consumed_qty' => $totalConsumedQty,
+                                'original_quantity' => $availableQuantityInTrackingItem,
+                                'allowed_quantity' => $allowedQty,
+                                'final_quantity_to_use' => $quantityToUse
+                            ]);
+                        }
+                    }
+                    
+                    // Skip if quantity became 0 after max_qty check
+                    if ($quantityToUse <= 0) {
+                        continue;
+                    }
+
                     // Calculate adjustment based on the price of the item in the current invoice
                     $itemAdjustment = $quantityToUse * $price;
                     $totalAdjustment += $itemAdjustment;

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\Business;
 use App\Models\Branch;
+use App\Models\MaturationPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -81,7 +82,28 @@ class ClientController extends Controller
             return redirect()->route('dashboard')->with('error', 'No branch assigned. Please contact administrator.');
         }
         
-        return view('clients.create', compact('business', 'currentBranch'));
+        // Get available payment methods from maturation periods for this business
+        $availablePaymentMethods = MaturationPeriod::where('business_id', $business->id)
+            ->where('is_active', true)
+            ->orderBy('payment_method')
+            ->get()
+            ->pluck('payment_method')
+            ->unique()
+            ->values()
+            ->toArray();
+        
+        // Payment method display names
+        $paymentMethodNames = [
+            'insurance' => '🛡️ Insurance',
+            'credit_arrangement' => '💳 Credit Arrangement',
+            'mobile_money' => '📱 MM (Mobile Money)',
+            'v_card' => '💳 V Card (Virtual Card)',
+            'p_card' => '💳 P Card (Physical Card)',
+            'bank_transfer' => '🏦 Bank Transfer',
+            'cash' => '💵 Cash',
+        ];
+        
+        return view('clients.create', compact('business', 'currentBranch', 'availablePaymentMethods', 'paymentMethodNames'));
     }
 
     /**
@@ -176,6 +198,21 @@ class ClientController extends Controller
         // Validate NIN for new clients
         $ninValidation = 'nullable|string|max:255|unique:clients,nin';
         
+        // Get available payment methods from maturation periods for this business
+        $availablePaymentMethods = MaturationPeriod::where('business_id', $business->id)
+            ->where('is_active', true)
+            ->pluck('payment_method')
+            ->unique()
+            ->values()
+            ->toArray();
+        
+        // Validate payment methods - check if business has any set up
+        if (empty($availablePaymentMethods)) {
+            return redirect()->route('clients.create')
+                ->with('error', 'No payment methods have been set up for your business. Please contact the administrator to configure payment methods in Maturation Periods.')
+                ->withInput();
+        }
+        
         $validated = $request->validate([
             'surname' => 'required|string|max:255',
             'first_name' => 'required|string|max:255',
@@ -192,7 +229,7 @@ class ClientController extends Controller
             'email' => 'required|email|max:255',
             'services_category' => 'required|in:dental,optical,outpatient,inpatient,maternity,funeral',
             'payment_methods' => 'required|array|min:1',
-            'payment_methods.*' => 'string|in:packages,insurance,credit_arrangement,deposits,mobile_money,v_card,p_card,bank_transfer,cash',
+            'payment_methods.*' => 'required|string|in:' . implode(',', $availablePaymentMethods),
             'payment_phone_number' => 'nullable|string|max:255',
             
             // Next of Kin details

@@ -24,10 +24,15 @@ class Item extends Model
         'default_price',
         'vat_rate',
         'validity_days',
+        'max_qty',
         'hospital_share',
         'contractor_account_id',
         'business_id',
         'other_names',
+    ];
+
+    protected $casts = [
+        'max_qty' => 'integer',
     ];
     
     protected static function booted()

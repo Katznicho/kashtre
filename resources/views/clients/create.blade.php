@@ -257,86 +257,45 @@
                                 </label>
                                 <p class="text-sm text-gray-600 mb-4">Select all payment methods this client can use in order of preference</p>
                                 
-                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                                        <input type="checkbox" name="payment_methods[]" id="payment_insurance" value="insurance"
-                                               {{ in_array('insurance', old('payment_methods', [])) ? 'checked' : '' }}
-                                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_insurance" class="ml-3 text-sm font-medium text-gray-700">
-                                            <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">1</span>
-                                            🛡️ Insurance
-                                        </label>
+                                @if(empty($availablePaymentMethods))
+                                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                                        <div class="flex">
+                                            <svg class="w-5 h-5 text-yellow-400 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                            </svg>
+                                            <div>
+                                                <h3 class="text-sm font-medium text-yellow-800">No Payment Methods Configured</h3>
+                                                <p class="mt-1 text-sm text-yellow-700">
+                                                    No payment methods have been set up for your business. Please contact the administrator to configure payment methods in 
+                                                    <a href="{{ route('maturation-periods.index') }}" class="font-medium underline hover:text-yellow-900">Maturation Periods</a>.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @else
+                                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        @foreach($availablePaymentMethods as $index => $method)
+                                            <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                                                <input type="checkbox" name="payment_methods[]" id="payment_{{ $method }}" value="{{ $method }}"
+                                                       {{ in_array($method, old('payment_methods', [])) ? 'checked' : '' }}
+                                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                                <label for="payment_{{ $method }}" class="ml-3 text-sm font-medium text-gray-700">
+                                                    <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">{{ $index + 1 }}</span>
+                                                    {{ $paymentMethodNames[$method] ?? ucfirst(str_replace('_', ' ', $method)) }}
+                                                </label>
+                                            </div>
+                                        @endforeach
                                     </div>
                                     
-                                    <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                                        <input type="checkbox" name="payment_methods[]" id="payment_credit_arrangement" value="credit_arrangement"
-                                               {{ in_array('credit_arrangement', old('payment_methods', [])) ? 'checked' : '' }}
-                                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_credit_arrangement" class="ml-3 text-sm font-medium text-gray-700">
-                                            <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">2</span>
-                                            💳 Credit Arrangement
-                                        </label>
+                                    <div class="flex space-x-4 mt-4">
+                                        <button type="button" id="select_all_payments" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                                            Select All
+                                        </button>
+                                        <button type="button" id="clear_all_payments" class="text-sm text-gray-600 hover:text-gray-800 font-medium">
+                                            Clear All
+                                        </button>
                                     </div>
-                                    
-                                    <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                                        <input type="checkbox" name="payment_methods[]" id="payment_mobile_money" value="mobile_money"
-                                               {{ in_array('mobile_money', old('payment_methods', [])) ? 'checked' : '' }}
-                                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_mobile_money" class="ml-3 text-sm font-medium text-gray-700">
-                                            <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">3</span>
-                                            📱 MM (Mobile Money)
-                                        </label>
-                                    </div>
-                                    
-                                    <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                                        <input type="checkbox" name="payment_methods[]" id="payment_v_card" value="v_card"
-                                               {{ in_array('v_card', old('payment_methods', [])) ? 'checked' : '' }}
-                                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_v_card" class="ml-3 text-sm font-medium text-gray-700">
-                                            <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">4</span>
-                                            💳 V Card (Virtual Card)
-                                        </label>
-                                    </div>
-                                    
-                                    <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                                        <input type="checkbox" name="payment_methods[]" id="payment_p_card" value="p_card"
-                                               {{ in_array('p_card', old('payment_methods', [])) ? 'checked' : '' }}
-                                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_p_card" class="ml-3 text-sm font-medium text-gray-700">
-                                            <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">5</span>
-                                            💳 P Card (Physical Card)
-                                        </label>
-                                    </div>
-                                    
-                                    <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                                        <input type="checkbox" name="payment_methods[]" id="payment_bank_transfer" value="bank_transfer"
-                                               {{ in_array('bank_transfer', old('payment_methods', [])) ? 'checked' : '' }}
-                                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_bank_transfer" class="ml-3 text-sm font-medium text-gray-700">
-                                            <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">6</span>
-                                            🏦 Bank Transfer
-                                        </label>
-                                    </div>
-                                    
-                                    <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                                        <input type="checkbox" name="payment_methods[]" id="payment_cash" value="cash"
-                                               {{ in_array('cash', old('payment_methods', [])) ? 'checked' : '' }}
-                                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                        <label for="payment_cash" class="ml-3 text-sm font-medium text-gray-700">
-                                            <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">7</span>
-                                            💵 Cash
-                                        </label>
-                                    </div>
-                                </div>
-                                
-                                <div class="flex space-x-4 mt-4">
-                                    <button type="button" id="select_all_payments" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
-                                        Select All
-                                    </button>
-                                    <button type="button" id="clear_all_payments" class="text-sm text-gray-600 hover:text-gray-800 font-medium">
-                                        Clear All
-                                    </button>
-                                </div>
+                                @endif
                             </div>
 
                             <!-- Payment Phone Number Section -->
