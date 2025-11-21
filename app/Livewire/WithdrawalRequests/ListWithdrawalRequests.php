@@ -126,6 +126,7 @@ class ListWithdrawalRequests extends Component implements HasForms, HasTable
                     ->formatStateUsing(fn ($record): string => "{$record->kashtre_approvals_count}/{$record->required_kashtre_approvals}")
                     ->color(fn($record): string => $record->hasKashtreApproval() ? 'success' : 'warning')
                     ->badge()
+                    ->hidden(fn() => Auth::check() && Auth::user()->business_id !== 1)
                     ->toggleable(),
                 
                 Tables\Columns\TextColumn::make('created_at')
@@ -478,61 +479,7 @@ class ListWithdrawalRequests extends Component implements HasForms, HasTable
                 ]);
             }
             
-            // Release funds from withdrawal suspense account back to business account
-            $business = $withdrawalRequest->business;
-            $totalDeduction = $withdrawalRequest->amount + $withdrawalRequest->withdrawal_charge;
-            
-            $businessAccount = MoneyAccount::where('business_id', $business->id)
-                ->where('type', 'business_account')
-                ->first();
-            
-            if ($businessAccount) {
-                $moneyTrackingService = new MoneyTrackingService();
-                $withdrawalSuspenseAccount = $moneyTrackingService->getOrCreateWithdrawalSuspenseAccount($business);
-                
-                // Debit from withdrawal_suspense_account (create debit entry in suspense account history)
-                BusinessBalanceHistory::recordChange(
-                    $business->id,
-                    $withdrawalSuspenseAccount->id,
-                    $totalDeduction,
-                    'debit',
-                    "Withdrawal Request Rejected - {$withdrawalRequest->uuid}",
-                    WithdrawalRequest::class,
-                    $withdrawalRequest->id,
-                    ['withdrawal_request_uuid' => $withdrawalRequest->uuid],
-                    $user->id
-                );
-
-                // Credit back to business_account
-                BusinessBalanceHistory::recordChange(
-                    $business->id,
-                    $businessAccount->id,
-                    $totalDeduction,
-                    'credit',
-                    "Withdrawal Request Rejected - {$withdrawalRequest->uuid}",
-                    WithdrawalRequest::class,
-                    $withdrawalRequest->id,
-                    ['withdrawal_request_uuid' => $withdrawalRequest->uuid],
-                    $user->id
-                );
-
-                // Create MoneyTransfer record for consistency with other suspense accounts (same table format)
-                // This represents the return of funds from withdrawal suspense back to business account
-                MoneyTransfer::create([
-                    'business_id' => $business->id,
-                    'from_account_id' => $withdrawalSuspenseAccount->id,
-                    'to_account_id' => $businessAccount->id,
-                    'amount' => $totalDeduction,
-                    'currency' => 'UGX',
-                    'status' => 'completed',
-                    'type' => 'credit',
-                    'transfer_type' => 'withdrawal_rejected',
-                    'description' => "Withdrawal Request Rejected - {$withdrawalRequest->uuid}",
-                    'source' => $withdrawalSuspenseAccount->name,
-                    'destination' => $businessAccount->name,
-                    'processed_at' => now(),
-                ]);
-            }
+            // No funds to release - withdrawal requests no longer hold funds when created
             
             // Notify requester that request was rejected
             $requester = $withdrawalRequest->requester;

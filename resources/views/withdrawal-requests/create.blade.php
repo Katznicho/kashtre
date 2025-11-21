@@ -69,8 +69,13 @@
 
                         <!-- Current Balance Display -->
                         <div class="mt-6 p-4 bg-green-50 rounded-lg">
-                            <h4 class="text-lg font-medium text-green-900 mb-2">Current Account Balance</h4>
-                            <p class="text-2xl font-bold text-green-700">{{ number_format($currentBalance, 2) }} UGX</p>
+                            <h4 class="text-lg font-medium text-green-900 mb-2">Available Balance</h4>
+                            <p class="text-2xl font-bold text-green-700">{{ number_format($availableBalance ?? 0, 2) }} UGX</p>
+                            <p class="text-sm text-green-600 mt-2">Total Balance: {{ number_format($totalBalance ?? 0, 2) }} UGX 
+                                @if(($withdrawalSuspenseBalance ?? 0) > 0)
+                                    (Held in suspense: {{ number_format($withdrawalSuspenseBalance ?? 0, 2) }} UGX)
+                                @endif
+                            </p>
                         </div>
 
                         <!-- Withdrawal Charge Preview -->
@@ -95,7 +100,7 @@
                                     <strong>Note:</strong> Your account balance must be at least <span id="requiredBalance" class="font-semibold">0.00 UGX</span> to process this withdrawal.
                                 </p>
                                 <p class="text-sm text-blue-800 mt-1">
-                                    <strong>Current Balance:</strong> <span class="font-semibold">{{ number_format($currentBalance, 2) }} UGX</span>
+                                    <strong>Available Balance:</strong> <span class="font-semibold">{{ number_format($availableBalance ?? 0, 2) }} UGX</span>
                                 </p>
                             </div>
                         </div>

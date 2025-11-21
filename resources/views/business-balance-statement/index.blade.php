@@ -57,7 +57,7 @@
                     <div class="ml-4">
                         <h3 class="text-lg font-semibold text-gray-900">Available Balance</h3>
                         <p class="text-2xl font-bold text-blue-600">
-                            UGX {{ number_format(($totalCredits ?? 0) - ($totalDebits ?? 0), 2) }}
+                            UGX {{ number_format((($totalCredits ?? 0) - ($totalDebits ?? 0)) - ($withdrawalSuspenseBalance ?? 0), 2) }}
                         </p>
                     </div>
                 </div>

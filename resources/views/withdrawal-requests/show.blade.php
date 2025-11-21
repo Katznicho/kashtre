@@ -103,6 +103,45 @@
                         </div>
                     </div>
 
+                    <!-- Bank Details -->
+                    @if($withdrawalRequest->bank_name || $withdrawalRequest->account_name || $withdrawalRequest->account_number || $withdrawalRequest->mobile_money_number)
+                    <div class="mt-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <h4 class="font-semibold text-blue-900 mb-3">Bank Details</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            @if($withdrawalRequest->payment_method)
+                            <div>
+                                <span class="text-blue-700 text-sm font-medium">Payment Method:</span>
+                                <span class="font-semibold text-blue-900 ml-2">{{ ucfirst(str_replace('_', ' ', $withdrawalRequest->payment_method)) }}</span>
+                            </div>
+                            @endif
+                            @if($withdrawalRequest->bank_name)
+                            <div>
+                                <span class="text-blue-700 text-sm font-medium">Bank Name:</span>
+                                <span class="font-semibold text-blue-900 ml-2">{{ $withdrawalRequest->bank_name }}</span>
+                            </div>
+                            @endif
+                            @if($withdrawalRequest->account_name)
+                            <div>
+                                <span class="text-blue-700 text-sm font-medium">Account Name:</span>
+                                <span class="font-semibold text-blue-900 ml-2">{{ $withdrawalRequest->account_name }}</span>
+                            </div>
+                            @endif
+                            @if($withdrawalRequest->account_number)
+                            <div>
+                                <span class="text-blue-700 text-sm font-medium">Account Number:</span>
+                                <span class="font-semibold text-blue-900 ml-2">{{ $withdrawalRequest->account_number }}</span>
+                            </div>
+                            @endif
+                            @if($withdrawalRequest->mobile_money_number)
+                            <div>
+                                <span class="text-blue-700 text-sm font-medium">Mobile Money Number:</span>
+                                <span class="font-semibold text-blue-900 ml-2">{{ $withdrawalRequest->mobile_money_number }}</span>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
+
                     <!-- Reason -->
                     <div class="mt-6">
                         <h4 class="font-semibold text-gray-900 mb-2">Reason for Withdrawal</h4>

@@ -52,7 +52,48 @@ class BusinessBalanceHistoryController extends Controller
             ->where('type', 'debit')
             ->sum('amount');
 
-        return view('business-balance-statement.index', compact('businessBalanceHistories', 'businesses', 'totalCredits', 'totalDebits'))
+        // Get withdrawal suspense account balance(s) calculated from BusinessBalanceHistory
+        // Available Balance = Total Balance - (Credits in withdrawal suspense) + (Debits in withdrawal suspense)
+        // Which is: Available Balance = Total Balance - (Credits - Debits in withdrawal suspense)
+        $withdrawalSuspenseBalance = 0;
+        if ($user->business_id == 1) {
+            // For Kashtre, calculate balance from all withdrawal suspense accounts
+            $withdrawalSuspenseAccountIds = \App\Models\MoneyAccount::where('type', 'withdrawal_suspense_account')
+                ->pluck('id');
+            
+            if ($withdrawalSuspenseAccountIds->isNotEmpty()) {
+                $suspenseCredits = BusinessBalanceHistory::whereIn('money_account_id', $withdrawalSuspenseAccountIds)
+                    ->where('type', 'credit')
+                    ->sum('amount');
+                
+                $suspenseDebits = BusinessBalanceHistory::whereIn('money_account_id', $withdrawalSuspenseAccountIds)
+                    ->where('type', 'debit')
+                    ->sum('amount');
+                
+                // Available Balance = Total - (Credits - Debits in suspense)
+                // This means: subtract credits (funds held) and add debits (funds released)
+                $withdrawalSuspenseBalance = $suspenseCredits - $suspenseDebits;
+            }
+        } else {
+            // For regular businesses, calculate balance from their withdrawal suspense account history
+            $moneyTrackingService = new \App\Services\MoneyTrackingService();
+            $withdrawalSuspenseAccount = $moneyTrackingService->getOrCreateWithdrawalSuspenseAccount($user->business);
+            
+            if ($withdrawalSuspenseAccount) {
+                $suspenseCredits = BusinessBalanceHistory::where('money_account_id', $withdrawalSuspenseAccount->id)
+                    ->where('type', 'credit')
+                    ->sum('amount');
+                
+                $suspenseDebits = BusinessBalanceHistory::where('money_account_id', $withdrawalSuspenseAccount->id)
+                    ->where('type', 'debit')
+                    ->sum('amount');
+                
+                // Available Balance = Total - (Credits - Debits in suspense)
+                $withdrawalSuspenseBalance = $suspenseCredits - $suspenseDebits;
+            }
+        }
+
+        return view('business-balance-statement.index', compact('businessBalanceHistories', 'businesses', 'totalCredits', 'totalDebits', 'withdrawalSuspenseBalance'))
             ->with('canUserCreateWithdrawal', function($user) {
                 return $this->canUserCreateWithdrawal($user);
             });

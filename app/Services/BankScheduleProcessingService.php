@@ -74,7 +74,7 @@ class BankScheduleProcessingService
             // Calculate amounts
             $amount = $bankSchedule->amount;
             $charge = $bankSchedule->withdrawal_charge ?? 0;
-            $totalDebit = $amount + $charge; // Total to debit from withdrawal suspense account
+            $totalDebit = $amount + $charge; // Total to debit from business account (will be two separate debit entries)
 
             Log::info("=== BANK SCHEDULE PROCESSING STARTED ===", [
                 'bank_schedule_id' => $bankSchedule->id,
@@ -159,6 +159,15 @@ class BankScheduleProcessingService
      */
     private function processBusinessWithdrawal(BankSchedule $bankSchedule, Business $business, $amount, $charge, $totalDebit, MoneyAccount $kashtreAccount, $withdrawalRequest = null)
     {
+        // Get business account
+        $businessAccount = MoneyAccount::where('business_id', $business->id)
+            ->where('type', 'business_account')
+            ->first();
+
+        if (!$businessAccount) {
+            throw new \Exception("Business account not found for business: {$business->name}");
+        }
+
         // Get withdrawal suspense account
         $moneyTrackingService = new \App\Services\MoneyTrackingService();
         $withdrawalSuspenseAccount = $moneyTrackingService->getOrCreateWithdrawalSuspenseAccount($business);
@@ -168,6 +177,8 @@ class BankScheduleProcessingService
             throw new \Exception("Insufficient balance in withdrawal suspense account. Available: " . number_format($withdrawalSuspenseAccount->balance, 2) . " UGX, Required: " . number_format($totalDebit, 2) . " UGX");
         }
 
+        $referenceId = $bankSchedule->reference_id ?? $bankSchedule->id;
+
         // Credit charge to Kashtre account statement (if any)
         if ($charge > 0) {
             // Record Kashtre balance statement for charge (this will update the account balance)
@@ -176,7 +187,7 @@ class BankScheduleProcessingService
                 $kashtreAccount->id,
                 $charge,
                 'credit',
-                "Bank Schedule Charge - " . ($bankSchedule->reference_id ?? $bankSchedule->id),
+                "Withdrawal Charge - {$referenceId}",
                 'bank_schedule',
                 $bankSchedule->id,
                 [
@@ -185,20 +196,19 @@ class BankScheduleProcessingService
                     'business_name' => $business->name,
                     'withdrawal_amount' => $amount,
                     'charge_amount' => $charge,
-                    'description' => "Bank schedule processing charge from {$business->name}"
+                    'description' => "Withdrawal processing charge from {$business->name}"
                 ],
                 auth()->id()
             );
         }
 
-        // Debit from withdrawal suspense account (create debit entry in suspense account history)
-        // Note: recordChange() already updates the account balance, so we don't need to decrement separately
+        // Debit from withdrawal suspense account (release the hold)
         BusinessBalanceHistory::recordChange(
             $business->id,
             $withdrawalSuspenseAccount->id,
             $totalDebit,
             'debit',
-            "Bank Schedule Processed - " . ($bankSchedule->reference_id ?? $bankSchedule->id),
+                "Withdrawal Processed - {$referenceId}",
             'bank_schedule',
             $bankSchedule->id,
             [
@@ -209,13 +219,54 @@ class BankScheduleProcessingService
                 'client_name' => $bankSchedule->client_name,
                 'bank_name' => $bankSchedule->bank_name,
                 'bank_account' => $bankSchedule->bank_account,
-                'description' => "Bank schedule processed: " . ($bankSchedule->reference_id ?? $bankSchedule->id) . " (Amount + Charge)"
+                'description' => "Withdrawal processed: {$referenceId} - releasing hold from suspense account"
             ],
             auth()->id()
         );
 
-        // Create MoneyTransfer record for consistency with other suspense accounts (same table format)
-        // This represents the debit from withdrawal suspense account when bank schedule is processed
+        // Debit 1: Withdrawal Charge from business account (this is the actual debit entry)
+        if ($charge > 0) {
+            BusinessBalanceHistory::recordChange(
+                $business->id,
+                $businessAccount->id,
+                $charge,
+                'debit',
+                "Withdrawal Charge - {$referenceId}",
+                'bank_schedule',
+                $bankSchedule->id,
+                [
+                    'bank_schedule_id' => $bankSchedule->id,
+                    'withdrawal_charge' => $charge,
+                    'client_name' => $bankSchedule->client_name,
+                    'bank_name' => $bankSchedule->bank_name,
+                    'bank_account' => $bankSchedule->bank_account,
+                    'description' => "Withdrawal charge processed: {$referenceId}"
+                ],
+                auth()->id()
+            );
+        }
+
+        // Debit 2: Withdrawal Amount from business account (this is the actual debit entry)
+        BusinessBalanceHistory::recordChange(
+            $business->id,
+            $businessAccount->id,
+            $amount,
+            'debit',
+                "Withdrawal - {$referenceId}",
+            'bank_schedule',
+            $bankSchedule->id,
+            [
+                'bank_schedule_id' => $bankSchedule->id,
+                'withdrawal_amount' => $amount,
+                'client_name' => $bankSchedule->client_name,
+                'bank_name' => $bankSchedule->bank_name,
+                'bank_account' => $bankSchedule->bank_account,
+                'description' => "Withdrawal processed: {$referenceId}"
+            ],
+            auth()->id()
+        );
+
+        // Create MoneyTransfer record for suspense account debit
         MoneyTransfer::create([
             'business_id' => $business->id,
             'from_account_id' => $withdrawalSuspenseAccount->id,
@@ -225,18 +276,56 @@ class BankScheduleProcessingService
             'status' => 'completed',
             'type' => 'debit',
             'transfer_type' => 'withdrawal_processed',
-            'description' => "Bank Schedule Processed - " . ($bankSchedule->reference_id ?? $bankSchedule->id),
+                'description' => "Withdrawal Processed - {$referenceId}",
             'source' => $withdrawalSuspenseAccount->name,
             'destination' => "External Payment",
             'processed_at' => now(),
         ]);
 
-        Log::info("Bank schedule processed - funds debited from withdrawal suspense account", [
+        // Create MoneyTransfer record for the withdrawal amount from business account
+        MoneyTransfer::create([
+            'business_id' => $business->id,
+            'from_account_id' => $businessAccount->id,
+            'to_account_id' => null, // Money leaves the system
+            'amount' => $amount,
+            'currency' => 'UGX',
+            'status' => 'completed',
+            'type' => 'debit',
+            'transfer_type' => 'withdrawal_processed',
+                'description' => "Withdrawal Processed - {$referenceId}",
+            'source' => $businessAccount->name,
+            'destination' => "External Payment",
+            'processed_at' => now(),
+        ]);
+
+        // Create MoneyTransfer record for the charge from business account (if any)
+        if ($charge > 0) {
+            MoneyTransfer::create([
+                'business_id' => $business->id,
+                'from_account_id' => $businessAccount->id,
+                'to_account_id' => $kashtreAccount->id,
+                'amount' => $charge,
+                'currency' => 'UGX',
+                'status' => 'completed',
+                'type' => 'debit',
+                'transfer_type' => 'withdrawal_charge',
+                'description' => "Withdrawal Charge - {$referenceId}",
+                'source' => $businessAccount->name,
+                'destination' => $kashtreAccount->name,
+                'processed_at' => now(),
+            ]);
+        }
+
+        Log::info("Bank schedule processed - funds released from suspense and debited from business account", [
             'bank_schedule_id' => $bankSchedule->id,
             'withdrawal_suspense_account_id' => $withdrawalSuspenseAccount->id,
+            'business_account_id' => $businessAccount->id,
+            'withdrawal_amount' => $amount,
+            'withdrawal_charge' => $charge,
             'total_debit' => $totalDebit,
             'charge_credited_to_kashtre' => $charge,
-            'remaining_suspense_balance' => $withdrawalSuspenseAccount->fresh()->balance
+            'remaining_suspense_balance' => $withdrawalSuspenseAccount->fresh()->balance,
+            'remaining_business_balance' => $businessAccount->fresh()->balance
         ]);
     }
 
@@ -261,7 +350,7 @@ class BankScheduleProcessingService
                 $kashtreAccount->id,
                 $charge,
                 'credit',
-                "Bank Schedule Charge (Contractor) - " . ($bankSchedule->reference_id ?? $bankSchedule->id),
+                "Withdrawal Charge (Contractor) - " . ($bankSchedule->reference_id ?? $bankSchedule->id),
                 'bank_schedule',
                 $bankSchedule->id,
                 [
@@ -269,7 +358,7 @@ class BankScheduleProcessingService
                     'contractor_profile_id' => $contractorProfile->id,
                     'withdrawal_amount' => $amount,
                     'charge_amount' => $charge,
-                    'description' => "Bank schedule processing charge from contractor"
+                    'description' => "Withdrawal processing charge from contractor"
                 ],
                 auth()->id()
             );
@@ -282,7 +371,7 @@ class BankScheduleProcessingService
             $contractorAccount->id,
             $totalDebit,
             'debit',
-            "Bank Schedule Processed - " . ($bankSchedule->reference_id ?? $bankSchedule->id),
+                "Withdrawal Processed - " . ($bankSchedule->reference_id ?? $bankSchedule->id),
             'bank_schedule',
             $bankSchedule->id,
             [
@@ -293,7 +382,7 @@ class BankScheduleProcessingService
                 'client_name' => $bankSchedule->client_name,
                 'bank_name' => $bankSchedule->bank_name,
                 'bank_account' => $bankSchedule->bank_account,
-                'description' => "Bank schedule processed: " . ($bankSchedule->reference_id ?? $bankSchedule->id) . " (Amount + Charge)"
+                'description' => "Withdrawal processed: " . ($bankSchedule->reference_id ?? $bankSchedule->id) . " (Amount + Charge)"
             ],
             auth()->id()
         );

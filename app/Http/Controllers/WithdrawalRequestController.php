@@ -85,7 +85,9 @@ class WithdrawalRequestController extends Controller
             ->where('type', 'business_account')
             ->first();
         
-        $currentBalance = 0;
+        $totalBalance = 0;
+        $withdrawalSuspenseBalance = 0;
+        
         if ($businessAccount) {
             $businessBalanceHistories = \App\Models\BusinessBalanceHistory::where('business_id', $business->id)
                 ->where('money_account_id', $businessAccount->id)
@@ -93,10 +95,32 @@ class WithdrawalRequestController extends Controller
             
             $totalCredits = $businessBalanceHistories->where('type', 'credit')->sum('amount');
             $totalDebits = $businessBalanceHistories->where('type', 'debit')->sum('amount');
-            $currentBalance = $totalCredits - $totalDebits;
+            $totalBalance = $totalCredits - $totalDebits;
         }
 
-        return view('withdrawal-requests.create', compact('withdrawalSettings', 'withdrawalCharges', 'business', 'currentBalance'));
+        // Get withdrawal suspense account balance calculated from BusinessBalanceHistory
+        // Available Balance = Total Balance - (Credits in withdrawal suspense) + (Debits in withdrawal suspense)
+        $moneyTrackingService = new \App\Services\MoneyTrackingService();
+        $withdrawalSuspenseAccount = $moneyTrackingService->getOrCreateWithdrawalSuspenseAccount($business);
+        
+        $withdrawalSuspenseBalance = 0;
+        if ($withdrawalSuspenseAccount) {
+            $suspenseCredits = \App\Models\BusinessBalanceHistory::where('money_account_id', $withdrawalSuspenseAccount->id)
+                ->where('type', 'credit')
+                ->sum('amount');
+            
+            $suspenseDebits = \App\Models\BusinessBalanceHistory::where('money_account_id', $withdrawalSuspenseAccount->id)
+                ->where('type', 'debit')
+                ->sum('amount');
+            
+            // Available Balance = Total - (Credits - Debits in suspense)
+            $withdrawalSuspenseBalance = $suspenseCredits - $suspenseDebits;
+        }
+
+        // Available Balance = Total Balance - Withdrawal Suspense Balance
+        $availableBalance = $totalBalance - $withdrawalSuspenseBalance;
+
+        return view('withdrawal-requests.create', compact('withdrawalSettings', 'withdrawalCharges', 'business', 'availableBalance', 'totalBalance', 'withdrawalSuspenseBalance'));
     }
 
     /**
@@ -163,10 +187,32 @@ class WithdrawalRequestController extends Controller
             
             $totalCredits = $businessBalanceHistories->where('type', 'credit')->sum('amount');
             $totalDebits = $businessBalanceHistories->where('type', 'debit')->sum('amount');
-            $currentBalance = $totalCredits - $totalDebits;
+            $totalBalance = $totalCredits - $totalDebits;
 
-            if ($currentBalance < $totalDeduction) {
-                throw new \Exception('Insufficient balance. Your account balance (' . number_format($currentBalance, 2) . ' UGX) is insufficient to cover the total deduction (' . number_format($totalDeduction, 2) . ' UGX). Please reduce the withdrawal amount.');
+            // Get withdrawal suspense account balance calculated from BusinessBalanceHistory
+            // Available Balance = Total Balance - (Credits in withdrawal suspense) + (Debits in withdrawal suspense)
+            $moneyTrackingService = new MoneyTrackingService();
+            $withdrawalSuspenseAccount = $moneyTrackingService->getOrCreateWithdrawalSuspenseAccount($user->business);
+            
+            $withdrawalSuspenseBalance = 0;
+            if ($withdrawalSuspenseAccount) {
+                $suspenseCredits = BusinessBalanceHistory::where('money_account_id', $withdrawalSuspenseAccount->id)
+                    ->where('type', 'credit')
+                    ->sum('amount');
+                
+                $suspenseDebits = BusinessBalanceHistory::where('money_account_id', $withdrawalSuspenseAccount->id)
+                    ->where('type', 'debit')
+                    ->sum('amount');
+                
+                // Available Balance = Total - (Credits - Debits in suspense)
+                $withdrawalSuspenseBalance = $suspenseCredits - $suspenseDebits;
+            }
+
+            // Available Balance = Total Balance - Withdrawal Suspense Balance
+            $availableBalance = $totalBalance - $withdrawalSuspenseBalance;
+
+            if ($availableBalance < $totalDeduction) {
+                throw new \Exception('Insufficient balance. Your available balance (' . number_format($availableBalance, 2) . ' UGX) is insufficient to cover the total deduction (' . number_format($totalDeduction, 2) . ' UGX). Please reduce the withdrawal amount.');
             }
 
             // Create a single withdrawal request entry (no separate charge row)
@@ -196,23 +242,13 @@ class WithdrawalRequestController extends Controller
             ]);
 
             // Hold funds in withdrawal suspense account
+            // Only credit the suspense account (no debit on business_account to keep it off the statement)
+            // The Available Balance calculation will subtract suspense credits to show unavailable funds
             $moneyTrackingService = new MoneyTrackingService();
             $withdrawalSuspenseAccount = $moneyTrackingService->getOrCreateWithdrawalSuspenseAccount($user->business);
 
-            // Debit from business_account
-            BusinessBalanceHistory::recordChange(
-                $user->business_id,
-                $businessAccount->id,
-                $totalDeduction,
-                'debit',
-                "Withdrawal Request Hold - {$withdrawalRequest->uuid}",
-                WithdrawalRequest::class,
-                $withdrawalRequest->id,
-                ['withdrawal_request_uuid' => $withdrawalRequest->uuid],
-                $user->id
-            );
-
-            // Credit to withdrawal suspense account
+            // Credit to withdrawal suspense account (this holds the funds)
+            // Note: We do NOT debit from business_account here - that only happens when bank schedule is marked as done
             BusinessBalanceHistory::recordChange(
                 $user->business_id,
                 $withdrawalSuspenseAccount->id,
@@ -225,26 +261,9 @@ class WithdrawalRequestController extends Controller
                 $user->id
             );
 
-            // Create MoneyTransfer record for consistency with other suspense accounts (same table format)
-            MoneyTransfer::create([
-                'business_id' => $user->business_id,
-                'from_account_id' => $businessAccount->id,
-                'to_account_id' => $withdrawalSuspenseAccount->id,
-                'amount' => $totalDeduction,
-                'currency' => 'UGX',
-                'status' => 'completed',
-                'type' => 'credit',
-                'transfer_type' => 'withdrawal_hold',
-                'description' => "Withdrawal Request Hold - {$withdrawalRequest->uuid}",
-                'source' => $businessAccount->name,
-                'destination' => $withdrawalSuspenseAccount->name,
-                'processed_at' => now(),
-            ]);
-
             Log::info('WR Funds held in suspense', [
                 'withdrawal_request_id' => $withdrawalRequest->id,
                 'total_deduction' => $totalDeduction,
-                'business_account_id' => $businessAccount->id,
                 'withdrawal_suspense_account_id' => $withdrawalSuspenseAccount->id,
             ]);
 
@@ -619,68 +638,7 @@ class WithdrawalRequestController extends Controller
                 ]);
             }
 
-            // Release funds from withdrawal suspense account back to business account
-            $business = $withdrawalRequest->business;
-            $totalDeduction = $withdrawalRequest->amount + $withdrawalRequest->withdrawal_charge;
-
-            $businessAccount = MoneyAccount::where('business_id', $business->id)
-                ->where('type', 'business_account')
-                ->first();
-
-            if ($businessAccount) {
-                $moneyTrackingService = new MoneyTrackingService();
-                $withdrawalSuspenseAccount = $moneyTrackingService->getOrCreateWithdrawalSuspenseAccount($business);
-
-                // Debit from withdrawal_suspense_account (create debit entry in suspense account history)
-                BusinessBalanceHistory::recordChange(
-                    $business->id,
-                    $withdrawalSuspenseAccount->id,
-                    $totalDeduction,
-                    'debit',
-                    "Withdrawal Request Rejected - {$withdrawalRequest->uuid}",
-                    WithdrawalRequest::class,
-                    $withdrawalRequest->id,
-                    ['withdrawal_request_uuid' => $withdrawalRequest->uuid],
-                    $user->id
-                );
-
-                // Credit back to business_account
-                BusinessBalanceHistory::recordChange(
-                    $business->id,
-                    $businessAccount->id,
-                    $totalDeduction,
-                    'credit',
-                    "Withdrawal Request Rejected - {$withdrawalRequest->uuid}",
-                    WithdrawalRequest::class,
-                    $withdrawalRequest->id,
-                    ['withdrawal_request_uuid' => $withdrawalRequest->uuid],
-                    $user->id
-                );
-
-                // Create MoneyTransfer record for consistency with other suspense accounts (same table format)
-                // This represents the return of funds from withdrawal suspense back to business account
-                MoneyTransfer::create([
-                    'business_id' => $business->id,
-                    'from_account_id' => $withdrawalSuspenseAccount->id,
-                    'to_account_id' => $businessAccount->id,
-                    'amount' => $totalDeduction,
-                    'currency' => 'UGX',
-                    'status' => 'completed',
-                    'type' => 'credit',
-                    'transfer_type' => 'withdrawal_rejected',
-                    'description' => "Withdrawal Request Rejected - {$withdrawalRequest->uuid}",
-                    'source' => $withdrawalSuspenseAccount->name,
-                    'destination' => $businessAccount->name,
-                    'processed_at' => now(),
-                ]);
-
-                Log::info('WR Funds released from suspense on rejection', [
-                    'withdrawal_request_id' => $withdrawalRequest->id,
-                    'total_deduction' => $totalDeduction,
-                    'business_account_id' => $businessAccount->id,
-                    'withdrawal_suspense_account_id' => $withdrawalSuspenseAccount->id,
-                ]);
-            }
+            // No funds to release - withdrawal requests no longer hold funds when created
 
             // Notify requester that request was rejected
             $requester = $withdrawalRequest->requester;

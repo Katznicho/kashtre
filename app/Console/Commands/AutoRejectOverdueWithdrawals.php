@@ -102,84 +102,29 @@ class AutoRejectOverdueWithdrawals extends Command
                             ]);
                         }
 
-                        // Release funds from withdrawal suspense account back to business account
-                        $business = $request->business;
-                        $totalDeduction = $request->amount + $request->withdrawal_charge;
-
-                        $businessAccount = MoneyAccount::where('business_id', $business->id)
-                            ->where('type', 'business_account')
-                            ->first();
-
-                        if ($businessAccount) {
-                            $moneyTrackingService = new MoneyTrackingService();
-                            $withdrawalSuspenseAccount = $moneyTrackingService->getOrCreateWithdrawalSuspenseAccount($business);
-
-                            // Debit from withdrawal_suspense_account (create debit entry in suspense account history)
-                            BusinessBalanceHistory::recordChange(
-                                $business->id,
-                                $withdrawalSuspenseAccount->id,
-                                $totalDeduction,
-                                'debit',
-                                "Withdrawal Request Auto-Rejected (Timeout) - {$request->uuid}",
-                                WithdrawalRequest::class,
-                                $request->id,
-                                ['withdrawal_request_uuid' => $request->uuid, 'auto_rejected' => true],
-                                1 // System user ID
-                            );
-
-                            // Credit back to business_account
-                            BusinessBalanceHistory::recordChange(
-                                $business->id,
-                                $businessAccount->id,
-                                $totalDeduction,
-                                'credit',
-                                "Withdrawal Request Auto-Rejected (Timeout) - {$request->uuid}",
-                                WithdrawalRequest::class,
-                                $request->id,
-                                ['withdrawal_request_uuid' => $request->uuid, 'auto_rejected' => true],
-                                1 // System user ID
-                            );
-
-                            // Create MoneyTransfer record for consistency with other suspense accounts (same table format)
-                            MoneyTransfer::create([
-                                'business_id' => $business->id,
-                                'from_account_id' => $withdrawalSuspenseAccount->id,
-                                'to_account_id' => $businessAccount->id,
-                                'amount' => $totalDeduction,
-                                'currency' => 'UGX',
-                                'status' => 'completed',
-                                'type' => 'credit',
-                                'transfer_type' => 'withdrawal_rejected',
-                                'description' => "Withdrawal Request Auto-Rejected (Timeout) - {$request->uuid}",
-                                'source' => $withdrawalSuspenseAccount->name,
-                                'destination' => $businessAccount->name,
-                                'processed_at' => now(),
-                            ]);
-
-                            // Notify requester that request was auto-rejected
-                            $requester = $request->requester;
-                            if ($requester) {
-                                $requester->notify(new WithdrawalRequestNotification(
-                                    $request,
-                                    'rejected',
-                                    "Your withdrawal request for " . number_format($request->amount, 2) . " UGX has been automatically rejected due to exceeding the maximum approval time of {$withdrawalSetting->max_approval_time} {$withdrawalSetting->max_approval_time_unit}. Funds have been refunded to your account."
-                                ));
-                            }
-
-                            Log::info('WR Auto-rejected due to timeout', [
-                                'withdrawal_request_id' => $request->id,
-                                'withdrawal_request_uuid' => $request->uuid,
-                                'business_id' => $business->id,
-                                'max_approval_time' => $withdrawalSetting->max_approval_time,
-                                'max_approval_time_unit' => $withdrawalSetting->max_approval_time_unit,
-                                'total_deduction' => $totalDeduction,
-                                'deadline' => $deadline,
-                                'exceeded_by_hours' => Carbon::now()->diffInHours($deadline),
-                            ]);
-
-                            $rejectedCount++;
+                        // No funds to release - withdrawal requests no longer hold funds when created
+                        
+                        // Notify requester that request was auto-rejected
+                        $requester = $request->requester;
+                        if ($requester) {
+                            $requester->notify(new WithdrawalRequestNotification(
+                                $request,
+                                'rejected',
+                                "Your withdrawal request for " . number_format($request->amount, 2) . " UGX has been automatically rejected due to exceeding the maximum approval time of {$withdrawalSetting->max_approval_time} {$withdrawalSetting->max_approval_time_unit}."
+                            ));
                         }
 
+                        Log::info('WR Auto-rejected due to timeout', [
+                            'withdrawal_request_id' => $request->id,
+                            'withdrawal_request_uuid' => $request->uuid,
+                            'business_id' => $request->business_id,
+                            'max_approval_time' => $withdrawalSetting->max_approval_time,
+                            'max_approval_time_unit' => $withdrawalSetting->max_approval_time_unit,
+                            'deadline' => $deadline,
+                            'exceeded_by_hours' => Carbon::now()->diffInHours($deadline),
+                        ]);
+
+                        $rejectedCount++;
                         DB::commit();
                         $this->info("✓ Auto-rejected withdrawal request: {$request->uuid}");
 
