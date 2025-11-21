@@ -85,12 +85,34 @@ class ClientController extends Controller
         // Get available payment methods from maturation periods for this business
         $availablePaymentMethods = MaturationPeriod::where('business_id', $business->id)
             ->where('is_active', true)
-            ->orderBy('payment_method')
             ->get()
             ->pluck('payment_method')
             ->unique()
             ->values()
             ->toArray();
+        
+        // Define the order for payment methods
+        $paymentMethodOrder = [
+            'mobile_money' => 1,
+            'v_card' => 2,
+            'p_card' => 3,
+            'bank_transfer' => 4,
+            'cash' => 5,
+        ];
+        
+        // Sort payment methods according to the defined order
+        // Methods not in the order list will come after (with higher priority number)
+        usort($availablePaymentMethods, function ($a, $b) use ($paymentMethodOrder) {
+            $orderA = $paymentMethodOrder[$a] ?? 999;
+            $orderB = $paymentMethodOrder[$b] ?? 999;
+            
+            if ($orderA === $orderB) {
+                // If both have the same priority (or both not in list), maintain original order
+                return 0;
+            }
+            
+            return $orderA <=> $orderB;
+        });
         
         // Payment method display names
         $paymentMethodNames = [

@@ -57,14 +57,9 @@ class ListBankSchedules extends Component implements HasForms, HasTable
             ->query($query)
             ->columns([
                 TextColumn::make('business.name')
-                    ->label('Business')
+                    ->label('Business Name')
                     ->sortable()
                     ->searchable(),
-
-                TextColumn::make('client_name')
-                    ->label('Client Name')
-                    ->searchable()
-                    ->sortable(),
 
                 TextColumn::make('amount')
                     ->label('Amount')
@@ -72,60 +67,21 @@ class ListBankSchedules extends Component implements HasForms, HasTable
                     ->sortable()
                     ->alignRight(),
 
-                TextColumn::make('withdrawal_charge')
-                    ->label('Charge')
-                    ->money('UGX')
-                    ->sortable()
-                    ->alignRight()
-                    ->toggleable(isToggledHiddenByDefault: false),
-
                 TextColumn::make('bank_name')
                     ->label('Bank Name')
                     ->searchable()
                     ->sortable(),
 
+                TextColumn::make('client_name')
+                    ->label('Account Name')
+                    ->searchable()
+                    ->sortable(),
+
                 TextColumn::make('bank_account')
-                    ->label('Bank Account')
+                    ->label('Account Number')
                     ->searchable()
                     ->copyable()
                     ->sortable(),
-
-                TextColumn::make('reference_id')
-                    ->label('Reference ID')
-                    ->searchable()
-                    ->copyable()
-                    ->sortable()
-                    ->default('—'),
-
-                TextColumn::make('withdrawalRequest.uuid')
-                    ->label('Withdrawal Request')
-                    ->formatStateUsing(fn ($state) => $state ? substr($state, 0, 8) . '...' : '—')
-                    ->url(fn ($record) => $record->withdrawal_request_id ? route('withdrawal-requests.show', $record->withdrawal_request_id) : null)
-                    ->color(fn ($record) => $record->withdrawal_request_id ? 'primary' : null)
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                TextColumn::make('status')
-                    ->label('Status')
-                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'pending' => 'warning',
-                        'processed' => 'success',
-                        'cancelled' => 'danger',
-                        default => 'gray',
-                    })
-                    ->sortable(),
-
-                TextColumn::make('created_at')
-                    ->label('Created')
-                    ->dateTime('M d, Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                TextColumn::make('creator.name')
-                    ->label('Created By')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('business_id')

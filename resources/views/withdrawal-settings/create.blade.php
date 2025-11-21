@@ -94,7 +94,7 @@
                                     Maximum Approval Time
                                 </label>
                                 <input type="number" name="max_approval_time" id="max_approval_time" 
-                                       value="{{ old('max_approval_time') }}" 
+                                       value="{{ old('max_approval_time', 24) }}" 
                                        min="1" step="1"
                                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent"
                                        placeholder="e.g., 24">
@@ -111,7 +111,7 @@
                                 </select>
                             </div>
                         </div>
-                        <p class="text-xs text-gray-500 mt-2">Leave empty to disable automatic refund on timeout.</p>
+                        <p class="text-xs text-gray-500 mt-2">Default is 24 hours. Leave empty to disable automatic refund on timeout.</p>
                     </div>
 
                     <!-- 3-Level Approval Configuration -->

@@ -61,7 +61,7 @@ class ItemController extends Controller
             $departments = Department::where('business_id', $selectedBusinessId)->get();
             $itemUnits = ItemUnit::where('business_id', $selectedBusinessId)->get();
             $servicePoints = ServicePoint::where('business_id', $selectedBusinessId)->get();
-            $contractors = ContractorProfile::with('business')->where('business_id', $selectedBusinessId)->get();
+            $contractors = ContractorProfile::with(['business', 'user'])->where('business_id', $selectedBusinessId)->get();
             $branches = Branch::where('business_id', $selectedBusinessId)->get();
             
             // Get available items for package and bulk selection (exclude package and bulk types)
@@ -79,7 +79,7 @@ class ItemController extends Controller
             $departments = Department::where('business_id', '!=', 1)->get();
             $itemUnits = ItemUnit::where('business_id', '!=', 1)->get();
             $servicePoints = ServicePoint::where('business_id', '!=', 1)->get();
-            $contractors = ContractorProfile::with('business')->where('business_id', '!=', 1)->get();
+            $contractors = ContractorProfile::with(['business', 'user'])->where('business_id', '!=', 1)->get();
             $branches = Branch::where('business_id', '!=', 1)->get();
             $availableItems = Item::where('business_id', '!=', 1)
                 ->whereNotIn('type', ['package', 'bulk'])

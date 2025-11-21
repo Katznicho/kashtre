@@ -159,7 +159,7 @@ class WithdrawalSettingController extends Controller
                 'business_id' => $request->business_id,
                 'minimum_withdrawal_amount' => $request->minimum_withdrawal_amount,
                 'number_of_free_withdrawals_per_day' => $request->number_of_free_withdrawals_per_day,
-                'max_approval_time' => $request->max_approval_time,
+                'max_approval_time' => $request->max_approval_time ?? 24,
                 'max_approval_time_unit' => $request->max_approval_time_unit ?? 'hours',
                 'withdrawal_type' => $request->withdrawal_type,
                 'is_active' => $request->has('is_active'),
