@@ -216,6 +216,7 @@ class PackageSalesService
                 'reference' => 'PKG-' . time() . '-' . $invoiceNumber,
                 'description' => "Package item sales from invoice {$invoiceNumber}",
                 'status' => 'completed',
+                'payment_status' => 'Paid', // Package sales are always paid
                 'type' => 'package_sale',
                 'origin' => 'package_sales',
                 'date' => now()->toDateString(),
@@ -267,6 +268,7 @@ class PackageSalesService
                 'reference' => 'CLIENT-PKG-' . time() . '-' . $invoiceNumber,
                 'description' => "Package usage from invoice {$invoiceNumber}",
                 'status' => 'completed',
+                'payment_status' => 'Paid', // Package usage transactions are always paid
                 'type' => 'package', // Special type for package transactions
                 'origin' => 'package_usage',
                 'date' => now()->toDateString(),
@@ -308,6 +310,7 @@ class PackageSalesService
                 'reference' => 'BIZ-PKG-' . time() . '-' . $invoiceNumber,
                 'description' => "Package sales revenue from invoice {$invoiceNumber}",
                 'status' => 'completed',
+                'payment_status' => 'Paid', // Package sales are always paid
                 'type' => 'package', // Special type for package transactions
                 'origin' => 'package_sales',
                 'date' => now()->toDateString(),

@@ -65,6 +65,13 @@
                             <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->vat_rate ?? 0 }}%</p>
                         </div>
 
+                        @if($item->type === 'package')
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Maximum Total Quantity</label>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $item->max_qty ?? 1 }}</p>
+                        </div>
+                        @endif
+
                         @if($item->type !== 'package' && $item->type !== 'bulk')
                         <div>
                             <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Hospital Share</label>

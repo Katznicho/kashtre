@@ -57,6 +57,12 @@ class LocalPaymentController extends Controller
             // Generate a fake transaction reference for local testing
             $fakeTransactionReference = 'LOCAL-' . time() . '-' . rand(1000, 9999);
             
+            // Determine payment status: PP for credit clients with balance due, otherwise Paid
+            $paymentStatus = 'Paid';
+            if ($invoice && $client->is_credit_eligible && $invoice->balance_due > 0) {
+                $paymentStatus = 'PP';
+            }
+            
             // Create transaction record as PENDING (this is what we want for testing)
             $transaction = Transaction::create([
                 'business_id' => $validated['business_id'],
@@ -68,6 +74,7 @@ class LocalPaymentController extends Controller
                 'external_reference' => $fakeTransactionReference,
                 'description' => $description,
                 'status' => 'pending', // This is key - we want it to stay pending for testing
+                'payment_status' => $paymentStatus,
                 'type' => 'debit',
                 'origin' => 'web',
                 'phone_number' => $validated['phone_number'],

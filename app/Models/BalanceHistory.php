@@ -165,12 +165,32 @@ class BalanceHistory extends Model
         ]);
     }
 
-    public static function recordDebit($client, $amount, $description, $referenceNumber = null, $notes = null, $paymentMethod = null)
+    public static function recordDebit($client, $amount, $description, $referenceNumber = null, $notes = null, $paymentMethod = null, $invoiceId = null)
     {
+        // Check if a debit entry already exists for this invoice with the same description to prevent duplicates
+        // This allows multiple entries per invoice (one per item) as long as descriptions differ
+        if ($invoiceId) {
+            $existingDebit = self::where('client_id', $client->id)
+                ->where('invoice_id', $invoiceId)
+                ->where('transaction_type', 'debit')
+                ->where('description', $description)
+                ->first();
+            
+            if ($existingDebit) {
+                \Log::info("Debit entry already exists for invoice with same description", [
+                    'invoice_id' => $invoiceId,
+                    'client_id' => $client->id,
+                    'description' => $description,
+                    'existing_debit_id' => $existingDebit->id
+                ]);
+                return $existingDebit;
+            }
+        }
+        
         // Calculate previous balance from existing balance history records
         $previousBalance = self::where('client_id', $client->id)
             ->orderBy('created_at', 'desc')
-            ->value('new_balance') ?? 0;
+            ->value('new_balance') ?? ($client->balance ?? 0);
         
         $newBalance = $previousBalance - $amount; // Debit from balance
 
@@ -178,6 +198,7 @@ class BalanceHistory extends Model
             'client_id' => $client->id,
             'business_id' => $client->business_id,
             'branch_id' => $client->branch_id,
+            'invoice_id' => $invoiceId,
             'user_id' => auth()->id() ?? 1, // Default to user ID 1 if no auth
             'previous_balance' => $previousBalance,
             'change_amount' => -$amount, // Negative for debit

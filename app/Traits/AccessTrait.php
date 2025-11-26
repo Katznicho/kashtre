@@ -97,10 +97,12 @@ trait AccessTrait
     public static $businessAccess = [
         "Business" => ['View Business', 'Edit Business', 'Add Business'],
         "Branches" => ['View Branches', 'Edit Branches', 'Add Branches'],
+        "Business Settings" => ['View Business Settings', 'Edit Business Settings'],
     ];
 
     public static $clientAccess = [
-        "Clients" => ['View Clients', 'Edit Clients', 'Add Clients'],
+        "Clients" => ['View Clients', 'Edit Clients', 'Add Clients', 'Admit Clients', 'Discharge Clients'],
+        "Third Party Payers" => ['View Third Party Payers', 'Edit Third Party Payers', 'Add Third Party Payers'],
     ];
 
     public static $staffAccess = [
@@ -123,7 +125,7 @@ trait AccessTrait
     ];
 
     public static $finance = [
-                    "Finance" => ['View Finance', 'Manage Finance', 'View Business Balance Statement', 'View Client Balance Statement', 'View Money Tracking', 'View Withdrawal Requests', 'Manage Withdrawal Requests'],
+                    "Finance" => ['View Finance', 'Manage Finance', 'View Business Balance Statement', 'View Client Balance Statement', 'View Money Tracking', 'View Withdrawal Requests', 'Manage Withdrawal Requests', 'View Accounts Receivable'],
     ];
 
     public static $packageTracking = [

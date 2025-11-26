@@ -56,6 +56,7 @@ class InvoiceController extends Controller
                $result = $packageTrackingService->calculatePackageAdjustment($mockInvoice, $items);
             $totalAdjustment = $result['total_adjustment'];
             $adjustmentDetails = $result['details'];
+            $maxQtyWarnings = $result['max_qty_warnings'] ?? [];
 
             // Package adjustment calculation is now handled by the PackageTrackingService
 
@@ -65,13 +66,15 @@ class InvoiceController extends Controller
                 'branch_id' => $branchId,
                 'total_adjustment' => $totalAdjustment,
                 'adjustment_details_count' => count($adjustmentDetails),
-                'adjustment_details' => $adjustmentDetails
+                'adjustment_details' => $adjustmentDetails,
+                'max_qty_warnings_count' => count($maxQtyWarnings)
             ]);
 
             return response()->json([
                 'success' => true,
                 'total_adjustment' => $totalAdjustment,
                 'details' => $adjustmentDetails,
+                'max_qty_warnings' => $maxQtyWarnings,
                 'message' => $totalAdjustment > 0 ? 'Package adjustments applied' : 'No valid package adjustments found'
             ]);
 
@@ -327,13 +330,44 @@ class InvoiceController extends Controller
                 'amount_paid' => 'nullable|numeric|min:0',
                 'balance_due' => 'required|numeric|min:0',
                 'payment_methods' => 'nullable|array',
-                'payment_status' => 'required|in:pending,partial,paid,cancelled',
+                'payment_status' => 'required|in:pending,pending_payment,partial,paid,cancelled',
                 'status' => 'required|in:draft,confirmed,printed,cancelled',
                 'notes' => 'nullable|string',
             ]);
             
             // Get client
             $client = Client::find($validated['client_id']);
+
+            // Check credit limit for credit-eligible clients
+            if ($client->is_credit_eligible) {
+                // Calculate current outstanding balance from accounts receivable
+                $currentOutstanding = \App\Models\AccountsReceivable::where('client_id', $client->id)
+                    ->where('status', '!=', 'paid')
+                    ->sum('balance');
+                
+                // Calculate new balance if this invoice is created
+                $newOutstanding = $currentOutstanding + $validated['balance_due'];
+                
+                // Check if exceeds credit limit
+                if ($client->max_credit && $newOutstanding > $client->max_credit) {
+                    $availableCredit = $client->max_credit - $currentOutstanding;
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Credit limit exceeded. Available credit: UGX " . number_format($availableCredit, 2) . ". Requested amount: UGX " . number_format($validated['balance_due'], 2) . ".",
+                        'errors' => [
+                            'credit_limit' => [
+                                "This order would exceed the client's credit limit of UGX " . number_format($client->max_credit, 2) . ". Current outstanding: UGX " . number_format($currentOutstanding, 2) . ". Available credit: UGX " . number_format($availableCredit, 2) . "."
+                            ]
+                        ],
+                        'credit_info' => [
+                            'max_credit' => $client->max_credit,
+                            'current_outstanding' => $currentOutstanding,
+                            'available_credit' => $availableCredit,
+                            'requested_amount' => $validated['balance_due'],
+                        ]
+                    ], 422);
+                }
+            }
 
             // Generate visit_id if client doesn't have one (only when creating invoice/transaction)
             // This is the only place where we regenerate visit_id after it's been cleared/expired by cron
@@ -461,10 +495,231 @@ class InvoiceController extends Controller
             // Store current invoice for balance statement
             $this->currentInvoice = $invoice;
             
+            // Check if this is a credit client with balance due
+            $isCreditClient = $client->is_credit_eligible;
+            $hasBalanceDue = $invoice->balance_due > 0;
+            $isCreditTransaction = $isCreditClient && $hasBalanceDue;
+            
+            Log::info("Invoice payment processing decision", [
+                'invoice_id' => $invoice->id,
+                'client_id' => $client->id,
+                'is_credit_eligible' => $isCreditClient,
+                'balance_due' => $invoice->balance_due,
+                'is_credit_transaction' => $isCreditTransaction,
+                'amount_paid' => $validated['amount_paid'] ?? 0,
+            ]);
+            
+            // For credit clients with balance due: Create accounts receivable and update client balance
+            // NO suspense account movement - money stays in accounts receivable
+            if ($isCreditTransaction) {
+                // Update invoice payment_status to "pending_payment" for credit clients
+                $invoice->update(['payment_status' => 'pending_payment']);
+                
+                Log::info("Processing credit client invoice - creating accounts receivable", [
+                    'invoice_id' => $invoice->id,
+                    'client_id' => $client->id,
+                    'balance_due' => $invoice->balance_due,
+                    'payment_status' => 'pending_payment',
+                ]);
+                
+                // Create accounts receivable entry
+                // For credit clients: amount_due is the total invoice amount, balance is what's still owed
+                $accountsReceivable = \App\Models\AccountsReceivable::create([
+                    'client_id' => $client->id,
+                    'business_id' => $business->id,
+                    'branch_id' => $validated['branch_id'],
+                    'invoice_id' => $invoice->id,
+                    'created_by' => $validated['created_by'],
+                    'amount_due' => $invoice->total_amount, // Total invoice amount
+                    'amount_paid' => $validated['amount_paid'] ?? 0,
+                    'balance' => $invoice->balance_due, // What's still owed (total_amount - amount_paid)
+                    'invoice_date' => now()->toDateString(),
+                    'due_date' => now()->addDays($business->default_payment_terms_days ?? 30)->toDateString(), // Use business default or 30 days
+                    'status' => ($validated['amount_paid'] ?? 0) > 0 ? 'partial' : 'current',
+                    'payer_type' => 'first_party',
+                    'notes' => "Credit transaction - Invoice #{$invoiceNumber}",
+                ]);
+                
+                Log::info("Accounts receivable created", [
+                    'accounts_receivable_id' => $accountsReceivable->id,
+                    'balance' => $accountsReceivable->balance,
+                ]);
+                
+                // Update client balance with negative entry (they owe money)
+                $previousBalance = $client->balance ?? 0;
+                $newBalance = $previousBalance - $invoice->balance_due; // Negative balance = they owe
+                
+                $client->update(['balance' => $newBalance]);
+                
+                // Get payment method before creating balance history
+                $paymentMethods = $validated['payment_methods'] ?? [];
+                $primaryMethod = !empty($paymentMethods) ? $paymentMethods[0] : 'credit';
+                
+                // Create separate debit entry for each item (just like regular payments)
+                $itemsCollection = collect($invoice->items ?? []);
+                $debitCount = 0;
+                
+                foreach ($itemsCollection as $itemData) {
+                    $itemId = $itemData['id'] ?? $itemData['item_id'] ?? null;
+                    if (!$itemId) continue;
+                    
+                    $item = \App\Models\Item::find($itemId);
+                    if (!$item) continue;
+                    
+                    $quantity = $itemData['quantity'] ?? 1;
+                    $itemTotalAmount = $itemData['total_amount'] ?? ($itemData['price'] ?? $item->default_price ?? 0) * $quantity;
+                    
+                    // Skip if amount is zero
+                    if ($itemTotalAmount <= 0) continue;
+                    
+                    // Check if this item is part of a package adjustment (skip if covered by package)
+                    $isPackageAdjustmentItem = false;
+                    if ($invoice->package_adjustment > 0) {
+                        $validPackages = \App\Models\PackageTracking::where('client_id', $client->id)
+                            ->where('business_id', $business->id)
+                            ->where('status', 'active')
+                            ->where('remaining_quantity', '>', 0)
+                            ->get();
+                        
+                        foreach ($validPackages as $packageTracking) {
+                            $packageItems = $packageTracking->packageItem->packageItems ?? collect();
+                            foreach ($packageItems as $packageItem) {
+                                if ($packageItem->included_item_id == $itemId) {
+                                    $isPackageAdjustmentItem = true;
+                                    break 2;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Skip creating debit record for package adjustment items
+                    if ($isPackageAdjustmentItem) {
+                        Log::info("SKIPPING CLIENT DEBIT FOR PACKAGE ITEM (Credit Client)", [
+                            'item_id' => $itemId,
+                            'item_name' => $item->name,
+                            'reason' => 'Item is covered by package adjustment - no debit needed'
+                        ]);
+                        continue;
+                    }
+                    
+                    // Create separate debit entry for this item
+                    $itemDisplayName = $item->name;
+                    \App\Models\BalanceHistory::recordDebit(
+                        $client,
+                        $itemTotalAmount,
+                        "{$itemDisplayName} (x{$quantity})",
+                        $invoiceNumber,
+                        "Credit purchase - {$itemDisplayName} (x{$quantity}) - Invoice #{$invoiceNumber}",
+                        $primaryMethod,
+                        $invoice->id // Pass invoice_id to link entries, but allow multiple per invoice (different descriptions)
+                    );
+                    
+                    $debitCount++;
+                    
+                    Log::info("Debit entry created for item (Credit Client)", [
+                        'invoice_id' => $invoice->id,
+                        'item_id' => $itemId,
+                        'item_name' => $itemDisplayName,
+                        'quantity' => $quantity,
+                        'amount' => $itemTotalAmount,
+                    ]);
+                }
+                
+                // Create separate debit entry for service charge if applicable
+                if ($invoice->service_charge > 0) {
+                    \App\Models\BalanceHistory::recordDebit(
+                        $client,
+                        $invoice->service_charge,
+                        "Service Fee",
+                        $invoiceNumber,
+                        "Credit purchase - Service Fee - Invoice #{$invoiceNumber}",
+                        $primaryMethod,
+                        $invoice->id // Pass invoice_id to link entries, but allow multiple per invoice (different descriptions)
+                    );
+                    
+                    $debitCount++;
+                    
+                    Log::info("Debit entry created for service charge (Credit Client)", [
+                        'invoice_id' => $invoice->id,
+                        'service_charge' => $invoice->service_charge,
+                    ]);
+                }
+                
+                Log::info("Client balance updated for credit transaction", [
+                    'client_id' => $client->id,
+                    'previous_balance' => $previousBalance,
+                    'new_balance' => $newBalance,
+                    'amount_debited' => $invoice->balance_due,
+                    'debit_entries_created' => $debitCount,
+                ]);
+                
+                // Create transaction record for credit clients (even if payment method is mobile money)
+                
+                // Check if transaction already exists
+                $existingTransaction = \App\Models\Transaction::where('reference', $invoiceNumber)
+                    ->where('client_id', $validated['client_id'])
+                    ->where('invoice_id', $invoice->id)
+                    ->first();
+                
+                if (!$existingTransaction) {
+                    $itemsDescription = $this->buildItemsDescription($validated['items'], $client, $business, $invoiceNumber);
+                    
+                    $transaction = \App\Models\Transaction::create([
+                        'business_id' => $validated['business_id'],
+                        'branch_id' => $validated['branch_id'],
+                        'client_id' => $validated['client_id'],
+                        'invoice_id' => $invoice->id,
+                        'amount' => $invoice->balance_due, // Use balance_due, not amount_paid
+                        'reference' => $invoiceNumber,
+                        'description' => $itemsDescription . ' (Credit Transaction)',
+                        'status' => ($primaryMethod === 'mobile_money' && ($validated['amount_paid'] ?? 0) > 0) ? 'pending' : 'completed',
+                        'payment_status' => 'PP', // Always PP for credit transactions with balance due
+                        'type' => 'debit',
+                        'origin' => 'web',
+                        'phone_number' => $validated['payment_phone'] ?? $validated['client_phone'],
+                        'provider' => $primaryMethod === 'mobile_money' ? 'yo' : 'cash',
+                        'service' => 'credit_invoice',
+                        'date' => now(),
+                        'currency' => 'UGX',
+                        'names' => $validated['client_name'],
+                        'email' => null,
+                        'ip_address' => request()->ip(),
+                        'user_agent' => request()->userAgent(),
+                        'method' => $primaryMethod,
+                        'transaction_for' => 'main',
+                    ]);
+                    
+                    // Link transaction to accounts receivable
+                    $accountsReceivable->update(['transaction_id' => $transaction->id]);
+                    
+                    Log::info("Transaction created for credit client", [
+                        'transaction_id' => $transaction->id,
+                        'payment_status' => 'PP',
+                        'amount' => $invoice->balance_due,
+                    ]);
+                }
+                
+                // For mobile money payments on credit, update existing transaction if needed
+                if ($primaryMethod === 'mobile_money' && ($validated['amount_paid'] ?? 0) > 0) {
+                    $existingMobileMoneyTransaction = \App\Models\Transaction::where('reference', $invoiceNumber)
+                        ->where('client_id', $validated['client_id'])
+                        ->where('method', 'mobile_money')
+                        ->whereNull('invoice_id')
+                        ->first();
+                    
+                    if ($existingMobileMoneyTransaction) {
+                        $existingMobileMoneyTransaction->update([
+                            'invoice_id' => $invoice->id,
+                            'payment_status' => 'PP',
+                        ]);
+                    }
+                }
+            }
+            
             // MONEY TRACKING: Step 1 - Process payment received
-            // For mobile money payments, this will be handled by the cron job when payment is completed
-            // For cash payments, process immediately
-            if ($validated['amount_paid'] > 0) {
+            // For credit clients with balance due, skip suspense account processing
+            // For non-credit clients or fully paid invoices, process normally
+            if ($validated['amount_paid'] > 0 && !$isCreditTransaction) {
                 $paymentMethods = $validated['payment_methods'] ?? [];
                 $primaryMethod = !empty($paymentMethods) ? $paymentMethods[0] : 'cash';
                 
@@ -521,7 +776,7 @@ class InvoiceController extends Controller
                     }
                 }
                 
-                // Only create transaction record for cash payments
+                // Create transaction record for cash payments (non-credit transactions)
                 // Mobile money transactions are created in processMobileMoneyPayment method
                 if ($primaryMethod === 'cash') {
                     // Check if a transaction already exists for this invoice (to prevent duplicates)
@@ -538,10 +793,13 @@ class InvoiceController extends Controller
                         \App\Models\Transaction::create([
                             'business_id' => $validated['business_id'],
                             'branch_id' => $validated['branch_id'],
+                            'client_id' => $validated['client_id'],
+                            'invoice_id' => $invoice->id,
                             'amount' => $validated['amount_paid'],
                             'reference' => $invoiceNumber,
                             'description' => $itemsDescription,
                             'status' => 'completed',
+                            'payment_status' => $paymentStatus,
                             'type' => 'debit',
                             'origin' => 'web',
                             'phone_number' => $validated['payment_phone'] ?? $validated['client_phone'],
@@ -614,9 +872,32 @@ class InvoiceController extends Controller
             
             // SERVICE POINT QUEUING: Items will be queued only after payment is completed
             // This is now handled by the CheckPaymentStatus cron job
-            // EXCEPTION: For zero-amount transactions (due to package adjustments OR balance adjustments), queue immediately
-            // BUT ONLY if it's not a REAL mobile money transaction (which should remain pending until payment confirmation)
+            // EXCEPTIONS:
+            // 1. For zero-amount transactions (due to package adjustments OR balance adjustments), queue immediately
+            // 2. For credit clients with balance_due > 0, queue immediately (no payment required upfront)
             // Zero-amount transactions should always be auto-completed regardless of payment method
+            
+            // Queue items immediately for credit clients (they're approved for credit, items should be offered)
+            if ($isCreditTransaction && $nonDepositItems->isNotEmpty()) {
+                Log::info("Credit client transaction detected - queuing items immediately", [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'client_id' => $client->id,
+                    'is_credit_eligible' => $isCreditClient,
+                    'balance_due' => $invoice->balance_due,
+                    'items_count' => $nonDepositItems->count()
+                ]);
+                
+                // Queue items immediately for credit clients
+                $this->queueItemsAtServicePoints($invoice, $nonDepositItems->toArray());
+                
+                Log::info("Items queued immediately for credit client", [
+                    'invoice_id' => $invoice->id,
+                    'items_queued' => $nonDepositItems->count()
+                ]);
+            }
+            
+            // Queue items immediately for zero-amount transactions
             if ($validated['total_amount'] == 0 && $nonDepositItems->isNotEmpty()) {
                 Log::info("Zero-amount transaction detected - auto-completing and queuing items", [
                     'invoice_id' => $invoice->id,
@@ -1101,6 +1382,12 @@ class InvoiceController extends Controller
                     'invoice_number' => $validated['invoice_number']
                 ]);
                 
+                // Determine payment status: PP for credit clients with balance due, otherwise Paid
+                $paymentStatus = 'Paid';
+                if ($invoice && $client->is_credit_eligible && $invoice->balance_due > 0) {
+                    $paymentStatus = 'PP';
+                }
+                
                 // Create transaction record for tracking
                 $transaction = \App\Models\Transaction::create([
                     'business_id' => $validated['business_id'],
@@ -1112,6 +1399,7 @@ class InvoiceController extends Controller
                     'external_reference' => $result['TransactionReference'], // Store YoAPI TransactionReference
                     'description' => $description,
                     'status' => 'pending',
+                    'payment_status' => $paymentStatus,
                     'type' => 'debit',
                     'origin' => 'web',
                     'phone_number' => $validated['phone_number'],
@@ -1685,6 +1973,93 @@ class InvoiceController extends Controller
         // Check if user has access to this invoice
         if ($user->business_id !== 1 && $invoice->business_id !== $user->business_id) {
             abort(403, 'Unauthorized access to invoice.');
+        }
+        
+        // Fix existing credit client invoices that may be missing debit entries or have wrong payment_status
+        $client = $invoice->client;
+        if ($client && $client->is_credit_eligible && $invoice->balance_due > 0) {
+            // Update payment_status if needed
+            if ($invoice->payment_status !== 'pending_payment') {
+                $invoice->update(['payment_status' => 'pending_payment']);
+                Log::info("Fixed invoice payment_status for credit client", [
+                    'invoice_id' => $invoice->id,
+                    'old_payment_status' => $invoice->getOriginal('payment_status'),
+                    'new_payment_status' => 'pending_payment'
+                ]);
+            }
+            
+            // Check if debit entries exist for all items in balance history
+            $itemsCollection = collect($invoice->items ?? []);
+            $existingDebits = \App\Models\BalanceHistory::where('client_id', $client->id)
+                ->where('invoice_id', $invoice->id)
+                ->where('transaction_type', 'debit')
+                ->get();
+            
+            // Create separate debit entries for each item if they don't exist
+            $paymentMethods = $invoice->payment_methods ?? [];
+            $primaryMethod = !empty($paymentMethods) ? $paymentMethods[0] : 'credit';
+            $debitCount = 0;
+            
+            foreach ($itemsCollection as $itemData) {
+                $itemId = $itemData['id'] ?? $itemData['item_id'] ?? null;
+                if (!$itemId) continue;
+                
+                $item = \App\Models\Item::find($itemId);
+                if (!$item) continue;
+                
+                $quantity = $itemData['quantity'] ?? 1;
+                $itemTotalAmount = $itemData['total_amount'] ?? ($itemData['price'] ?? $item->default_price ?? 0) * $quantity;
+                
+                if ($itemTotalAmount <= 0) continue;
+                
+                // Check if debit already exists for this specific item
+                $itemDisplayName = $item->name;
+                $itemDescription = "{$itemDisplayName} (x{$quantity})";
+                $existingItemDebit = $existingDebits->first(function($debit) use ($itemDescription) {
+                    return $debit->description === $itemDescription;
+                });
+                
+                if (!$existingItemDebit) {
+                    \App\Models\BalanceHistory::recordDebit(
+                        $client,
+                        $itemTotalAmount,
+                        $itemDescription,
+                        $invoice->invoice_number,
+                        "Credit purchase - {$itemDisplayName} (x{$quantity}) - Invoice #{$invoice->invoice_number}",
+                        $primaryMethod,
+                        $invoice->id
+                    );
+                    $debitCount++;
+                }
+            }
+            
+            // Create service charge debit if applicable
+            if ($invoice->service_charge > 0) {
+                $existingServiceDebit = $existingDebits->first(function($debit) {
+                    return $debit->description === 'Service Fee';
+                });
+                
+                if (!$existingServiceDebit) {
+                    \App\Models\BalanceHistory::recordDebit(
+                        $client,
+                        $invoice->service_charge,
+                        "Service Fee",
+                        $invoice->invoice_number,
+                        "Credit purchase - Service Fee - Invoice #{$invoice->invoice_number}",
+                        $primaryMethod,
+                        $invoice->id
+                    );
+                    $debitCount++;
+                }
+            }
+            
+            if ($debitCount > 0) {
+                Log::info("Created missing debit entries for credit client invoice", [
+                    'invoice_id' => $invoice->id,
+                    'client_id' => $client->id,
+                    'debit_entries_created' => $debitCount
+                ]);
+            }
         }
         
         // Load the invoice with quotations relationship

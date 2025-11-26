@@ -249,6 +249,43 @@
                                     <option value="funeral" {{ old('services_category') == 'funeral' ? 'selected' : '' }}>Funeral</option>
                                 </select>
                             </div>
+                            
+                            <!-- Credit and Long-Stay Options -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="flex items-center p-4 border border-gray-300 rounded-lg">
+                                    <input type="checkbox" name="is_credit_eligible" id="is_credit_eligible" value="1" 
+                                           {{ old('is_credit_eligible') ? 'checked' : '' }}
+                                           class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                    <label for="is_credit_eligible" class="ml-3 text-sm font-medium text-gray-700">
+                                        Enable Credit Services
+                                    </label>
+                                    <p class="text-xs text-gray-500 mt-1 ml-7">Adds /C suffix to visit ID</p>
+                                </div>
+                                
+                                <div class="flex items-center p-4 border border-gray-300 rounded-lg">
+                                    <input type="checkbox" name="is_long_stay" id="is_long_stay" value="1" 
+                                           {{ old('is_long_stay') ? 'checked' : '' }}
+                                           class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                    <label for="is_long_stay" class="ml-3 text-sm font-medium text-gray-700">
+                                        Long Stay / Inpatient
+                                    </label>
+                                    <p class="text-xs text-gray-500 mt-1 ml-7">Adds /M suffix to visit ID (won't expire until discharged)</p>
+                                </div>
+                            </div>
+                            
+                            <div id="max_credit_section" style="display: none;">
+                                <label for="max_credit" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Maximum Credit Limit (UGX)
+                                </label>
+                                <input type="number" name="max_credit" id="max_credit" value="{{ old('max_credit', $business->max_first_party_credit_limit) }}" 
+                                       min="0" step="0.01"
+                                       placeholder="Enter maximum credit limit"
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Maximum credit amount this client can have outstanding. 
+                                    <strong>Defaults to:</strong> {{ $business->max_first_party_credit_limit ? number_format($business->max_first_party_credit_limit, 2) . ' UGX (Business First Party Credit Limit)' : 'Not set - please configure in Business Settings' }}
+                                </p>
+                            </div>
 
                             <!-- Payment Methods -->
                             <div>
@@ -489,6 +526,26 @@
             sameAsNinBtn.addEventListener('click', function() {
                 tinInput.value = ninInput.value;
             });
+
+            // Toggle max credit field based on credit eligible checkbox
+            const creditEligibleCheckbox = document.getElementById('is_credit_eligible');
+            const maxCreditSection = document.getElementById('max_credit_section');
+            const maxCreditInput = document.getElementById('max_credit');
+            
+            function toggleMaxCreditSection() {
+                if (creditEligibleCheckbox.checked) {
+                    maxCreditSection.style.display = 'block';
+                } else {
+                    maxCreditSection.style.display = 'none';
+                    maxCreditInput.value = '';
+                }
+            }
+            
+            // Check on page load
+            toggleMaxCreditSection();
+            
+            // Listen for changes
+            creditEligibleCheckbox.addEventListener('change', toggleMaxCreditSection);
 
             selectAllBtn.addEventListener('click', function() {
                 paymentCheckboxes.forEach(checkbox => {

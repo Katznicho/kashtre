@@ -116,7 +116,7 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $invoice->payment_status_badge }}">
-                                        {{ ucfirst($invoice->payment_status) }}
+                                        {{ $invoice->payment_status === 'pending_payment' ? 'Pending Payment' : ucfirst($invoice->payment_status) }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

@@ -49,12 +49,18 @@ class Client extends Model
         'nok_county',
         'balance',
         'status',
+        'max_credit',
+        'is_credit_eligible',
+        'is_long_stay',
     ];
 
     protected $casts = [
         'payment_methods' => 'array',
         'date_of_birth' => 'date',
         'visit_expires_at' => 'datetime',
+        'max_credit' => 'decimal:2',
+        'is_credit_eligible' => 'boolean',
+        'is_long_stay' => 'boolean',
     ];
 
     protected static function booted()
@@ -301,15 +307,22 @@ class Client extends Model
     /**
      * Generate a visit ID based on the business and branch.
      *
-     * Format: <B1><B2><NN><R>
+     * Format: <B1><B2><NN><R>[SUFFIX]
      *  - <B1><B2>: First letters from the first two words of the business name
      *              (fallbacks ensure two alphabetic characters).
      *  - <NN>:     Two-digit sequence unique within a branch (01-99).
      *  - <R>:      First letter of the branch name (fallback to X).
+     *  - [SUFFIX]: Optional suffix based on is_credit_eligible and is_long_stay flags
+     *              - '/C' if is_credit_eligible is true
+     *              - '/M' if is_long_stay is true
+     *              - '/C/M' if both are true
      *
-     * Example: KH01M (Kentucky Hospital, Maganjo branch).
+     * Example: ET63K (regular)
+     * Example: ET63K/C (credit eligible)
+     * Example: ET63K/M (long stay)
+     * Example: ET63K/C/M (both credit eligible and long stay)
      */
-    public static function generateVisitId($business, $branch)
+    public static function generateVisitId($business, $branch, $isCreditEligible = false, $isLongStay = false)
     {
         if (! $business || ! $branch) {
             throw new \InvalidArgumentException('Both business and branch are required to generate a visitor ID.');
@@ -317,41 +330,57 @@ class Client extends Model
 
         $businessPrefix = self::resolveBusinessPrefix($business?->name);
         $branchLetter = self::resolveBranchLetter($branch?->name);
+        
+        // Determine suffix based on flags
+        $suffix = '';
+        
+        if ($isLongStay && $isCreditEligible) {
+            // Both flags: use /C/M
+            $suffix = '/C/M';
+        } elseif ($isLongStay) {
+            // Long stay only: add /M
+            $suffix = '/M';
+        } elseif ($isCreditEligible) {
+            // Credit eligible only: add /C
+            $suffix = '/C';
+        }
 
+        // Get all existing visit IDs for this branch (including expired ones if they have suffixes)
+        // Base IDs with suffixes should remain reserved even if expired
         $existingVisitIds = self::withTrashed()
             ->where('branch_id', $branch->id)
             ->whereNotNull('visit_id')
             ->where(function ($query) {
+                // Include non-expired IDs
                 $query->whereNull('visit_expires_at')
-                    ->orWhere('visit_expires_at', '>', now());
+                    ->orWhere('visit_expires_at', '>', now())
+                    // Also include expired IDs that have suffixes (they reserve the base ID)
+                    ->orWhere(function ($q) {
+                        $q->whereNotNull('visit_expires_at')
+                          ->where('visit_expires_at', '<=', now())
+                          ->where(function ($subQ) {
+                              $subQ->where('visit_id', 'like', '%/C')
+                                   ->orWhere('visit_id', 'like', '%/M')
+                                   ->orWhere('visit_id', 'like', '%/C/M');
+                          });
+                    });
             })
             ->pluck('visit_id');
 
-        $usedSequences = $existingVisitIds
-            ->filter(function ($visitId) use ($businessPrefix, $branchLetter) {
-                return preg_match(
-                    sprintf('/^%s(\d{2})%s$/', preg_quote($businessPrefix, '/'), preg_quote($branchLetter, '/')),
-                    $visitId
-                );
-            })
-            ->map(function ($visitId) use ($businessPrefix, $branchLetter) {
-                preg_match(
-                    sprintf('/^%s(\d{2})%s$/', preg_quote($businessPrefix, '/'), preg_quote($branchLetter, '/')),
-                    $visitId,
-                    $matches
-                );
+        // Extract base visit IDs (remove any suffixes)
+        $usedBaseIds = $existingVisitIds->map(function ($visitId) {
+            // Remove suffixes: /C, /M, /C/M
+            return preg_replace('/\/(C\/M|C|M)$/', '', $visitId);
+        })->unique();
 
-                return isset($matches[1]) ? (int) $matches[1] : null;
-            })
-            ->filter()
-            ->unique()
-            ->sort()
-            ->values();
-
+        // Find an available base ID
         for ($sequence = 1; $sequence <= 99; $sequence++) {
-            if (! $usedSequences->contains($sequence)) {
-                $sequenceSegment = str_pad($sequence, 2, '0', STR_PAD_LEFT);
-                return $businessPrefix . $sequenceSegment . $branchLetter;
+            $sequenceSegment = str_pad($sequence, 2, '0', STR_PAD_LEFT);
+            $candidateBaseId = $businessPrefix . $sequenceSegment . $branchLetter;
+            
+            // Check if this base ID is already in use (with or without suffix)
+            if (! $usedBaseIds->contains($candidateBaseId)) {
+                return $candidateBaseId . $suffix;
             }
         }
 
@@ -404,9 +433,15 @@ class Client extends Model
 
     /**
      * Ensure the client has a valid visit ID for the current day.
+     * Note: Long-stay clients (is_long_stay = true) never expire automatically.
      */
     public function ensureActiveVisitId(bool $force = false): void
     {
+        // Long-stay clients don't expire automatically - only on manual discharge
+        if ($this->is_long_stay && !$force) {
+            return;
+        }
+        
         $needsRefresh = $force
             || empty($this->visit_id)
             || empty($this->visit_expires_at)
@@ -431,7 +466,7 @@ class Client extends Model
             return;
         }
 
-        $this->visit_id = self::generateVisitId($business, $branch);
+        $this->visit_id = self::generateVisitId($business, $branch, $this->is_credit_eligible ?? false, $this->is_long_stay ?? false);
         $this->visit_expires_at = Carbon::tomorrow()->startOfDay();
         $this->save();
     }

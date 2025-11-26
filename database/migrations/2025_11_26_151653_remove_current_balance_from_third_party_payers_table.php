@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('items', function (Blueprint $table) {
-            $table->integer('max_qty')->default(1)->after('validity_days')->comment('Maximum total combined quantity that can be consumed across all package usages. Only applies to package type items.');
+        Schema::table('third_party_payers', function (Blueprint $table) {
+            $table->dropColumn('current_balance');
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('items', function (Blueprint $table) {
-            $table->dropColumn('max_qty');
+        Schema::table('third_party_payers', function (Blueprint $table) {
+            $table->decimal('current_balance', 15, 2)->default(0.00)->comment('Current outstanding balance')->after('credit_limit');
         });
     }
 };

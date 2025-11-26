@@ -945,7 +945,32 @@
             
             // Calculate package adjustment
             const packageAdjustmentData = await calculatePackageAdjustment();
-            packageAdjustment = packageAdjustmentData.total_adjustment;
+            
+            // CRITICAL: Check for warnings FIRST - if found, show alert and STOP everything
+            if (packageAdjustmentData && packageAdjustmentData.max_qty_warnings && packageAdjustmentData.max_qty_warnings.length > 0) {
+                const warning = packageAdjustmentData.max_qty_warnings[0];
+                
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'Maximum Total Quantity Exceeded',
+                    html: `
+                        <p><strong>${warning.package_name}</strong></p>
+                        <p>${warning.message}</p>
+                        <p class="mt-3">Please update the Maximum Total Quantity before proceeding.</p>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Update Settings',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33'
+                });
+                
+                // CRITICAL: Return immediately - do NOT continue
+                return;
+            }
+            
+            // Only continue here if NO warnings
+            packageAdjustment = packageAdjustmentData ? (packageAdjustmentData.total_adjustment || 0) : 0;
             
             // Show package adjustment details if any adjustments were made
             // Commented out for debugging purposes - package adjustment details section removed
@@ -1077,6 +1102,8 @@
         }
         
         async function confirmAndSaveInvoice() {
+            console.log('🔵 confirmAndSaveInvoice() CALLED');
+            
             if (cart.length === 0) {
                 Swal.fire({
                     icon: 'warning',
@@ -1110,7 +1137,57 @@
                 ? window.getComputedStyle(serviceChargeNote).display !== 'none'
                 : false;
 
-            // Confirm with SweetAlert2
+            // FIRST: Check for max_qty warnings BEFORE showing confirmation dialog
+            console.log('🔵 Starting max_qty check...');
+            try {
+                // Calculate totals
+                let subtotal = 0;
+                cart.forEach(item => {
+                    subtotal += parseFloat(item.price || 0) * parseInt(item.quantity || 0);
+                });
+                
+                console.log('🔵 Calling calculatePackageAdjustment()...');
+                const packageAdjustmentData = await calculatePackageAdjustment();
+                console.log('🔵=== MAX_QTY CHECK IN confirmAndSaveInvoice ===');
+                console.log('🔵 packageAdjustmentData:', JSON.stringify(packageAdjustmentData, null, 2));
+                console.log('🔵 Has max_qty_warnings property?', 'max_qty_warnings' in (packageAdjustmentData || {}));
+                console.log('🔵 max_qty_warnings value:', packageAdjustmentData?.max_qty_warnings);
+                console.log('🔵 Is array?', Array.isArray(packageAdjustmentData?.max_qty_warnings));
+                console.log('🔵 Length:', packageAdjustmentData?.max_qty_warnings?.length);
+                
+                // CRITICAL: Check for warnings - if found, show alert and STOP save
+                if (packageAdjustmentData && packageAdjustmentData.max_qty_warnings && packageAdjustmentData.max_qty_warnings.length > 0) {
+                    const warning = packageAdjustmentData.max_qty_warnings[0];
+                    
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: 'Maximum Total Quantity Exceeded',
+                        html: `
+                            <p><strong>${warning.package_name}</strong></p>
+                            <p>${warning.message}</p>
+                            <p class="mt-3">Please update the Maximum Total Quantity before proceeding.</p>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: 'Update Settings',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#3085d6',
+                        cancelButtonColor: '#d33'
+                    });
+                    
+                    // STOP - do NOT continue
+                    return;
+                }
+            } catch (error) {
+                console.error('Error checking package adjustment:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'An error occurred while checking package adjustments. Please try again.'
+                });
+                return;
+            }
+
+            // Only show confirmation dialog if no warnings
             const result = await Swal.fire({
                 title: 'Confirm Proforma Invoice',
                 text: 'Are you sure you want to save this proforma invoice?',
@@ -1133,13 +1210,37 @@
             button.disabled = true;
             
             try {
-                // Calculate totals
+                // Calculate totals again (for final save)
                 let subtotal = 0;
                 cart.forEach(item => {
                     subtotal += parseFloat(item.price || 0) * parseInt(item.quantity || 0);
                 });
                 
                 const packageAdjustmentData = await calculatePackageAdjustment();
+                
+                // CRITICAL: Double-check for warnings before saving
+                if (packageAdjustmentData && packageAdjustmentData.max_qty_warnings && packageAdjustmentData.max_qty_warnings.length > 0) {
+                    button.textContent = originalText;
+                    button.disabled = false;
+                    
+                    const warning = packageAdjustmentData.max_qty_warnings[0];
+                    
+                    await Swal.fire({
+                        icon: 'error',
+                        title: 'Cannot Save Invoice',
+                        html: `
+                            <p><strong>${warning.package_name}</strong></p>
+                            <p>${warning.message}</p>
+                            <p class="mt-3">Please update the Maximum Total Quantity before saving.</p>
+                        `,
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#d33'
+                    });
+                    
+                    // STOP - do NOT save
+                    return;
+                }
+                
                 packageAdjustment = parseFloat(packageAdjustmentData.total_adjustment) || 0;
                 let adjustedSubtotal = parseFloat(subtotal) - parseFloat(packageAdjustment);
                 
@@ -1610,10 +1711,19 @@
                 });
                 
                 const data = await response.json();
+                console.log('Package adjustment response:', data);
+                console.log('Response has max_qty_warnings?', !!data.max_qty_warnings);
+                console.log('max_qty_warnings value:', data.max_qty_warnings);
+                console.log('max_qty_warnings type:', typeof data.max_qty_warnings);
+                console.log('max_qty_warnings is array?', Array.isArray(data.max_qty_warnings));
+                console.log('max_qty_warnings length:', data.max_qty_warnings?.length);
+                
                 if (data.success) {
+                    // Return the adjustment data
                     return {
                         total_adjustment: parseFloat(data.total_adjustment) || 0,
-                        details: data.details || []
+                        details: data.details || [],
+                        max_qty_warnings: data.max_qty_warnings || []
                     };
                 } else {
                     console.error('Package adjustment calculation error:', data.message);
@@ -1621,7 +1731,20 @@
                 }
             } catch (error) {
                 console.error('Error calculating package adjustment:', error);
+                // Re-throw max_qty errors so they can be caught by the calling function
+                if (error.message && error.message.includes('MAX_QTY_EXCEEDED')) {
+                    console.log('Re-throwing MAX_QTY_EXCEEDED error');
+                    throw error;
+                }
                 return { total_adjustment: 0, details: [] };
+            }
+                } else {
+                    console.error('Package adjustment calculation error:', data.message);
+                    return { total_adjustment: 0, details: [], max_qty_warnings: data.max_qty_warnings || [] };
+                }
+            } catch (error) {
+                console.error('Error calculating package adjustment:', error);
+                return { total_adjustment: 0, details: [], max_qty_warnings: [] };
             }
         }
         

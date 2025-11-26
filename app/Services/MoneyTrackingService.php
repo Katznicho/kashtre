@@ -2307,6 +2307,40 @@ class MoneyTrackingService
                 'item_status' => $itemStatus
             ]);
 
+            // Check if this is a credit client with balance due
+            // For credit clients with balance due, skip all money movements - items are just offered
+            $isCreditClient = $client->is_credit_eligible;
+            $hasBalanceDue = $invoice->balance_due > 0;
+            $hasAccountsReceivable = \App\Models\AccountsReceivable::where('invoice_id', $invoice->id)
+                ->where('client_id', $client->id)
+                ->where('balance', '>', 0)
+                ->exists();
+            
+            // Skip money movements for credit clients with outstanding balance
+            // Items are tracked in accounts receivable, no suspense account processing needed
+            if ($isCreditClient && $hasBalanceDue && $hasAccountsReceivable) {
+                Log::info("=== CREDIT CLIENT WITH BALANCE DUE - SKIPPING MONEY MOVEMENTS ===", [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'client_id' => $client->id,
+                    'client_name' => $client->name,
+                    'is_credit_eligible' => $isCreditClient,
+                    'balance_due' => $invoice->balance_due,
+                    'has_accounts_receivable' => $hasAccountsReceivable,
+                    'reason' => 'Credit clients with balance due - items are just offered, no money movements needed. All tracking done in accounts receivable.'
+                ]);
+                
+                // For credit clients, just update item statuses without any money movements
+                // Items are tracked in accounts receivable, no suspense account processing needed
+                DB::commit();
+                
+                return [
+                    'credit_client' => true,
+                    'message' => 'Items offered for credit client - no money movements processed',
+                    'transfer_records' => []
+                ];
+            }
+
             // Process money movement from suspense accounts to final accounts
             Log::info("🚀 === SAVE & EXIT: CALLING SUSPENSE TO FINAL MONEY MOVEMENT ===", [
                 'invoice_id' => $invoice->id,

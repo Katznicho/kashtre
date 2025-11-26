@@ -59,7 +59,7 @@
                                     <dt class="text-sm font-medium text-gray-500">Payment Status</dt>
                                     <dd>
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $invoice->payment_status_badge }}">
-                                            {{ ucfirst($invoice->payment_status) }}
+                                            {{ $invoice->payment_status === 'pending_payment' ? 'Pending Payment' : ucfirst($invoice->payment_status) }}
                                         </span>
                                     </dd>
                                 </div>

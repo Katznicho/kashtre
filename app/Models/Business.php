@@ -24,12 +24,20 @@ class Business extends Model
         'account_number',
         'account_balance',
         'mode',
-        'date'
+        'date',
+        'visit_id_format',
+        'max_third_party_credit_limit',
+        'max_first_party_credit_limit',
+        'admit_button_label',
+        'discharge_button_label',
+        'default_payment_terms_days'
     ];
 
     protected $casts = [
         'account_balance' => 'decimal:2',
         'date' => 'date',
+        'max_third_party_credit_limit' => 'decimal:2',
+        'max_first_party_credit_limit' => 'decimal:2',
     ];
 
     // a businness has many users

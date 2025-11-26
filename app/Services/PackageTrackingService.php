@@ -177,6 +177,142 @@ class PackageTrackingService
 
         $totalAdjustment = 0;
         $adjustmentDetails = [];
+        $maxQtyWarnings = [];
+        
+        // First, collect all package items and their total requested quantities
+        $packageItemQuantities = [];
+        foreach ($items as $item) {
+            $itemId = $item['id'] ?? $item['item_id'];
+            $quantity = $item['quantity'] ?? 1;
+            
+            // Find valid package tracking items for this included item
+            $validTrackingItems = PackageTrackingItem::active()
+                ->valid()
+                ->forClient($invoice->client_id)
+                ->forBusiness($invoice->business_id)
+                ->forItem($itemId)
+                ->where('remaining_quantity', '>', 0)
+                ->orderBy('created_at', 'asc')
+                ->get();
+            
+            // Track which packages this item belongs to (to avoid double counting)
+            $packagesForThisItem = [];
+            
+            foreach ($validTrackingItems as $trackingItem) {
+                $packageItem = $trackingItem->packageTracking->packageItem;
+                if ($packageItem) {
+                    $packageId = $packageItem->id;
+                    
+                    // Only count this item's quantity once per package
+                    if (!isset($packagesForThisItem[$packageId])) {
+                        $packagesForThisItem[$packageId] = true;
+                        
+                        if (!isset($packageItemQuantities[$packageId])) {
+                            $packageItemQuantities[$packageId] = [
+                                'package_item' => $packageItem,
+                                'total_requested' => 0
+                            ];
+                        }
+                        // Add the quantity being requested for this item (only once per package)
+                        $packageItemQuantities[$packageId]['total_requested'] += $quantity;
+                    }
+                }
+            }
+        }
+        
+        // Check max_qty for each package BEFORE processing
+        Log::info("=== CHECKING MAX_QTY FOR PACKAGES ===", [
+            'packages_found' => count($packageItemQuantities),
+            'package_details' => array_map(function($data) {
+                return [
+                    'package_id' => $data['package_item']->id,
+                    'package_name' => $data['package_item']->name,
+                    'max_qty' => $data['package_item']->max_qty,
+                    'total_requested' => $data['total_requested']
+                ];
+            }, $packageItemQuantities)
+        ]);
+        
+        foreach ($packageItemQuantities as $packageId => $packageData) {
+            $packageItem = $packageData['package_item'];
+            $totalRequestedQty = $packageData['total_requested'];
+            
+            // Treat null max_qty as 1 (default value)
+            $maxQty = $packageItem->max_qty ?? 1;
+            
+            Log::info("Checking package max_qty", [
+                'package_id' => $packageItem->id,
+                'package_name' => $packageItem->name,
+                'max_qty_raw' => $packageItem->max_qty,
+                'max_qty_effective' => $maxQty,
+                'max_qty_is_null' => $packageItem->max_qty === null,
+                'total_requested_qty' => $totalRequestedQty
+            ]);
+            
+            // Always check max_qty (treat null as 1)
+            {
+                // Calculate total consumed quantity across all uses for this package item
+                $totalConsumedQty = \App\Models\PackageTracking::where('package_item_id', $packageItem->id)
+                    ->sum('used_quantity');
+                
+                Log::info("Package max_qty check details", [
+                    'package_id' => $packageItem->id,
+                    'package_name' => $packageItem->name,
+                    'max_qty_raw' => $packageItem->max_qty,
+                    'max_qty_effective' => $maxQty,
+                    'total_consumed_qty' => $totalConsumedQty,
+                    'total_requested_qty' => $totalRequestedQty,
+                    'would_exceed' => ($totalConsumedQty + $totalRequestedQty) > $maxQty,
+                    'calculation' => "{$totalConsumedQty} + {$totalRequestedQty} = " . ($totalConsumedQty + $totalRequestedQty) . " > {$maxQty}"
+                ]);
+                
+                // Check if the total requested quantity would exceed max_qty
+                if (($totalConsumedQty + $totalRequestedQty) > $maxQty) {
+                    $allowedQty = max(0, $maxQty - $totalConsumedQty);
+                    
+                    Log::warning("MAX_QTY EXCEEDED - Adding warning", [
+                        'package_id' => $packageItem->id,
+                        'package_name' => $packageItem->name,
+                        'max_qty' => $packageItem->max_qty,
+                        'total_consumed_qty' => $totalConsumedQty,
+                        'total_requested_qty' => $totalRequestedQty,
+                        'allowed_qty' => $allowedQty
+                    ]);
+                    
+                    if ($allowedQty <= 0) {
+                        // Cannot use any more - add warning
+                        $maxQtyWarnings[] = [
+                            'package_name' => $packageItem->name,
+                            'package_id' => $packageItem->id,
+                            'max_qty' => $maxQty,
+                            'total_consumed_qty' => $totalConsumedQty,
+                            'requested_quantity' => $totalRequestedQty,
+                            'message' => "Package '{$packageItem->name}' has reached its Maximum Total Quantity limit of {$maxQty} (currently used: {$totalConsumedQty}, requested: {$totalRequestedQty}). Please update the Maximum Total Quantity before proceeding."
+                        ];
+                    } else {
+                        // Would exceed but can use some - add warning
+                        $maxQtyWarnings[] = [
+                            'package_name' => $packageItem->name,
+                            'package_id' => $packageItem->id,
+                            'max_qty' => $maxQty,
+                            'total_consumed_qty' => $totalConsumedQty,
+                            'requested_quantity' => $totalRequestedQty,
+                            'allowed_quantity' => $allowedQty,
+                            'message' => "Package '{$packageItem->name}' will exceed its Maximum Total Quantity limit of {$maxQty} (currently used: {$totalConsumedQty}, requested: {$totalRequestedQty}, allowed: {$allowedQty}). Please update the Maximum Total Quantity before proceeding."
+                        ];
+                    }
+                }
+            }
+        }
+        
+        // Log warnings but don't prevent calculation - we'll still calculate the adjustment
+        // The frontend will show the alert and block saving
+        if (!empty($maxQtyWarnings)) {
+            Log::warning("Package max_qty warnings detected - will show alert but still calculate adjustment", [
+                'warnings_count' => count($maxQtyWarnings),
+                'warnings' => $maxQtyWarnings
+            ]);
+        }
 
         foreach ($items as $item) {
             $itemId = $item['id'] ?? $item['item_id'];
@@ -209,6 +345,12 @@ class PackageTrackingService
                 $quantityToUse = min($remainingQuantityToAdjust, $availableQuantityInTrackingItem);
 
                 if ($quantityToUse > 0) {
+
+                    // Skip if quantity became 0 after max_qty check
+                    if ($quantityToUse <= 0) {
+                        continue;
+                    }
+
                     // Calculate adjustment based on the price of the item in the current invoice
                     $itemAdjustment = $quantityToUse * $price;
                     $totalAdjustment += $itemAdjustment;
@@ -245,12 +387,14 @@ class PackageTrackingService
 
         Log::info("Package usage completed", [
             'total_adjustment' => $totalAdjustment,
-            'adjustment_details' => $adjustmentDetails
+            'adjustment_details' => $adjustmentDetails,
+            'max_qty_warnings' => $maxQtyWarnings
         ]);
 
         return [
             'total_adjustment' => $totalAdjustment,
             'details' => $adjustmentDetails,
+            'max_qty_warnings' => $maxQtyWarnings,
         ];
     }
 

@@ -374,9 +374,9 @@
 
                     <!-- Max Qty (for package items) -->
                     <div id="max_qty_div" @if($item->type !== 'package') style="display: none;" @endif>
-                        <label for="max_qty" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Maximum Total Quantity</label>
-                        <input type="number" name="max_qty" id="max_qty" min="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value="{{ old('max_qty', $item->max_qty) }}" placeholder="Leave empty for unlimited">
-                        <p class="mt-1 text-sm text-gray-500">Maximum total combined quantity that can be consumed across all package usages. Leave empty for unlimited.</p>
+                        <label for="max_qty" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Maximum Total Quantity <span class="text-red-500">*</span></label>
+                        <input type="number" name="max_qty" id="max_qty" min="1" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value="{{ old('max_qty', $item->max_qty ?? 1) }}" placeholder="Enter maximum quantity">
+                        <p class="mt-1 text-sm text-gray-500">Maximum total combined quantity that can be consumed across all package usages.</p>
                     </div>
 
                     <div class="mt-6 flex justify-end">
@@ -436,19 +436,31 @@
             }
 
             function togglePackageAndBulkSections() {
-                const selectedType = typeSelect.value;
+                // Get the selected type from the select, or from the selected option, or from the initial item type
+                let selectedType = '';
+                if (typeSelect) {
+                    selectedType = typeSelect.value || (typeSelect.options[typeSelect.selectedIndex] && typeSelect.options[typeSelect.selectedIndex].value);
+                }
+                // Fallback to initial item type if select value is empty
+                if (!selectedType) {
+                    selectedType = '{{ $item->type }}';
+                }
                 const validityDaysInput = document.getElementById('validity_days');
-                const hospitalShareDiv = document.getElementById('hospital_share').closest('div');
+                const validityDaysDiv = document.getElementById('validity_days_div');
+                const hospitalShareDiv = document.getElementById('hospital_share') ? document.getElementById('hospital_share').closest('div') : null;
                 const contractorDiv = document.getElementById('contractor_div');
                 
                 // Get service/good only elements
                 const serviceGoodOnlyElements = document.querySelectorAll('.service-good-only');
                 
                 // Hide both sections initially
-                packageItemsSection.style.display = 'none';
-                bulkItemsSection.style.display = 'none';
-                validityDaysDiv.style.display = 'none';
+                if (packageItemsSection) packageItemsSection.style.display = 'none';
+                if (bulkItemsSection) bulkItemsSection.style.display = 'none';
+                if (validityDaysDiv) validityDaysDiv.style.display = 'none';
+                // Simple logic: hide maxQtyDiv if type is not package
+                if (maxQtyDiv && selectedType !== 'package') {
                 maxQtyDiv.style.display = 'none';
+                }
                 
                 // Reset validity days requirement
                 if (validityDaysInput) {
@@ -495,15 +507,15 @@
                 
                 // Show appropriate section based on type
                 if (selectedType === 'package') {
-                    packageItemsSection.style.display = 'block';
-                    validityDaysDiv.style.display = 'block';
-                    maxQtyDiv.style.display = 'block';
+                    if (packageItemsSection) packageItemsSection.style.display = 'block';
+                    if (validityDaysDiv) validityDaysDiv.style.display = 'block';
+                    if (maxQtyDiv) maxQtyDiv.style.display = 'block';
                     // Make validity days required for packages
                     if (validityDaysInput) {
                         validityDaysInput.required = true;
                     }
                 } else if (selectedType === 'bulk') {
-                    bulkItemsSection.style.display = 'block';
+                    if (bulkItemsSection) bulkItemsSection.style.display = 'block';
                 }
             }
 
@@ -766,6 +778,11 @@
             // Initialize on page load
             toggleContractor();
             toggleBranchPricing();
+            // Ensure maxQtyDiv is visible if item type is package (before running toggle function)
+            const initialItemType = '{{ $item->type }}';
+            if (initialItemType === 'package' && maxQtyDiv) {
+                maxQtyDiv.style.display = 'block';
+            }
             togglePackageAndBulkSections();
         });
     </script>

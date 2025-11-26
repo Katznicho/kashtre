@@ -111,9 +111,9 @@
 
                         <!-- Max Qty (for package items) -->
                         <div id="max_qty_div" style="display: none;">
-                            <label for="max_qty" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Maximum Total Quantity</label>
-                            <input type="number" name="max_qty" id="max_qty" min="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value="{{ old('max_qty') }}" placeholder="Leave empty for unlimited">
-                            <p class="mt-1 text-sm text-gray-500">Maximum total combined quantity that can be consumed across all package usages. Leave empty for unlimited.</p>
+                            <label for="max_qty" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Maximum Total Quantity <span class="text-red-500">*</span></label>
+                            <input type="number" name="max_qty" id="max_qty" min="1" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value="{{ old('max_qty', 1) }}" placeholder="Enter maximum quantity">
+                            <p class="mt-1 text-sm text-gray-500">Maximum total combined quantity that can be consumed across all package usages.</p>
                         </div>
 
                         <!-- Group -->

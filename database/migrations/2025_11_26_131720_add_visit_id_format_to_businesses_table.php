@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('items', function (Blueprint $table) {
-            $table->integer('max_qty')->default(1)->after('validity_days')->comment('Maximum total combined quantity that can be consumed across all package usages. Only applies to package type items.');
+        Schema::table('businesses', function (Blueprint $table) {
+            $table->string('visit_id_format')->nullable()->after('account_balance')->comment('Format for visit ID suffix for long-stay/inpatients (e.g., /C/M for credit and long-stay)');
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('items', function (Blueprint $table) {
-            $table->dropColumn('max_qty');
+        Schema::table('businesses', function (Blueprint $table) {
+            $table->dropColumn('visit_id_format');
         });
     }
 };

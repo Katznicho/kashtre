@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('items', function (Blueprint $table) {
-            $table->integer('max_qty')->default(1)->after('validity_days')->comment('Maximum total combined quantity that can be consumed across all package usages. Only applies to package type items.');
+        Schema::table('transactions', function (Blueprint $table) {
+            $table->enum('payment_status', ['Paid', 'PP'])->default('Paid')->after('status')->comment('Payment status: Paid (default) or PP (Pending Payment for credit clients)');
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('items', function (Blueprint $table) {
-            $table->dropColumn('max_qty');
+        Schema::table('transactions', function (Blueprint $table) {
+            $table->dropColumn('payment_status');
         });
     }
 };

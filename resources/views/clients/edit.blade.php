@@ -168,17 +168,54 @@
                             <h3 class="text-lg font-medium text-gray-900 mb-6">Services & Payment</h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label for="services_category" class="block text-sm font-medium text-gray-700 mb-2">Services Category</label>
-                                    <select name="services_category" id="services_category"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
-                                        <option value="">Select Category</option>
-                                        <option value="dental" {{ old('services_category', $client->services_category) == 'dental' ? 'selected' : '' }}>Dental</option>
-                                        <option value="optical" {{ old('services_category', $client->services_category) == 'optical' ? 'selected' : '' }}>Optical</option>
-                                        <option value="outpatient" {{ old('services_category', $client->services_category) == 'outpatient' ? 'selected' : '' }}>Outpatient</option>
-                                        <option value="inpatient" {{ old('services_category', $client->services_category) == 'inpatient' ? 'selected' : '' }}>Inpatient</option>
-                                        <option value="maternity" {{ old('services_category', $client->services_category) == 'maternity' ? 'selected' : '' }}>Maternity</option>
-                                        <option value="funeral" {{ old('services_category', $client->services_category) == 'funeral' ? 'selected' : '' }}>Funeral</option>
-                                    </select>
+                                    <div>
+                                        <label for="services_category" class="block text-sm font-medium text-gray-700 mb-2">Services Category</label>
+                                        <select name="services_category" id="services_category"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                                            <option value="">Select Category</option>
+                                            <option value="dental" {{ old('services_category', $client->services_category) == 'dental' ? 'selected' : '' }}>Dental</option>
+                                            <option value="optical" {{ old('services_category', $client->services_category) == 'optical' ? 'selected' : '' }}>Optical</option>
+                                            <option value="outpatient" {{ old('services_category', $client->services_category) == 'outpatient' ? 'selected' : '' }}>Outpatient</option>
+                                            <option value="inpatient" {{ old('services_category', $client->services_category) == 'inpatient' ? 'selected' : '' }}>Inpatient</option>
+                                            <option value="maternity" {{ old('services_category', $client->services_category) == 'maternity' ? 'selected' : '' }}>Maternity</option>
+                                            <option value="funeral" {{ old('services_category', $client->services_category) == 'funeral' ? 'selected' : '' }}>Funeral</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- Credit and Long-Stay Options -->
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                                        <div class="flex items-center p-4 border border-gray-300 rounded-md">
+                                            <input type="checkbox" name="is_credit_eligible" id="is_credit_eligible" value="1" 
+                                                   {{ old('is_credit_eligible', $client->is_credit_eligible) ? 'checked' : '' }}
+                                                   class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                            <label for="is_credit_eligible" class="ml-3 text-sm font-medium text-gray-700">
+                                                Enable Credit Services
+                                            </label>
+                                            <p class="text-xs text-gray-500 mt-1 ml-7">Adds /C suffix to visit ID</p>
+                                        </div>
+                                        
+                                        <div class="flex items-center p-4 border border-gray-300 rounded-md">
+                                            <input type="checkbox" name="is_long_stay" id="is_long_stay" value="1" 
+                                                   {{ old('is_long_stay', $client->is_long_stay) ? 'checked' : '' }}
+                                                   class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                            <label for="is_long_stay" class="ml-3 text-sm font-medium text-gray-700">
+                                                Long Stay / Inpatient
+                                            </label>
+                                            <p class="text-xs text-gray-500 mt-1 ml-7">Adds /M suffix to visit ID (won't expire until discharged)</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="max_credit_section" class="mt-6" style="display: none;">
+                                        <label for="max_credit" class="block text-sm font-medium text-gray-700 mb-2">Maximum Credit Limit (UGX)</label>
+                                        <input type="number" name="max_credit" id="max_credit" value="{{ old('max_credit', $client->max_credit ?? $business->max_first_party_credit_limit) }}" 
+                                               min="0" step="0.01"
+                                               placeholder="Enter maximum credit limit"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#011478] focus:border-transparent">
+                                        <p class="text-xs text-gray-500 mt-1">
+                                            Maximum credit amount this client can have outstanding. 
+                                            <strong>Defaults to:</strong> {{ $business->max_first_party_credit_limit ? number_format($business->max_first_party_credit_limit, 2) . ' UGX (Business First Party Credit Limit)' : 'Not set - please configure in Business Settings' }}
+                                        </p>
+                                    </div>
                                     @error('services_category')
                                         <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                                     @enderror
@@ -342,6 +379,35 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Toggle max credit field based on credit eligible checkbox
+            const creditEligibleCheckbox = document.getElementById('is_credit_eligible');
+            const maxCreditSection = document.getElementById('max_credit_section');
+            const maxCreditInput = document.getElementById('max_credit');
+            
+            function toggleMaxCreditSection() {
+                if (creditEligibleCheckbox && maxCreditSection) {
+                    if (creditEligibleCheckbox.checked) {
+                        maxCreditSection.style.display = 'block';
+                    } else {
+                        maxCreditSection.style.display = 'none';
+                        if (maxCreditInput) {
+                            maxCreditInput.value = '';
+                        }
+                    }
+                }
+            }
+            
+            // Check on page load
+            toggleMaxCreditSection();
+            
+            // Listen for changes
+            if (creditEligibleCheckbox) {
+                creditEligibleCheckbox.addEventListener('change', toggleMaxCreditSection);
+            }
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
             const paymentMethodSelect = document.getElementById('preferred_payment_method');
             const paymentPhoneSection = document.getElementById('payment_phone_section');
             const paymentPhoneInput = document.getElementById('payment_phone_number');
@@ -372,6 +438,32 @@
             if (paymentMethodSelect.value === 'mobile_money') {
                 paymentPhoneSection.style.display = 'block';
                 paymentPhoneInput.required = true;
+            }
+
+            // Toggle max credit field based on credit eligible checkbox
+            const creditEligibleCheckbox = document.getElementById('is_credit_eligible');
+            const maxCreditSection = document.getElementById('max_credit_section');
+            const maxCreditInput = document.getElementById('max_credit');
+            
+            function toggleMaxCreditSection() {
+                if (creditEligibleCheckbox && maxCreditSection) {
+                    if (creditEligibleCheckbox.checked) {
+                        maxCreditSection.style.display = 'block';
+                    } else {
+                        maxCreditSection.style.display = 'none';
+                        if (maxCreditInput) {
+                            maxCreditInput.value = '';
+                        }
+                    }
+                }
+            }
+            
+            // Check on page load
+            toggleMaxCreditSection();
+            
+            // Listen for changes
+            if (creditEligibleCheckbox) {
+                creditEligibleCheckbox.addEventListener('change', toggleMaxCreditSection);
             }
         });
     </script>

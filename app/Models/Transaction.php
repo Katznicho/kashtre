@@ -22,6 +22,7 @@ class Transaction extends Model
         'external_reference',
         'description',
         'status',
+        'payment_status',
         'type',
         'origin',
         'phone_number',

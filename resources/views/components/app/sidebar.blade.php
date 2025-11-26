@@ -261,6 +261,20 @@
                             </li>
                             @endif
                             
+                            <!-- Accounts Receivable - Available for all businesses with permission -->
+                            @if(in_array('View Accounts Receivable', (array) $permissions))
+                            <li>
+                                <a href="{{ route('accounts-receivable.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    <span class="flex items-center">
+                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        Accounts Receivable
+                                    </span>
+                                </a>
+                            </li>
+                            @endif
+                            
                             <!-- Kashtre Account Statement - Only for super business (Kashtre) -->
                             @if(Auth::user()->business_id == 1)
                             <li>
@@ -351,6 +365,31 @@
                     </li>
                     @endif
 
+                    <!-- Third Party Payers Group -->
+                    @if(in_array('View Third Party Payers', (array) $permissions))
+                    <li>
+                        <button @click="openGroup === 'third-party-payers' ? openGroup = '' : openGroup = 'third-party-payers'" :class="openGroup === 'third-party-payers' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                </svg>
+                                <span class="ml-3">Third Party Payers</span>
+                            </span>
+                            <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'third-party-payers' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <ul x-show="openGroup === 'third-party-payers'" x-collapse class="mt-1 space-y-1 pl-10">
+                            @if(in_array('View Third Party Payers', (array) $permissions))
+                            <li><a href="{{ route('third-party-payers.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>All Third Party Payers</a></li>
+                            @endif
+                            @if(in_array('Add Third Party Payers', (array) $permissions))
+                            <li><a href="{{ route('third-party-payers.create') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Add Third Party Payer</a></li>
+                            @endif
+                        </ul>
+                    </li>
+                    @endif
+
                     <!-- Reports Group -->
                     @if(in_array('View Reports', $permissions))
                     <li>
@@ -393,8 +432,7 @@
                     </li>
                     @endif
 
-                    <!-- Settings Group (only for business_id == 1) -->
-                    @if(Auth::user()->business_id == 1)
+                    <!-- Settings Group (for all businesses) -->
                     <li>
                         <button @click="openGroup === 'settings' ? openGroup = '' : openGroup = 'settings'" :class="openGroup === 'settings' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
                             <span class="flex items-center">
@@ -409,6 +447,17 @@
                             </svg>
                         </button>
                         <ul x-show="openGroup === 'settings'" x-collapse class="mt-1 space-y-1 pl-10">
+                            <!-- Business Settings - Available for all businesses with permission -->
+                            @if(in_array('View Business Settings', (array) $permissions))
+                            <li>
+                                <a href="{{ route('business-settings.edit') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Business Settings
+                                </a>
+                            </li>
+                            @endif
+                            
+                            <!-- Settings only for business_id == 1 (Kashtre) -->
+                            @if(Auth::user()->business_id == 1)
                             @if(in_array('View Service Points', $permissions))
                             <li>
                                 <a href="{{ route('service-points.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>

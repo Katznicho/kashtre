@@ -189,9 +189,24 @@ class CheckPaymentStatus extends Command
                                 'invoice_id' => $transaction->invoice_id
                             ]);
 
+                            // Determine payment status: PP for credit clients with balance due, otherwise Paid
+                            $paymentStatus = 'Paid';
+                            if ($transaction->invoice_id) {
+                                $invoice = \App\Models\Invoice::find($transaction->invoice_id);
+                                if ($invoice && $transaction->client_id) {
+                                    $client = \App\Models\Client::find($transaction->client_id);
+                                    // If invoice is fully paid (balance_due = 0), always 'Paid'
+                                    // Otherwise, if client is credit-eligible and has balance due, set to 'PP'
+                                    if ($invoice->balance_due > 0 && $client && $client->is_credit_eligible) {
+                                        $paymentStatus = 'PP';
+                                    }
+                                }
+                            }
+                            
                             // Update transaction status
                             $transaction->update([
                                 'status' => 'completed',
+                                'payment_status' => $paymentStatus,
                                 'updated_at' => now()
                             ]);
 

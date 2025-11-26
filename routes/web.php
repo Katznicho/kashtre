@@ -56,10 +56,13 @@ use App\Http\Controllers\BankScheduleController;
 use App\Http\Controllers\WithdrawalSettingController;
 use App\Http\Controllers\BusinessWithdrawalSettingController;
 use App\Http\Controllers\WithdrawalRequestController;
+use App\Http\Controllers\BusinessSettingsController;
+use App\Http\Controllers\ThirdPartyPayerController;
 use App\Http\Controllers\CreditNoteWorkflowController;
 use App\Http\Controllers\CreditNoteWorkflowBulkUploadController;
 use App\Http\Controllers\RefundController;
 use App\Http\Controllers\ServicePointSupervisorController;
+use App\Http\Controllers\AccountsReceivableController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
@@ -100,6 +103,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource("transactions", TransactionController::class);
     Route::get('/sales', [SalesController::class, 'index'])->name('sales.index');
     Route::get('/refunds', [RefundController::class, 'index'])->name('refunds.index');
+    Route::get('/accounts-receivable', [AccountsReceivableController::class, 'index'])->name('accounts-receivable.index');
     Route::resource("users", UserController::class);
     Route::resource("roles", RoleController::class);
     Route::resource("departments", DepartmentController::class);
@@ -224,6 +228,13 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::post("withdrawal-requests/{withdrawalRequest}/approve", [WithdrawalRequestController::class, 'approve'])->name('withdrawal-requests.approve');
     Route::post("withdrawal-requests/{withdrawalRequest}/reject", [WithdrawalRequestController::class, 'reject'])->name('withdrawal-requests.reject');
     
+    // Business Settings (for all businesses)
+    Route::get('business-settings/edit', [BusinessSettingsController::class, 'edit'])->name('business-settings.edit');
+    Route::put('business-settings', [BusinessSettingsController::class, 'update'])->name('business-settings.update');
+    
+    // Third Party Payers
+    Route::resource("third-party-payers", ThirdPartyPayerController::class);
+    
     // Testing routes (Admin only) - Rate limited to prevent abuse
     Route::post('/testing/clear-data', [TestingController::class, 'clearData'])
         ->name('testing.clear-data')
@@ -234,7 +245,9 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::post('/clients/search-existing', [ClientController::class, 'searchExistingClient'])->name('clients.search-existing');
     Route::resource("clients", ClientController::class);
     Route::post('/clients/{client}/update-payment-methods', [ClientController::class, 'updatePaymentMethods'])->name('clients.update-payment-methods');
-Route::post('/clients/{client}/update-payment-phone', [ClientController::class, 'updatePaymentPhone'])->name('clients.update-payment-phone');
+    Route::post('/clients/{client}/update-payment-phone', [ClientController::class, 'updatePaymentPhone'])->name('clients.update-payment-phone');
+    Route::post('/clients/{client}/admit', [ClientController::class, 'admit'])->name('clients.admit');
+    Route::post('/clients/{client}/discharge', [ClientController::class, 'discharge'])->name('clients.discharge');
     
     // Visits
     Route::get('/daily-visits', [DailyVisitsController::class, 'index'])->name('daily-visits.index');
@@ -261,6 +274,8 @@ Route::get('/test-mail-config', [InvoiceController::class, 'testMail'])->name('t
 // Balance Statement Routes
 Route::get('/balance-statement', [BalanceHistoryController::class, 'index'])->name('balance-statement.index');
 Route::get('/balance-statement/{clientId}', [BalanceHistoryController::class, 'show'])->name('balance-statement.show');
+Route::get('/balance-statement/{clientId}/pp-entries', [BalanceHistoryController::class, 'getPPEntries'])->name('balance-statement.pp-entries');
+Route::post('/balance-statement/{clientId}/pay-back', [BalanceHistoryController::class, 'payBack'])->name('balance-statement.pay-back');
 
 // Business Balance Statement Routes
 Route::get('/business-balance-statement', [BusinessBalanceHistoryController::class, 'index'])->name('business-balance-statement.index');

@@ -125,7 +125,7 @@ class ItemController extends Controller
             'business_id' => 'required|exists:businesses,id',
             'other_names' => 'required|string',
             'validity_days' => 'nullable|integer|min:1',
-            'max_qty' => 'nullable|integer|min:1',
+            'max_qty' => 'required_if:type,package|integer|min:1',
             'pricing_type' => 'required|in:default,custom',
             'branch_prices' => 'nullable|array',
             'branch_prices.*.branch_id' => 'nullable|exists:branches,id',
@@ -155,6 +155,10 @@ class ItemController extends Controller
             $validated['subgroup_id'] = null;
             $validated['department_id'] = null;
             $validated['uom_id'] = null;
+            // Set max_qty default to 1 for package types if not provided
+            if ($validated['type'] === 'package' && (!isset($validated['max_qty']) || empty($validated['max_qty']))) {
+                $validated['max_qty'] = 1;
+            }
         }
 
         // Validate contractor selection when hospital share is not 100% for goods and services
@@ -347,7 +351,7 @@ class ItemController extends Controller
             'business_id' => 'required|exists:businesses,id',
             'other_names' => 'nullable|string',
             'validity_days' => 'nullable|integer|min:1',
-            'max_qty' => 'nullable|integer|min:1',
+            'max_qty' => 'required_if:type,package|integer|min:1',
             'pricing_type' => 'required|in:default,custom',
             'branch_prices' => 'nullable|array',
             'branch_prices.*.branch_id' => 'nullable|exists:branches,id',
@@ -377,6 +381,10 @@ class ItemController extends Controller
             $validated['subgroup_id'] = null;
             $validated['department_id'] = null;
             $validated['uom_id'] = null;
+            // Set max_qty default to 1 for package types if not provided
+            if ($validated['type'] === 'package' && (!isset($validated['max_qty']) || empty($validated['max_qty']))) {
+                $validated['max_qty'] = 1;
+            }
         }
 
         // Validate contractor selection when hospital share is not 100% for goods and services

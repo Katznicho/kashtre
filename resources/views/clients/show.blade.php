@@ -196,6 +196,42 @@
                                 <p class="text-sm text-gray-900">{{ $client->visit_id }}</p>
                             </div>
                         </div>
+                        
+                        <!-- Admit/Discharge Buttons -->
+                        @php
+                            $hasLongStay = $client->is_long_stay || preg_match('/\/M$/', $client->visit_id);
+                            $business = \App\Models\Business::find($client->business_id);
+                            $admitLabel = $business->admit_button_label ?? 'Admit Patient';
+                            $dischargeLabel = $business->discharge_button_label ?? 'Discharge Patient';
+                        @endphp
+                        
+                        <div class="mt-4 flex space-x-3">
+                            @if(!$hasLongStay)
+                                <!-- Admit Button - Show when client doesn't have /M suffix -->
+                                @if(in_array('Admit Clients', auth()->user()->permissions ?? []))
+                                <button 
+                                    type="button"
+                                    onclick="showAdmitModal('{{ route('clients.show', $client) }}')" 
+                                    class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition duration-200">
+                                    {{ $admitLabel }}
+                                </button>
+                                @endif
+                            @else
+                                <!-- Discharge Button - Show when client has /M suffix -->
+                                @if(in_array('Discharge Clients', auth()->user()->permissions ?? []))
+                                <form action="{{ route('clients.discharge', $client) }}" method="POST" class="inline" id="discharge-form">
+                                    @csrf
+                                    <input type="hidden" name="redirect_to" value="{{ route('clients.show', $client) }}">
+                                    <button 
+                                        type="button"
+                                        onclick="confirmDischarge()" 
+                                        class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded transition duration-200">
+                                        {{ $dischargeLabel }}
+                                    </button>
+                                </form>
+                                @endif
+                            @endif
+                        </div>
                     </div>
 
                     <!-- Next of Kin Information -->
@@ -458,6 +494,193 @@
                     text: 'Failed to refresh balance'
                 });
             }
+        }
+
+        function showAdmitModal(redirectTo = '{{ route('clients.show', $client) }}') {
+            Swal.fire({
+                title: 'Admit Patient',
+                html: `
+                    <p class="text-gray-700 mb-4">Select admission type(s). You can select both options:</p>
+                    <div class="text-left space-y-3 mb-4">
+                        <label class="flex items-start p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <input type="checkbox" id="enable_credit" class="mt-1 mr-3" {{ $client->is_credit_eligible ? 'checked' : '' }}>
+                            <div>
+                                <span class="font-medium">Enable Credit Services</span>
+                                <p class="text-sm text-gray-600 mt-1">Allows client to access services on credit. Visit ID will have <strong>/C</strong> suffix.</p>
+                            </div>
+                        </label>
+                        <label class="flex items-start p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <input type="checkbox" id="enable_long_stay" class="mt-1 mr-3">
+                            <div>
+                                <span class="font-medium">Enable Long-Stay / Inpatient</span>
+                                <p class="text-sm text-gray-600 mt-1">Visit ID will stay active until manually discharged. Visit ID will have <strong>/M</strong> suffix.</p>
+                            </div>
+                        </label>
+                    </div>
+                    <div id="credit-limit-section" class="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200" style="display: none;">
+                        <label for="max_credit" class="block text-sm font-medium text-gray-700 mb-2">
+                            Maximum Credit Limit (UGX) <span class="text-red-500">*</span>
+                        </label>
+                        <input 
+                            type="number" 
+                            id="max_credit" 
+                            name="max_credit" 
+                            step="0.01" 
+                            min="0"
+                            value="{{ $business->max_first_party_credit_limit ?? 0 }}"
+                            placeholder="Enter credit limit"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                        <p class="text-xs text-gray-600 mt-1">
+                            Default: {{ $business->max_first_party_credit_limit ? number_format($business->max_first_party_credit_limit, 2) . ' UGX (Business First Party Credit Limit)' : 'Not set - please configure in Business Settings' }}
+                        </p>
+                    </div>
+                    <div id="visit-id-preview" class="text-center p-3 bg-blue-50 rounded-lg border border-blue-200 mt-4">
+                        <p class="text-sm text-gray-600 mb-1">Visit ID Preview:</p>
+                        <p class="text-lg font-bold text-blue-700" id="preview-visit-id">{{ $client->visit_id }}</p>
+                    </div>
+                `,
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Admit',
+                cancelButtonText: 'Cancel',
+                didOpen: () => {
+                    // Update preview when checkboxes change
+                    const creditCheckbox = document.getElementById('enable_credit');
+                    const longStayCheckbox = document.getElementById('enable_long_stay');
+                    const previewElement = document.getElementById('preview-visit-id');
+                    const creditLimitSection = document.getElementById('credit-limit-section');
+                    const creditLimitInput = document.getElementById('max_credit');
+                    const baseVisitId = '{{ preg_replace('/\/(C\/M|C|M)$/', '', $client->visit_id) }}';
+                    const defaultCreditLimit = {{ $business->max_first_party_credit_limit ?? 0 }};
+                    
+                    function updatePreview() {
+                        const hasCredit = creditCheckbox.checked;
+                        const hasLongStay = longStayCheckbox.checked;
+                        
+                        // Show/hide credit limit section
+                        if (hasCredit) {
+                            creditLimitSection.style.display = 'block';
+                            // Set default if empty
+                            if (!creditLimitInput.value || parseFloat(creditLimitInput.value) === 0) {
+                                creditLimitInput.value = defaultCreditLimit;
+                            }
+                        } else {
+                            creditLimitSection.style.display = 'none';
+                        }
+                        
+                        let suffix = '';
+                        if (hasCredit && hasLongStay) {
+                            suffix = '/C/M';
+                        } else if (hasCredit) {
+                            suffix = '/C';
+                        } else if (hasLongStay) {
+                            suffix = '/M';
+                        }
+                        
+                        previewElement.textContent = baseVisitId + suffix;
+                    }
+                    
+                    creditCheckbox.addEventListener('change', updatePreview);
+                    longStayCheckbox.addEventListener('change', updatePreview);
+                    updatePreview(); // Initial update
+                },
+                preConfirm: () => {
+                    const enableCredit = document.getElementById('enable_credit').checked;
+                    const enableLongStay = document.getElementById('enable_long_stay').checked;
+                    
+                    if (!enableCredit && !enableLongStay) {
+                        Swal.showValidationMessage('Please select at least one option: Credit Services, Long-Stay, or both.');
+                        return false;
+                    }
+                    
+                    // Validate credit limit if credit is enabled
+                    if (enableCredit) {
+                        const creditLimit = parseFloat(document.getElementById('max_credit').value);
+                        if (!creditLimit || creditLimit <= 0) {
+                            Swal.showValidationMessage('Please enter a valid credit limit greater than 0.');
+                            return false;
+                        }
+                    }
+                    
+                    const result = {
+                        enable_credit: enableCredit,
+                        enable_long_stay: enableLongStay
+                    };
+                    
+                    if (enableCredit) {
+                        result.max_credit = document.getElementById('max_credit').value;
+                    }
+                    
+                    return result;
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Submit the form
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '{{ route('clients.admit', $client) }}';
+                    
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                    const csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = '_token';
+                    csrfInput.value = csrfToken;
+                    form.appendChild(csrfInput);
+                    
+                    const redirectInput = document.createElement('input');
+                    redirectInput.type = 'hidden';
+                    redirectInput.name = 'redirect_to';
+                    redirectInput.value = redirectTo;
+                    form.appendChild(redirectInput);
+                    
+                    if (result.value.enable_credit) {
+                        const creditInput = document.createElement('input');
+                        creditInput.type = 'hidden';
+                        creditInput.name = 'enable_credit';
+                        creditInput.value = '1';
+                        form.appendChild(creditInput);
+                    }
+                    
+                    if (result.value.enable_long_stay) {
+                        const longStayInput = document.createElement('input');
+                        longStayInput.type = 'hidden';
+                        longStayInput.name = 'enable_long_stay';
+                        longStayInput.value = '1';
+                        form.appendChild(longStayInput);
+                    }
+                    
+                    if (result.value.enable_credit && result.value.max_credit) {
+                        const maxCreditInput = document.createElement('input');
+                        maxCreditInput.type = 'hidden';
+                        maxCreditInput.name = 'max_credit';
+                        maxCreditInput.value = result.value.max_credit;
+                        form.appendChild(maxCreditInput);
+                    }
+                    
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            });
+        }
+
+        function confirmDischarge() {
+            Swal.fire({
+                title: 'Discharge Patient?',
+                text: 'This will remove the long-stay status and make the visit ID available for reissuance.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, Discharge',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById('discharge-form').submit();
+                }
+            });
         }
     </script>
 </x-app-layout>
