@@ -29,6 +29,29 @@ class LocalPaymentController extends Controller
             $client = Client::find($validated['client_id']);
             $business = \App\Models\Business::find($validated['business_id']);
             
+            // CREDIT CLIENTS: Skip payment prompts - they don't need to pay upfront
+            if ($client->is_credit_eligible) {
+                Log::info("=== LOCAL DEV: CREDIT CLIENT - SKIPPING PAYMENT PROMPT ===", [
+                    'client_id' => $client->id,
+                    'client_name' => $client->name,
+                    'is_credit_eligible' => $client->is_credit_eligible,
+                    'amount' => $validated['amount'],
+                    'invoice_number' => $validated['invoice_number'],
+                    'reason' => 'Credit clients do not receive payment prompts - items are offered on credit',
+                    'mode' => 'LOCAL_DEVELOPMENT_SIMULATION'
+                ]);
+                
+                return response()->json([
+                    'success' => true,
+                    'transaction_id' => 'CREDIT-LOCAL-' . time(),
+                    'status' => 'credit_client',
+                    'message' => 'LOCAL DEV: Credit client - No payment prompt sent. Items will be offered on credit.',
+                    'credit_client' => true,
+                    'skip_payment' => true,
+                    'local_development' => true
+                ]);
+            }
+            
             // Find the invoice if invoice_number is provided
             $invoice = null;
             if (!empty($validated['invoice_number'])) {

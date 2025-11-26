@@ -274,6 +274,7 @@ Route::get('/test-mail-config', [InvoiceController::class, 'testMail'])->name('t
 // Balance Statement Routes
 Route::get('/balance-statement', [BalanceHistoryController::class, 'index'])->name('balance-statement.index');
 Route::get('/balance-statement/{clientId}', [BalanceHistoryController::class, 'show'])->name('balance-statement.show');
+Route::get('/balance-statement/{clientId}/pay-back', [BalanceHistoryController::class, 'showPayBack'])->name('balance-statement.pay-back.show');
 Route::get('/balance-statement/{clientId}/pp-entries', [BalanceHistoryController::class, 'getPPEntries'])->name('balance-statement.pp-entries');
 Route::post('/balance-statement/{clientId}/pay-back', [BalanceHistoryController::class, 'payBack'])->name('balance-statement.pay-back');
 

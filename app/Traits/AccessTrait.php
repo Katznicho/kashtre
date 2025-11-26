@@ -125,7 +125,7 @@ trait AccessTrait
     ];
 
     public static $finance = [
-                    "Finance" => ['View Finance', 'Manage Finance', 'View Business Balance Statement', 'View Client Balance Statement', 'View Money Tracking', 'View Withdrawal Requests', 'Manage Withdrawal Requests', 'View Accounts Receivable'],
+                    "Finance" => ['View Finance', 'Manage Finance', 'View Business Balance Statement', 'View Client Balance Statement', 'View Money Tracking', 'View Withdrawal Requests', 'Manage Withdrawal Requests', 'View Accounts Receivable', 'Process Pay Back'],
     ];
 
     public static $packageTracking = [
