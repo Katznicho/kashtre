@@ -20,7 +20,10 @@
                             <div class="space-y-1">
                                 <p class="text-sm text-gray-500">Account Balance</p>
                                 @php
-                                    $clientBalance = $client->balance ?? 0;
+                                    // Calculate balance from balance history: credits - debits
+                                    $credits = $client->balanceHistories()->where('transaction_type', 'credit')->sum('change_amount');
+                                    $debits = abs($client->balanceHistories()->where('transaction_type', 'debit')->sum('change_amount'));
+                                    $clientBalance = $credits - $debits;
                                     $balanceColor = $clientBalance < 0 ? 'text-red-600' : ($clientBalance > 0 ? 'text-green-600' : 'text-gray-700');
                                 @endphp
                                 <p class="text-2xl font-bold {{ $balanceColor }}">
@@ -48,7 +51,10 @@
                 <div class="p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-medium text-gray-900">Client Account Statement</h3>
-                        @if($client->is_credit_eligible && $client->balance < 0 && in_array('Process Pay Back', (array) (auth()->user()->permissions ?? [])))
+                        @php
+                            $calculatedBalance = $credits - $debits;
+                        @endphp
+                        @if($client->is_credit_eligible && $calculatedBalance < 0 && in_array('Process Pay Back', (array) (auth()->user()->permissions ?? [])))
                             <a href="{{ route('balance-statement.pay-back.show', $client->id) }}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-block">
                                 Pay Back Outstanding Amount
                             </a>

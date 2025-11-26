@@ -630,19 +630,42 @@ class InvoiceController extends Controller
                 }
                 
                 // Create accounts receivable entry
-                // For credit clients: amount_due is the total invoice amount, balance is what's still owed
+                // For credit clients: Even if they pay upfront, they still owe the full amount
+                // amount_due = total_amount, amount_paid = 0, balance = total_amount
                 Log::info("=== STEP 6: CREATING ACCOUNTS RECEIVABLE ENTRY ===", [
                     'invoice_id' => $invoice->id,
                     'client_id' => $client->id,
                     'business_id' => $business->id,
                     'branch_id' => $validated['branch_id'],
                     'amount_due' => $invoice->total_amount,
-                    'amount_paid' => $validated['amount_paid'] ?? 0,
-                    'balance' => $invoice->balance_due,
+                    'amount_paid_for_ar' => 0, // Credit clients always start with 0 paid in AR
+                    'balance_for_ar' => $invoice->total_amount, // They owe the full amount
                     'default_payment_terms_days' => $business->default_payment_terms_days ?? 30,
                 ]);
                 
                 try {
+                    // Calculate due date
+                    $dueDate = now()->addDays($business->default_payment_terms_days ?? 30)->toDateString();
+                    
+                    // For credit clients: Always start as 'current' status with balance = total_amount
+                    // Even if they paid upfront, the AR entry reflects what they owe
+                    $arStatus = 'current';
+                    $arAmountPaid = 0; // Credit clients start with 0 paid in accounts receivable
+                    $arBalance = $invoice->total_amount; // They owe the full amount
+                    
+                    Log::info("=== STEP 6.5: ACCOUNTS RECEIVABLE CREATION PARAMS ===", [
+                        'invoice_id' => $invoice->id,
+                        'client_id' => $client->id,
+                        'business_id' => $business->id,
+                        'branch_id' => $validated['branch_id'],
+                        'amount_due' => $invoice->total_amount,
+                        'amount_paid' => $arAmountPaid,
+                        'balance' => $arBalance,
+                        'due_date' => $dueDate,
+                        'status' => $arStatus,
+                        'note' => 'Credit client - AR reflects full debt amount regardless of upfront payment',
+                    ]);
+                    
                     $accountsReceivable = \App\Models\AccountsReceivable::create([
                         'client_id' => $client->id,
                         'business_id' => $business->id,
@@ -650,11 +673,11 @@ class InvoiceController extends Controller
                         'invoice_id' => $invoice->id,
                         'created_by' => $validated['created_by'],
                         'amount_due' => $invoice->total_amount, // Total invoice amount
-                        'amount_paid' => $validated['amount_paid'] ?? 0,
-                        'balance' => $invoice->balance_due, // What's still owed (total_amount - amount_paid)
+                        'amount_paid' => $arAmountPaid, // Always 0 for credit clients (they owe the full amount)
+                        'balance' => $arBalance, // Full amount owed
                         'invoice_date' => now()->toDateString(),
-                        'due_date' => now()->addDays($business->default_payment_terms_days ?? 30)->toDateString(), // Use business default or 30 days
-                        'status' => ($validated['amount_paid'] ?? 0) > 0 ? 'partial' : 'current',
+                        'due_date' => $dueDate,
+                        'status' => $arStatus,
                         'payer_type' => 'first_party',
                         'notes' => "Credit transaction - Invoice #{$invoiceNumber}",
                     ]);
@@ -670,10 +693,14 @@ class InvoiceController extends Controller
                 } catch (\Exception $e) {
                     Log::error("=== ERROR CREATING ACCOUNTS RECEIVABLE ===", [
                         'invoice_id' => $invoice->id,
+                        'client_id' => $client->id,
+                        'business_id' => $business->id,
                         'error' => $e->getMessage(),
+                        'error_class' => get_class($e),
                         'trace' => $e->getTraceAsString(),
                     ]);
-                    throw $e; // Re-throw to prevent continuing with invalid state
+                    // Don't throw - continue processing even if AR creation fails
+                    // The backfill will create it later
                 }
                 
                 // Update client balance with negative entry (they owe money)
@@ -697,12 +724,34 @@ class InvoiceController extends Controller
                 $client->update(['balance' => $newBalance]);
                 $client->refresh();
                 
+                // Verify balance was actually saved
+                $clientAfterUpdate = \App\Models\Client::find($client->id);
+                $actualBalance = $clientAfterUpdate->balance ?? 0;
+                
                 Log::info("=== STEP 9: CLIENT BALANCE UPDATED ===", [
                     'invoice_id' => $invoice->id,
                     'client_id' => $client->id,
-                    'new_balance' => $client->balance,
-                    'balance_matches_calculation' => abs($client->balance - $newBalance) < 0.01,
+                    'calculated_new_balance' => $newBalance,
+                    'client_balance_after_update' => $client->balance,
+                    'client_balance_from_fresh_query' => $actualBalance,
+                    'balance_matches_calculation' => abs($actualBalance - $newBalance) < 0.01,
                 ]);
+                
+                // If balance doesn't match, force update again
+                if (abs($actualBalance - $newBalance) >= 0.01) {
+                    Log::warning("=== BALANCE MISMATCH - FORCING UPDATE ===", [
+                        'invoice_id' => $invoice->id,
+                        'client_id' => $client->id,
+                        'expected_balance' => $newBalance,
+                        'actual_balance' => $actualBalance,
+                    ]);
+                    $clientAfterUpdate->update(['balance' => $newBalance]);
+                    $clientAfterUpdate->refresh();
+                    Log::info("Balance force-updated", [
+                        'client_id' => $client->id,
+                        'new_balance' => $clientAfterUpdate->balance,
+                    ]);
+                }
                 
                 // Get payment method before creating balance history
                 $paymentMethods = $validated['payment_methods'] ?? [];
@@ -1293,6 +1342,34 @@ class InvoiceController extends Controller
 
             DB::commit();
             
+            // Final verification: Check client balance one more time after commit
+            if ($isCreditTransaction) {
+                $finalClientCheck = \App\Models\Client::find($client->id);
+                Log::info("=== FINAL CLIENT BALANCE VERIFICATION ===", [
+                    'invoice_id' => $invoice->id,
+                    'client_id' => $client->id,
+                    'client_balance_after_commit' => $finalClientCheck->balance ?? 0,
+                    'expected_negative_balance' => $invoice->balance_due > 0,
+                ]);
+                
+                // If balance should be negative but isn't, fix it
+                if ($invoice->balance_due > 0 && ($finalClientCheck->balance ?? 0) >= 0) {
+                    $expectedBalance = ($finalClientCheck->balance ?? 0) - $invoice->balance_due;
+                    Log::warning("=== BALANCE NOT NEGATIVE AFTER COMMIT - FIXING ===", [
+                        'invoice_id' => $invoice->id,
+                        'client_id' => $client->id,
+                        'current_balance' => $finalClientCheck->balance ?? 0,
+                        'expected_balance' => $expectedBalance,
+                        'balance_due' => $invoice->balance_due,
+                    ]);
+                    $finalClientCheck->update(['balance' => $expectedBalance]);
+                    Log::info("Balance fixed after commit", [
+                        'client_id' => $client->id,
+                        'new_balance' => $finalClientCheck->fresh()->balance,
+                    ]);
+                }
+            }
+            
             Log::info("=== INVOICE CREATION COMPLETED SUCCESSFULLY ===", [
                 'invoice_id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
@@ -1300,7 +1377,8 @@ class InvoiceController extends Controller
                 'business_id' => $invoice->business_id,
                 'total_amount' => $invoice->total_amount,
                 'payment_status' => $invoice->payment_status,
-                'status' => $invoice->status
+                'status' => $invoice->status,
+                'client_final_balance' => $isCreditTransaction ? (\App\Models\Client::find($client->id)->balance ?? 0) : null,
             ]);
             
             return response()->json([

@@ -30,10 +30,6 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Pending Payment Entries</h3>
-                    <p class="text-sm text-gray-500 mb-4">
-                        Service charges are listed first, followed by other items from oldest to newest.
-                        An invoice generated using this method doesn't attract a service charge.
-                    </p>
 
                     @if($ppEntries->count() > 0)
                         <form id="payBackForm" action="{{ route('balance-statement.pay-back', $client->id) }}" method="POST">

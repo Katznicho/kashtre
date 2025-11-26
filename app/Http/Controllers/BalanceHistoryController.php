@@ -31,6 +31,34 @@ class BalanceHistoryController extends Controller
     {
         $client = Client::findOrFail($clientId);
         
+        // Refresh client to ensure we have the latest balance
+        $client->refresh();
+        
+        // Calculate balance from balance history: credits - debits
+        // This is the source of truth for account balance
+        $credits = BalanceHistory::where('client_id', $clientId)
+            ->where('transaction_type', 'credit')
+            ->sum('change_amount');
+        
+        $debits = abs(BalanceHistory::where('client_id', $clientId)
+            ->where('transaction_type', 'debit')
+            ->sum('change_amount'));
+        
+        $calculatedBalance = $credits - $debits;
+        
+        // Update client balance to match calculated balance
+        if (abs(($client->balance ?? 0) - $calculatedBalance) >= 0.01) {
+            \Log::info("Updating client balance to match balance history calculation", [
+                'client_id' => $clientId,
+                'current_balance' => $client->balance ?? 0,
+                'calculated_balance' => $calculatedBalance,
+                'credits' => $credits,
+                'debits' => $debits,
+            ]);
+            $client->update(['balance' => $calculatedBalance]);
+            $client->refresh();
+        }
+        
         $balanceHistories = BalanceHistory::where('client_id', $clientId)
             ->with(['user', 'invoice', 'business', 'branch'])
             ->orderBy('created_at', 'desc')

@@ -123,6 +123,7 @@ class AccountsReceivable extends Model
         }
 
         // Update status based on balance and days past due
+        // For credit clients: balance > 0 means they owe money (not paid)
         if ($this->balance <= 0) {
             $this->status = 'paid';
         } elseif ($this->amount_paid > 0 && $this->balance > 0) {
@@ -130,7 +131,8 @@ class AccountsReceivable extends Model
         } elseif ($this->days_past_due > 0) {
             $this->status = 'overdue';
         } else {
-            $this->status = 'current';
+            // If balance > 0, it's current (not paid yet)
+            $this->status = $this->balance > 0 ? 'current' : 'paid';
         }
     }
 

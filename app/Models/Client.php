@@ -137,6 +137,23 @@ class Client extends Model
     }
 
     /**
+     * Calculate balance from balance history (credits - debits)
+     * This is the actual account balance based on all transactions
+     */
+    public function getCalculatedBalanceAttribute()
+    {
+        $credits = $this->balanceHistories()
+            ->where('transaction_type', 'credit')
+            ->sum('change_amount');
+        
+        $debits = abs($this->balanceHistories()
+            ->where('transaction_type', 'debit')
+            ->sum('change_amount'));
+        
+        return $credits - $debits;
+    }
+
+    /**
      * Get the client's money account
      */
     public function moneyAccount()
