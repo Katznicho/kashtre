@@ -93,7 +93,34 @@ class BusinessBalanceHistoryController extends Controller
             }
         }
 
-        return view('business-balance-statement.index', compact('businessBalanceHistories', 'businesses', 'totalCredits', 'totalDebits', 'withdrawalSuspenseBalance'))
+        // Calculate pending payments from accounts receivable
+        // This is money owed to the business (excluding service charges which go to Kashtre)
+        $pendingPayments = 0;
+        
+        if ($user->business_id == 1) {
+            // For Kashtre, get all accounts receivable
+            $accountsReceivable = \App\Models\AccountsReceivable::where('balance', '>', 0)
+                ->with('invoice')
+                ->get();
+        } else {
+            // For regular businesses, get only their accounts receivable
+            $accountsReceivable = \App\Models\AccountsReceivable::where('business_id', $user->business_id)
+                ->where('balance', '>', 0)
+                ->with('invoice')
+                ->get();
+        }
+        
+        foreach ($accountsReceivable as $ar) {
+            if ($ar->invoice) {
+                // Subtract service charge from balance (service charges go to Kashtre, not the business)
+                $pendingPayments += max(0, $ar->balance - ($ar->invoice->service_charge ?? 0));
+            } else {
+                // If no invoice, use the full balance
+                $pendingPayments += $ar->balance;
+            }
+        }
+
+        return view('business-balance-statement.index', compact('businessBalanceHistories', 'businesses', 'totalCredits', 'totalDebits', 'withdrawalSuspenseBalance', 'pendingPayments'))
             ->with('canUserCreateWithdrawal', function($user) {
                 return $this->canUserCreateWithdrawal($user);
             });
