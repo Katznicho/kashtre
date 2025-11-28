@@ -113,9 +113,34 @@
                                     Request Credit Limit Change
                                 </a>
                             @endif
-                            @if($client->is_credit_eligible && $calculatedBalance < 0 && in_array('Process Pay Back', (array) (auth()->user()->permissions ?? [])))
+                            @php
+                                // Check if there are any delivered services with outstanding amounts
+                                // Only show button if money has moved from suspense to final accounts (services delivered)
+                                $hasDeliveredServices = false;
+                                if ($client->is_credit_eligible && $calculatedBalance < 0) {
+                                    $invoicesWithDeliveredServices = \App\Models\BalanceHistory::where('client_id', $client->id)
+                                        ->where('transaction_type', 'debit')
+                                        ->whereNotNull('invoice_id')
+                                        ->with(['invoice'])
+                                        ->get()
+                                        ->filter(function ($entry) {
+                                            if (!$entry->invoice || $entry->invoice->balance_due <= 0) {
+                                                return false;
+                                            }
+                                            
+                                            // Check if money has moved from suspense to final accounts (services delivered)
+                                            return \App\Models\MoneyTransfer::where('invoice_id', $entry->invoice_id)
+                                                ->where('transfer_type', 'suspense_to_final')
+                                                ->where('money_moved_to_final_account', true)
+                                                ->exists();
+                                        });
+                                    
+                                    $hasDeliveredServices = $invoicesWithDeliveredServices->count() > 0;
+                                }
+                            @endphp
+                            @if($client->is_credit_eligible && $calculatedBalance < 0 && $hasDeliveredServices && in_array('Process Pay Back', (array) (auth()->user()->permissions ?? [])))
                                 <a href="{{ route('balance-statement.pay-back.show', $client->id) }}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-block">
-                                    Pay Back Outstanding Amount
+                                    Pay Out Standing Amount
                                 </a>
                             @endif
                         </div>
@@ -196,7 +221,11 @@
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <span class="@if($history->transaction_type === 'package') text-blue-600 @elseif($history->change_amount > 0) text-green-600 @else text-red-600 @endif">
-                                                    {{ $history->getFormattedChangeAmount() }}
+                                                    @if($history->transaction_type === 'debit')
+                                                        UGX {{ number_format(abs($history->change_amount), 2) }}
+                                                    @else
+                                                        {{ $history->getFormattedChangeAmount() }}
+                                                    @endif
                                                 </span>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

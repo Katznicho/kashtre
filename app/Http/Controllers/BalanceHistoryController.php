@@ -89,26 +89,25 @@ class BalanceHistoryController extends Controller
         }
         
         // Get PP entries (service charges first, then oldest to newest)
-        // For credit clients with negative balance: Show ALL debit entries from invoices
-        // Even if balance_due = 0 (paid upfront), debit entries represent debt to pay back
+        // Only include entries where services have been delivered (money moved from suspense to final accounts)
         $ppEntries = BalanceHistory::where('client_id', $clientId)
             ->where('transaction_type', 'debit')
             ->whereNotNull('invoice_id')
             ->with(['invoice'])
             ->get()
             ->filter(function ($entry) use ($client) {
-                if (!$entry->invoice) {
+                if (!$entry->invoice || $entry->invoice->balance_due <= 0) {
                     return false;
                 }
                 
-                // For credit clients with negative balance, show all debit entries
-                // The negative balance indicates outstanding debt regardless of invoice balance_due
-                if ($client->is_credit_eligible && $client->balance < 0) {
-                    return true; // Show all debit entries for credit clients with debt
-                }
+                // Only include if money has moved from suspense to final accounts (services delivered)
+                // Check if there are MoneyTransfer records with money_moved_to_final_account = true
+                $hasDeliveredServices = \App\Models\MoneyTransfer::where('invoice_id', $entry->invoice_id)
+                    ->where('transfer_type', 'suspense_to_final')
+                    ->where('money_moved_to_final_account', true)
+                    ->exists();
                 
-                // For non-credit clients or credit clients with no debt, only show if balance_due > 0
-                return $entry->invoice->balance_due > 0;
+                return $hasDeliveredServices;
             })
             ->map(function ($entry) {
                 return [
@@ -175,6 +174,7 @@ class BalanceHistoryController extends Controller
 
     /**
      * Get PP (Pending Payment) entries for a client
+     * Only includes entries where services have been delivered (money moved from suspense to final accounts)
      * Ordered: Service charges first, then other items oldest to newest
      */
     public function getPPEntries($clientId)
@@ -192,17 +192,25 @@ class BalanceHistoryController extends Controller
         $client = Client::findOrFail($clientId);
         
         // Get all debit entries from invoices with outstanding balance
-        // For credit clients, any invoice with balance_due > 0 has pending payments
+        // BUT only include entries where money has moved from suspense to final accounts (services delivered)
         $ppEntries = BalanceHistory::where('client_id', $clientId)
             ->where('transaction_type', 'debit')
             ->whereNotNull('invoice_id')
             ->with(['invoice'])
             ->get()
             ->filter(function ($entry) {
-                // Include all debit entries from invoices with outstanding balance
-                // This covers all unpaid items regardless of payment_status
-                return $entry->invoice && 
-                       $entry->invoice->balance_due > 0;
+                if (!$entry->invoice || $entry->invoice->balance_due <= 0) {
+                    return false;
+                }
+                
+                // Only include if money has moved from suspense to final accounts (services delivered)
+                // Check if there are MoneyTransfer records with money_moved_to_final_account = true
+                $hasDeliveredServices = \App\Models\MoneyTransfer::where('invoice_id', $entry->invoice_id)
+                    ->where('transfer_type', 'suspense_to_final')
+                    ->where('money_moved_to_final_account', true)
+                    ->exists();
+                
+                return $hasDeliveredServices;
             })
             ->map(function ($entry) {
                 return [

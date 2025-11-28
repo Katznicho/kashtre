@@ -40,7 +40,7 @@
                                     <thead class="bg-gray-50">
                                         <tr>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                <input type="checkbox" id="selectAll" onchange="toggleAllEntries(this)">
+                                                <input type="checkbox" id="selectAll">
                                             </th>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
@@ -49,7 +49,7 @@
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white divide-y divide-gray-200">
-                                        @foreach($ppEntries as $entry)
+                                        @foreach($ppEntries as $index => $entry)
                                             <tr class="{{ $entry['is_service_charge'] ? 'bg-yellow-50' : '' }}">
                                                 <td class="px-4 py-3 whitespace-nowrap">
                                                     <input type="checkbox" 
@@ -57,7 +57,7 @@
                                                            value="{{ $entry['id'] }}"
                                                            class="entry-checkbox"
                                                            data-amount="{{ $entry['amount'] }}"
-                                                           onchange="updateTotal()">
+                                                           data-index="{{ $index }}">
                                                 </td>
                                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                                                     {{ $entry['date'] }}
@@ -139,41 +139,176 @@
 
     @push('scripts')
     <script>
-        function toggleAllEntries(checkbox) {
-            const checkboxes = document.querySelectorAll('.entry-checkbox');
-            checkboxes.forEach(cb => {
-                cb.checked = checkbox.checked;
-            });
-            updateTotal();
-        }
-
-        function updateTotal() {
-            const checkboxes = document.querySelectorAll('.entry-checkbox:checked');
-            let total = 0;
-            checkboxes.forEach(cb => {
-                total += parseFloat(cb.dataset.amount);
-            });
+        (function() {
+            let isUpdating = false; // Flag to prevent recursion
             
-            document.getElementById('selectedTotal').textContent = 'UGX ' + total.toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
-            
-            document.getElementById('total_amount').value = total;
-            
-            // Enable/disable submit button
-            const submitBtn = document.getElementById('submitBtn');
-            const paymentMethod = document.getElementById('payment_method').value;
-            
-            if (checkboxes.length > 0 && paymentMethod && total > 0) {
-                submitBtn.disabled = false;
-            } else {
-                submitBtn.disabled = true;
+            function toggleAllEntries(checkbox) {
+                const checkboxes = document.querySelectorAll('.entry-checkbox');
+                isUpdating = true;
+                checkboxes.forEach(cb => {
+                    cb.checked = checkbox.checked;
+                });
+                isUpdating = false;
+                updateSelectAllState();
+                updateTotal();
             }
-        }
+            
+            function handleEntrySelection(checkbox) {
+                if (isUpdating) return; // Prevent recursion
+                
+                isUpdating = true;
+                
+                const currentIndex = parseInt(checkbox.dataset.index);
+                const isChecked = checkbox.checked;
+                const allCheckboxes = Array.from(document.querySelectorAll('.entry-checkbox'));
+                
+                console.log('handleEntrySelection called', {
+                    currentIndex: currentIndex,
+                    isChecked: isChecked,
+                    totalCheckboxes: allCheckboxes.length,
+                    checkboxIndex: checkbox.dataset.index
+                });
+                
+                if (isChecked) {
+                    // When checking: select all previous items (cascading selection)
+                    allCheckboxes.forEach(cb => {
+                        const index = parseInt(cb.dataset.index);
+                        if (index <= currentIndex) {
+                            if (!cb.checked) {
+                                cb.checked = true;
+                                console.log('Checked item at index', index);
+                            }
+                        }
+                    });
+                } else {
+                    // When unchecking: uncheck all items after this one (maintain order)
+                    allCheckboxes.forEach(cb => {
+                        const index = parseInt(cb.dataset.index);
+                        if (index > currentIndex) {
+                            if (cb.checked) {
+                                cb.checked = false;
+                                console.log('Unchecked item at index', index);
+                            }
+                        }
+                    });
+                }
+                
+                isUpdating = false;
+                
+                // Update "Select All" checkbox state
+                updateSelectAllState();
+                updateTotal();
+            }
 
-        // Update total when payment method changes
-        document.getElementById('payment_method').addEventListener('change', updateTotal);
+            function updateSelectAllState() {
+                const allCheckboxes = document.querySelectorAll('.entry-checkbox');
+                const checkedCheckboxes = document.querySelectorAll('.entry-checkbox:checked');
+                const selectAllCheckbox = document.getElementById('selectAll');
+                
+                if (!selectAllCheckbox || allCheckboxes.length === 0) {
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.checked = false;
+                        selectAllCheckbox.indeterminate = false;
+                    }
+                    return;
+                }
+                
+                if (checkedCheckboxes.length === 0) {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = false;
+                } else if (checkedCheckboxes.length === allCheckboxes.length) {
+                    selectAllCheckbox.checked = true;
+                    selectAllCheckbox.indeterminate = false;
+                } else {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = true;
+                }
+            }
+
+            function updateTotal() {
+                const checkboxes = document.querySelectorAll('.entry-checkbox:checked');
+                let total = 0;
+                checkboxes.forEach(cb => {
+                    const amount = parseFloat(cb.dataset.amount) || 0;
+                    total += amount;
+                });
+                
+                console.log('updateTotal called', {
+                    checkedCount: checkboxes.length,
+                    total: total
+                });
+                
+                const formattedTotal = total.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+                
+                const totalElement = document.getElementById('selectedTotal');
+                if (totalElement) {
+                    totalElement.textContent = 'UGX ' + formattedTotal;
+                }
+                
+                const totalAmountInput = document.getElementById('total_amount');
+                if (totalAmountInput) {
+                    totalAmountInput.value = total;
+                }
+                
+                // Enable/disable submit button
+                const submitBtn = document.getElementById('submitBtn');
+                const paymentMethod = document.getElementById('payment_method');
+                
+                if (submitBtn && paymentMethod) {
+                    if (checkboxes.length > 0 && paymentMethod.value && total > 0) {
+                        submitBtn.disabled = false;
+                    } else {
+                        submitBtn.disabled = true;
+                    }
+                }
+            }
+
+            // Initialize when DOM is ready
+            function init() {
+                // Attach event listeners to all checkboxes
+                const checkboxes = document.querySelectorAll('.entry-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.addEventListener('change', function() {
+                        handleEntrySelection(this);
+                    });
+                });
+                
+                // Attach select all handler
+                const selectAllCheckbox = document.getElementById('selectAll');
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.addEventListener('change', function() {
+                        toggleAllEntries(this);
+                    });
+                }
+                
+                // Update total when payment method changes
+                const paymentMethod = document.getElementById('payment_method');
+                if (paymentMethod) {
+                    paymentMethod.addEventListener('change', updateTotal);
+                }
+                
+                // Initialize state
+                updateSelectAllState();
+                
+                console.log('Initialized', checkboxes.length, 'checkboxes');
+            }
+            
+            // Run when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                // DOM is already ready
+                init();
+            }
+            
+            // Make functions globally available
+            window.toggleAllEntries = toggleAllEntries;
+            window.handleEntrySelection = handleEntrySelection;
+            window.updateTotal = updateTotal;
+        })();
 
         // Handle form submission
         document.getElementById('payBackForm').addEventListener('submit', function(e) {
