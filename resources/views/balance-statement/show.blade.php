@@ -17,28 +17,77 @@
                             <p class="text-sm text-gray-500">Phone: {{ $client->phone_number }}</p>
                         </div>
                         <div class="text-right">
-                            <div class="space-y-1">
-                                <p class="text-sm text-gray-500">Account Balance</p>
+                            <div class="space-y-2">
                                 @php
-                                    // Calculate balance from balance history: credits - debits
+                                    // Available Balance = credits - debits (from balance history)
                                     $credits = $client->balanceHistories()->where('transaction_type', 'credit')->sum('change_amount');
                                     $debits = abs($client->balanceHistories()->where('transaction_type', 'debit')->sum('change_amount'));
-                                    $clientBalance = $credits - $debits;
-                                    $balanceColor = $clientBalance < 0 ? 'text-red-600' : ($clientBalance > 0 ? 'text-green-600' : 'text-gray-700');
+                                    $availableBalance = $credits - $debits;
+                                    
+                                    // Suspense Balance = credits - debits in suspense accounts (from MoneyAccount balances)
+                                    // This represents money in suspense accounts that hasn't been moved to final accounts yet
+                                    $suspenseBalance = $client->suspense_balance ?? 0;
+                                    
+                                    // Total Balance = Available Balance + Suspense Balance
+                                    $totalBalance = $availableBalance + $suspenseBalance;
+                                    
+                                    $availableBalanceColor = $availableBalance < 0 ? 'text-red-600' : ($availableBalance > 0 ? 'text-green-600' : 'text-gray-700');
+                                    $totalBalanceColor = $totalBalance < 0 ? 'text-red-600' : ($totalBalance > 0 ? 'text-green-600' : 'text-gray-700');
                                 @endphp
-                                <p class="text-2xl font-bold {{ $balanceColor }}">
-                                    UGX {{ number_format($clientBalance, 2) }}
-                                </p>
-                                @if($clientBalance < 0)
-                                    <p class="text-xs text-red-500">(Amount Owed)</p>
-                                @elseif($clientBalance > 0)
-                                    <p class="text-xs text-green-500">(Credit Available)</p>
-                                @endif
+                                
                                 @if($client->is_credit_eligible)
-                                    <p class="text-sm text-gray-500 mt-2">Credit Limit</p>
-                                    <p class="text-lg font-semibold text-gray-700">
-                                        UGX {{ number_format($client->max_credit ?? 0, 2) }}
-                                    </p>
+                                    {{-- Credit Client: Show Available Balance, Total Balance, and Credit Limit --}}
+                                    <div>
+                                        <p class="text-sm text-gray-500">Available Balance</p>
+                                        <p class="text-lg font-semibold {{ $availableBalanceColor }}">
+                                            UGX {{ number_format($availableBalance, 2) }}
+                                        </p>
+                                        @if($availableBalance < 0)
+                                            <p class="text-xs text-red-500">(Amount Owed)</p>
+                                        @elseif($availableBalance > 0)
+                                            <p class="text-xs text-green-500">(Credit Available)</p>
+                                        @endif
+                                    </div>
+                                    
+                                    <div>
+                                        <p class="text-sm text-gray-500">Total Balance</p>
+                                        <p class="text-lg font-semibold {{ $totalBalanceColor }}">
+                                            UGX {{ number_format($totalBalance, 2) }}
+                                        </p>
+                                        @if($totalBalance < 0)
+                                            <p class="text-xs text-red-500">(Amount Owed)</p>
+                                        @endif
+                                    </div>
+                                    
+                                    <div>
+                                        <p class="text-sm text-gray-500">Credit Limit</p>
+                                        <p class="text-lg font-semibold text-gray-700">
+                                            UGX {{ number_format($client->max_credit ?? 0, 2) }}
+                                        </p>
+                                    </div>
+                                @else
+                                    {{-- Non-Credit Client: Show Available Balance and Total Balance --}}
+                                    <div>
+                                        <p class="text-sm text-gray-500">Available Balance</p>
+                                        <p class="text-lg font-semibold {{ $availableBalanceColor }}">
+                                            UGX {{ number_format($availableBalance, 2) }}
+                                        </p>
+                                        @if($availableBalance < 0)
+                                            <p class="text-xs text-red-500">(Amount Owed)</p>
+                                        @elseif($availableBalance > 0)
+                                            <p class="text-xs text-green-500">(Credit Available)</p>
+                                        @endif
+                                    </div>
+                                    
+                                    <div>
+                                        <p class="text-sm text-gray-500">Total Balance</p>
+                                        <p class="text-lg font-semibold {{ $totalBalanceColor }}">
+                                            UGX {{ number_format($totalBalance, 2) }}
+                                        </p>
+                                        @if($totalBalance < 0)
+                                            <p class="text-xs text-red-500">(Amount Owed)</p>
+                                        @endif
+                                    </div>
                                 @endif
                             </div>
                         </div>

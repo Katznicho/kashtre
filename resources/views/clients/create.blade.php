@@ -50,10 +50,39 @@
                     </div>
                 @endif
 
-                <form id="client-registration-form" action="{{ route('clients.store') }}" method="POST" class="space-y-8">
-                    @csrf
-                    
-                    <!-- Personal Information Card -->
+                <!-- Tabs Navigation -->
+                <div class="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="border-b border-gray-200">
+                        <nav class="flex -mb-px" aria-label="Tabs">
+                            <button type="button" onclick="switchTab('individual')" id="tab-individual" class="tab-button active flex-1 py-4 px-6 text-center text-sm font-medium border-b-2 border-blue-500 text-blue-600 hover:text-blue-700 transition-colors">
+                                <svg class="w-5 h-5 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                                Individual Repeat Customer
+                            </button>
+                            <button type="button" onclick="switchTab('company')" id="tab-company" class="tab-button flex-1 py-4 px-6 text-center text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors">
+                                <svg class="w-5 h-5 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                </svg>
+                                Company Client
+                            </button>
+                            <button type="button" onclick="switchTab('walk_in')" id="tab-walk_in" class="tab-button flex-1 py-4 px-6 text-center text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors">
+                                <svg class="w-5 h-5 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                                Walk In
+                            </button>
+                        </nav>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Individual Repeat Customer -->
+                <div id="tab-content-individual" class="tab-content">
+                    <form id="client-registration-form-individual" action="{{ route('clients.store') }}" method="POST" class="space-y-8">
+                        @csrf
+                        <input type="hidden" name="client_type" value="individual">
+                        
+                        <!-- Personal Information Card -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <div class="px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600">
                             <h2 class="text-lg font-semibold text-white flex items-center">
@@ -249,43 +278,6 @@
                                     <option value="funeral" {{ old('services_category') == 'funeral' ? 'selected' : '' }}>Funeral</option>
                                 </select>
                             </div>
-                            
-                            <!-- Credit and Long-Stay Options -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div class="flex items-center p-4 border border-gray-300 rounded-lg">
-                                    <input type="checkbox" name="is_credit_eligible" id="is_credit_eligible" value="1" 
-                                           {{ old('is_credit_eligible') ? 'checked' : '' }}
-                                           class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                                    <label for="is_credit_eligible" class="ml-3 text-sm font-medium text-gray-700">
-                                        Enable Credit Services
-                                    </label>
-                                    <p class="text-xs text-gray-500 mt-1 ml-7">Adds /C suffix to visit ID</p>
-                                </div>
-                                
-                                <div class="flex items-center p-4 border border-gray-300 rounded-lg">
-                                    <input type="checkbox" name="is_long_stay" id="is_long_stay" value="1" 
-                                           {{ old('is_long_stay') ? 'checked' : '' }}
-                                           class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                                    <label for="is_long_stay" class="ml-3 text-sm font-medium text-gray-700">
-                                        Long Stay / Inpatient
-                                    </label>
-                                    <p class="text-xs text-gray-500 mt-1 ml-7">Adds /M suffix to visit ID (won't expire until discharged)</p>
-                                </div>
-                            </div>
-                            
-                            <div id="max_credit_section" style="display: none;">
-                                <label for="max_credit" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Maximum Credit Limit (UGX)
-                                </label>
-                                <input type="number" name="max_credit" id="max_credit" value="{{ old('max_credit', $business->max_first_party_credit_limit) }}" 
-                                       min="0" step="0.01"
-                                       placeholder="Enter maximum credit limit"
-                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
-                                <p class="text-xs text-gray-500 mt-1">
-                                    Maximum credit amount this client can have outstanding. 
-                                    <strong>Defaults to:</strong> {{ $business->max_first_party_credit_limit ? number_format($business->max_first_party_credit_limit, 2) . ' UGX (Business First Party Credit Limit)' : 'Not set - please configure in Business Settings' }}
-                                </p>
-                            </div>
 
                             <!-- Payment Methods -->
                             <div>
@@ -472,19 +464,165 @@
                         </div>
                     </div>
                     
-                    <!-- Form Actions -->
-                    <div class="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-6">
-                        <a href="{{ route('clients.index') }}" class="inline-flex justify-center items-center px-6 py-3 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 transition-colors font-medium">
-                            Cancel
-                        </a>
-                        <button type="submit" class="inline-flex justify-center items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg hover:shadow-xl">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                            </svg>
-                            Register Client
-                        </button>
-                    </div>
-                </form>
+                        <!-- Form Actions -->
+                        <div class="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-6">
+                            <a href="{{ route('clients.index') }}" class="inline-flex justify-center items-center px-6 py-3 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 transition-colors font-medium">
+                                Cancel
+                            </a>
+                            <button type="submit" class="inline-flex justify-center items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg hover:shadow-xl">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                </svg>
+                                Register Client
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Tab Content: Company Client -->
+                <div id="tab-content-company" class="tab-content hidden">
+                    <form id="client-registration-form-company" action="{{ route('clients.store') }}" method="POST" class="space-y-8">
+                        @csrf
+                        <input type="hidden" name="client_type" value="company">
+                        
+                        <!-- Company Information Card -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div class="px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600">
+                                <h2 class="text-lg font-semibold text-white flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                    </svg>
+                                    Company Information
+                                </h2>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label for="company_name" class="block text-sm font-medium text-gray-700 mb-2">
+                                            Company Name <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="text" name="company_name" id="company_name" value="{{ old('company_name') }}" required 
+                                               placeholder="Enter company name"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="company_tin" class="block text-sm font-medium text-gray-700 mb-2">
+                                            Company TIN Number <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="text" name="company_tin" id="company_tin" value="{{ old('company_tin') }}" required 
+                                               placeholder="Enter TIN number"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label for="company_phone" class="block text-sm font-medium text-gray-700 mb-2">
+                                            Contact Phone Number <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="tel" name="company_phone" id="company_phone" value="{{ old('company_phone') }}" required 
+                                               placeholder="e.g., 0770123456 or +256770123456"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="company_email" class="block text-sm font-medium text-gray-700 mb-2">
+                                            Email Address <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="email" name="company_email" id="company_email" value="{{ old('company_email') }}" required
+                                               placeholder="e.g., company@example.com"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label for="company_address" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Company Address <span class="text-red-500">*</span>
+                                    </label>
+                                    <textarea name="company_address" id="company_address" rows="3" required
+                                              placeholder="Enter company address"
+                                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">{{ old('company_address') }}</textarea>
+                                </div>
+
+                                <div>
+                                    <label for="company_contact_person" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Contact Person Name <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" name="company_contact_person" id="company_contact_person" value="{{ old('company_contact_person') }}" required 
+                                           placeholder="Enter contact person name"
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-6">
+                            <a href="{{ route('clients.index') }}" class="inline-flex justify-center items-center px-6 py-3 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 transition-colors font-medium">
+                                Cancel
+                            </a>
+                            <button type="submit" name="register_type" value="client_only" class="inline-flex justify-center items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg hover:shadow-xl">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                </svg>
+                                Register as Client
+                            </button>
+                            <button type="submit" name="register_type" value="client_and_payer" class="inline-flex justify-center items-center px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all font-medium shadow-lg hover:shadow-xl">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                </svg>
+                                Register as Client and Third Party Payer
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Tab Content: Walk In -->
+                <div id="tab-content-walk_in" class="tab-content hidden">
+                    <form id="client-registration-form-walk_in" action="{{ route('clients.store') }}" method="POST" class="space-y-8">
+                        @csrf
+                        <input type="hidden" name="client_type" value="walk_in">
+                        
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div class="px-6 py-4 bg-gradient-to-r from-orange-600 to-red-600">
+                                <h2 class="text-lg font-semibold text-white flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                    </svg>
+                                    Walk In Client
+                                </h2>
+                            </div>
+                            <div class="p-6">
+                                <p class="text-gray-700 mb-6">Walk-in clients do not require detailed information. A minimal client record will be created for transaction tracking.</p>
+                                
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                                    <div class="flex">
+                                        <svg class="w-5 h-5 text-blue-400 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        <div>
+                                            <h3 class="text-sm font-medium text-blue-800">Note</h3>
+                                            <p class="mt-1 text-sm text-blue-700">No personal details will be captured for walk-in clients. This is suitable for one-time transactions.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-6">
+                            <a href="{{ route('clients.index') }}" class="inline-flex justify-center items-center px-6 py-3 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 transition-colors font-medium">
+                                Cancel
+                            </a>
+                            <button type="submit" class="inline-flex justify-center items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg hover:shadow-xl">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                </svg>
+                                Create Walk In Client
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -526,26 +664,6 @@
             sameAsNinBtn.addEventListener('click', function() {
                 tinInput.value = ninInput.value;
             });
-
-            // Toggle max credit field based on credit eligible checkbox
-            const creditEligibleCheckbox = document.getElementById('is_credit_eligible');
-            const maxCreditSection = document.getElementById('max_credit_section');
-            const maxCreditInput = document.getElementById('max_credit');
-            
-            function toggleMaxCreditSection() {
-                if (creditEligibleCheckbox.checked) {
-                    maxCreditSection.style.display = 'block';
-                } else {
-                    maxCreditSection.style.display = 'none';
-                    maxCreditInput.value = '';
-                }
-            }
-            
-            // Check on page load
-            toggleMaxCreditSection();
-            
-            // Listen for changes
-            creditEligibleCheckbox.addEventListener('change', toggleMaxCreditSection);
 
             selectAllBtn.addEventListener('click', function() {
                 paymentCheckboxes.forEach(checkbox => {
@@ -733,5 +851,28 @@
             firstNameInput.addEventListener('blur', checkAndSearch);
             dobInput.addEventListener('change', checkAndSearch);
         })();
+
+        // Tab switching functionality
+        function switchTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active', 'border-blue-500', 'text-blue-600');
+                button.classList.add('border-transparent', 'text-gray-500');
+            });
+            
+            // Show selected tab content
+            document.getElementById('tab-content-' + tabName).classList.remove('hidden');
+            
+            // Add active class to selected tab
+            const activeTab = document.getElementById('tab-' + tabName);
+            activeTab.classList.add('active', 'border-blue-500', 'text-blue-600');
+            activeTab.classList.remove('border-transparent', 'text-gray-500');
+        }
+
     </script>
 </x-app-layout>

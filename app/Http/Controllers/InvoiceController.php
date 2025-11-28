@@ -1224,6 +1224,23 @@ class InvoiceController extends Controller
                     // Queue items immediately for credit clients
                     $this->queueItemsAtServicePoints($invoice, $nonDepositItems->toArray());
                     
+                    // For credit clients: Process suspense account movements even though no payment was received
+                    // This ensures money moves to suspense accounts (general, package, kashtre) for proper tracking
+                    Log::info("=== STEP 17: PROCESSING SUSPENSE ACCOUNT MOVEMENTS FOR CREDIT CLIENT ===", [
+                        'invoice_id' => $invoice->id,
+                        'invoice_number' => $invoice->invoice_number,
+                        'client_id' => $client->id,
+                        'items_count' => count($nonDepositItems)
+                    ]);
+                    
+                    $suspenseMovements = $moneyTrackingService->processSuspenseAccountMovements($invoice, $nonDepositItems->toArray());
+                    
+                    Log::info("=== STEP 18: SUSPENSE ACCOUNT MOVEMENTS COMPLETED FOR CREDIT CLIENT ===", [
+                        'invoice_id' => $invoice->id,
+                        'movements_count' => count($suspenseMovements),
+                        'movements' => $suspenseMovements
+                    ]);
+                    
                     // Verify items were queued
                     $queuedCount = \App\Models\ServiceDeliveryQueue::where('invoice_id', $invoice->id)->count();
                     

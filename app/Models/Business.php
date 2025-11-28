@@ -30,7 +30,11 @@ class Business extends Model
         'max_first_party_credit_limit',
         'admit_button_label',
         'discharge_button_label',
-        'default_payment_terms_days'
+        'default_payment_terms_days',
+        'admit_enable_credit',
+        'admit_enable_long_stay',
+        'discharge_remove_credit',
+        'discharge_remove_long_stay'
     ];
 
     protected $casts = [
@@ -38,6 +42,10 @@ class Business extends Model
         'date' => 'date',
         'max_third_party_credit_limit' => 'decimal:2',
         'max_first_party_credit_limit' => 'decimal:2',
+        'admit_enable_credit' => 'boolean',
+        'admit_enable_long_stay' => 'boolean',
+        'discharge_remove_credit' => 'boolean',
+        'discharge_remove_long_stay' => 'boolean',
     ];
 
     // a businness has many users
@@ -121,5 +129,10 @@ class Business extends Model
     public function servicePointSupervisors()
     {
         return $this->hasMany(ServicePointSupervisor::class);
+    }
+
+    public function creditLimitApprovers()
+    {
+        return $this->hasMany(CreditLimitApprovalApprover::class);
     }
 }

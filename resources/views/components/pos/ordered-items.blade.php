@@ -4,7 +4,13 @@
     across both POS item selection and Service Point client details pages.
     It handles pending, in-progress, and completed items with consistent styling.
 --}}
-{{-- This component serves as the single source of truth for displaying ordered items --}}
+@php
+    // Ensure business is loaded for the client
+    if (isset($client) && !isset($client->business)) {
+        $client->load('business');
+    }
+    $business = $client->business ?? null;
+@endphp
 
 <!-- Section 5: Ordered Items (Requests/Orders) -->
 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
@@ -46,36 +52,68 @@
                                     {{ number_format($item->price * $item->quantity, 0) }} UGX
                                 </td>
                                 <td class="px-4 py-3">
-                                    <div class="flex flex-col space-y-2">
-                                        @if($item->status === 'pending')
-                                            <label class="flex items-center">
-                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="not_done" class="mr-2">
-                                                <span class="text-sm">Not Done</span>
-                                            </label>
-                                            <label class="flex items-center">
-                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2">
-                                                <span class="text-sm">In Progress</span>
-                                            </label>
-                                            <label class="flex items-center">
-                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2">
-                                                <span class="text-sm">Completed (Done)</span>
-                                            </label>
-                                        @elseif($item->status === 'partially_done')
-                                            <label class="flex items-center">
-                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2" checked>
-                                                <span class="text-sm">In Progress</span>
-                                            </label>
-                                            <label class="flex items-center">
-                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2">
-                                                <span class="text-sm">Completed (Done)</span>
-                                            </label>
-                                        @elseif($item->status === 'completed')
-                                            <label class="flex items-center">
-                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2" checked>
-                                                <span class="text-sm">Completed (Done)</span>
-                                            </label>
+                                    @php
+                                        // Check if this item's service point is "admission"
+                                        $itemServicePoint = $item->servicePoint ?? null;
+                                        $isAdmissionServicePoint = $itemServicePoint && strtolower(trim($itemServicePoint->name)) === 'admission';
+                                    @endphp
+                                    
+                                    @if($isAdmissionServicePoint)
+                                        {{-- Show only Admit button for admission service point --}}
+                                        @if($item->status === 'completed')
+                                            <span class="text-sm text-green-600 font-medium">Completed</span>
+                                        @elseif($client->is_long_stay || preg_match('/\/M$/', $client->visit_id))
+                                            {{-- Client is already admitted, item should be completed --}}
+                                            <span class="text-sm text-green-600 font-medium">Completed</span>
+                                        @else
+                                            @php
+                                                // Determine redirect URL based on current route
+                                                $redirectUrl = request()->routeIs('pos.item-selection') 
+                                                    ? route('pos.item-selection', $client)
+                                                    : (isset($servicePoint) && $servicePoint 
+                                                        ? route('service-points.client-details', [$servicePoint, $client])
+                                                        : route('pos.item-selection', $client));
+                                            @endphp
+                                            <button 
+                                                type="button"
+                                                onclick="admitItem({{ $item->id }})"
+                                                class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition duration-200 text-sm">
+                                                {{ $business->admit_button_label ?? 'Admit' }}
+                                            </button>
                                         @endif
-                                    </div>
+                                    @else
+                                        {{-- Show normal status actions for other service points --}}
+                                        <div class="flex flex-col space-y-2">
+                                            @if($item->status === 'pending')
+                                                <label class="flex items-center">
+                                                    <input type="radio" name="item_statuses[{{ $item->id }}]" value="not_done" class="mr-2">
+                                                    <span class="text-sm">Not Done</span>
+                                                </label>
+                                                <label class="flex items-center">
+                                                    <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2">
+                                                    <span class="text-sm">In Progress</span>
+                                                </label>
+                                                <label class="flex items-center">
+                                                    <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2">
+                                                    <span class="text-sm">Completed (Done)</span>
+                                                </label>
+                                            @elseif($item->status === 'partially_done')
+                                                <label class="flex items-center">
+                                                    <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2" checked>
+                                                    <span class="text-sm">In Progress</span>
+                                                </label>
+                                                <label class="flex items-center">
+                                                    <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2">
+                                                    <span class="text-sm">Completed (Done)</span>
+                                                </label>
+                                            @elseif($item->status === 'completed')
+                                                <label class="flex items-center">
+                                                    <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2" checked>
+                                                    <span class="text-sm">Completed (Done)</span>
+                                                </label>
+                                            @endif
+                                        </div>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach
@@ -94,16 +132,48 @@
                                     {{ number_format($item->price * $item->quantity, 0) }} UGX
                                 </td>
                                 <td class="px-4 py-3">
-                                    <div class="flex flex-col space-y-2">
-                                        <label class="flex items-center">
-                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2" checked>
-                                            <span class="text-sm">In Progress</span>
-                                        </label>
-                                        <label class="flex items-center">
-                                            <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2">
-                                            <span class="text-sm">Completed (Done)</span>
-                                        </label>
-                                    </div>
+                                    @php
+                                        // Check if this item's service point is "admission"
+                                        $itemServicePoint = $item->servicePoint ?? null;
+                                        $isAdmissionServicePoint = $itemServicePoint && strtolower(trim($itemServicePoint->name)) === 'admission';
+                                    @endphp
+                                    
+                                    @if($isAdmissionServicePoint)
+                                        {{-- Show only Admit button for admission service point --}}
+                                        @if($item->status === 'completed')
+                                            <span class="text-sm text-green-600 font-medium">Completed</span>
+                                        @elseif($client->is_long_stay || preg_match('/\/M$/', $client->visit_id))
+                                            {{-- Client is already admitted, item should be completed --}}
+                                            <span class="text-sm text-green-600 font-medium">Completed</span>
+                                        @else
+                                            @php
+                                                // Determine redirect URL based on current route
+                                                $redirectUrl = request()->routeIs('pos.item-selection') 
+                                                    ? route('pos.item-selection', $client)
+                                                    : (isset($servicePoint) && $servicePoint 
+                                                        ? route('service-points.client-details', [$servicePoint, $client])
+                                                        : route('pos.item-selection', $client));
+                                            @endphp
+                                            <button 
+                                                type="button"
+                                                onclick="admitItem({{ $item->id }})"
+                                                class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition duration-200 text-sm">
+                                                {{ $business->admit_button_label ?? 'Admit' }}
+                                            </button>
+                                        @endif
+                                    @else
+                                        {{-- Show normal status actions for other service points --}}
+                                        <div class="flex flex-col space-y-2">
+                                            <label class="flex items-center">
+                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="partially_done" class="mr-2" checked>
+                                                <span class="text-sm">In Progress</span>
+                                            </label>
+                                            <label class="flex items-center">
+                                                <input type="radio" name="item_statuses[{{ $item->id }}]" value="completed" class="mr-2">
+                                                <span class="text-sm">Completed (Done)</span>
+                                            </label>
+                                        </div>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach
@@ -148,3 +218,136 @@
         </form>
     </div>
 </div>
+
+@push('scripts')
+<script>
+    async function admitItem(queueItemId) {
+        // Confirm with SweetAlert2
+        const result = await Swal.fire({
+            title: 'Admit Patient?',
+            text: 'Are you sure you want to admit this patient? This will update the visit ID format and mark this item as completed.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#16a34a',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, admit patient',
+            cancelButtonText: 'Cancel'
+        });
+        
+        if (!result.isConfirmed) {
+            return;
+        }
+        
+        // Show loading
+        Swal.fire({
+            title: 'Processing...',
+            text: 'Updating visit ID and completing item',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // First, update the visit ID format based on business settings
+        try {
+            const clientId = {{ $client->id }};
+            const businessId = {{ $client->business_id ?? 'null' }};
+            
+            // Get business settings for admission
+            @php
+                $business = $client->business ?? \App\Models\Business::find($client->business_id);
+            @endphp
+            const admitEnableCredit = {{ ($business->admit_enable_credit ?? false) ? 'true' : 'false' }};
+            const admitEnableLongStay = {{ ($business->admit_enable_long_stay ?? false) ? 'true' : 'false' }};
+            const defaultMaxCredit = {{ $business->max_first_party_credit_limit ?? 0 }};
+            
+            // Update visit ID format via admission endpoint
+            const admitFormData = new FormData();
+            admitFormData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+            admitFormData.append('redirect_to', window.location.href);
+            
+            if (admitEnableCredit) {
+                admitFormData.append('enable_credit', '1');
+                if (defaultMaxCredit > 0) {
+                    admitFormData.append('max_credit', defaultMaxCredit);
+                }
+            }
+            
+            if (admitEnableLongStay) {
+                admitFormData.append('enable_long_stay', '1');
+            }
+            
+            const admitResponse = await fetch(`/clients/${clientId}/admit`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+                body: admitFormData
+            });
+            
+            const admitData = await admitResponse.json();
+            
+            if (!admitResponse.ok || !admitData.success) {
+                throw new Error(admitData.message || 'Failed to update visit ID');
+            }
+            
+            // Now mark the item as completed and submit the form data directly
+            const form = document.getElementById('itemStatusForm');
+            if (!form) {
+                throw new Error('Form not found');
+            }
+            
+            // Get form data
+            const formData = new FormData(form);
+            
+            // Set the item status to "completed"
+            formData.set(`item_statuses[${queueItemId}]`, 'completed');
+            
+            // Determine the service point ID from the current route or use 0 for POS
+            @php
+                $servicePointId = isset($servicePoint) && $servicePoint ? $servicePoint->id : 0;
+            @endphp
+            const servicePointId = {{ $servicePointId }};
+            
+            // Submit form data directly to the money movement endpoint
+            const updateUrl = servicePointId > 0 
+                ? `/service-points/${servicePointId}/client/${clientId}/update-statuses-and-process`
+                : `/service-points/0/client/${clientId}/update-statuses-and-process`;
+            
+            const updateResponse = await fetch(updateUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                },
+                body: formData
+            });
+            
+            const updateData = await updateResponse.json();
+            
+            if (!updateResponse.ok || !updateData.success) {
+                throw new Error(updateData.message || 'Failed to process item and money movement');
+            }
+            
+            // Success - show success message and reload
+            Swal.fire({
+                title: 'Success!',
+                text: 'Patient admitted and item completed successfully',
+                icon: 'success',
+                confirmButtonColor: '#10b981'
+            }).then(() => {
+                window.location.reload();
+            });
+        } catch (error) {
+            console.error('Error admitting patient:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to admit patient. Please try again.'
+            });
+        }
+    }
+</script>
+@endpush

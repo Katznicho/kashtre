@@ -73,41 +73,6 @@
                             <p class="text-sm text-gray-500 mb-1">Visit ID</p>
                             <p class="text-lg font-semibold text-gray-900">{{ $client->visit_id }}</p>
                         </div>
-                        <!-- Admit/Discharge Buttons -->
-                        @php
-                            $hasLongStay = $client->is_long_stay || preg_match('/\/M$/', $client->visit_id);
-                            $business = \App\Models\Business::find($client->business_id);
-                            $admitLabel = $business->admit_button_label ?? 'Admit Patient';
-                            $dischargeLabel = $business->discharge_button_label ?? 'Discharge Patient';
-                        @endphp
-                        <div class="bg-gray-50 p-4 rounded-lg">
-                            <p class="text-sm text-gray-500 mb-2">Actions</p>
-                            @if(!$hasLongStay)
-                                <!-- Admit Button - Show when client doesn't have /M suffix -->
-                                @if(in_array('Admit Clients', auth()->user()->permissions ?? []))
-                                <button 
-                                    type="button"
-                                    onclick="showAdmitModal('{{ route('pos.item-selection', $client) }}')" 
-                                    class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition duration-200 text-sm">
-                                    {{ $admitLabel }}
-                                </button>
-                                @endif
-                            @else
-                                <!-- Discharge Button - Show when client has /M suffix -->
-                                @if(in_array('Discharge Clients', auth()->user()->permissions ?? []))
-                                <form action="{{ route('clients.discharge', $client) }}" method="POST" class="inline w-full" id="discharge-form">
-                                    @csrf
-                                    <input type="hidden" name="redirect_to" value="{{ route('pos.item-selection', $client) }}">
-                                    <button 
-                                        type="button"
-                                        onclick="confirmDischarge()" 
-                                        class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded transition duration-200 text-sm">
-                                        {{ $dischargeLabel }}
-                                    </button>
-                                </form>
-                                @endif
-                            @endif
-                        </div>
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Payment Methods</p>
                             <div class="flex flex-wrap gap-1 mb-2 payment-methods-display">
@@ -423,7 +388,9 @@
                 :pendingItems="$pendingItems" 
                 :partiallyDoneItems="$partiallyDoneItems" 
                 :completedItems="collect()" 
-                :correctTotalAmount="$correctTotalAmount ?? 0" 
+                :correctTotalAmount="$correctTotalAmount ?? 0"
+                :servicePoint="$servicePoint ?? null"
+                :client="$client"
             />
             
             <!-- Save and Exit Button -->
@@ -2116,15 +2083,118 @@
             });
         }
 
+        async function admitClientFromServicePoint(admitUrl, redirectTo, queueItemId) {
+            // Confirm with SweetAlert2
+            const result = await Swal.fire({
+                title: 'Admit Patient?',
+                text: 'Are you sure you want to admit this patient? This will process this item and update the patient status.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#16a34a',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, admit patient',
+                cancelButtonText: 'Cancel'
+            });
+            
+            if (!result.isConfirmed) {
+                return;
+            }
+            
+            // Get business settings for admission
+            @php
+                $business = $client->business ?? \App\Models\Business::find($client->business_id);
+            @endphp
+            const admitEnableCredit = {{ ($business->admit_enable_credit ?? false) ? 'true' : 'false' }};
+            const admitEnableLongStay = {{ ($business->admit_enable_long_stay ?? false) ? 'true' : 'false' }};
+            const defaultMaxCredit = {{ $business->max_first_party_credit_limit ?? 0 }};
+            
+            // Create and submit the admit form directly using business settings
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = admitUrl;
+            
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = '_token';
+            csrfInput.value = csrfToken;
+            form.appendChild(csrfInput);
+            
+            const redirectInput = document.createElement('input');
+            redirectInput.type = 'hidden';
+            redirectInput.name = 'redirect_to';
+            redirectInput.value = redirectTo;
+            form.appendChild(redirectInput);
+            
+            // Add queue item ID to process only this specific item
+            if (queueItemId) {
+                const queueItemInput = document.createElement('input');
+                queueItemInput.type = 'hidden';
+                queueItemInput.name = 'queue_item_id';
+                queueItemInput.value = queueItemId;
+                form.appendChild(queueItemInput);
+            }
+            
+            if (admitEnableCredit) {
+                const creditInput = document.createElement('input');
+                creditInput.type = 'hidden';
+                creditInput.name = 'enable_credit';
+                creditInput.value = '1';
+                form.appendChild(creditInput);
+                
+                if (defaultMaxCredit > 0) {
+                    const maxCreditInput = document.createElement('input');
+                    maxCreditInput.type = 'hidden';
+                    maxCreditInput.name = 'max_credit';
+                    maxCreditInput.value = defaultMaxCredit;
+                    form.appendChild(maxCreditInput);
+                }
+            }
+            
+            if (admitEnableLongStay) {
+                const longStayInput = document.createElement('input');
+                longStayInput.type = 'hidden';
+                longStayInput.name = 'enable_long_stay';
+                longStayInput.value = '1';
+                form.appendChild(longStayInput);
+            }
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+
         function confirmDischarge() {
+            const dischargeRemoveCredit = {{ $business->discharge_remove_credit ? 'true' : 'false' }};
+            const dischargeRemoveLongStay = {{ ($business->discharge_remove_long_stay ?? true) ? 'true' : 'false' }};
+            
+            let dischargeText = 'This will:';
+            const changes = [];
+            
+            if (dischargeRemoveLongStay) {
+                changes.push('Remove long-stay status (<strong>/M</strong> suffix)');
+            }
+            if (dischargeRemoveCredit) {
+                changes.push('Remove credit services (<strong>/C</strong> suffix)');
+            }
+            
+            if (changes.length > 0) {
+                dischargeText += '<ul class="text-left mt-2 space-y-1">';
+                changes.forEach(change => {
+                    dischargeText += '<li>• ' + change + '</li>';
+                });
+                dischargeText += '</ul>';
+            }
+            
+            dischargeText += '<p class="mt-3">The visit ID will be regenerated and made available for reissuance.</p>';
+            
             Swal.fire({
                 title: 'Discharge Patient?',
-                text: 'This will remove the long-stay status and make the visit ID available for reissuance.',
+                html: dischargeText,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#dc2626',
                 cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, Discharge',
+                confirmButtonText: 'Discharge',
                 cancelButtonText: 'Cancel'
             }).then((result) => {
                 if (result.isConfirmed) {
@@ -2213,4 +2283,6 @@
             </div>
         </div>
     </div>
+    
+    @stack('scripts')
 </x-app-layout>

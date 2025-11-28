@@ -172,7 +172,7 @@ class TransactionController extends Controller
         ]);
 
         $clientItems = \App\Models\ServiceDeliveryQueue::where('client_id', $client->id)
-            ->with(['item', 'invoice', 'startedByUser'])
+            ->with(['item', 'invoice', 'startedByUser', 'servicePoint'])
             ->get();
 
         \Illuminate\Support\Facades\Log::info("=== POS ITEM SELECTION - ORDERED ITEMS FETCHED ===", [
@@ -212,11 +212,17 @@ class TransactionController extends Controller
         // Determine service point from the client's pending items
         // Use the service_point_id from the first pending or in-progress item
         $firstItem = $clientItems->whereIn('status', ['pending', 'partially_done'])->first();
-        $servicePoint = $firstItem ? $firstItem->service_point_id : null;
+        $servicePointId = $firstItem ? $firstItem->service_point_id : null;
         
         // If we still don't have a service point, use a default one or the user's first assigned service point
-        if (!$servicePoint && $user->service_points && is_array($user->service_points) && count($user->service_points) > 0) {
-            $servicePoint = $user->service_points[0];
+        if (!$servicePointId && $user->service_points && is_array($user->service_points) && count($user->service_points) > 0) {
+            $servicePointId = $user->service_points[0];
+        }
+        
+        // Load the service point model if we have an ID
+        $servicePoint = null;
+        if ($servicePointId) {
+            $servicePoint = \App\Models\ServicePoint::find($servicePointId);
         }
         
         return view('pos.item-selection', compact(

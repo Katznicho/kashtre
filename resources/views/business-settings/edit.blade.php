@@ -89,9 +89,9 @@
                     </div>
                 </div>
 
-                <!-- Button Labels Configuration -->
+                <!-- Admission & Discharge Configuration -->
                 <div class="mb-6 border-t border-gray-200 dark:border-gray-700 pt-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Button Labels</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Admission & Discharge Settings</h3>
                     
                     <!-- Admit Button Label -->
                     <div class="mb-4">
@@ -111,6 +111,83 @@
                         </p>
                     </div>
 
+                    <!-- Admission Behavior -->
+                    <div class="mb-4 p-4 bg-blue-50 dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-gray-600">
+                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">What happens when "Admit" is clicked:</h4>
+                        <div class="space-y-3">
+                            <label class="flex items-start">
+                                <input 
+                                    type="checkbox" 
+                                    name="admit_enable_credit" 
+                                    id="admit_enable_credit" 
+                                    value="1"
+                                    {{ old('admit_enable_credit', $business->admit_enable_credit) ? 'checked' : '' }}
+                                    class="mt-1 mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                >
+                                <div>
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Enable Credit Services</span>
+                                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Visit ID will have <strong>/C</strong> suffix. Allows client to access services on credit.</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start">
+                                <input 
+                                    type="checkbox" 
+                                    name="admit_enable_long_stay" 
+                                    id="admit_enable_long_stay" 
+                                    value="1"
+                                    {{ old('admit_enable_long_stay', $business->admit_enable_long_stay) ? 'checked' : '' }}
+                                    class="mt-1 mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                >
+                                <div>
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Enable Long-Stay / Inpatient</span>
+                                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Visit ID will have <strong>/M</strong> suffix. Visit ID stays active until manually discharged.</p>
+                                </div>
+                            </label>
+                        </div>
+                        <p class="mt-3 text-xs text-gray-600 dark:text-gray-400">
+                            <strong>Note:</strong> If both are selected, the visit ID will have <strong>/C/M</strong> suffix. If neither is selected, a modal will appear asking which option(s) to enable.
+                        </p>
+                    </div>
+
+                    <!-- Discharge Behavior -->
+                    <div class="mb-4 p-4 bg-red-50 dark:bg-gray-700 rounded-lg border border-red-200 dark:border-gray-600">
+                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">What happens when "Discharge" is clicked:</h4>
+                        <div class="space-y-3">
+                            <label class="flex items-start">
+                                <input 
+                                    type="checkbox" 
+                                    name="discharge_remove_long_stay" 
+                                    id="discharge_remove_long_stay" 
+                                    value="1"
+                                    {{ old('discharge_remove_long_stay', $business->discharge_remove_long_stay ?? true) ? 'checked' : '' }}
+                                    class="mt-1 mr-3 h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                                    disabled
+                                >
+                                <div>
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Remove Long-Stay / Inpatient</span>
+                                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Visit ID will lose <strong>/M</strong> suffix. This is always enabled when discharging.</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start">
+                                <input 
+                                    type="checkbox" 
+                                    name="discharge_remove_credit" 
+                                    id="discharge_remove_credit" 
+                                    value="1"
+                                    {{ old('discharge_remove_credit', $business->discharge_remove_credit) ? 'checked' : '' }}
+                                    class="mt-1 mr-3 h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                                >
+                                <div>
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Remove Credit Services</span>
+                                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Visit ID will lose <strong>/C</strong> suffix. Credit eligibility will be removed.</p>
+                                </div>
+                            </label>
+                        </div>
+                        <p class="mt-3 text-xs text-gray-600 dark:text-gray-400">
+                            <strong>Note:</strong> Long-stay removal is always enabled. You can optionally also remove credit services when discharging.
+                        </p>
+                    </div>
+
                     <!-- Discharge Button Label -->
                     <div class="mb-4">
                         <label for="discharge_button_label" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -125,8 +202,97 @@
                             placeholder="Discharge Patient"
                         >
                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            Label for the button that discharges patients (removes long-stay status).
+                            Label for the button that discharges patients.
                         </p>
+                    </div>
+                </div>
+
+                <!-- Credit Limit Approval Workflow -->
+                <div class="mb-6 border-t border-gray-200 dark:border-gray-700 pt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Credit Limit Approval Workflow</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        Select users who will be part of the 3-step approval process for credit limit changes (for both clients and third-party payers).
+                    </p>
+                    
+                    <!-- Level 1: Initiators -->
+                    <div class="mb-6 p-4 bg-green-50 dark:bg-gray-700 rounded-lg border border-green-200 dark:border-gray-600">
+                        <h4 class="text-md font-medium text-gray-800 dark:text-white mb-3">Level 1: Initiators</h4>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-3">People who can initiate credit limit change requests.</p>
+                        <div class="mb-3">
+                            <input type="text" 
+                                   id="search-initiators" 
+                                   placeholder="Search by name or email..." 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                        </div>
+                        <div id="initiators-container" class="space-y-2 max-h-48 overflow-y-auto">
+                            @foreach($users->where('business_id', $business->id) as $user)
+                                <div class="flex items-center space-x-3 initiator-item" data-name="{{ strtolower($user->name) }}" data-email="{{ strtolower($user->email) }}">
+                                    <input type="checkbox" 
+                                           name="credit_limit_initiators[]" 
+                                           value="user:{{ $user->id }}"
+                                           id="initiator_{{ $user->id }}"
+                                           {{ $business->creditLimitApprovers->where('approval_level', 'initiator')->where('approver_type', 'user')->where('approver_id', $user->id)->count() > 0 ? 'checked' : '' }}
+                                           class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                                    <label for="initiator_{{ $user->id }}" class="text-sm text-gray-900 dark:text-white">
+                                        {{ $user->name }} <span class="text-gray-500">({{ $user->email }})</span>
+                                    </label>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <!-- Level 2: Authorizers -->
+                    <div class="mb-6 p-4 bg-yellow-50 dark:bg-gray-700 rounded-lg border border-yellow-200 dark:border-gray-600">
+                        <h4 class="text-md font-medium text-gray-800 dark:text-white mb-3">Level 2: Authorizers</h4>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-3">People who authorize credit limit change requests after initiation.</p>
+                        <div class="mb-3">
+                            <input type="text" 
+                                   id="search-authorizers" 
+                                   placeholder="Search by name or email..." 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent">
+                        </div>
+                        <div id="authorizers-container" class="space-y-2 max-h-48 overflow-y-auto">
+                            @foreach($users->where('business_id', $business->id) as $user)
+                                <div class="flex items-center space-x-3 authorizer-item" data-name="{{ strtolower($user->name) }}" data-email="{{ strtolower($user->email) }}">
+                                    <input type="checkbox" 
+                                           name="credit_limit_authorizers[]" 
+                                           value="user:{{ $user->id }}"
+                                           id="authorizer_{{ $user->id }}"
+                                           {{ $business->creditLimitApprovers->where('approval_level', 'authorizer')->where('approver_type', 'user')->where('approver_id', $user->id)->count() > 0 ? 'checked' : '' }}
+                                           class="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded">
+                                    <label for="authorizer_{{ $user->id }}" class="text-sm text-gray-900 dark:text-white">
+                                        {{ $user->name }} <span class="text-gray-500">({{ $user->email }})</span>
+                                    </label>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <!-- Level 3: Approvers -->
+                    <div class="mb-6 p-4 bg-blue-50 dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-gray-600">
+                        <h4 class="text-md font-medium text-gray-800 dark:text-white mb-3">Level 3: Approvers</h4>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-3">People who give final approval for credit limit change requests.</p>
+                        <div class="mb-3">
+                            <input type="text" 
+                                   id="search-approvers" 
+                                   placeholder="Search by name or email..." 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div id="approvers-container" class="space-y-2 max-h-48 overflow-y-auto">
+                            @foreach($users->where('business_id', $business->id) as $user)
+                                <div class="flex items-center space-x-3 approver-item" data-name="{{ strtolower($user->name) }}" data-email="{{ strtolower($user->email) }}">
+                                    <input type="checkbox" 
+                                           name="credit_limit_approvers[]" 
+                                           value="user:{{ $user->id }}"
+                                           id="approver_{{ $user->id }}"
+                                           {{ $business->creditLimitApprovers->where('approval_level', 'approver')->where('approver_type', 'user')->where('approver_id', $user->id)->count() > 0 ? 'checked' : '' }}
+                                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                    <label for="approver_{{ $user->id }}" class="text-sm text-gray-900 dark:text-white">
+                                        {{ $user->name }} <span class="text-gray-500">({{ $user->email }})</span>
+                                    </label>
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
                 </div>
 
@@ -138,5 +304,64 @@
             </form>
         </div>
     </div>
+
+    <script>
+        // Search functionality for approvers
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initiators search
+            const initiatorSearch = document.getElementById('search-initiators');
+            if (initiatorSearch) {
+                initiatorSearch.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const items = document.querySelectorAll('.initiator-item');
+                    items.forEach(item => {
+                        const name = item.getAttribute('data-name');
+                        const email = item.getAttribute('data-email');
+                        if (name.includes(searchTerm) || email.includes(searchTerm)) {
+                            item.style.display = 'flex';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                });
+            }
+
+            // Authorizers search
+            const authorizerSearch = document.getElementById('search-authorizers');
+            if (authorizerSearch) {
+                authorizerSearch.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const items = document.querySelectorAll('.authorizer-item');
+                    items.forEach(item => {
+                        const name = item.getAttribute('data-name');
+                        const email = item.getAttribute('data-email');
+                        if (name.includes(searchTerm) || email.includes(searchTerm)) {
+                            item.style.display = 'flex';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                });
+            }
+
+            // Approvers search
+            const approverSearch = document.getElementById('search-approvers');
+            if (approverSearch) {
+                approverSearch.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const items = document.querySelectorAll('.approver-item');
+                    items.forEach(item => {
+                        const name = item.getAttribute('data-name');
+                        const email = item.getAttribute('data-email');
+                        if (name.includes(searchTerm) || email.includes(searchTerm)) {
+                            item.style.display = 'flex';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                });
+            }
+        });
+    </script>
 </x-app-layout>
 

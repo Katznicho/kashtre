@@ -186,19 +186,28 @@ class ServicePointController extends Controller
         // $client->ensureActiveVisitId();
         
         // Get all items for this client at this service point
+        // Exclude completed items - they should not show in the queue
         $clientItemsQuery = \App\Models\ServiceDeliveryQueue::where('service_point_id', $servicePoint->id)
             ->where('client_id', $clientId)
-            ->with(['item', 'invoice', 'startedByUser'])
+            ->where('status', '!=', 'completed') // Exclude completed items from queue
+            ->with(['item', 'invoice', 'startedByUser', 'servicePoint'])
             ->when($user->business_id !== 1, function ($query) use ($user) {
                 $query->where(function ($inner) use ($user) {
                     $inner->whereNull('assigned_to')
                         ->orWhere('assigned_to', $user->id)
-                        ->orWhere('status', 'pending')
-                        ->orWhere('status', 'completed');
+                        ->orWhere('status', 'pending');
                 });
             });
 
         $clientItems = $clientItemsQuery->get();
+        
+        \Illuminate\Support\Facades\Log::info("=== SERVICE POINT CLIENT DETAILS - ITEMS FILTERED ===", [
+            'service_point_id' => $servicePoint->id,
+            'client_id' => $clientId,
+            'total_items_found' => $clientItems->count(),
+            'items_by_status' => $clientItems->groupBy('status')->map->count(),
+            'completed_items_excluded' => true
+        ]);
 
         if ($user->business_id !== 1) {
             $clientItems = $clientItems->filter(function ($item) use ($user) {

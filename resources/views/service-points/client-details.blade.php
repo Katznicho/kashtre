@@ -388,7 +388,9 @@
                 :pendingItems="$pendingItems" 
                 :partiallyDoneItems="$partiallyDoneItems" 
                 :completedItems="collect()" 
-                :correctTotalAmount="$correctTotalAmount ?? 0" 
+                :correctTotalAmount="$correctTotalAmount ?? 0"
+                :servicePoint="$servicePoint ?? null"
+                :client="$client"
             />
             
             <!-- Save and Exit Button -->
@@ -1960,6 +1962,86 @@
         }
         
         // Export package tracking numbers to CSV
+        
+        async function admitClientFromServicePoint(admitUrl, redirectTo, queueItemId) {
+            // Confirm with SweetAlert2
+            const result = await Swal.fire({
+                title: 'Admit Patient?',
+                text: 'Are you sure you want to admit this patient? This will process this item and update the patient status.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#16a34a',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, admit patient',
+                cancelButtonText: 'Cancel'
+            });
+            
+            if (!result.isConfirmed) {
+                return;
+            }
+            
+            // Get business settings for admission
+            @php
+                $business = $client->business ?? \App\Models\Business::find($client->business_id);
+            @endphp
+            const admitEnableCredit = {{ ($business->admit_enable_credit ?? false) ? 'true' : 'false' }};
+            const admitEnableLongStay = {{ ($business->admit_enable_long_stay ?? false) ? 'true' : 'false' }};
+            const defaultMaxCredit = {{ $business->max_first_party_credit_limit ?? 0 }};
+            
+            // Create and submit the admit form directly using business settings
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = admitUrl;
+            
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = '_token';
+            csrfInput.value = csrfToken;
+            form.appendChild(csrfInput);
+            
+            const redirectInput = document.createElement('input');
+            redirectInput.type = 'hidden';
+            redirectInput.name = 'redirect_to';
+            redirectInput.value = redirectTo;
+            form.appendChild(redirectInput);
+            
+            // Add queue item ID to process only this specific item
+            if (queueItemId) {
+                const queueItemInput = document.createElement('input');
+                queueItemInput.type = 'hidden';
+                queueItemInput.name = 'queue_item_id';
+                queueItemInput.value = queueItemId;
+                form.appendChild(queueItemInput);
+            }
+            
+            if (admitEnableCredit) {
+                const creditInput = document.createElement('input');
+                creditInput.type = 'hidden';
+                creditInput.name = 'enable_credit';
+                creditInput.value = '1';
+                form.appendChild(creditInput);
+                
+                if (defaultMaxCredit > 0) {
+                    const maxCreditInput = document.createElement('input');
+                    maxCreditInput.type = 'hidden';
+                    maxCreditInput.name = 'max_credit';
+                    maxCreditInput.value = defaultMaxCredit;
+                    form.appendChild(maxCreditInput);
+                }
+            }
+            
+            if (admitEnableLongStay) {
+                const longStayInput = document.createElement('input');
+                longStayInput.type = 'hidden';
+                longStayInput.name = 'enable_long_stay';
+                longStayInput.value = '1';
+                form.appendChild(longStayInput);
+            }
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
     </script>
     
     <!-- Payment Methods Modal -->
@@ -2041,4 +2123,6 @@
             </div>
         </div>
     </div>
+    
+    @stack('scripts')
 </x-app-layout>

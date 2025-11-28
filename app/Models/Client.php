@@ -49,6 +49,7 @@ class Client extends Model
         'nok_county',
         'balance',
         'status',
+        'client_type',
         'max_credit',
         'is_credit_eligible',
         'is_long_stay',

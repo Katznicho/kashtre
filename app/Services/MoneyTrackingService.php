@@ -987,7 +987,7 @@ class MoneyTrackingService
                     ]);
                 }
 
-                // Transfer money from client suspense to destination suspense account
+                // Transfer from client suspense to destination suspense (same for all clients)
                 Log::info("💰 INITIATING SUSPENSE ACCOUNT TRANSFER", [
                     'from_account_id' => $clientSuspenseAccount->id,
                     'from_account_name' => $clientSuspenseAccount->name,
@@ -1057,7 +1057,7 @@ class MoneyTrackingService
                     'is_deposit_only_invoice' => $isDepositOnlyInvoice
                 ]);
 
-                // Transfer money from client suspense to Kashtre Suspense
+                // Transfer from client suspense to destination suspense (same for all clients)
                 Log::info("Initiating service fee suspense account transfer", [
                     'from_account_id' => $clientSuspenseAccount->id,
                     'from_account_name' => $clientSuspenseAccount->name,
@@ -1588,38 +1588,52 @@ class MoneyTrackingService
      */
     private function transferMoney($fromAccount, $toAccount, $amount, $transferType, $invoice = null, $item = null, $description = '', $packageTrackingNumber = null, $type = 'credit')
     {
+        $isCreditEntry = ($fromAccount === null);
+        
         Log::info("=== MONEY TRANSFER STARTED ===", [
-            'from_account_id' => $fromAccount->id,
-            'from_account_name' => $fromAccount->name,
-            'from_account_balance_before' => $fromAccount->balance,
+            'from_account_id' => $fromAccount ? $fromAccount->id : 'null (credit entry)',
+            'from_account_name' => $fromAccount ? $fromAccount->name : 'Credit Entry',
+            'from_account_balance_before' => $fromAccount ? $fromAccount->balance : 0,
             'to_account_id' => $toAccount->id,
             'to_account_name' => $toAccount->name,
             'to_account_balance_before' => $toAccount->balance,
             'amount' => $amount,
             'transfer_type' => $transferType,
-            'description' => $description
+            'description' => $description,
+            'is_credit_entry' => $isCreditEntry
         ]);
 
         // Create transfer record with specified type
         Log::info("=== TRANSFERMONEY TYPE DEBUG ===", [
             'type_parameter' => $type,
-            'from_account' => $fromAccount->name,
+            'from_account' => $fromAccount ? $fromAccount->name : 'Credit Entry',
             'to_account' => $toAccount->name,
             'transfer_type' => $transferType,
             'invoice_id' => $invoice ? $invoice->id : 'null',
             'client_id' => $invoice ? $invoice->client_id : 'null',
-            'client_name' => $invoice && $invoice->client ? $invoice->client->name : 'null'
+            'client_name' => $invoice && $invoice->client ? $invoice->client->name : 'null',
+            'is_credit_entry' => $isCreditEntry
         ]);
         
         // Generate source description
-        $source = $fromAccount->name;
-        if ($invoice && $invoice->client) {
-            $source = $invoice->client->name;
-            if ($invoice->invoice_number) {
-                $source .= " (Invoice: {$invoice->invoice_number})";
+        if ($isCreditEntry) {
+            $source = 'Credit Entry';
+            if ($invoice && $invoice->client) {
+                $source = $invoice->client->name . " (Credit)";
+                if ($invoice->invoice_number) {
+                    $source .= " (Invoice: {$invoice->invoice_number})";
+                }
             }
-        } elseif ($fromAccount->client) {
-            $source = $fromAccount->client->name . " - {$fromAccount->name}";
+        } else {
+            $source = $fromAccount->name;
+            if ($invoice && $invoice->client) {
+                $source = $invoice->client->name;
+                if ($invoice->invoice_number) {
+                    $source .= " (Invoice: {$invoice->invoice_number})";
+                }
+            } elseif ($fromAccount->client) {
+                $source = $fromAccount->client->name . " - {$fromAccount->name}";
+            }
         }
         
         // Generate destination description
@@ -1633,8 +1647,8 @@ class MoneyTrackingService
         }
         
         $transfer = MoneyTransfer::create([
-            'business_id' => $fromAccount->business_id,
-            'from_account_id' => $fromAccount->id,
+            'business_id' => $isCreditEntry ? ($invoice ? $invoice->business_id : $toAccount->business_id) : $fromAccount->business_id,
+            'from_account_id' => $fromAccount ? $fromAccount->id : null,
             'to_account_id' => $toAccount->id,
             'amount' => $amount,
             'currency' => 'UGX',
@@ -1652,11 +1666,14 @@ class MoneyTrackingService
         ]);
 
         Log::info("Money transfer record created", [
-            'transfer_id' => $transfer->id
+            'transfer_id' => $transfer->id,
+            'is_credit_entry' => $isCreditEntry
         ]);
 
         // Update account balances
-        $fromAccount->debit($amount);  // Money goes out of source account
+        if (!$isCreditEntry) {
+            $fromAccount->debit($amount);  // Money goes out of source account
+        }
         $toAccount->credit($amount);   // Money comes into destination account
 
         // Create BusinessBalanceHistory records for business accounts
@@ -2307,39 +2324,9 @@ class MoneyTrackingService
                 'item_status' => $itemStatus
             ]);
 
-            // Check if this is a credit client with balance due
-            // For credit clients with balance due, skip all money movements - items are just offered
-            $isCreditClient = $client->is_credit_eligible;
-            $hasBalanceDue = $invoice->balance_due > 0;
-            $hasAccountsReceivable = \App\Models\AccountsReceivable::where('invoice_id', $invoice->id)
-                ->where('client_id', $client->id)
-                ->where('balance', '>', 0)
-                ->exists();
-            
-            // Skip money movements for credit clients with outstanding balance
-            // Items are tracked in accounts receivable, no suspense account processing needed
-            if ($isCreditClient && $hasBalanceDue && $hasAccountsReceivable) {
-                Log::info("=== CREDIT CLIENT WITH BALANCE DUE - SKIPPING MONEY MOVEMENTS ===", [
-                    'invoice_id' => $invoice->id,
-                    'invoice_number' => $invoice->invoice_number,
-                    'client_id' => $client->id,
-                    'client_name' => $client->name,
-                    'is_credit_eligible' => $isCreditClient,
-                    'balance_due' => $invoice->balance_due,
-                    'has_accounts_receivable' => $hasAccountsReceivable,
-                    'reason' => 'Credit clients with balance due - items are just offered, no money movements needed. All tracking done in accounts receivable.'
-                ]);
-                
-                // For credit clients, just update item statuses without any money movements
-                // Items are tracked in accounts receivable, no suspense account processing needed
-                DB::commit();
-                
-                return [
-                    'credit_client' => true,
-                    'message' => 'Items offered for credit client - no money movements processed',
-                    'transfer_records' => []
-                ];
-            }
+            // Note: Credit clients now also process suspense account movements
+            // Money will move to suspense accounts even though no payment was received
+            // This allows proper tracking of items through the system
 
             // Process money movement from suspense accounts to final accounts
             Log::info("🚀 === SAVE & EXIT: CALLING SUSPENSE TO FINAL MONEY MOVEMENT ===", [
@@ -4316,42 +4303,94 @@ class MoneyTrackingService
                 
                 // Get individual money transfers from general suspense to create separate records
                 // Filter by credit records (money coming into suspense) that haven't been moved yet
-                // BUT ONLY for items that were actually updated (have status changes)
+                // Filter by invoice_id to ensure we only process transfers for this invoice
                 $generalTransfers = \App\Models\MoneyTransfer::where('to_account_id', $generalSuspenseAccount->id)
                     ->where('type', 'credit')
                     ->where('money_moved_to_final_account', false)
+                    ->where('invoice_id', $invoice->id)
+                    ->where('transfer_type', 'suspense_movement')
                     ->get();
                 
                 // Filter transfers to only include items that were actually updated
                 $updatedItemIds = [];
                 foreach ($items as $itemData) {
-                    if (isset($itemData['item_id'])) {
-                        $updatedItemIds[] = $itemData['item_id'];
+                    $itemId = $itemData['item_id'] ?? $itemData['id'] ?? null;
+                    if ($itemId) {
+                        $updatedItemIds[] = $itemId;
                     }
                 }
                 
                 Log::info("🔍 === SAVE & EXIT: FILTERING TRANSFERS BY UPDATED ITEMS ===", [
+                    'general_suspense_account_id' => $generalSuspenseAccount->id,
+                    'invoice_id' => $invoice->id,
                     'updated_item_ids' => $updatedItemIds,
                     'total_transfers_before_filter' => $generalTransfers->count(),
-                    'items_being_processed' => $items
+                    'items_being_processed' => $items,
+                    'transfer_types_included' => ['suspense_movement', 'credit_suspense_movement']
                 ]);
                 
                 // Only process transfers for items that were actually updated
-                $generalTransfers = $generalTransfers->filter(function($transfer) use ($updatedItemIds) {
-                    return $transfer->item_id && in_array($transfer->item_id, $updatedItemIds);
+                // For credit clients, transfers might not have item_id set, so include all transfers for this invoice
+                $generalTransfers = $generalTransfers->filter(function($transfer) use ($updatedItemIds, $invoice) {
+                    // If transfer has item_id, it must be in updated items
+                    if ($transfer->item_id) {
+                        return in_array($transfer->item_id, $updatedItemIds);
+                    }
+                    // If no item_id but invoice matches, include it (credit client transfers)
+                    return $transfer->invoice_id == $invoice->id;
                 });
                 
                 Log::info("✅ === SAVE & EXIT: FILTERED TRANSFERS RESULT ===", [
                     'transfers_after_filter' => $generalTransfers->count(),
-                    'filtered_transfer_ids' => $generalTransfers->pluck('id')->toArray()
+                    'filtered_transfer_ids' => $generalTransfers->pluck('id')->toArray(),
+                    'general_suspense_balance' => $generalSuspenseAccount->balance
                 ]);
 
-                $itemDataById = collect($items)->mapWithKeys(function ($itemData) {
-                    $key = $itemData['item_id'] ?? $itemData['id'] ?? null;
-                    return $key ? [$key => $itemData] : [];
-                });
+                // If no transfers found but suspense account has balance, move entire balance
+                // This handles cases where transfers might not have item_id set or don't match filters
+                if ($generalTransfers->isEmpty() && $generalSuspenseAccount->balance > 0) {
+                    Log::info("⚠️ === SAVE & EXIT: NO TRANSFERS FOUND, MOVING ENTIRE SUSPENSE BALANCE ===", [
+                        'general_suspense_balance' => $generalSuspenseAccount->balance,
+                        'invoice_id' => $invoice->id,
+                        'reason' => 'No matching transfers found, moving entire balance as fallback'
+                    ]);
+                    
+                    // Move entire balance from general suspense to business account
+                    $finalTransfer = $this->transferMoney(
+                        $generalSuspenseAccount,
+                        $businessAccount,
+                        $generalSuspenseAccount->balance,
+                        'suspense_to_final',
+                        $invoice,
+                        null,
+                        "General Suspense - Final Transfer (Invoice: {$invoice->invoice_number})",
+                        null,
+                        'debit'
+                    );
+                    
+                    $finalTransfer->markMoneyMovedToFinalAccount();
+                    $generalSuspenseAccount->markAsMoved("Money transferred to Business Account via Save & Exit");
+                    
+                    $transferRecords[] = [
+                        'item_name' => 'General Suspense Account',
+                        'amount' => $generalSuspenseAccount->balance,
+                        'source_suspense' => $generalSuspenseAccount->name,
+                        'destination' => $businessAccount->name,
+                        'transfer_id' => $finalTransfer->id
+                    ];
+                    
+                    Log::info("✅ SAVE & EXIT: General Suspense processed (fallback - entire balance)", [
+                        'amount_transferred' => $generalSuspenseAccount->balance,
+                        'transfer_id' => $finalTransfer->id
+                    ]);
+                } else {
+                    // Process individual transfers (normal flow for regular clients and credit clients with item_id set)
+                    $itemDataById = collect($items)->mapWithKeys(function ($itemData) {
+                        $key = $itemData['item_id'] ?? $itemData['id'] ?? null;
+                        return $key ? [$key => $itemData] : [];
+                    });
 
-                foreach ($generalTransfers as $transfer) {
+                    foreach ($generalTransfers as $transfer) {
                     // Get the item information for proper description
                     $item = null;
                     if ($transfer->item_id) {
@@ -4571,15 +4610,18 @@ class MoneyTrackingService
 
                     $finalTransfer->markMoneyMovedToFinalAccount();
                     $transfer->markMoneyMovedToFinalAccount();
-                }
-                
-                // Mark the suspense account as moved
-                $generalSuspenseAccount->markAsMoved("Money transferred to Business Account via Save & Exit");
+                    }
+                    
+                    // Mark the suspense account as moved (only if we processed transfers, not fallback)
+                    if ($generalSuspenseAccount->balance == 0) {
+                        $generalSuspenseAccount->markAsMoved("Money transferred to Business Account via Save & Exit");
+                    }
 
-                Log::info("✅ SAVE & EXIT: General Suspense processed", [
-                    'total_amount_transferred' => $generalSuspenseAccount->balance,
-                    'individual_transfers' => count($generalTransfers)
-                ]);
+                    Log::info("✅ SAVE & EXIT: General Suspense processed", [
+                        'total_amount_transferred' => $generalSuspenseAccount->balance,
+                        'individual_transfers' => count($generalTransfers)
+                    ]);
+                }
             } else {
                 Log::info("⏭️ SAVE & EXIT: SKIPPING GENERAL SUSPENSE - Package items being consumed", [
                     'general_suspense_balance' => $generalSuspenseAccount->balance,
