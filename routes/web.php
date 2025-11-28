@@ -63,6 +63,7 @@ use App\Http\Controllers\CreditNoteWorkflowBulkUploadController;
 use App\Http\Controllers\RefundController;
 use App\Http\Controllers\ServicePointSupervisorController;
 use App\Http\Controllers\AccountsReceivableController;
+use App\Http\Controllers\CreditLimitChangeRequestController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
@@ -297,6 +298,14 @@ Route::post('/contractor-withdrawal-requests/{contractorProfile}', [App\Http\Con
 Route::get('/contractor-withdrawal-requests/show/{contractorWithdrawalRequest}', [App\Http\Controllers\ContractorWithdrawalRequestController::class, 'show'])->name('contractor-withdrawal-requests.show');
 Route::post('/contractor-withdrawal-requests/{contractorWithdrawalRequest}/approve', [App\Http\Controllers\ContractorWithdrawalRequestController::class, 'approve'])->name('contractor-withdrawal-requests.approve');
 Route::post('/contractor-withdrawal-requests/{contractorWithdrawalRequest}/reject', [App\Http\Controllers\ContractorWithdrawalRequestController::class, 'reject'])->name('contractor-withdrawal-requests.reject');
+
+// Credit Limit Change Request Routes
+Route::get('/credit-limit-requests', [CreditLimitChangeRequestController::class, 'index'])->name('credit-limit-requests.index');
+Route::get('/credit-limit-requests/create', [CreditLimitChangeRequestController::class, 'create'])->name('credit-limit-requests.create');
+Route::post('/credit-limit-requests', [CreditLimitChangeRequestController::class, 'store'])->name('credit-limit-requests.store');
+Route::get('/credit-limit-requests/{creditLimitChangeRequest}', [CreditLimitChangeRequestController::class, 'show'])->name('credit-limit-requests.show');
+Route::post('/credit-limit-requests/{creditLimitChangeRequest}/approve', [CreditLimitChangeRequestController::class, 'approve'])->name('credit-limit-requests.approve');
+Route::post('/credit-limit-requests/{creditLimitChangeRequest}/reject', [CreditLimitChangeRequestController::class, 'reject'])->name('credit-limit-requests.reject');
 
 // Finance - Withdrawal Requests (Kashtre)
 Route::get('/finance/withdrawals', function () {

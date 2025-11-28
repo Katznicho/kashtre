@@ -16,6 +16,7 @@ use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Actions\CreateAction;
 use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
@@ -142,6 +143,35 @@ class ListThirdPartyPayers extends Component implements HasForms, HasTable
                 ] : []),
             ])
             ->actions([
+                Action::make('view')
+                    ->label('View')
+                    ->icon('heroicon-o-eye')
+                    ->color('info')
+                    ->url(fn (ThirdPartyPayer $record): string => route('third-party-payers.show', $record))
+                    ->openUrlInNewTab(false),
+                Action::make('requestCreditLimitChange')
+                    ->label('Request Credit Limit Change')
+                    ->icon('heroicon-o-currency-dollar')
+                    ->color('success')
+                    ->url(fn (ThirdPartyPayer $record): string => route('credit-limit-requests.create', [
+                        'entity_type' => 'third_party_payer',
+                        'entity_id' => $record->id
+                    ]))
+                    ->visible(function (ThirdPartyPayer $record) {
+                        $user = Auth::user();
+                        // Check if user has permission
+                        if (!in_array('Manage Credit Limits', $user->permissions ?? [])) {
+                            return false;
+                        }
+                        // Check if user is an initiator
+                        $isInitiator = \App\Models\CreditLimitApprovalApprover::where('business_id', $user->business_id)
+                            ->where('approver_id', $user->id)
+                            ->where('approval_level', 'initiator')
+                            ->exists();
+                        // Check if third-party payer has a credit limit (is credit eligible)
+                        return $isInitiator && $record->credit_limit !== null && $record->credit_limit >= 0;
+                    })
+                    ->openUrlInNewTab(false),
                 EditAction::make()
                     ->visible(fn() => in_array('Edit Third Party Payers', Auth::user()->permissions ?? []))
                     ->modalHeading('Edit Third Party Payer')

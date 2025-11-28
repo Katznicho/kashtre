@@ -74,4 +74,9 @@ class ThirdPartyPayer extends Model
     {
         return $this->type === 'normal_client';
     }
+
+    public function creditLimitChangeRequests()
+    {
+        return $this->morphMany(CreditLimitChangeRequest::class, 'entity');
+    }
 }

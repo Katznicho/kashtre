@@ -22,7 +22,7 @@ return new class extends Migration
                 ->onDelete('cascade')
                 ->name('clcr_approvals_approver_id_foreign');
             $table->enum('approval_level', ['initiator', 'authorizer', 'approver']);
-            $table->enum('action', ['approved', 'rejected']);
+            $table->enum('action', ['approved', 'rejected'])->nullable();
             $table->text('comment')->nullable();
             $table->timestamps();
             

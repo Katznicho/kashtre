@@ -90,6 +90,12 @@ class Client extends Model
         return $this->hasMany(ServiceDeliveryQueue::class);
     }
 
+    public function creditLimitChangeRequests()
+    {
+        return $this->hasMany(CreditLimitChangeRequest::class, 'entity_id')
+            ->where('entity_type', 'client');
+    }
+
     /**
      * Get the full name of the client
      */

@@ -275,6 +275,63 @@
                             </li>
                             @endif
                             
+                            <!-- Credit Limit Requests - Available for all businesses with permission -->
+                            @if(in_array('Manage Credit Limits', (array) $permissions))
+                            @php
+                                $user = Auth::user();
+                                $pendingCount = 0;
+                                
+                                // Get user's approval levels
+                                $userApproverLevels = \App\Models\CreditLimitApprovalApprover::where('business_id', $user->business_id)
+                                    ->where('approver_id', $user->id)
+                                    ->pluck('approval_level')
+                                    ->toArray();
+                                
+                                // Count pending authorizations
+                                if (in_array('authorizer', $userApproverLevels)) {
+                                    $pendingCount += \App\Models\CreditLimitChangeRequest::where('business_id', $user->business_id)
+                                        ->where('status', 'initiated')
+                                        ->where('current_step', 2)
+                                        ->whereHas('approvals', function ($q) use ($user) {
+                                            $q->where('approver_id', $user->id)
+                                              ->where('approval_level', 'authorizer')
+                                              ->whereNull('action');
+                                        })
+                                        ->count();
+                                }
+                                
+                                // Count pending approvals
+                                if (in_array('approver', $userApproverLevels)) {
+                                    $pendingCount += \App\Models\CreditLimitChangeRequest::where('business_id', $user->business_id)
+                                        ->where('status', 'authorized')
+                                        ->where('current_step', 3)
+                                        ->whereHas('approvals', function ($q) use ($user) {
+                                            $q->where('approver_id', $user->id)
+                                              ->where('approval_level', 'approver')
+                                              ->whereNull('action');
+                                        })
+                                        ->count();
+                                }
+                            @endphp
+                            <li>
+                                <a href="{{ route('credit-limit-requests.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    <span class="flex items-center justify-between w-full">
+                                        <span class="flex items-center">
+                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            Credit Limit Requests
+                                        </span>
+                                        @if($pendingCount > 0)
+                                            <span class="ml-2 bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded-full">
+                                                {{ $pendingCount }}
+                                            </span>
+                                        @endif
+                                    </span>
+                                </a>
+                            </li>
+                            @endif
+                            
                             <!-- Kashtre Account Statement - Only for super business (Kashtre) -->
                             @if(Auth::user()->business_id == 1)
                             <li>

@@ -100,14 +100,25 @@
                 <div class="p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-medium text-gray-900">Client Account Statement</h3>
-                        @php
-                            $calculatedBalance = $credits - $debits;
-                        @endphp
-                        @if($client->is_credit_eligible && $calculatedBalance < 0 && in_array('Process Pay Back', (array) (auth()->user()->permissions ?? [])))
-                            <a href="{{ route('balance-statement.pay-back.show', $client->id) }}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-block">
-                                Pay Back Outstanding Amount
-                            </a>
-                        @endif
+                        <div class="flex space-x-2">
+                            @php
+                                $calculatedBalance = $credits - $debits;
+                                $isInitiator = \App\Models\CreditLimitApprovalApprover::where('business_id', auth()->user()->business_id)
+                                    ->where('approver_id', auth()->user()->id)
+                                    ->where('approval_level', 'initiator')
+                                    ->exists();
+                            @endphp
+                            @if($client->is_credit_eligible && in_array('Manage Credit Limits', (array) (auth()->user()->permissions ?? [])) && $isInitiator)
+                                <a href="{{ route('credit-limit-requests.create', ['entity_type' => 'client', 'entity_id' => $client->id]) }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-block">
+                                    Request Credit Limit Change
+                                </a>
+                            @endif
+                            @if($client->is_credit_eligible && $calculatedBalance < 0 && in_array('Process Pay Back', (array) (auth()->user()->permissions ?? [])))
+                                <a href="{{ route('balance-statement.pay-back.show', $client->id) }}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-block">
+                                    Pay Back Outstanding Amount
+                                </a>
+                            @endif
+                        </div>
                     </div>
 
                     @if($balanceHistories->count() > 0)
