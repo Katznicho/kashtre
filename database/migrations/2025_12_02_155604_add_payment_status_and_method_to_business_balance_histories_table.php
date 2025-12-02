@@ -11,13 +11,21 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('business_balance_histories', function (Blueprint $table) {
-            // Add payment_status enum with default 'pending_payment'
-            $table->enum('payment_status', ['paid', 'pending_payment'])->default('pending_payment')->after('metadata');
-            
-            // Add payment_method enum with specified values
-            $table->enum('payment_method', ['account_balance', 'mobile_money', 'bank_transfer', 'v_card', 'p_card'])->nullable()->after('payment_status');
-        });
+        // Only add payment_status if it doesn't exist
+        if (!Schema::hasColumn('business_balance_histories', 'payment_status')) {
+            Schema::table('business_balance_histories', function (Blueprint $table) {
+                // Add payment_status enum with default 'pending_payment'
+                $table->enum('payment_status', ['paid', 'pending_payment'])->default('pending_payment')->after('metadata');
+            });
+        }
+        
+        // Only add payment_method if it doesn't exist
+        if (!Schema::hasColumn('business_balance_histories', 'payment_method')) {
+            Schema::table('business_balance_histories', function (Blueprint $table) {
+                // Add payment_method enum with specified values
+                $table->enum('payment_method', ['account_balance', 'mobile_money', 'bank_transfer', 'v_card', 'p_card'])->nullable()->after('payment_status');
+            });
+        }
     }
 
     /**

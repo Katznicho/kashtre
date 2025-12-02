@@ -12,10 +12,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('balance_histories', function (Blueprint $table) {
-            // Add payment_status enum with default 'pending_payment'
-            $table->enum('payment_status', ['paid', 'pending_payment'])->default('pending_payment')->after('payment_reference');
-        });
+        // Only add payment_status if it doesn't exist
+        if (!Schema::hasColumn('balance_histories', 'payment_status')) {
+            Schema::table('balance_histories', function (Blueprint $table) {
+                // Add payment_status enum with default 'pending_payment'
+                $table->enum('payment_status', ['paid', 'pending_payment'])->default('pending_payment')->after('payment_reference');
+            });
+        }
 
         // First, normalize existing payment_method values
         $validMethods = ['account_balance', 'mobile_money', 'bank_transfer', 'v_card', 'p_card'];
@@ -54,8 +57,11 @@ return new class extends Migration
             ->whereNotIn('payment_method', $validMethods)
             ->update(['payment_method' => null]);
 
-        // Now update payment_method to enum with specified values
-        DB::statement("ALTER TABLE balance_histories MODIFY COLUMN payment_method ENUM('account_balance', 'mobile_money', 'bank_transfer', 'v_card', 'p_card') NULL");
+        // Now update payment_method to enum with specified values (only if it's not already an ENUM)
+        $columnInfo = DB::select("SHOW COLUMNS FROM balance_histories WHERE Field = 'payment_method'");
+        if (!empty($columnInfo) && stripos($columnInfo[0]->Type, 'enum') === false) {
+            DB::statement("ALTER TABLE balance_histories MODIFY COLUMN payment_method ENUM('account_balance', 'mobile_money', 'bank_transfer', 'v_card', 'p_card') NULL");
+        }
     }
 
     /**
