@@ -87,6 +87,8 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -119,7 +121,7 @@
                                     @elseif($history->type === 'package')
                                         <span class="text-blue-600">+{{ number_format($history->amount, 2) }} UGX</span>
                                     @else
-                                        <span class="text-red-600">-{{ number_format($history->amount, 2) }} UGX</span>
+                                        <span class="text-red-600">{{ number_format($history->amount, 2) }} UGX</span>
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -142,10 +144,24 @@
                                         N/A
                                     @endif
                                 </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                                        @if($history->payment_status === 'paid') bg-green-100 text-green-800
+                                        @else bg-yellow-100 text-yellow-800 @endif">
+                                        {{ ucfirst(str_replace('_', ' ', $history->payment_status ?? 'pending_payment')) }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    @if($history->payment_method)
+                                        {{ ucwords(str_replace('_', ' ', $history->payment_method)) }}
+                                    @else
+                                        -
+                                    @endif
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                                <td colspan="7" class="px-6 py-8 text-center text-gray-500">
                                     No transactions found.
                                 </td>
                             </tr>

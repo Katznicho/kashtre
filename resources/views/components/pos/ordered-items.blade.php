@@ -262,36 +262,42 @@
             const admitEnableLongStay = {{ ($business->admit_enable_long_stay ?? false) ? 'true' : 'false' }};
             const defaultMaxCredit = {{ $business->max_first_party_credit_limit ?? 0 }};
             
-            // Update visit ID format via admission endpoint
-            const admitFormData = new FormData();
-            admitFormData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
-            admitFormData.append('redirect_to', window.location.href);
-            
-            if (admitEnableCredit) {
-                admitFormData.append('enable_credit', '1');
-                if (defaultMaxCredit > 0) {
-                    admitFormData.append('max_credit', defaultMaxCredit);
+            // Only attempt admission if at least one option is enabled
+            if (admitEnableCredit || admitEnableLongStay) {
+                // Update visit ID format via admission endpoint
+                const admitFormData = new FormData();
+                admitFormData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+                admitFormData.append('redirect_to', window.location.href);
+                
+                if (admitEnableCredit) {
+                    admitFormData.append('enable_credit', '1');
+                    if (defaultMaxCredit > 0) {
+                        admitFormData.append('max_credit', defaultMaxCredit);
+                    }
                 }
-            }
-            
-            if (admitEnableLongStay) {
-                admitFormData.append('enable_long_stay', '1');
-            }
-            
-            const admitResponse = await fetch(`/clients/${clientId}/admit`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                },
-                body: admitFormData
-            });
-            
-            const admitData = await admitResponse.json();
-            
-            if (!admitResponse.ok || !admitData.success) {
-                throw new Error(admitData.message || 'Failed to update visit ID');
+                
+                if (admitEnableLongStay) {
+                    admitFormData.append('enable_long_stay', '1');
+                }
+                
+                const admitResponse = await fetch(`/clients/${clientId}/admit`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                    },
+                    body: admitFormData
+                });
+                
+                const admitData = await admitResponse.json();
+                
+                if (!admitResponse.ok || !admitData.success) {
+                    throw new Error(admitData.message || 'Failed to update visit ID');
+                }
+            } else {
+                // Skip admission if neither option is enabled
+                console.log('Skipping automatic admission: neither credit nor long-stay is enabled in business settings');
             }
             
             // Now mark the item as completed and submit the form data directly

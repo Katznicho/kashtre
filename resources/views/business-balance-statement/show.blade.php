@@ -49,6 +49,12 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Reference
                                         </th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Payment Status
+                                        </th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Payment Method
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
@@ -116,14 +122,31 @@
                                                     @if($history->type === 'package')
                                                         {{-- Package entries: no + or - prefix, just amount --}}
                                                         {{ number_format($history->amount, 0) }} UGX
+                                                    @elseif($history->type === 'credit')
+                                                        {{-- Credit entries: show + prefix --}}
+                                                        +{{ number_format($history->amount, 0) }} UGX
                                                     @else
-                                                        {{-- Credit/Debit entries: show + or - prefix --}}
-                                                        {{ $history->type === 'credit' ? '+' : '-' }}{{ number_format($history->amount, 0) }} UGX
+                                                        {{-- Debit entries: no negative sign, just amount in red --}}
+                                                        {{ number_format($history->amount, 0) }} UGX
                                                     @endif
                                                 </span>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {{ $history->reference_number ?? '-' }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                                                    @if($history->payment_status === 'paid') bg-green-100 text-green-800
+                                                    @else bg-yellow-100 text-yellow-800 @endif">
+                                                    {{ ucfirst(str_replace('_', ' ', $history->payment_status ?? 'pending_payment')) }}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                @if($history->payment_method)
+                                                    {{ ucwords(str_replace('_', ' ', $history->payment_method)) }}
+                                                @else
+                                                    -
+                                                @endif
                                             </td>
                                         </tr>
                                     @endforeach

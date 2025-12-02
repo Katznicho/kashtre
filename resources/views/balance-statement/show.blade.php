@@ -31,8 +31,14 @@
                                     // Total Balance = Available Balance + Suspense Balance
                                     $totalBalance = $availableBalance + $suspenseBalance;
                                     
+                                    // Credit Remaining calculation for credit clients
+                                    $creditLimit = $client->max_credit ?? 0;
+                                    $amountOwed = $availableBalance < 0 ? abs($availableBalance) : 0;
+                                    $creditRemaining = max(0, $creditLimit - $amountOwed);
+                                    
                                     $availableBalanceColor = $availableBalance < 0 ? 'text-red-600' : ($availableBalance > 0 ? 'text-green-600' : 'text-gray-700');
                                     $totalBalanceColor = $totalBalance < 0 ? 'text-red-600' : ($totalBalance > 0 ? 'text-green-600' : 'text-gray-700');
+                                    $creditRemainingColor = $creditRemaining > 0 ? 'text-green-600' : 'text-red-600';
                                 @endphp
                                 
                                 @if($client->is_credit_eligible)
@@ -62,8 +68,22 @@
                                     <div>
                                         <p class="text-sm text-gray-500">Credit Limit</p>
                                         <p class="text-lg font-semibold text-gray-700">
-                                            UGX {{ number_format($client->max_credit ?? 0, 2) }}
+                                            UGX {{ number_format($creditLimit, 2) }}
                                         </p>
+                                    </div>
+                                    
+                                    <div>
+                                        <p class="text-sm text-gray-500">Credit Remaining</p>
+                                        <p class="text-lg font-semibold {{ $creditRemainingColor }}">
+                                            UGX {{ number_format($creditRemaining, 2) }}
+                                        </p>
+                                        @if($creditRemaining <= 0)
+                                            <p class="text-xs text-red-500">(Credit Limit Exceeded)</p>
+                                        @elseif($amountOwed > 0)
+                                            <p class="text-xs text-gray-500">({{ number_format($amountOwed, 2) }} used of {{ number_format($creditLimit, 2) }})</p>
+                                        @else
+                                            <p class="text-xs text-green-500">(No credit used)</p>
+                                        @endif
                                     </div>
                                 @else
                                     {{-- Non-Credit Client: Show Available Balance and Total Balance --}}
@@ -156,6 +176,7 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
@@ -230,6 +251,13 @@
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {{ $history->reference_number ?? '-' }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                @if($history->payment_method)
+                                                    {{ ucwords(str_replace('_', ' ', $history->payment_method)) }}
+                                                @else
+                                                    -
+                                                @endif
                                             </td>
                                         </tr>
                                     @endforeach

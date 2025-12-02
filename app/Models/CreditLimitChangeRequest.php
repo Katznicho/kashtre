@@ -174,32 +174,20 @@ class CreditLimitChangeRequest extends Model
 
     public function hasAllAuthorizersApproved()
     {
-        $authorizerApprovals = $this->approvals()
+        // Check if at least one authorizer has approved (changed from requiring all)
+        return $this->approvals()
             ->where('approval_level', 'authorizer')
-            ->get();
-        
-        if ($authorizerApprovals->isEmpty()) {
-            return false;
-        }
-
-        return $authorizerApprovals->every(function ($approval) {
-            return $approval->action === 'approved';
-        });
+            ->where('action', 'approved')
+            ->exists();
     }
 
     public function hasAllApproversApproved()
     {
-        $approverApprovals = $this->approvals()
+        // Check if at least one approver has approved (changed from requiring all)
+        return $this->approvals()
             ->where('approval_level', 'approver')
-            ->get();
-        
-        if ($approverApprovals->isEmpty()) {
-            return false;
-        }
-
-        return $approverApprovals->every(function ($approval) {
-            return $approval->action === 'approved';
-        });
+            ->where('action', 'approved')
+            ->exists();
     }
 
     public function hasAnyRejection()

@@ -204,6 +204,7 @@ class ExpireVisitIds extends Command
         $clientsToMaintain = $clientsMaintained->merge($activeClientIds)->unique()->filter();
 
         // Step 5: Clear visit IDs for all other clients (non-Kashtre)
+        // Only clear visit IDs without suffixes (/C, /M, or /C/M) - these are for admitted clients
         Client::where('business_id', '!=', 1)
             ->where(function ($query) {
                 $query->whereNotNull('visit_id')
@@ -214,10 +215,29 @@ class ExpireVisitIds extends Command
             })
             ->chunkById(100, function ($clients) use (&$clearedCount) {
                 foreach ($clients as $client) {
-                    $client->visit_id = null;
-                    $client->visit_expires_at = null;
-                    $client->save();
-                    $clearedCount++;
+                    // Only clear visit IDs that don't have suffixes
+                    // Visit IDs with /C, /M, or /C/M should not be expired (these are for admitted clients)
+                    $hasSuffix = $client->visit_id && preg_match('/\/(C\/M|C|M)$/', $client->visit_id);
+                    
+                    if (!$hasSuffix) {
+                        // Clear visit ID and expiry for clients without suffixes
+                        $oldVisitId = $client->visit_id;
+                        $client->visit_id = null;
+                        $client->visit_expires_at = null;
+                        $client->save();
+                        $clearedCount++;
+
+                        Log::info('Visit ID expired (no suffix)', [
+                            'client_id' => $client->id,
+                            'expired_visit_id' => $oldVisitId,
+                        ]);
+                    } else {
+                        // Preserve visit IDs with suffixes (admitted clients)
+                        Log::info('Visit ID preserved (has suffix - admitted client)', [
+                            'client_id' => $client->id,
+                            'preserved_visit_id' => $client->visit_id,
+                        ]);
+                    }
                 }
             });
 

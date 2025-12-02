@@ -152,40 +152,7 @@
                     <!-- Discharge Behavior -->
                     <div class="mb-4 p-4 bg-red-50 dark:bg-gray-700 rounded-lg border border-red-200 dark:border-gray-600">
                         <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">What happens when "Discharge" is clicked:</h4>
-                        <div class="space-y-3">
-                            <label class="flex items-start">
-                                <input 
-                                    type="checkbox" 
-                                    name="discharge_remove_long_stay" 
-                                    id="discharge_remove_long_stay" 
-                                    value="1"
-                                    {{ old('discharge_remove_long_stay', $business->discharge_remove_long_stay ?? true) ? 'checked' : '' }}
-                                    class="mt-1 mr-3 h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
-                                    disabled
-                                >
-                                <div>
-                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Remove Long-Stay / Inpatient</span>
-                                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Visit ID will lose <strong>/M</strong> suffix. This is always enabled when discharging.</p>
-                                </div>
-                            </label>
-                            <label class="flex items-start">
-                                <input 
-                                    type="checkbox" 
-                                    name="discharge_remove_credit" 
-                                    id="discharge_remove_credit" 
-                                    value="1"
-                                    {{ old('discharge_remove_credit', $business->discharge_remove_credit) ? 'checked' : '' }}
-                                    class="mt-1 mr-3 h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
-                                >
-                                <div>
-                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Remove Credit Services</span>
-                                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Visit ID will lose <strong>/C</strong> suffix. Credit eligibility will be removed.</p>
-                                </div>
-                            </label>
-                        </div>
-                        <p class="mt-3 text-xs text-gray-600 dark:text-gray-400">
-                            <strong>Note:</strong> Long-stay removal is always enabled. You can optionally also remove credit services when discharging.
-                        </p>
+                        <p class="text-sm text-gray-700 dark:text-gray-300">Visit ID resets to default format.</p>
                     </div>
 
                     <!-- Discharge Button Label -->

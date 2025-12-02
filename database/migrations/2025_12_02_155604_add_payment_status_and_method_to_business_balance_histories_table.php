@@ -1,0 +1,32 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('business_balance_histories', function (Blueprint $table) {
+            // Add payment_status enum with default 'pending_payment'
+            $table->enum('payment_status', ['paid', 'pending_payment'])->default('pending_payment')->after('metadata');
+            
+            // Add payment_method enum with specified values
+            $table->enum('payment_method', ['account_balance', 'mobile_money', 'bank_transfer', 'v_card', 'p_card'])->nullable()->after('payment_status');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('business_balance_histories', function (Blueprint $table) {
+            $table->dropColumn(['payment_status', 'payment_method']);
+        });
+    }
+};

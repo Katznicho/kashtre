@@ -22,6 +22,8 @@ class BusinessBalanceHistory extends Model
         'reference_id',
         'metadata',
         'user_id',
+        'payment_status',
+        'payment_method',
     ];
 
     protected $casts = [

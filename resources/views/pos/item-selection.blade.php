@@ -124,7 +124,7 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Client Statement</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div class="bg-blue-50 p-4 rounded-lg text-center">
                             <div class="flex justify-between items-center mb-2">
                                 <p class="text-sm text-gray-500">Current Balance</p>
@@ -141,10 +141,34 @@
                                 </p>
                             </div>
                         </div>
-                        <div class="bg-yellow-50 p-4 rounded-lg text-center">
-                            <p class="text-sm text-gray-500 mb-1">Total Transactions</p>
-                            <p class="text-xl font-bold text-yellow-600">0</p>
-                        </div>
+                        @if($client->is_credit_eligible)
+                            @php
+                                $creditLimit = $client->max_credit ?? 0;
+                                $availableBalance = $client->available_balance ?? 0;
+                                $amountOwed = $availableBalance < 0 ? abs($availableBalance) : 0;
+                                $creditRemaining = max(0, $creditLimit - $amountOwed);
+                            @endphp
+                            <div class="bg-green-50 p-4 rounded-lg text-center">
+                                <p class="text-sm text-gray-500 mb-1">Credit Limit</p>
+                                <p class="text-lg font-bold text-gray-700">
+                                    UGX {{ number_format($creditLimit, 2) }}
+                                </p>
+                            </div>
+                            <div class="bg-purple-50 p-4 rounded-lg text-center">
+                                <p class="text-sm text-gray-500 mb-1">Credit Remaining</p>
+                                <p class="text-lg font-bold {{ $creditRemaining > 0 ? 'text-green-600' : 'text-red-600' }}" id="credit-remaining-display">
+                                    UGX {{ number_format($creditRemaining, 2) }}
+                                </p>
+                                @if($creditRemaining <= 0)
+                                    <p class="text-xs text-red-500 mt-1">(Credit Limit Exceeded)</p>
+                                @endif
+                            </div>
+                        @else
+                            <div class="bg-yellow-50 p-4 rounded-lg text-center">
+                                <p class="text-sm text-gray-500 mb-1">Total Transactions</p>
+                                <p class="text-xl font-bold text-yellow-600">0</p>
+                            </div>
+                        @endif
                     </div>
                     <div class="mt-4">
                         <a href="{{ route('balance-statement.show', $client->id) }}" target="_blank" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
@@ -569,6 +593,23 @@
         let packageAdjustment = 0;
         let balanceAdjustment = 0;
         
+        // Credit information for credit clients
+        @if($client->is_credit_eligible)
+            @php
+                $creditLimit = $client->max_credit ?? 0;
+                $availableBalance = $client->available_balance ?? 0;
+                $amountOwed = $availableBalance < 0 ? abs($availableBalance) : 0;
+                $creditRemaining = max(0, $creditLimit - $amountOwed);
+            @endphp
+            const isCreditClient = true;
+            const creditLimit = {{ $creditLimit }};
+            const currentCreditRemaining = {{ $creditRemaining }};
+        @else
+            const isCreditClient = false;
+            const creditLimit = 0;
+            const currentCreditRemaining = 0;
+        @endif
+        
         // Add event listeners to quantity inputs
         document.addEventListener('DOMContentLoaded', function() {
             // Check initial payment methods for mobile money
@@ -799,6 +840,47 @@
             totalItemsSpan.textContent = totalItems; // This now shows total quantity of all items
             totalQuantitySpan.textContent = totalQuantity; // This now shows total quantity of all items
             totalAmountSpan.textContent = `UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            // Update credit remaining display if client is credit eligible
+            if (isCreditClient) {
+                updateCreditRemainingDisplay(totalAmount);
+            }
+        }
+        
+        function updateCreditRemainingDisplay(cartTotal) {
+            if (!isCreditClient) return;
+            
+            const creditRemainingDisplay = document.getElementById('credit-remaining-display');
+            if (!creditRemainingDisplay) return;
+            
+            // Calculate estimated new credit remaining (approximate, before service charges and adjustments)
+            // This gives a rough indication, final validation happens on purchase
+            const currentAmountOwed = Math.max(0, -parseFloat({{ $client->available_balance ?? 0 }}));
+            const estimatedNewOwed = currentAmountOwed + cartTotal;
+            const estimatedCreditRemaining = Math.max(0, creditLimit - estimatedNewOwed);
+            
+            // Update display
+            creditRemainingDisplay.textContent = `UGX ${estimatedCreditRemaining.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            // Update color based on remaining credit
+            if (estimatedCreditRemaining <= 0) {
+                creditRemainingDisplay.className = 'text-lg font-bold text-red-600';
+                // Show warning message
+                const warningMsg = creditRemainingDisplay.parentElement.querySelector('.text-xs.text-red-500');
+                if (!warningMsg) {
+                    const warning = document.createElement('p');
+                    warning.className = 'text-xs text-red-500 mt-1';
+                    warning.textContent = '(Credit Limit Will Be Exceeded)';
+                    creditRemainingDisplay.parentElement.appendChild(warning);
+                }
+            } else {
+                creditRemainingDisplay.className = 'text-lg font-bold text-green-600';
+                // Remove warning if exists
+                const warningMsg = creditRemainingDisplay.parentElement.querySelector('.text-xs.text-red-500');
+                if (warningMsg && warningMsg.textContent.includes('Will Be Exceeded')) {
+                    warningMsg.remove();
+                }
+            }
         }
         
         function removeFromCart(index) {
@@ -1176,6 +1258,40 @@
                 // Ensure totalAmount never goes below 0
                 if (totalAmount < 0) {
                     totalAmount = 0;
+                }
+
+                // Check credit limit for credit clients
+                if (isCreditClient && totalAmount > 0) {
+                    // For credit clients, check if purchase would exceed credit limit
+                    // The totalAmount represents what they will owe after this purchase
+                    // We need to check: current amount owed + totalAmount <= creditLimit
+                    const currentAmountOwed = Math.max(0, -parseFloat({{ $client->available_balance ?? 0 }}));
+                    const newAmountOwed = currentAmountOwed + totalAmount;
+                    
+                    if (newAmountOwed > creditLimit) {
+                        const excess = newAmountOwed - creditLimit;
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Credit Limit Exceeded',
+                            html: `
+                                <div class="text-left">
+                                    <p class="mb-2">This purchase would exceed the client's credit limit.</p>
+                                    <div class="bg-gray-50 p-3 rounded mt-3">
+                                        <p class="text-sm"><strong>Credit Limit:</strong> UGX ${creditLimit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                        <p class="text-sm"><strong>Current Credit Remaining:</strong> UGX ${currentCreditRemaining.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                        <p class="text-sm"><strong>Purchase Amount:</strong> UGX ${totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                        <p class="text-sm text-red-600"><strong>Excess Amount:</strong> UGX ${excess.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                    </div>
+                                    <p class="text-sm text-gray-600 mt-3">Please reduce the purchase amount or request a credit limit increase.</p>
+                                </div>
+                            `,
+                            confirmButtonText: 'OK',
+                            width: '500px'
+                        });
+                        button.textContent = originalText;
+                        button.disabled = false;
+                        return;
+                    }
                 }
 
                 const serviceChargeNumeric = parseFloat(serviceCharge) || 0;

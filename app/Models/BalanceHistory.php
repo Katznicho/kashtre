@@ -25,6 +25,7 @@ class BalanceHistory extends Model
         'notes',
         'payment_method',
         'payment_reference',
+        'payment_status',
     ];
 
     protected $casts = [
@@ -102,7 +103,13 @@ class BalanceHistory extends Model
             return 'UGX ' . number_format($amount, 2);
         }
         
-        $prefix = $this->isCredit() ? '+' : '-';
+        // Debits should not have negative sign (they're already shown in red)
+        if ($this->transaction_type === 'debit') {
+            return 'UGX ' . number_format($amount, 2);
+        }
+        
+        // Credits get + prefix
+        $prefix = $this->isCredit() ? '+' : '';
         return $prefix . 'UGX ' . number_format($amount, 2);
     }
 

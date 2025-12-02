@@ -138,7 +138,7 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Limit</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested Limit</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Increase</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Change</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Initiated By</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
@@ -162,8 +162,17 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                                 UGX {{ number_format($request->requested_credit_limit, 2) }}
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
-                                                + UGX {{ number_format($request->requested_credit_limit - $request->current_credit_limit, 2) }}
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                @php
+                                                    $changeAmount = $request->requested_credit_limit - $request->current_credit_limit;
+                                                    $isIncrease = $changeAmount > 0;
+                                                @endphp
+                                                <span class="{{ $isIncrease ? 'text-green-600' : 'text-red-600' }}">
+                                                    {{ $isIncrease ? '+' : '' }}UGX {{ number_format($changeAmount, 2) }}
+                                                </span>
+                                                <span class="text-xs text-gray-500 ml-1">
+                                                    ({{ $isIncrease ? 'Upgrade' : 'Downgrade' }})
+                                                </span>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full

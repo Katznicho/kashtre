@@ -556,6 +556,91 @@
                             </div>
                         </div>
 
+                        <!-- Payment Methods Card -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div class="px-6 py-4 bg-gradient-to-r from-green-600 to-teal-600">
+                                <h2 class="text-lg font-semibold text-white flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                                    </svg>
+                                    Payment Methods
+                                </h2>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <!-- Payment Methods -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-3">
+                                        Payment Methods <span class="text-red-500">*</span>
+                                    </label>
+                                    <p class="text-sm text-gray-600 mb-4">Select all payment methods this client can use in order of preference</p>
+                                    
+                                    @if(empty($availablePaymentMethods))
+                                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                                            <div class="flex">
+                                                <svg class="w-5 h-5 text-yellow-400 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                                </svg>
+                                                <div>
+                                                    <h3 class="text-sm font-medium text-yellow-800">No Payment Methods Configured</h3>
+                                                    <p class="mt-1 text-sm text-yellow-700">
+                                                        No payment methods have been set up for your business. Please contact the administrator to configure payment methods in 
+                                                        <a href="{{ route('maturation-periods.index') }}" class="font-medium underline hover:text-yellow-900">Maturation Periods</a>.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                            @foreach($availablePaymentMethods as $index => $method)
+                                                <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                                                    <input type="checkbox" name="payment_methods[]" id="payment_company_{{ $method }}" value="{{ $method }}"
+                                                           {{ in_array($method, old('payment_methods', [])) ? 'checked' : '' }}
+                                                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                                    <label for="payment_company_{{ $method }}" class="ml-3 text-sm font-medium text-gray-700">
+                                                        <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">{{ $index + 1 }}</span>
+                                                        {{ $paymentMethodNames[$method] ?? ucfirst(str_replace('_', ' ', $method)) }}
+                                                    </label>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                        
+                                        <div class="flex space-x-4 mt-4">
+                                            <button type="button" id="select_all_payments_company" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                                                Select All
+                                            </button>
+                                            <button type="button" id="clear_all_payments_company" class="text-sm text-gray-600 hover:text-gray-800 font-medium">
+                                                Clear All
+                                            </button>
+                                        </div>
+                                    @endif
+                                </div>
+
+                                <!-- Payment Phone Number Section -->
+                                <div id="payment_phone_section_company" style="display: none;" class="bg-blue-50 p-4 rounded-lg">
+                                    <h4 class="text-sm font-medium text-blue-900 mb-3">Payment Phone Number</h4>
+                                    
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label for="payment_phone_number_company" class="block text-sm font-medium text-gray-700 mb-2">Payment Phone Number</label>
+                                            <input type="tel" name="payment_phone_number" id="payment_phone_number_company" value="{{ old('payment_phone_number') }}" 
+                                                   placeholder="e.g., 0770123456 or +256770123456"
+                                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                            <p class="text-xs text-gray-500 mt-1">This number will be used specifically for mobile money payments</p>
+                                        </div>
+                                        
+                                        <div class="flex items-end">
+                                            <button type="button" id="same_as_phone_btn_company" 
+                                                    class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                                                Same as Contact Phone
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <p class="text-sm text-blue-700 mt-2">This number is different from the contact phone number and is used exclusively for payment transactions</p>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Form Actions -->
                         <div class="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-6">
                             <a href="{{ route('clients.index') }}" class="inline-flex justify-center items-center px-6 py-3 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 transition-colors font-medium">
@@ -605,6 +690,82 @@
                                             <p class="mt-1 text-sm text-blue-700">No personal details will be captured for walk-in clients. This is suitable for one-time transactions.</p>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payment Methods Card -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div class="px-6 py-4 bg-gradient-to-r from-green-600 to-teal-600">
+                                <h2 class="text-lg font-semibold text-white flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                                    </svg>
+                                    Payment Methods
+                                </h2>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <!-- Payment Methods -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-3">
+                                        Payment Methods <span class="text-red-500">*</span>
+                                    </label>
+                                    <p class="text-sm text-gray-600 mb-4">Select all payment methods this client can use in order of preference</p>
+                                    
+                                    @if(empty($availablePaymentMethods))
+                                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                                            <div class="flex">
+                                                <svg class="w-5 h-5 text-yellow-400 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                                </svg>
+                                                <div>
+                                                    <h3 class="text-sm font-medium text-yellow-800">No Payment Methods Configured</h3>
+                                                    <p class="mt-1 text-sm text-yellow-700">
+                                                        No payment methods have been set up for your business. Please contact the administrator to configure payment methods in 
+                                                        <a href="{{ route('maturation-periods.index') }}" class="font-medium underline hover:text-yellow-900">Maturation Periods</a>.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                            @foreach($availablePaymentMethods as $index => $method)
+                                                <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                                                    <input type="checkbox" name="payment_methods[]" id="payment_walkin_{{ $method }}" value="{{ $method }}"
+                                                           {{ in_array($method, old('payment_methods', [])) ? 'checked' : '' }}
+                                                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                                    <label for="payment_walkin_{{ $method }}" class="ml-3 text-sm font-medium text-gray-700">
+                                                        <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">{{ $index + 1 }}</span>
+                                                        {{ $paymentMethodNames[$method] ?? ucfirst(str_replace('_', ' ', $method)) }}
+                                                    </label>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                        
+                                        <div class="flex space-x-4 mt-4">
+                                            <button type="button" id="select_all_payments_walkin" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                                                Select All
+                                            </button>
+                                            <button type="button" id="clear_all_payments_walkin" class="text-sm text-gray-600 hover:text-gray-800 font-medium">
+                                                Clear All
+                                            </button>
+                                        </div>
+                                    @endif
+                                </div>
+
+                                <!-- Payment Phone Number Section -->
+                                <div id="payment_phone_section_walkin" style="display: none;" class="bg-blue-50 p-4 rounded-lg">
+                                    <h4 class="text-sm font-medium text-blue-900 mb-3">Payment Phone Number</h4>
+                                    
+                                    <div>
+                                        <label for="payment_phone_number_walkin" class="block text-sm font-medium text-gray-700 mb-2">Payment Phone Number</label>
+                                        <input type="tel" name="payment_phone_number" id="payment_phone_number_walkin" value="{{ old('payment_phone_number') }}" 
+                                               placeholder="e.g., 0770123456 or +256770123456"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                        <p class="text-xs text-gray-500 mt-1">This number will be used specifically for mobile money payments</p>
+                                    </div>
+                                    
+                                    <p class="text-sm text-blue-700 mt-2">This number is used exclusively for payment transactions</p>
                                 </div>
                             </div>
                         </div>
@@ -682,6 +843,106 @@
             // Initialize on page load
             if (mobileMoneyCheckbox.checked) {
                 togglePaymentPhoneSection();
+            }
+        });
+
+        // Company Payment Methods Handlers
+        document.addEventListener('DOMContentLoaded', function() {
+            const selectAllCompanyBtn = document.getElementById('select_all_payments_company');
+            const clearAllCompanyBtn = document.getElementById('clear_all_payments_company');
+            const paymentCompanyCheckboxes = document.querySelectorAll('#tab-content-company input[name="payment_methods[]"]');
+            const paymentPhoneSectionCompany = document.getElementById('payment_phone_section_company');
+            const paymentPhoneInputCompany = document.getElementById('payment_phone_number_company');
+            const sameAsPhoneBtnCompany = document.getElementById('same_as_phone_btn_company');
+            const companyPhoneInput = document.getElementById('company_phone');
+            
+            if (selectAllCompanyBtn && clearAllCompanyBtn) {
+                function togglePaymentPhoneSectionCompany() {
+                    const mobileMoneyChecked = Array.from(paymentCompanyCheckboxes).some(cb => cb.id === 'payment_company_mobile_money' && cb.checked);
+                    if (mobileMoneyChecked) {
+                        paymentPhoneSectionCompany.style.display = 'block';
+                        if (paymentPhoneInputCompany) paymentPhoneInputCompany.required = true;
+                    } else {
+                        paymentPhoneSectionCompany.style.display = 'none';
+                        if (paymentPhoneInputCompany) {
+                            paymentPhoneInputCompany.required = false;
+                            paymentPhoneInputCompany.value = '';
+                        }
+                    }
+                }
+
+                selectAllCompanyBtn.addEventListener('click', function() {
+                    paymentCompanyCheckboxes.forEach(checkbox => {
+                        checkbox.checked = true;
+                    });
+                    togglePaymentPhoneSectionCompany();
+                });
+
+                clearAllCompanyBtn.addEventListener('click', function() {
+                    paymentCompanyCheckboxes.forEach(checkbox => {
+                        checkbox.checked = false;
+                    });
+                    togglePaymentPhoneSectionCompany();
+                });
+
+                paymentCompanyCheckboxes.forEach(checkbox => {
+                    checkbox.addEventListener('change', togglePaymentPhoneSectionCompany);
+                });
+
+                if (sameAsPhoneBtnCompany && companyPhoneInput && paymentPhoneInputCompany) {
+                    sameAsPhoneBtnCompany.addEventListener('click', function() {
+                        paymentPhoneInputCompany.value = companyPhoneInput.value;
+                    });
+                }
+
+                // Initialize on page load
+                togglePaymentPhoneSectionCompany();
+            }
+        });
+
+        // Walk-in Payment Methods Handlers
+        document.addEventListener('DOMContentLoaded', function() {
+            const selectAllWalkinBtn = document.getElementById('select_all_payments_walkin');
+            const clearAllWalkinBtn = document.getElementById('clear_all_payments_walkin');
+            const paymentWalkinCheckboxes = document.querySelectorAll('#tab-content-walk_in input[name="payment_methods[]"]');
+            const paymentPhoneSectionWalkin = document.getElementById('payment_phone_section_walkin');
+            const paymentPhoneInputWalkin = document.getElementById('payment_phone_number_walkin');
+            
+            if (selectAllWalkinBtn && clearAllWalkinBtn) {
+                function togglePaymentPhoneSectionWalkin() {
+                    const mobileMoneyChecked = Array.from(paymentWalkinCheckboxes).some(cb => cb.id === 'payment_walkin_mobile_money' && cb.checked);
+                    if (mobileMoneyChecked) {
+                        paymentPhoneSectionWalkin.style.display = 'block';
+                        if (paymentPhoneInputWalkin) paymentPhoneInputWalkin.required = true;
+                    } else {
+                        paymentPhoneSectionWalkin.style.display = 'none';
+                        if (paymentPhoneInputWalkin) {
+                            paymentPhoneInputWalkin.required = false;
+                            paymentPhoneInputWalkin.value = '';
+                        }
+                    }
+                }
+
+                selectAllWalkinBtn.addEventListener('click', function() {
+                    paymentWalkinCheckboxes.forEach(checkbox => {
+                        checkbox.checked = true;
+                    });
+                    togglePaymentPhoneSectionWalkin();
+                });
+
+                clearAllWalkinBtn.addEventListener('click', function() {
+                    paymentWalkinCheckboxes.forEach(checkbox => {
+                        checkbox.checked = false;
+                    });
+                    togglePaymentPhoneSectionWalkin();
+                });
+
+                paymentWalkinCheckboxes.forEach(checkbox => {
+                    checkbox.addEventListener('change', togglePaymentPhoneSectionWalkin);
+                });
+
+                // Initialize on page load
+                togglePaymentPhoneSectionWalkin();
             }
         });
 

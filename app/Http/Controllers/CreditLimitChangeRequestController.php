@@ -218,7 +218,17 @@ class CreditLimitChangeRequestController extends Controller
             'entity_type' => 'required|in:client,third_party_payer',
             'entity_id' => 'required|integer',
             'current_credit_limit' => 'required|numeric|min:0',
-            'requested_credit_limit' => 'required|numeric|min:0|gt:current_credit_limit',
+            'requested_credit_limit' => [
+                'required',
+                'numeric',
+                'min:0',
+                function ($attribute, $value, $fail) use ($request) {
+                    $currentLimit = $request->input('current_credit_limit');
+                    if (abs($value - $currentLimit) < 0.01) {
+                        $fail('The requested credit limit must be different from the current limit.');
+                    }
+                },
+            ],
             'reason' => 'nullable|string|max:1000',
         ]);
 

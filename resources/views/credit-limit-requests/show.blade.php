@@ -59,9 +59,16 @@
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm text-gray-500">Increase Amount</p>
-                            <p class="text-sm font-medium text-green-600">
-                                + UGX {{ number_format($creditLimitChangeRequest->requested_credit_limit - $creditLimitChangeRequest->current_credit_limit, 2) }}
+                            <p class="text-sm text-gray-500">Change Amount</p>
+                            @php
+                                $changeAmount = $creditLimitChangeRequest->requested_credit_limit - $creditLimitChangeRequest->current_credit_limit;
+                                $isIncrease = $changeAmount > 0;
+                            @endphp
+                            <p class="text-sm font-medium {{ $isIncrease ? 'text-green-600' : 'text-red-600' }}">
+                                {{ $isIncrease ? '+' : '' }}UGX {{ number_format($changeAmount, 2) }}
+                            </p>
+                            <p class="text-xs text-gray-500 mt-1">
+                                {{ $isIncrease ? 'Upgrade' : 'Downgrade' }}
                             </p>
                         </div>
                         <div>

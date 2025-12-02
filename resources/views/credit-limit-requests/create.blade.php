@@ -54,16 +54,16 @@
                                    name="requested_credit_limit" 
                                    id="requested_credit_limit"
                                    step="0.01"
-                                   min="{{ $currentCreditLimit + 0.01 }}"
+                                   min="0"
                                    value="{{ old('requested_credit_limit') }}"
-                                   placeholder="e.g. {{ number_format($currentCreditLimit * 1.5, 2) }}"
+                                   placeholder="e.g. {{ number_format($currentCreditLimit * 1.5, 2) }} (increase) or {{ number_format($currentCreditLimit * 0.75, 2) }} (decrease)"
                                    required
                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 @error('requested_credit_limit') border-red-300 @enderror">
                             @error('requested_credit_limit')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                             <p class="mt-1 text-sm text-gray-500">
-                                Must be greater than current limit ({{ number_format($currentCreditLimit, 2) }})
+                                Enter the new credit limit. Can be higher (upgrade) or lower (downgrade) than current limit ({{ number_format($currentCreditLimit, 2) }})
                             </p>
                         </div>
 
@@ -81,7 +81,7 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                             <p class="mt-1 text-sm text-gray-500">
-                                Provide a brief explanation for the credit limit increase request.
+                                Provide a brief explanation for the credit limit change request (upgrade or downgrade).
                             </p>
                         </div>
 

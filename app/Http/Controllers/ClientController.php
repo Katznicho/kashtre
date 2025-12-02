@@ -357,6 +357,21 @@ class ClientController extends Controller
      */
     private function storeCompany(Request $request, $business, $currentBranch)
     {
+        // Get available payment methods from maturation periods for this business
+        $availablePaymentMethods = MaturationPeriod::where('business_id', $business->id)
+            ->where('is_active', true)
+            ->pluck('payment_method')
+            ->unique()
+            ->values()
+            ->toArray();
+        
+        // Validate payment methods - check if business has any set up
+        if (empty($availablePaymentMethods)) {
+            return redirect()->route('clients.create')
+                ->with('error', 'No payment methods have been set up for your business. Please contact the administrator to configure payment methods in Maturation Periods.')
+                ->withInput();
+        }
+        
         $validated = $request->validate([
             'company_name' => 'required|string|max:255',
             'company_tin' => 'required|string|max:255|unique:clients,tin_number',
@@ -365,6 +380,9 @@ class ClientController extends Controller
             'company_address' => 'required|string',
             'company_contact_person' => 'required|string|max:255',
             'register_type' => 'required|in:client_only,client_and_payer',
+            'payment_methods' => 'required|array|min:1',
+            'payment_methods.*' => 'required|string|in:' . implode(',', $availablePaymentMethods),
+            'payment_phone_number' => 'nullable|string|max:255',
         ]);
         
         // Generate client_id for company (using company name)
@@ -393,6 +411,8 @@ class ClientController extends Controller
             'phone_number' => $validated['company_phone'],
             'email' => $validated['company_email'],
             'occupation' => $validated['company_contact_person'],
+            'payment_methods' => $validated['payment_methods'] ?? [],
+            'payment_phone_number' => $validated['payment_phone_number'],
             'balance' => 0,
             'status' => 'active',
             'client_type' => 'company',
@@ -427,6 +447,27 @@ class ClientController extends Controller
      */
     private function storeWalkIn(Request $request, $business, $currentBranch)
     {
+        // Get available payment methods from maturation periods for this business
+        $availablePaymentMethods = MaturationPeriod::where('business_id', $business->id)
+            ->where('is_active', true)
+            ->pluck('payment_method')
+            ->unique()
+            ->values()
+            ->toArray();
+        
+        // Validate payment methods - check if business has any set up
+        if (empty($availablePaymentMethods)) {
+            return redirect()->route('clients.create')
+                ->with('error', 'No payment methods have been set up for your business. Please contact the administrator to configure payment methods in Maturation Periods.')
+                ->withInput();
+        }
+        
+        $validated = $request->validate([
+            'payment_methods' => 'required|array|min:1',
+            'payment_methods.*' => 'required|string|in:' . implode(',', $availablePaymentMethods),
+            'payment_phone_number' => 'nullable|string|max:255',
+        ]);
+        
         // Generate client_id using the standard format (business prefix + 7-char code)
         // For walk-in, we use "WalkIn" as surname and "Client" as first name
         $clientId = Client::generateClientId(
@@ -452,6 +493,8 @@ class ClientController extends Controller
             'first_name' => 'Client',
             'phone_number' => '0000000000', // Placeholder for walk-in clients
             'email' => 'walkin@example.com', // Placeholder email
+            'payment_methods' => $validated['payment_methods'] ?? [],
+            'payment_phone_number' => $validated['payment_phone_number'],
             'balance' => 0,
             'status' => 'active',
             'client_type' => 'walk_in',
@@ -807,15 +850,37 @@ class ClientController extends Controller
             \Illuminate\Support\Facades\Log::info("💳 ADMISSION: Credit Limit Cleared (Credit Not Enabled)");
         }
 
-        // Regenerate visit ID with new suffix
+        // Update visit ID by preserving base ID and appending suffixes
         $branch = $client->branch ?: Branch::find($client->branch_id);
         if ($business && $branch) {
             $oldVisitId = $client->visit_id;
-            $client->visit_id = Client::generateVisitId($business, $branch, $client->is_credit_eligible, $client->is_long_stay);
             
-            \Illuminate\Support\Facades\Log::info("🆔 ADMISSION: Visit ID Regenerated", [
+            // Extract base visit ID (remove any existing suffixes like /C, /M, /C/M)
+            $baseVisitId = preg_replace('/\/(C\/M|C|M)$/', '', $client->visit_id ?? '');
+            
+            // If no base visit ID exists, generate a new one
+            if (empty($baseVisitId)) {
+                $baseVisitId = preg_replace('/\/(C\/M|C|M)$/', '', Client::generateVisitId($business, $branch, false, false));
+            }
+            
+            // Build suffix based on admission flags
+            $suffix = '';
+            if ($client->is_long_stay && $client->is_credit_eligible) {
+                $suffix = '/C/M';
+            } elseif ($client->is_long_stay) {
+                $suffix = '/M';
+            } elseif ($client->is_credit_eligible) {
+                $suffix = '/C';
+            }
+            
+            // Combine base visit ID with new suffix
+            $client->visit_id = $baseVisitId . $suffix;
+            
+            \Illuminate\Support\Facades\Log::info("🆔 ADMISSION: Visit ID Updated (Base Preserved)", [
                 'old_visit_id' => $oldVisitId,
+                'base_visit_id' => $baseVisitId,
                 'new_visit_id' => $client->visit_id,
+                'suffix' => $suffix,
                 'branch_id' => $branch->id,
                 'branch_name' => $branch->name,
                 'is_credit_eligible' => $client->is_credit_eligible,
@@ -831,7 +896,7 @@ class ClientController extends Controller
                 ]);
             }
         } else {
-            \Illuminate\Support\Facades\Log::warning("⚠️ ADMISSION: Could Not Regenerate Visit ID", [
+            \Illuminate\Support\Facades\Log::warning("⚠️ ADMISSION: Could Not Update Visit ID", [
                 'business_exists' => !is_null($business),
                 'branch_exists' => !is_null($branch),
                 'branch_id' => $client->branch_id
