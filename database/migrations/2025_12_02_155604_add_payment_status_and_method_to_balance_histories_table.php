@@ -48,17 +48,11 @@ return new class extends Migration
         }
         
         // Set all other non-null values that don't match valid methods to NULL
-        // This handles any unexpected values
-        $invalidRows = DB::table('balance_histories')
+        // This handles any unexpected values that can't be mapped
+        DB::table('balance_histories')
             ->whereNotNull('payment_method')
             ->whereNotIn('payment_method', $validMethods)
-            ->get();
-        
-        foreach ($invalidRows as $row) {
-            DB::table('balance_histories')
-                ->where('id', $row->id)
-                ->update(['payment_method' => null]);
-        }
+            ->update(['payment_method' => null]);
 
         // Now update payment_method to enum with specified values
         DB::statement("ALTER TABLE balance_histories MODIFY COLUMN payment_method ENUM('account_balance', 'mobile_money', 'bank_transfer', 'v_card', 'p_card') NULL");
