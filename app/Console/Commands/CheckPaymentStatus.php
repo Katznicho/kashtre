@@ -1088,4 +1088,5 @@ class CheckPaymentStatus extends Command
             ];
         }
     }
+
 }

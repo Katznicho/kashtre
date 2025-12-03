@@ -29,7 +29,17 @@
             <!-- PP Entries List -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Pending Payment Entries</h3>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium text-gray-900">Pending Payment Entries</h3>
+                        <div class="flex space-x-2">
+                            <button type="button" id="selectAllBtn" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                Select All
+                            </button>
+                            <button type="button" id="deselectAllBtn" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                Deselect All
+                            </button>
+                        </div>
+                    </div>
 
                     @if($ppEntries->count() > 0)
                         <form id="payBackForm" action="{{ route('balance-statement.pay-back', $client->id) }}" method="POST">
@@ -40,7 +50,7 @@
                                     <thead class="bg-gray-50">
                                         <tr>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                <input type="checkbox" id="selectAll">
+                                                <input type="checkbox" id="selectAll" title="Select All">
                                             </th>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
@@ -56,8 +66,7 @@
                                                            name="entry_ids[]" 
                                                            value="{{ $entry['id'] }}"
                                                            class="entry-checkbox"
-                                                           data-amount="{{ $entry['amount'] }}"
-                                                           data-index="{{ $index }}">
+                                                           data-amount="{{ $entry['amount'] }}">
                                                 </td>
                                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                                                     {{ $entry['date'] }}
@@ -146,36 +155,28 @@
     </div>
 
     <script>
-        (function() {
-            'use strict';
-            
+        document.addEventListener('DOMContentLoaded', function() {
             function updateTotal() {
-                const checkboxes = document.querySelectorAll('.entry-checkbox:checked');
-                let total = 0;
+                var checkboxes = document.querySelectorAll('.entry-checkbox:checked');
+                var total = 0;
                 
-                checkboxes.forEach(function(cb) {
-                    const amount = parseFloat(cb.getAttribute('data-amount')) || 0;
+                for (var i = 0; i < checkboxes.length; i++) {
+                    var amount = parseFloat(checkboxes[i].getAttribute('data-amount')) || 0;
                     total += amount;
-                });
-                
-                // Update display
-                const totalElement = document.getElementById('selectedTotal');
-                if (totalElement) {
-                    totalElement.textContent = 'UGX ' + total.toLocaleString('en-US', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                    });
                 }
                 
-                // Update hidden input
-                const totalAmountInput = document.getElementById('total_amount');
+                var totalElement = document.getElementById('selectedTotal');
+                if (totalElement) {
+                    totalElement.textContent = 'UGX ' + total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                }
+                
+                var totalAmountInput = document.getElementById('total_amount');
                 if (totalAmountInput) {
                     totalAmountInput.value = total;
                 }
                 
-                // Enable/disable submit button
-                const submitBtn = document.getElementById('submitBtn');
-                const paymentMethod = document.getElementById('payment_method');
+                var submitBtn = document.getElementById('submitBtn');
+                var paymentMethod = document.getElementById('payment_method');
                 
                 if (submitBtn) {
                     if (checkboxes.length > 0 && paymentMethod && paymentMethod.value && total > 0) {
@@ -187,9 +188,9 @@
             }
             
             function updateSelectAllState() {
-                const allCheckboxes = document.querySelectorAll('.entry-checkbox');
-                const checkedCheckboxes = document.querySelectorAll('.entry-checkbox:checked');
-                const selectAllCheckbox = document.getElementById('selectAll');
+                var allCheckboxes = document.querySelectorAll('.entry-checkbox');
+                var checkedCheckboxes = document.querySelectorAll('.entry-checkbox:checked');
+                var selectAllCheckbox = document.getElementById('selectAll');
                 
                 if (selectAllCheckbox && allCheckboxes.length > 0) {
                     if (checkedCheckboxes.length === 0) {
@@ -205,121 +206,315 @@
                 }
             }
             
-            function init() {
-                // Attach event listeners to all entry checkboxes using event delegation
-                const table = document.querySelector('table');
-                if (table) {
-                    table.addEventListener('change', function(e) {
-                        if (e.target && e.target.classList.contains('entry-checkbox')) {
-                            updateTotal();
-                            updateSelectAllState();
-                        }
-                    });
-                }
-                
-                // Attach event listener to select all checkbox
-                const selectAllCheckbox = document.getElementById('selectAll');
-                if (selectAllCheckbox) {
-                    selectAllCheckbox.addEventListener('change', function() {
-                        const isChecked = this.checked;
-                        const entryCheckboxes = document.querySelectorAll('.entry-checkbox');
-                        entryCheckboxes.forEach(function(cb) {
-                            cb.checked = isChecked;
-                        });
-                        updateTotal();
-                        updateSelectAllState();
-                    });
-                }
-                
-                // Update total when payment method changes
-                const paymentMethod = document.getElementById('payment_method');
-                if (paymentMethod) {
-                    paymentMethod.addEventListener('change', updateTotal);
-                }
-                
-                // Initialize
-                updateTotal();
-                updateSelectAllState();
-                
-                // Handle form submission
-                const payBackForm = document.getElementById('payBackForm');
-                if (payBackForm) {
-                    payBackForm.addEventListener('submit', function(e) {
-                        const checkboxes = document.querySelectorAll('.entry-checkbox:checked');
-                        if (checkboxes.length === 0) {
-                            e.preventDefault();
-                            if (typeof Swal !== 'undefined') {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'No Items Selected',
-                                    text: 'Please select at least one item to pay.',
-                                });
-                            } else {
-                                alert('Please select at least one item to pay.');
-                            }
-                            return false;
-                        }
-
-                        const total = parseFloat(document.getElementById('total_amount').value);
-                        if (total <= 0) {
-                            e.preventDefault();
-                            if (typeof Swal !== 'undefined') {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Invalid Amount',
-                                    text: 'Total amount must be greater than zero.',
-                                });
-                            } else {
-                                alert('Total amount must be greater than zero.');
-                            }
-                            return false;
-                        }
-
-                        // Show confirmation
+            // Attach listeners to all checkboxes
+            var entryCheckboxes = document.querySelectorAll('.entry-checkbox');
+            for (var i = 0; i < entryCheckboxes.length; i++) {
+                entryCheckboxes[i].addEventListener('change', function() {
+                    updateTotal();
+                    updateSelectAllState();
+                });
+            }
+            
+            // Select All checkbox
+            var selectAllCheckbox = document.getElementById('selectAll');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', function() {
+                    var isChecked = this.checked;
+                    var entryCheckboxes = document.querySelectorAll('.entry-checkbox');
+                    for (var i = 0; i < entryCheckboxes.length; i++) {
+                        entryCheckboxes[i].checked = isChecked;
+                    }
+                    updateTotal();
+                    updateSelectAllState();
+                });
+            }
+            
+            // Select All button
+            var selectAllBtn = document.getElementById('selectAllBtn');
+            if (selectAllBtn) {
+                selectAllBtn.addEventListener('click', function() {
+                    var entryCheckboxes = document.querySelectorAll('.entry-checkbox');
+                    for (var i = 0; i < entryCheckboxes.length; i++) {
+                        entryCheckboxes[i].checked = true;
+                    }
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.checked = true;
+                        selectAllCheckbox.indeterminate = false;
+                    }
+                    updateTotal();
+                    updateSelectAllState();
+                });
+            }
+            
+            // Deselect All button
+            var deselectAllBtn = document.getElementById('deselectAllBtn');
+            if (deselectAllBtn) {
+                deselectAllBtn.addEventListener('click', function() {
+                    var entryCheckboxes = document.querySelectorAll('.entry-checkbox');
+                    for (var i = 0; i < entryCheckboxes.length; i++) {
+                        entryCheckboxes[i].checked = false;
+                    }
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.checked = false;
+                        selectAllCheckbox.indeterminate = false;
+                    }
+                    updateTotal();
+                    updateSelectAllState();
+                });
+            }
+            
+            // Payment method change
+            var paymentMethod = document.getElementById('payment_method');
+            if (paymentMethod) {
+                paymentMethod.addEventListener('change', updateTotal);
+            }
+            
+            // Form submission
+            var payBackForm = document.getElementById('payBackForm');
+            if (payBackForm) {
+                payBackForm.addEventListener('submit', function(e) {
+                    var checkboxes = document.querySelectorAll('.entry-checkbox:checked');
+                    if (checkboxes.length === 0) {
                         e.preventDefault();
                         if (typeof Swal !== 'undefined') {
                             Swal.fire({
+                                icon: 'error',
+                                title: 'No Items Selected',
+                                text: 'Please select at least one item to pay.',
+                            });
+                        } else {
+                            alert('Please select at least one item to pay.');
+                        }
+                        return false;
+                    }
+
+                    var total = parseFloat(document.getElementById('total_amount').value);
+                    if (total <= 0) {
+                        e.preventDefault();
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Invalid Amount',
+                                text: 'Total amount must be greater than zero.',
+                            });
+                        } else {
+                            alert('Total amount must be greater than zero.');
+                        }
+                        return false;
+                    }
+
+                    var paymentMethodValue = document.getElementById('payment_method').value;
+                    
+                    if (paymentMethodValue === 'mobile_money') {
+                        e.preventDefault();
+                        showPaymentSummary();
+                    } else {
+                        e.preventDefault();
+                        var totalFormatted = total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
                                 title: 'Confirm Payment',
-                                html: `Are you sure you want to process payment of <strong>UGX ${total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>?<br><br>This will mark the selected items as paid and create a payment invoice without service charge.`,
+                                html: 'Are you sure you want to process payment of <strong>UGX ' + totalFormatted + '</strong>?<br><br>This will mark the selected items as paid and create a payment invoice without service charge.',
                                 icon: 'question',
                                 showCancelButton: true,
                                 confirmButtonColor: '#10b981',
                                 cancelButtonColor: '#6b7280',
                                 confirmButtonText: 'Yes, Process Payment',
                                 cancelButtonText: 'Cancel'
-                            }).then((result) => {
+                            }).then(function(result) {
                                 if (result.isConfirmed) {
-                                    // Show loading
                                     Swal.fire({
                                         title: 'Processing Payment',
                                         html: 'Please wait while we process your payment...',
                                         allowOutsideClick: false,
                                         allowEscapeKey: false,
-                                        didOpen: () => {
+                                        didOpen: function() {
                                             Swal.showLoading();
                                         }
                                     });
-                                    
-                                    // Submit the form
                                     payBackForm.submit();
                                 }
                             });
                         } else {
-                            if (confirm('Are you sure you want to process payment of UGX ' + total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '?')) {
+                            if (confirm('Are you sure you want to process payment of UGX ' + totalFormatted + '?')) {
                                 payBackForm.submit();
                             }
                         }
-                    });
-                }
+                    }
+                });
             }
             
-            // Run when DOM is ready
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', init);
-            } else {
-                init();
-            }
-        })();
+            // Mobile money payment summary
+            window.showPaymentSummary = function() {
+                var checkboxes = document.querySelectorAll('.entry-checkbox:checked');
+                var entryIds = [];
+                for (var i = 0; i < checkboxes.length; i++) {
+                    entryIds.push(checkboxes[i].value);
+                }
+                var paymentMethodValue = document.getElementById('payment_method').value;
+                var totalAmount = parseFloat(document.getElementById('total_amount').value);
+                
+                if (entryIds.length === 0 || totalAmount <= 0) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Invalid Selection',
+                            text: 'Please select at least one item to pay.',
+                        });
+                    }
+                    return;
+                }
+                
+                Swal.fire({
+                    title: 'Loading Payment Summary',
+                    html: 'Please wait...',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: function() {
+                        Swal.showLoading();
+                    }
+                });
+                
+                fetch('{{ route("balance-statement.pay-back.summary", $client->id) }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        entry_ids: entryIds,
+                        payment_method: paymentMethodValue,
+                        total_amount: totalAmount
+                    })
+                })
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.success) {
+                        var summary = data.summary;
+                        var itemsHtml = '<div class="text-left max-h-60 overflow-y-auto mb-4">';
+                        itemsHtml += '<table class="min-w-full text-sm">';
+                        itemsHtml += '<thead><tr class="border-b"><th class="text-left py-2">Item</th><th class="text-right py-2">Amount</th></tr></thead>';
+                        itemsHtml += '<tbody>';
+                        for (var i = 0; i < summary.items.length; i++) {
+                            var item = summary.items[i];
+                            var itemAmount = parseFloat(item.total_amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                            itemsHtml += '<tr class="border-b"><td class="py-2">' + item.name + '</td><td class="text-right py-2">UGX ' + itemAmount + '</td></tr>';
+                        }
+                        itemsHtml += '</tbody>';
+                        var totalFormatted = parseFloat(summary.total_amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                        itemsHtml += '<tfoot><tr class="font-bold border-t-2"><td class="py-2">Total</td><td class="text-right py-2">UGX ' + totalFormatted + '</td></tr></tfoot>';
+                        itemsHtml += '</table></div>';
+                        
+                        Swal.fire({
+                            title: 'Payment Summary',
+                            html: '<div class="text-left"><p class="mb-2"><strong>Invoice Number:</strong> ' + summary.invoice_number + '</p><p class="mb-2"><strong>Client:</strong> ' + summary.client_name + '</p><p class="mb-4"><strong>Phone:</strong> ' + summary.client_phone + '</p>' + itemsHtml + '<div class="mt-4"><label class="block text-sm font-medium text-gray-700 mb-2">Payment Phone Number</label><input type="text" id="payment_phone_input" value="' + summary.payment_phone + '" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Enter phone number"><p class="text-xs text-gray-500 mt-1">You can update the phone number if different from client phone</p></div></div>',
+                            icon: 'info',
+                            showCancelButton: true,
+                            confirmButtonColor: '#10b981',
+                            cancelButtonColor: '#6b7280',
+                            confirmButtonText: 'Initiate Payment',
+                            cancelButtonText: 'Cancel',
+                            didOpen: function() {
+                                var phoneInput = document.getElementById('payment_phone_input');
+                                if (phoneInput) {
+                                    phoneInput.focus();
+                                    phoneInput.select();
+                                }
+                            },
+                            preConfirm: function() {
+                                var phoneInput = document.getElementById('payment_phone_input');
+                                var phone = phoneInput ? phoneInput.value.trim() : summary.payment_phone;
+                                if (!phone) {
+                                    Swal.showValidationMessage('Please enter a phone number');
+                                    return false;
+                                }
+                                return phone;
+                            }
+                        }).then(function(result) {
+                            if (result.isConfirmed) {
+                                initiateMobileMoneyPayment(entryIds, paymentMethodValue, totalAmount, result.value);
+                            }
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.message || 'Failed to load payment summary.',
+                        });
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to load payment summary. Please try again.',
+                    });
+                });
+            };
+            
+            // Initiate mobile money payment
+            window.initiateMobileMoneyPayment = function(entryIds, paymentMethod, totalAmount, paymentPhone) {
+                Swal.fire({
+                    title: 'Initiating Payment',
+                    html: 'Please wait while we initiate the payment...',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: function() {
+                        Swal.showLoading();
+                    }
+                });
+                
+                var formData = new FormData();
+                for (var i = 0; i < entryIds.length; i++) {
+                    formData.append('entry_ids[]', entryIds[i]);
+                }
+                formData.append('payment_method', paymentMethod);
+                formData.append('total_amount', totalAmount);
+                formData.append('payment_phone', paymentPhone);
+                formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+                
+                fetch('{{ route("balance-statement.pay-back", $client->id) }}', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Payment Initiated',
+                            html: '<p>' + data.message + '</p><p class="text-sm mt-2">Invoice Number: <strong>' + data.invoice_number + '</strong></p>',
+                            confirmButtonText: 'OK'
+                        }).then(function() {
+                            window.location.href = '{{ route("balance-statement.show", $client->id) }}';
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Payment Failed',
+                            text: data.message || 'Failed to initiate payment. Please try again.',
+                        });
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to initiate payment. Please try again.',
+                    });
+                });
+            };
+            
+            // Initialize
+            updateTotal();
+            updateSelectAllState();
+        });
     </script>
 </x-app-layout>
-

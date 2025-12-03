@@ -278,6 +278,329 @@ class BalanceHistoryController extends Controller
     }
 
     /**
+     * Show payment summary before processing payment
+     */
+    public function showPaymentSummary(Request $request, $clientId)
+    {
+        $user = Auth::user();
+        
+        // Check permission
+        if (!in_array('Process Pay Back', $user->permissions ?? [])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to process pay back.'
+            ], 403);
+        }
+        
+        $client = Client::findOrFail($clientId);
+        $business = $client->business;
+        
+        $request->validate([
+            'entry_ids' => 'required|array',
+            'entry_ids.*' => 'exists:balance_histories,id',
+            'payment_method' => 'required|string',
+            'total_amount' => 'required|numeric|min:0.01',
+        ]);
+        
+        $entryIds = $request->entry_ids;
+        $paymentMethod = $request->payment_method;
+        $totalAmount = $request->total_amount;
+        
+        // Get the selected entries
+        $entries = BalanceHistory::whereIn('id', $entryIds)
+            ->where('client_id', $clientId)
+            ->where('transaction_type', 'debit')
+            ->with(['invoice'])
+            ->get();
+        
+        // Build items array for invoice preview
+        $paymentItems = [];
+        foreach ($entries as $entry) {
+            $entryAmount = abs($entry->change_amount);
+            $paymentItems[] = [
+                'name' => $entry->description,
+                'description' => $entry->description,
+                'quantity' => 1,
+                'price' => $entryAmount,
+                'total_amount' => $entryAmount,
+            ];
+        }
+        
+        // Generate invoice number for preview
+        $paymentInvoiceNumber = \App\Models\Invoice::generateInvoiceNumber($business->id, 'proforma');
+        
+        return response()->json([
+            'success' => true,
+            'summary' => [
+                'invoice_number' => $paymentInvoiceNumber,
+                'client_name' => $client->name,
+                'client_phone' => $client->phone_number,
+                'payment_phone' => $client->payment_phone_number ?? $client->phone_number,
+                'items' => $paymentItems,
+                'subtotal' => $totalAmount,
+                'service_charge' => 0,
+                'total_amount' => $totalAmount,
+                'payment_method' => $paymentMethod,
+            ]
+        ]);
+    }
+
+    /**
+     * Process mobile money payment for pay-back
+     * Creates pending transaction and initiates payment via YoAPI
+     */
+    private function processMobileMoneyPayBack($request, $client, $business, $entryIds, $totalAmount, $paymentPhone)
+    {
+        \DB::beginTransaction();
+        try {
+            // Get the selected entries
+            $entries = BalanceHistory::whereIn('id', $entryIds)
+                ->where('client_id', $client->id)
+                ->where('transaction_type', 'debit')
+                ->with(['invoice'])
+                ->get();
+
+            if ($entries->isEmpty()) {
+                \DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No valid entries found to pay.'
+                ], 400);
+            }
+
+            // Build items array for payment invoice
+            $paymentItems = [];
+            $itemDescriptions = [];
+            foreach ($entries as $entry) {
+                $entryAmount = abs($entry->change_amount);
+                $itemDescriptions[] = $entry->description;
+                $paymentItems[] = [
+                    'id' => null,
+                    'item_id' => null,
+                    'name' => $entry->description,
+                    'description' => $entry->description,
+                    'quantity' => 1,
+                    'price' => $entryAmount,
+                    'total_amount' => $entryAmount,
+                ];
+            }
+
+            // Create payment description
+            $description = "Payment for PP items: " . implode(", ", array_slice($itemDescriptions, 0, 3));
+            if (count($itemDescriptions) > 3) {
+                $description .= " and " . (count($itemDescriptions) - 3) . " more";
+            }
+
+            // Generate invoice number
+            $paymentInvoiceNumber = \App\Models\Invoice::generateInvoiceNumber($business->id, 'proforma');
+
+            // Create payment invoice (pending status - will be confirmed when payment completes)
+            $paymentInvoice = \App\Models\Invoice::create([
+                'invoice_number' => $paymentInvoiceNumber,
+                'client_id' => $client->id,
+                'business_id' => $business->id,
+                'branch_id' => $client->branch_id,
+                'created_by' => Auth::id(),
+                'client_name' => $client->name,
+                'client_phone' => $client->phone_number,
+                'payment_phone' => $paymentPhone,
+                'visit_id' => $client->visit_id,
+                'items' => $paymentItems,
+                'subtotal' => $totalAmount,
+                'package_adjustment' => 0,
+                'account_balance_adjustment' => 0,
+                'service_charge' => 0,
+                'total_amount' => $totalAmount,
+                'amount_paid' => 0,
+                'balance_due' => $totalAmount,
+                'payment_methods' => ['mobile_money'],
+                'payment_status' => 'pending',
+                'status' => 'draft', // Will be confirmed when payment completes
+                'notes' => 'Mobile money payment for pending payment items - Payment pending',
+            ]);
+
+            \Log::info("Payment invoice created for mobile money PP payment", [
+                'payment_invoice_id' => $paymentInvoice->id,
+                'payment_invoice_number' => $paymentInvoiceNumber,
+                'total_amount' => $totalAmount,
+                'status' => 'draft',
+            ]);
+
+            // Check if we're in local environment - skip YoAPI call
+            $isLocal = app()->environment('local') || config('app.env') === 'local';
+            
+            if ($isLocal) {
+                // Local environment: Create transaction record without calling YoAPI
+                // The simulation command will handle completing the payment
+                $externalReference = 'PP-LOCAL-' . $paymentInvoiceNumber . '-' . time() . '-' . uniqid();
+                
+                \Log::info('Creating local transaction record for pay-back (YoAPI skipped)', [
+                    'phone' => $paymentPhone,
+                    'amount' => $totalAmount,
+                    'description' => $description,
+                    'external_reference' => $externalReference,
+                    'invoice_id' => $paymentInvoice->id,
+                    'note' => 'Run "php artisan payments:simulate-pay-back" to complete this payment',
+                ]);
+
+                // Create transaction record for tracking (pending status)
+                $transaction = \App\Models\Transaction::create([
+                    'business_id' => $business->id,
+                    'branch_id' => $client->branch_id ?? null,
+                    'client_id' => $client->id,
+                    'invoice_id' => $paymentInvoice->id,
+                    'amount' => $totalAmount,
+                    'reference' => $paymentInvoiceNumber,
+                    'external_reference' => $externalReference,
+                    'description' => $description,
+                    'status' => 'pending',
+                    'payment_status' => 'PP', // Pending Payment
+                    'type' => 'debit',
+                    'origin' => 'web',
+                    'phone_number' => $paymentPhone,
+                    'provider' => 'yo',
+                    'service' => 'pp_payment',
+                    'date' => now(),
+                    'currency' => 'UGX',
+                    'names' => $client->name,
+                    'method' => 'mobile_money',
+                    'transaction_for' => 'main',
+                ]);
+
+                // Store entry_ids in invoice notes
+                $paymentInvoice->update([
+                    'notes' => 'Mobile money payment for pending payment items - Payment pending. Entry IDs: ' . implode(',', $entryIds) . ' | LOCAL: Run "php artisan payments:simulate-pay-back" to complete',
+                ]);
+
+                \DB::commit();
+
+                \Log::info("Local transaction record created for pay-back (simulation required)", [
+                    'transaction_id' => $transaction->id,
+                    'invoice_id' => $paymentInvoice->id,
+                    'external_reference' => $externalReference,
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment record created. Run "php artisan payments:simulate-pay-back" to complete the payment.',
+                    'transaction_id' => $externalReference,
+                    'invoice_id' => $paymentInvoice->id,
+                    'invoice_number' => $paymentInvoiceNumber,
+                    'status' => 'pending',
+                    'local_mode' => true,
+                ]);
+            }
+
+            // Production/Server environment: Call YoAPI
+            // Format phone number for YoAPI
+            $phone = $paymentPhone;
+            if (str_starts_with($phone, '+')) {
+                $phone = substr($phone, 1);
+            } elseif (str_starts_with($phone, '0')) {
+                $phone = '256' . substr($phone, 1);
+            }
+
+            // Initialize YoAPI
+            $yoPayments = new \App\Payments\YoAPI(config('payments.yo_username'), config('payments.yo_password'));
+            $yoPayments->set_instant_notification_url(config('payments.webhook_url', 'https://webhook.site/396126eb-cc9b-4c57-a7a9-58f43d2b7935'));
+            $externalReference = 'PP-' . $paymentInvoiceNumber . '-' . time() . '-' . uniqid();
+            $yoPayments->set_external_reference($externalReference);
+
+            \Log::info('Initiating mobile money payment for pay-back', [
+                'phone' => $phone,
+                'amount' => $totalAmount,
+                'description' => $description,
+                'external_reference' => $externalReference,
+                'invoice_id' => $paymentInvoice->id,
+            ]);
+
+            // Process payment through YoAPI
+            $result = $yoPayments->ac_deposit_funds($phone, $totalAmount, $description);
+
+            \Log::info('YoAPI response for pay-back payment', ['result' => $result]);
+
+            // Check if payment request was initiated successfully
+            if (isset($result['Status']) && $result['Status'] === 'OK' && isset($result['TransactionReference'])) {
+                // Create transaction record for tracking
+                $transaction = \App\Models\Transaction::create([
+                    'business_id' => $business->id,
+                    'branch_id' => $client->branch_id ?? null,
+                    'client_id' => $client->id,
+                    'invoice_id' => $paymentInvoice->id,
+                    'amount' => $totalAmount,
+                    'reference' => $paymentInvoiceNumber,
+                    'external_reference' => $result['TransactionReference'],
+                    'description' => $description,
+                    'status' => 'pending',
+                    'payment_status' => 'PP', // Pending Payment
+                    'type' => 'debit',
+                    'origin' => 'web',
+                    'phone_number' => $paymentPhone,
+                    'provider' => 'yo',
+                    'service' => 'pp_payment',
+                    'date' => now(),
+                    'currency' => 'UGX',
+                    'names' => $client->name,
+                    'method' => 'mobile_money',
+                    'transaction_for' => 'main',
+                ]);
+
+                // Store entry_ids in transaction metadata (we'll use notes field or create a separate table)
+                // For now, we'll link them via the invoice
+                $paymentInvoice->update([
+                    'notes' => 'Mobile money payment for pending payment items - Payment pending. Entry IDs: ' . implode(',', $entryIds),
+                ]);
+
+                \DB::commit();
+
+                \Log::info("Mobile money payment initiated for pay-back", [
+                    'transaction_id' => $transaction->id,
+                    'invoice_id' => $paymentInvoice->id,
+                    'external_reference' => $result['TransactionReference'],
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'A payment prompt has been sent to ' . $paymentPhone . '. Please complete the payment to proceed.',
+                    'transaction_id' => $result['TransactionReference'],
+                    'invoice_id' => $paymentInvoice->id,
+                    'invoice_number' => $paymentInvoiceNumber,
+                    'status' => 'pending',
+                ]);
+            } else {
+                \DB::rollBack();
+                $errorMessage = isset($result['StatusMessage']) ? "Mobile Money payment failed: {$result['StatusMessage']}" : 
+                               (isset($result['ErrorMessage']) ? "Mobile Money payment failed: {$result['ErrorMessage']}" : 
+                               'Mobile Money payment failed: Unknown error.');
+                
+                \Log::error('Mobile money payment failed for pay-back', [
+                    'result' => $result,
+                    'phone' => $phone,
+                    'amount' => $totalAmount,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => $errorMessage,
+                ], 400);
+            }
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            \Log::error("Error processing mobile money pay-back payment", [
+                'client_id' => $client->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to process payment: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Process payment for PP entries
      * Creates an invoice without service charge and marks items as paid in destination accounts
      */
@@ -326,10 +649,17 @@ class BalanceHistoryController extends Controller
             'entry_ids.*' => 'exists:balance_histories,id',
             'payment_method' => 'required|string|in:' . implode(',', $availablePaymentMethods),
             'total_amount' => 'required|numeric|min:0.01',
+            'payment_phone' => 'nullable|string', // For mobile money payments
         ]);
         $entryIds = $request->entry_ids;
         $paymentMethod = $request->payment_method;
         $totalAmount = $request->total_amount;
+        $paymentPhone = $request->payment_phone ?? $client->payment_phone_number ?? $client->phone_number;
+        
+        // Handle mobile money payment differently
+        if ($paymentMethod === 'mobile_money') {
+            return $this->processMobileMoneyPayBack($request, $client, $business, $entryIds, $totalAmount, $paymentPhone);
+        }
 
         \DB::beginTransaction();
         try {

@@ -277,6 +277,7 @@ Route::get('/balance-statement', [BalanceHistoryController::class, 'index'])->na
 Route::get('/balance-statement/{clientId}', [BalanceHistoryController::class, 'show'])->name('balance-statement.show');
 Route::get('/balance-statement/{clientId}/pay-back', [BalanceHistoryController::class, 'showPayBack'])->name('balance-statement.pay-back.show');
 Route::get('/balance-statement/{clientId}/pp-entries', [BalanceHistoryController::class, 'getPPEntries'])->name('balance-statement.pp-entries');
+Route::post('/balance-statement/{clientId}/pay-back/summary', [BalanceHistoryController::class, 'showPaymentSummary'])->name('balance-statement.pay-back.summary');
 Route::post('/balance-statement/{clientId}/pay-back', [BalanceHistoryController::class, 'payBack'])->name('balance-statement.pay-back');
 
 // Business Balance Statement Routes
