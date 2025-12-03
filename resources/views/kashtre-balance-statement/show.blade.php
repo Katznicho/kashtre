@@ -25,13 +25,13 @@
         </div>
 
         <!-- Summary Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <!-- Available Balance -->
             <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
                 <div class="text-center">
                     <h3 class="text-lg font-semibold text-gray-900 mb-2">Available Balance</h3>
                     <p class="text-3xl font-bold text-blue-600">
-                        UGX {{ number_format($kashtreBalanceHistories->where('type', 'credit')->sum('amount') - $kashtreBalanceHistories->where('type', 'debit')->sum('amount'), 2) }}
+                        UGX {{ number_format(($totalCredits ?? 0) - ($totalDebits ?? 0), 2) }}
                     </p>
                 </div>
             </div>
@@ -41,7 +41,7 @@
                 <div class="text-center">
                     <h3 class="text-lg font-semibold text-gray-900 mb-2">Total Balance</h3>
                     <p class="text-3xl font-bold text-green-600">
-                        UGX {{ number_format($kashtreBalanceHistories->where('type', 'credit')->sum('amount'), 2) }}
+                        UGX {{ number_format(($totalCredits ?? 0) + ($pendingPayments ?? 0) - ($totalDebits ?? 0), 2) }}
                     </p>
                 </div>
             </div>
@@ -51,7 +51,17 @@
                 <div class="text-center">
                     <h3 class="text-lg font-semibold text-gray-900 mb-2">Total Debits</h3>
                     <p class="text-3xl font-bold text-red-600">
-                        UGX {{ number_format($kashtreBalanceHistories->where('type', 'debit')->sum('amount'), 2) }}
+                        UGX {{ number_format($totalDebits ?? 0, 2) }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Pending Payments -->
+            <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+                <div class="text-center">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Pending Payments</h3>
+                    <p class="text-3xl font-bold text-orange-600">
+                        UGX {{ number_format($pendingPayments ?? 0, 2) }}
                     </p>
                 </div>
             </div>
@@ -180,7 +190,7 @@
                                     <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
                                         @if($history->payment_status === 'paid') bg-green-100 text-green-800
                                         @else bg-yellow-100 text-yellow-800 @endif">
-                                        {{ ucfirst(str_replace('_', ' ', $history->payment_status ?? 'pending_payment')) }}
+                                        {{ ucfirst(str_replace('_', ' ', $history->payment_status ?? 'paid')) }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

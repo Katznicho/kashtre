@@ -38,11 +38,16 @@ class BusinessBalanceHistoryController extends Controller
         }
 
         // Calculate totals from filtered records
+        // Exclude pending payments from credits (they haven't been paid yet)
         $totalCredits = BusinessBalanceHistory::whereIn('money_account_id', $businessAccountIds)
             ->when($user->business_id != 1, function($query) use ($user) {
                 return $query->where('business_id', $user->business_id);
             })
             ->where('type', 'credit')
+            ->where(function($query) {
+                $query->where('payment_status', 'paid')
+                    ->orWhereNull('payment_status'); // Include records without payment_status (legacy data)
+            })
             ->sum('amount');
         
         $totalDebits = BusinessBalanceHistory::whereIn('money_account_id', $businessAccountIds)
@@ -93,32 +98,14 @@ class BusinessBalanceHistoryController extends Controller
             }
         }
 
-        // Calculate pending payments from accounts receivable
-        // This is money owed to the business (excluding service charges which go to Kashtre)
-        $pendingPayments = 0;
-        
-        if ($user->business_id == 1) {
-            // For Kashtre, get all accounts receivable
-            $accountsReceivable = \App\Models\AccountsReceivable::where('balance', '>', 0)
-                ->with('invoice')
-                ->get();
-        } else {
-            // For regular businesses, get only their accounts receivable
-            $accountsReceivable = \App\Models\AccountsReceivable::where('business_id', $user->business_id)
-                ->where('balance', '>', 0)
-                ->with('invoice')
-                ->get();
-        }
-        
-        foreach ($accountsReceivable as $ar) {
-            if ($ar->invoice) {
-                // Subtract service charge from balance (service charges go to Kashtre, not the business)
-                $pendingPayments += max(0, $ar->balance - ($ar->invoice->service_charge ?? 0));
-            } else {
-                // If no invoice, use the full balance
-                $pendingPayments += $ar->balance;
-            }
-        }
+        // Calculate pending payments from BusinessBalanceHistory entries with pending_payment status
+        $pendingPayments = BusinessBalanceHistory::whereIn('money_account_id', $businessAccountIds)
+            ->when($user->business_id != 1, function($query) use ($user) {
+                return $query->where('business_id', $user->business_id);
+            })
+            ->where('payment_status', 'pending_payment')
+            ->where('type', 'credit') // Only count credits (money coming in)
+            ->sum('amount');
 
         return view('business-balance-statement.index', compact('businessBalanceHistories', 'businesses', 'totalCredits', 'totalDebits', 'withdrawalSuspenseBalance', 'pendingPayments'))
             ->with('canUserCreateWithdrawal', function($user) {
@@ -164,7 +151,27 @@ class BusinessBalanceHistoryController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        return view('kashtre-balance-statement.index', compact('kashtreBalanceHistories'));
+        // Calculate totals from all Kashtre balance histories (not just paginated)
+        // Exclude pending payments from credits (they haven't been paid yet)
+        $totalCredits = BusinessBalanceHistory::where('business_id', 1)
+            ->where('type', 'credit')
+            ->where(function($query) {
+                $query->where('payment_status', 'paid')
+                    ->orWhereNull('payment_status'); // Include records without payment_status (legacy data)
+            })
+            ->sum('amount');
+        
+        $totalDebits = BusinessBalanceHistory::where('business_id', 1)
+            ->where('type', 'debit')
+            ->sum('amount');
+
+        // Calculate pending payments from BusinessBalanceHistory entries with pending_payment status
+        $pendingPayments = BusinessBalanceHistory::where('business_id', 1)
+            ->where('payment_status', 'pending_payment')
+            ->where('type', 'credit') // Only count credits (money coming in)
+            ->sum('amount');
+
+        return view('kashtre-balance-statement.index', compact('kashtreBalanceHistories', 'totalCredits', 'totalDebits', 'pendingPayments'));
     }
 
     /**
@@ -183,7 +190,27 @@ class BusinessBalanceHistoryController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(50);
 
-        return view('kashtre-balance-statement.show', compact('kashtreBalanceHistories'));
+        // Calculate totals from all Kashtre balance histories (not just paginated)
+        // Exclude pending payments from credits (they haven't been paid yet)
+        $totalCredits = BusinessBalanceHistory::where('business_id', 1)
+            ->where('type', 'credit')
+            ->where(function($query) {
+                $query->where('payment_status', 'paid')
+                    ->orWhereNull('payment_status'); // Include records without payment_status (legacy data)
+            })
+            ->sum('amount');
+        
+        $totalDebits = BusinessBalanceHistory::where('business_id', 1)
+            ->where('type', 'debit')
+            ->sum('amount');
+
+        // Calculate pending payments from BusinessBalanceHistory entries with pending_payment status
+        $pendingPayments = BusinessBalanceHistory::where('business_id', 1)
+            ->where('payment_status', 'pending_payment')
+            ->where('type', 'credit') // Only count credits (money coming in)
+            ->sum('amount');
+
+        return view('kashtre-balance-statement.show', compact('kashtreBalanceHistories', 'totalCredits', 'totalDebits', 'pendingPayments'));
     }
 
     /**

@@ -131,7 +131,44 @@ class BalanceHistoryController extends Controller
 
         $totalOutstanding = $ppEntries->sum('amount');
 
-        return view('balance-statement.pay-back', compact('client', 'ppEntries', 'totalOutstanding'));
+        // Get available payment methods from maturation periods for this business
+        $business = $client->business;
+        $availablePaymentMethods = \App\Models\MaturationPeriod::where('business_id', $business->id)
+            ->where('is_active', true)
+            ->get()
+            ->pluck('payment_method')
+            ->unique()
+            ->values()
+            ->toArray();
+        
+        // Define the order for payment methods
+        $paymentMethodOrder = [
+            'mobile_money' => 1,
+            'v_card' => 2,
+            'p_card' => 3,
+            'bank_transfer' => 4,
+            'cash' => 5,
+        ];
+        
+        // Sort payment methods according to the defined order
+        usort($availablePaymentMethods, function ($a, $b) use ($paymentMethodOrder) {
+            $orderA = $paymentMethodOrder[$a] ?? 999;
+            $orderB = $paymentMethodOrder[$b] ?? 999;
+            return $orderA <=> $orderB;
+        });
+        
+        // Payment method display names
+        $paymentMethodNames = [
+            'insurance' => '🛡️ Insurance',
+            'credit_arrangement_institutions' => '💳 Credit Arrangement Institutions',
+            'mobile_money' => '📱 Mobile Money',
+            'v_card' => '💳 V Card (Virtual Card)',
+            'p_card' => '💳 P Card (Physical Card)',
+            'bank_transfer' => '🏦 Bank Transfer',
+            'cash' => '💵 Cash',
+        ];
+
+        return view('balance-statement.pay-back', compact('client', 'ppEntries', 'totalOutstanding', 'availablePaymentMethods', 'paymentMethodNames'));
     }
 
     /**
@@ -260,15 +297,36 @@ class BalanceHistoryController extends Controller
                 ->with('error', 'You do not have permission to process pay back.');
         }
         
+        $client = Client::findOrFail($clientId);
+        $business = $client->business;
+        
+        // Get available payment methods from maturation periods for this business
+        $availablePaymentMethods = \App\Models\MaturationPeriod::where('business_id', $business->id)
+            ->where('is_active', true)
+            ->get()
+            ->pluck('payment_method')
+            ->unique()
+            ->values()
+            ->toArray();
+        
+        // Validate payment methods - check if business has any set up
+        if (empty($availablePaymentMethods)) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No payment methods have been set up for this business. Please contact the administrator.'
+                ], 400);
+            }
+            return redirect()->route('balance-statement.pay-back.show', $clientId)
+                ->with('error', 'No payment methods have been set up for this business. Please contact the administrator.');
+        }
+        
         $request->validate([
             'entry_ids' => 'required|array',
             'entry_ids.*' => 'exists:balance_histories,id',
-            'payment_method' => 'required|string|in:cash,mobile_money,bank_transfer,card',
+            'payment_method' => 'required|string|in:' . implode(',', $availablePaymentMethods),
             'total_amount' => 'required|numeric|min:0.01',
         ]);
-
-        $client = Client::findOrFail($clientId);
-        $business = $client->business;
         $entryIds = $request->entry_ids;
         $paymentMethod = $request->payment_method;
         $totalAmount = $request->total_amount;
@@ -401,7 +459,8 @@ class BalanceHistoryController extends Controller
                 $paymentInvoiceNumber,
                 "Payment for pending payment items - Invoice #{$paymentInvoiceNumber}",
                 $paymentMethod,
-                $paymentInvoice->id
+                $paymentInvoice->id,
+                'paid' // Payment status is 'paid' since payment is received
             );
 
             // Update client balance (reduce negative balance)
@@ -469,6 +528,87 @@ class BalanceHistoryController extends Controller
                     }
                 }
             }
+
+            // Update payment_status and payment_method for the selected BalanceHistory entries
+            BalanceHistory::whereIn('id', $entryIds)
+                ->where('client_id', $clientId)
+                ->update([
+                    'payment_status' => 'paid',
+                    'payment_method' => $paymentMethod,
+                ]);
+
+            \Log::info("Updated BalanceHistory entries payment status", [
+                'entry_ids' => $entryIds,
+                'payment_status' => 'paid',
+                'payment_method' => $paymentMethod,
+            ]);
+
+            // Update corresponding BusinessBalanceHistory records
+            // These are the records created when money moved from suspense to final accounts
+            // They would have payment_status = 'pending_payment' for credit clients
+            foreach ($entries as $entry) {
+                if (!$entry->invoice) continue;
+                
+                $entryAmount = abs($entry->change_amount);
+                $isServiceCharge = stripos($entry->description, 'service fee') !== false || 
+                                   stripos($entry->description, 'service charge') !== false;
+                
+                if ($isServiceCharge) {
+                    // Service charge goes to Kashtre (business_id = 1)
+                    // Update Kashtre balance history records
+                    $kashtreBalanceHistories = \App\Models\BusinessBalanceHistory::where('business_id', 1)
+                        ->where('reference_type', 'invoice')
+                        ->where('reference_id', $entry->invoice_id)
+                        ->where('type', 'credit')
+                        ->where(function($query) use ($entryAmount) {
+                            // Match by amount (with small tolerance for floating point)
+                            $query->whereBetween('amount', [$entryAmount - 0.01, $entryAmount + 0.01]);
+                        })
+                        ->where(function($query) {
+                            // Only update pending payments
+                            $query->where('payment_status', 'pending_payment')
+                                  ->orWhereNull('payment_status');
+                        })
+                        ->get();
+                    
+                    foreach ($kashtreBalanceHistories as $kbh) {
+                        $kbh->update([
+                            'payment_status' => 'paid',
+                            'payment_method' => $paymentMethod,
+                        ]);
+                    }
+                } else {
+                    // Regular items go to business account
+                    // Find BusinessBalanceHistory records for this invoice that match the amount
+                    $businessBalanceHistories = \App\Models\BusinessBalanceHistory::where('business_id', $business->id)
+                        ->where('reference_type', 'invoice')
+                        ->where('reference_id', $entry->invoice_id)
+                        ->where('type', 'credit')
+                        ->where(function($query) use ($entryAmount) {
+                            // Match by amount (with small tolerance for floating point)
+                            $query->whereBetween('amount', [$entryAmount - 0.01, $entryAmount + 0.01]);
+                        })
+                        ->where(function($query) {
+                            // Only update pending payments
+                            $query->where('payment_status', 'pending_payment')
+                                  ->orWhereNull('payment_status');
+                        })
+                        ->get();
+                    
+                    foreach ($businessBalanceHistories as $bbh) {
+                        $bbh->update([
+                            'payment_status' => 'paid',
+                            'payment_method' => $paymentMethod,
+                        ]);
+                    }
+                }
+            }
+
+            \Log::info("Updated BusinessBalanceHistory entries payment status", [
+                'invoice_ids' => array_keys($invoicesToUpdate),
+                'payment_status' => 'paid',
+                'payment_method' => $paymentMethod,
+            ]);
 
             // Update original invoices and accounts receivable
             foreach ($invoicesToUpdate as $invoiceId => $invoice) {

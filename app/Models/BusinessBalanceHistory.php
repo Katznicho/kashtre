@@ -100,7 +100,7 @@ class BusinessBalanceHistory extends Model
     /**
      * Record a balance change for a business
      */
-    public static function recordChange($businessId, $moneyAccountId, $amount, $type, $description, $referenceType = null, $referenceId = null, $metadata = [], $userId = null)
+    public static function recordChange($businessId, $moneyAccountId, $amount, $type, $description, $referenceType = null, $referenceId = null, $metadata = [], $userId = null, $paymentStatus = null, $paymentMethod = null)
     {
         $account = MoneyAccount::find($moneyAccountId);
         if (!$account) {
@@ -122,6 +122,8 @@ class BusinessBalanceHistory extends Model
             'reference_id' => $referenceId,
             'metadata' => $metadata,
             'user_id' => $userId,
+            'payment_status' => $paymentStatus,
+            'payment_method' => $paymentMethod,
         ]);
 
         // Update the account balance

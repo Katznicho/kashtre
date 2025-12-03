@@ -147,7 +147,7 @@ class BalanceHistory extends Model
         ]);
     }
 
-    public static function recordCredit($client, $amount, $description, $referenceNumber = null, $notes = null, $paymentMethod = null)
+    public static function recordCredit($client, $amount, $description, $referenceNumber = null, $notes = null, $paymentMethod = null, $invoiceId = null, $paymentStatus = null)
     {
         // Calculate previous balance from existing balance history records
         $previousBalance = self::where('client_id', $client->id)
@@ -160,6 +160,7 @@ class BalanceHistory extends Model
             'client_id' => $client->id,
             'business_id' => $client->business_id,
             'branch_id' => $client->branch_id,
+            'invoice_id' => $invoiceId,
             'user_id' => auth()->id() ?? 1, // Default to user ID 1 if no auth
             'previous_balance' => $previousBalance,
             'change_amount' => $amount, // Positive for credit
@@ -169,6 +170,7 @@ class BalanceHistory extends Model
             'reference_number' => $referenceNumber,
             'notes' => $notes,
             'payment_method' => $paymentMethod,
+            'payment_status' => $paymentStatus,
         ]);
     }
 

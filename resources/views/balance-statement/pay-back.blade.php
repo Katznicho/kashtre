@@ -99,11 +99,19 @@
                                 </label>
                                 <select name="payment_method" id="payment_method" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                     <option value="">Select Payment Method</option>
-                                    <option value="cash">Cash</option>
-                                    <option value="mobile_money">Mobile Money</option>
-                                    <option value="bank_transfer">Bank Transfer</option>
-                                    <option value="card">Card</option>
+                                    @if(!empty($availablePaymentMethods))
+                                        @foreach($availablePaymentMethods as $method)
+                                            <option value="{{ $method }}">
+                                                {{ $paymentMethodNames[$method] ?? ucwords(str_replace('_', ' ', $method)) }}
+                                            </option>
+                                        @endforeach
+                                    @else
+                                        <option value="" disabled>No payment methods configured for this business</option>
+                                    @endif
                                 </select>
+                                @if(empty($availablePaymentMethods))
+                                    <p class="mt-2 text-sm text-red-600">No payment methods have been set up for this business. Please contact the administrator.</p>
+                                @endif
                             </div>
 
                             <!-- Hidden field for total amount -->
@@ -137,117 +145,29 @@
         </div>
     </div>
 
-    @push('scripts')
     <script>
         (function() {
-            let isUpdating = false; // Flag to prevent recursion
+            'use strict';
             
-            function toggleAllEntries(checkbox) {
-                const checkboxes = document.querySelectorAll('.entry-checkbox');
-                isUpdating = true;
-                checkboxes.forEach(cb => {
-                    cb.checked = checkbox.checked;
-                });
-                isUpdating = false;
-                updateSelectAllState();
-                updateTotal();
-            }
-            
-            function handleEntrySelection(checkbox) {
-                if (isUpdating) return; // Prevent recursion
-                
-                isUpdating = true;
-                
-                const currentIndex = parseInt(checkbox.dataset.index);
-                const isChecked = checkbox.checked;
-                const allCheckboxes = Array.from(document.querySelectorAll('.entry-checkbox'));
-                
-                console.log('handleEntrySelection called', {
-                    currentIndex: currentIndex,
-                    isChecked: isChecked,
-                    totalCheckboxes: allCheckboxes.length,
-                    checkboxIndex: checkbox.dataset.index
-                });
-                
-                if (isChecked) {
-                    // When checking: select all previous items (cascading selection)
-                    allCheckboxes.forEach(cb => {
-                        const index = parseInt(cb.dataset.index);
-                        if (index <= currentIndex) {
-                            if (!cb.checked) {
-                                cb.checked = true;
-                                console.log('Checked item at index', index);
-                            }
-                        }
-                    });
-                } else {
-                    // When unchecking: uncheck all items after this one (maintain order)
-                    allCheckboxes.forEach(cb => {
-                        const index = parseInt(cb.dataset.index);
-                        if (index > currentIndex) {
-                            if (cb.checked) {
-                                cb.checked = false;
-                                console.log('Unchecked item at index', index);
-                            }
-                        }
-                    });
-                }
-                
-                isUpdating = false;
-                
-                // Update "Select All" checkbox state
-                updateSelectAllState();
-                updateTotal();
-            }
-
-            function updateSelectAllState() {
-                const allCheckboxes = document.querySelectorAll('.entry-checkbox');
-                const checkedCheckboxes = document.querySelectorAll('.entry-checkbox:checked');
-                const selectAllCheckbox = document.getElementById('selectAll');
-                
-                if (!selectAllCheckbox || allCheckboxes.length === 0) {
-                    if (selectAllCheckbox) {
-                        selectAllCheckbox.checked = false;
-                        selectAllCheckbox.indeterminate = false;
-                    }
-                    return;
-                }
-                
-                if (checkedCheckboxes.length === 0) {
-                    selectAllCheckbox.checked = false;
-                    selectAllCheckbox.indeterminate = false;
-                } else if (checkedCheckboxes.length === allCheckboxes.length) {
-                    selectAllCheckbox.checked = true;
-                    selectAllCheckbox.indeterminate = false;
-                } else {
-                    selectAllCheckbox.checked = false;
-                    selectAllCheckbox.indeterminate = true;
-                }
-            }
-
             function updateTotal() {
                 const checkboxes = document.querySelectorAll('.entry-checkbox:checked');
                 let total = 0;
-                checkboxes.forEach(cb => {
-                    const amount = parseFloat(cb.dataset.amount) || 0;
+                
+                checkboxes.forEach(function(cb) {
+                    const amount = parseFloat(cb.getAttribute('data-amount')) || 0;
                     total += amount;
                 });
                 
-                console.log('updateTotal called', {
-                    checkedCount: checkboxes.length,
-                    total: total
-                });
-                
-                const formattedTotal = total.toLocaleString('en-US', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                });
-                
+                // Update display
                 const totalElement = document.getElementById('selectedTotal');
                 if (totalElement) {
-                    totalElement.textContent = 'UGX ' + formattedTotal;
+                    totalElement.textContent = 'UGX ' + total.toLocaleString('en-US', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
                 }
                 
+                // Update hidden input
                 const totalAmountInput = document.getElementById('total_amount');
                 if (totalAmountInput) {
                     totalAmountInput.value = total;
@@ -257,30 +177,57 @@
                 const submitBtn = document.getElementById('submitBtn');
                 const paymentMethod = document.getElementById('payment_method');
                 
-                if (submitBtn && paymentMethod) {
-                    if (checkboxes.length > 0 && paymentMethod.value && total > 0) {
+                if (submitBtn) {
+                    if (checkboxes.length > 0 && paymentMethod && paymentMethod.value && total > 0) {
                         submitBtn.disabled = false;
                     } else {
                         submitBtn.disabled = true;
                     }
                 }
             }
-
-            // Initialize when DOM is ready
-            function init() {
-                // Attach event listeners to all checkboxes
-                const checkboxes = document.querySelectorAll('.entry-checkbox');
-                checkboxes.forEach(checkbox => {
-                    checkbox.addEventListener('change', function() {
-                        handleEntrySelection(this);
-                    });
-                });
+            
+            function updateSelectAllState() {
+                const allCheckboxes = document.querySelectorAll('.entry-checkbox');
+                const checkedCheckboxes = document.querySelectorAll('.entry-checkbox:checked');
+                const selectAllCheckbox = document.getElementById('selectAll');
                 
-                // Attach select all handler
+                if (selectAllCheckbox && allCheckboxes.length > 0) {
+                    if (checkedCheckboxes.length === 0) {
+                        selectAllCheckbox.checked = false;
+                        selectAllCheckbox.indeterminate = false;
+                    } else if (checkedCheckboxes.length === allCheckboxes.length) {
+                        selectAllCheckbox.checked = true;
+                        selectAllCheckbox.indeterminate = false;
+                    } else {
+                        selectAllCheckbox.checked = false;
+                        selectAllCheckbox.indeterminate = true;
+                    }
+                }
+            }
+            
+            function init() {
+                // Attach event listeners to all entry checkboxes using event delegation
+                const table = document.querySelector('table');
+                if (table) {
+                    table.addEventListener('change', function(e) {
+                        if (e.target && e.target.classList.contains('entry-checkbox')) {
+                            updateTotal();
+                            updateSelectAllState();
+                        }
+                    });
+                }
+                
+                // Attach event listener to select all checkbox
                 const selectAllCheckbox = document.getElementById('selectAll');
                 if (selectAllCheckbox) {
                     selectAllCheckbox.addEventListener('change', function() {
-                        toggleAllEntries(this);
+                        const isChecked = this.checked;
+                        const entryCheckboxes = document.querySelectorAll('.entry-checkbox');
+                        entryCheckboxes.forEach(function(cb) {
+                            cb.checked = isChecked;
+                        });
+                        updateTotal();
+                        updateSelectAllState();
                     });
                 }
                 
@@ -290,80 +237,89 @@
                     paymentMethod.addEventListener('change', updateTotal);
                 }
                 
-                // Initialize state
+                // Initialize
+                updateTotal();
                 updateSelectAllState();
                 
-                console.log('Initialized', checkboxes.length, 'checkboxes');
+                // Handle form submission
+                const payBackForm = document.getElementById('payBackForm');
+                if (payBackForm) {
+                    payBackForm.addEventListener('submit', function(e) {
+                        const checkboxes = document.querySelectorAll('.entry-checkbox:checked');
+                        if (checkboxes.length === 0) {
+                            e.preventDefault();
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'No Items Selected',
+                                    text: 'Please select at least one item to pay.',
+                                });
+                            } else {
+                                alert('Please select at least one item to pay.');
+                            }
+                            return false;
+                        }
+
+                        const total = parseFloat(document.getElementById('total_amount').value);
+                        if (total <= 0) {
+                            e.preventDefault();
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Invalid Amount',
+                                    text: 'Total amount must be greater than zero.',
+                                });
+                            } else {
+                                alert('Total amount must be greater than zero.');
+                            }
+                            return false;
+                        }
+
+                        // Show confirmation
+                        e.preventDefault();
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                title: 'Confirm Payment',
+                                html: `Are you sure you want to process payment of <strong>UGX ${total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>?<br><br>This will mark the selected items as paid and create a payment invoice without service charge.`,
+                                icon: 'question',
+                                showCancelButton: true,
+                                confirmButtonColor: '#10b981',
+                                cancelButtonColor: '#6b7280',
+                                confirmButtonText: 'Yes, Process Payment',
+                                cancelButtonText: 'Cancel'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    // Show loading
+                                    Swal.fire({
+                                        title: 'Processing Payment',
+                                        html: 'Please wait while we process your payment...',
+                                        allowOutsideClick: false,
+                                        allowEscapeKey: false,
+                                        didOpen: () => {
+                                            Swal.showLoading();
+                                        }
+                                    });
+                                    
+                                    // Submit the form
+                                    payBackForm.submit();
+                                }
+                            });
+                        } else {
+                            if (confirm('Are you sure you want to process payment of UGX ' + total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '?')) {
+                                payBackForm.submit();
+                            }
+                        }
+                    });
+                }
             }
             
             // Run when DOM is ready
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', init);
             } else {
-                // DOM is already ready
                 init();
             }
-            
-            // Make functions globally available
-            window.toggleAllEntries = toggleAllEntries;
-            window.handleEntrySelection = handleEntrySelection;
-            window.updateTotal = updateTotal;
         })();
-
-        // Handle form submission
-        document.getElementById('payBackForm').addEventListener('submit', function(e) {
-            const checkboxes = document.querySelectorAll('.entry-checkbox:checked');
-            if (checkboxes.length === 0) {
-                e.preventDefault();
-                Swal.fire({
-                    icon: 'error',
-                    title: 'No Items Selected',
-                    text: 'Please select at least one item to pay.',
-                });
-                return false;
-            }
-
-            const total = parseFloat(document.getElementById('total_amount').value);
-            if (total <= 0) {
-                e.preventDefault();
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Invalid Amount',
-                    text: 'Total amount must be greater than zero.',
-                });
-                return false;
-            }
-
-            // Show confirmation
-            e.preventDefault();
-            Swal.fire({
-                title: 'Confirm Payment',
-                html: `Are you sure you want to process payment of <strong>UGX ${total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>?<br><br>This will mark the selected items as paid and create a payment invoice without service charge.`,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#10b981',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, Process Payment',
-                cancelButtonText: 'Cancel'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // Show loading
-                    Swal.fire({
-                        title: 'Processing Payment',
-                        html: 'Please wait while we process your payment...',
-                        allowOutsideClick: false,
-                        allowEscapeKey: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
-                    });
-                    
-                    // Submit the form
-                    this.submit();
-                }
-            });
-        });
     </script>
-    @endpush
 </x-app-layout>
 

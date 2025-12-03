@@ -1676,6 +1676,20 @@ class MoneyTrackingService
         }
         $toAccount->credit($amount);   // Money comes into destination account
 
+        // Determine payment_status and payment_method based on client type and transfer type
+        $paymentStatus = null;
+        $paymentMethod = null;
+        
+        // If this is a suspense_to_final transfer (services being delivered) and client is credit-eligible
+        if ($transferType === 'suspense_to_final' && $invoice && $invoice->client) {
+            $client = $invoice->client;
+            if ($client->is_credit_eligible) {
+                // For credit clients, payment is pending and no payment method yet
+                $paymentStatus = 'pending_payment';
+                $paymentMethod = null;
+            }
+        }
+
         // Create BusinessBalanceHistory records for business accounts
         if ($toAccount->type === 'business_account' && $toAccount->business_id) {
             \App\Models\BusinessBalanceHistory::recordChange(
@@ -1693,7 +1707,9 @@ class MoneyTrackingService
                     'invoice_id' => $invoice ? $invoice->id : null,
                     'invoice_number' => $invoice ? $invoice->invoice_number : null
                 ],
-                auth()->id()
+                auth()->id(),
+                $paymentStatus,
+                $paymentMethod
             );
         }
 
@@ -1714,7 +1730,9 @@ class MoneyTrackingService
                     'invoice_id' => $invoice ? $invoice->id : null,
                     'invoice_number' => $invoice ? $invoice->invoice_number : null
                 ],
-                auth()->id()
+                auth()->id(),
+                $paymentStatus,
+                $paymentMethod
             );
         }
 

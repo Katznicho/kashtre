@@ -15,8 +15,8 @@ return new class extends Migration
         // Only add payment_status if it doesn't exist
         if (!Schema::hasColumn('balance_histories', 'payment_status')) {
             Schema::table('balance_histories', function (Blueprint $table) {
-                // Add payment_status enum with default 'pending_payment'
-                $table->enum('payment_status', ['paid', 'pending_payment'])->default('pending_payment')->after('payment_reference');
+                // Add payment_status enum with default 'paid'
+                $table->enum('payment_status', ['paid', 'pending_payment'])->default('paid')->after('payment_reference');
             });
         }
 
