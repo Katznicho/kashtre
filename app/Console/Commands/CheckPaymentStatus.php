@@ -75,20 +75,24 @@ class CheckPaymentStatus extends Command
                     'created_at' => $transaction->created_at->toDateTimeString()
                 ]);
 
-                if (!$transaction->external_reference) {
-                    Log::warning("No external reference found for transaction ID: {$transaction->id} - SKIPPING");
-                    continue;
-                }
-
                 // ENABLED: Transaction timeout logic - fail transactions after 5 minutes
                 // Check if transaction has timed out (older than 5 minutes)
                 $transactionAge = now()->diffInMinutes($transaction->created_at);
+                
+                // If transaction is older than 5 minutes, mark as failed (timeout)
+                // This applies to both transactions with and without external_reference
                 if ($transactionAge >= 5) {
-                    Log::warning("Transaction {$transaction->id} has timed out after {$transactionAge} minutes - marking as failed", [
+                    $reason = $transaction->external_reference 
+                        ? "timed out after {$transactionAge} minutes" 
+                        : "timed out after {$transactionAge} minutes (no external reference)";
+                    
+                    Log::warning("Transaction {$transaction->id} has {$reason} - marking as failed", [
                         'transaction_id' => $transaction->id,
                         'reference' => $transaction->reference,
+                        'external_reference' => $transaction->external_reference,
                         'age_minutes' => $transactionAge,
-                        'created_at' => $transaction->created_at->toDateTimeString()
+                        'created_at' => $transaction->created_at->toDateTimeString(),
+                        'reason' => $reason
                     ]);
 
                     DB::beginTransaction();
@@ -138,6 +142,17 @@ class CheckPaymentStatus extends Command
                         ]);
                         continue;
                     }
+                }
+
+                // Check if transaction has external_reference (required for YoAPI status check)
+                if (!$transaction->external_reference) {
+                    Log::warning("No external reference found for transaction ID: {$transaction->id} - SKIPPING (transaction is within timeout period but cannot check status without external_reference)", [
+                        'transaction_id' => $transaction->id,
+                        'reference' => $transaction->reference,
+                        'age_minutes' => $transactionAge,
+                        'created_at' => $transaction->created_at->toDateTimeString()
+                    ]);
+                    continue;
                 }
 
                 Log::info("Transaction within timeout period - proceeding with YoAPI status check", [
