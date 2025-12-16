@@ -27,24 +27,20 @@
                 document.addEventListener('DOMContentLoaded', function() {
                     Swal.fire({
                         icon: 'error',
-                        title: 'Visit ID Required',
+                        title: 'Client Not Registered',
                         html: `
-                            <p class="text-gray-700 mb-3">This client does not have a Visit ID. You cannot perform any actions without a Visit ID.</p>
-                            <p class="text-gray-600">Please register the client again to generate a new Visit ID.</p>
+                            <p class="text-gray-700 mb-3">This client is not registered. You cannot perform any actions for an unregistered client.</p>
+                            <p class="text-gray-600">Please register the client to continue.</p>
                         `,
                         confirmButtonText: 'OK',
-                        allowOutsideClick: false,
-                        allowEscapeKey: false
+                        allowOutsideClick: true,
+                        allowEscapeKey: true
                     }).then((result) => {
                         if (result.isConfirmed) {
                             // Redirect to clients page or registration
                             window.location.href = '/clients';
                         }
                     });
-                    
-                    // Disable all interactive elements on the page
-                    document.body.style.pointerEvents = 'none';
-                    document.body.style.opacity = '0.5';
                 });
             </script>
             @endif
