@@ -42,7 +42,17 @@
                                 @endphp
                                 
                                 @if($client->is_credit_eligible)
-                                    {{-- Credit Client: Show Available Balance, Total Balance, and Credit Limit --}}
+                                    {{-- Credit Client: Show Total Balance, Available Balance, and Credit Limit --}}
+                                    <div>
+                                        <p class="text-sm text-gray-500">Total Balance</p>
+                                        <p class="text-lg font-semibold {{ $totalBalanceColor }}">
+                                            UGX {{ number_format($totalBalance, 2) }}
+                                        </p>
+                                        @if($totalBalance < 0)
+                                            <p class="text-xs text-red-500">(Amount Owed)</p>
+                                        @endif
+                                    </div>
+                                    
                                     <div>
                                         <p class="text-sm text-gray-500">Available Balance</p>
                                         <p class="text-lg font-semibold {{ $availableBalanceColor }}">
@@ -52,16 +62,6 @@
                                             <p class="text-xs text-red-500">(Amount Owed)</p>
                                         @elseif($availableBalance > 0)
                                             <p class="text-xs text-green-500">(Credit Available)</p>
-                                        @endif
-                                    </div>
-                                    
-                                    <div>
-                                        <p class="text-sm text-gray-500">Total Balance</p>
-                                        <p class="text-lg font-semibold {{ $totalBalanceColor }}">
-                                            UGX {{ number_format($totalBalance, 2) }}
-                                        </p>
-                                        @if($totalBalance < 0)
-                                            <p class="text-xs text-red-500">(Amount Owed)</p>
                                         @endif
                                     </div>
                                     
@@ -86,7 +86,17 @@
                                         @endif
                                     </div>
                                 @else
-                                    {{-- Non-Credit Client: Show Available Balance and Total Balance --}}
+                                    {{-- Non-Credit Client: Show Total Balance and Available Balance --}}
+                                    <div>
+                                        <p class="text-sm text-gray-500">Total Balance</p>
+                                        <p class="text-lg font-semibold {{ $totalBalanceColor }}">
+                                            UGX {{ number_format($totalBalance, 2) }}
+                                        </p>
+                                        @if($totalBalance < 0)
+                                            <p class="text-xs text-red-500">(Amount Owed)</p>
+                                        @endif
+                                    </div>
+                                    
                                     <div>
                                         <p class="text-sm text-gray-500">Available Balance</p>
                                         <p class="text-lg font-semibold {{ $availableBalanceColor }}">
@@ -96,16 +106,6 @@
                                             <p class="text-xs text-red-500">(Amount Owed)</p>
                                         @elseif($availableBalance > 0)
                                             <p class="text-xs text-green-500">(Credit Available)</p>
-                                        @endif
-                                    </div>
-                                    
-                                    <div>
-                                        <p class="text-sm text-gray-500">Total Balance</p>
-                                        <p class="text-lg font-semibold {{ $totalBalanceColor }}">
-                                            UGX {{ number_format($totalBalance, 2) }}
-                                        </p>
-                                        @if($totalBalance < 0)
-                                            <p class="text-xs text-red-500">(Amount Owed)</p>
                                         @endif
                                     </div>
                                 @endif

@@ -174,6 +174,59 @@
                     </div>
                 </div>
 
+                <!-- Credit Exclusions -->
+                <div class="mb-6 border-t border-gray-200 dark:border-gray-700 pt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Credit Service Exclusions</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        Select items from your price list that should be excluded from credit terms. Invoices containing excluded items will not be saved for credit clients.
+                    </p>
+                    
+                    <div class="mb-4">
+                        <label for="credit_excluded_items" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Excluded Items
+                        </label>
+                        
+                        <!-- Quick Filter Buttons -->
+                        <div class="mb-3 flex flex-wrap gap-2">
+                            <button type="button" class="filter-btn px-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 active" data-filter="all">
+                                All Items
+                            </button>
+                            <button type="button" class="filter-btn px-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600" data-filter="service">
+                                Services
+                            </button>
+                            <button type="button" class="filter-btn px-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600" data-filter="good">
+                                Goods
+                            </button>
+                            <button type="button" class="filter-btn px-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600" data-filter="package">
+                                Packages
+                            </button>
+                            <button type="button" class="filter-btn px-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600" data-filter="bulk">
+                                Bulk Items
+                            </button>
+                        </div>
+                        
+                        <select 
+                            name="credit_excluded_items[]" 
+                            id="credit_excluded_items" 
+                            multiple
+                            class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                        >
+                            @foreach($items as $item)
+                                <option 
+                                    value="{{ $item->id }}"
+                                    data-type="{{ $item->type }}"
+                                    {{ in_array($item->id, old('credit_excluded_items', $business->credit_excluded_items ?? [])) ? 'selected' : '' }}
+                                >
+                                    {{ $item->name }}@if($item->code) ({{ $item->code }})@endif
+                                </option>
+                            @endforeach
+                        </select>
+                        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            <strong>Tip:</strong> Use quick filters to narrow down items by type, then search and select multiple items. Invoices with excluded items cannot be saved for credit clients.
+                        </p>
+                    </div>
+                </div>
+
                 <!-- Credit Limit Approval Workflow -->
                 <div class="mb-6 border-t border-gray-200 dark:border-gray-700 pt-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Credit Limit Approval Workflow</h3>
@@ -272,7 +325,67 @@
         </div>
     </div>
 
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+    
+    <style>
+        .filter-btn.active {
+            background-color: #2563eb !important;
+            color: white !important;
+            border-color: #2563eb !important;
+        }
+        .filter-btn.active:hover {
+            background-color: #1d4ed8 !important;
+        }
+    </style>
+    
+    <!-- Select2 JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
     <script>
+        // Initialize Select2 for credit excluded items
+        $(document).ready(function() {
+            const $select = $('#credit_excluded_items');
+            
+            $select.select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select items to exclude from credit terms',
+                allowClear: true,
+                width: '100%'
+            });
+            
+            // Quick filter functionality
+            $('.filter-btn').on('click', function() {
+                const filter = $(this).data('filter');
+                
+                // Update active button
+                $('.filter-btn').removeClass('active bg-blue-600 text-white').addClass('bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300');
+                $(this).removeClass('bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300').addClass('active bg-blue-600 text-white');
+                
+                // Filter options
+                if (filter === 'all') {
+                    $select.find('option').prop('disabled', false);
+                } else {
+                    $select.find('option').each(function() {
+                        const $option = $(this);
+                        if ($option.data('type') === filter) {
+                            $option.prop('disabled', false);
+                        } else {
+                            $option.prop('disabled', true);
+                        }
+                    });
+                }
+                
+                // Update Select2 to reflect changes
+                $select.trigger('change.select2');
+                
+                // Open Select2 dropdown to show filtered results
+                $select.select2('open');
+            });
+        });
+
         // Search functionality for approvers
         document.addEventListener('DOMContentLoaded', function() {
             // Initiators search

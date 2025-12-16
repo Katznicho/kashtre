@@ -95,6 +95,26 @@ class TransactionController extends Controller
                         ->get();
         }
 
+        // Filter out excluded items for credit clients BEFORE calculating branch prices
+        if ($client->is_credit_eligible) {
+            $business = $client->business;
+            $excludedItems = $business->credit_excluded_items ?? [];
+            
+            if (!empty($excludedItems)) {
+                $items = $items->reject(function ($item) use ($excludedItems) {
+                    return in_array($item->id, $excludedItems);
+                });
+                
+                \Illuminate\Support\Facades\Log::info("=== FILTERED EXCLUDED ITEMS FOR CREDIT CLIENT ===", [
+                    'client_id' => $client->id,
+                    'client_name' => $client->name,
+                    'excluded_item_ids' => $excludedItems,
+                    'items_after_filter' => $items->count(),
+                    'excluded_count' => count($excludedItems)
+                ]);
+            }
+        }
+
         // Get branch-specific prices for each item
         // For each item, we need to find the appropriate branch price based on the item's business
         $branchPrices = [];

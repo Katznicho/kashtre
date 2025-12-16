@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Business;
 use App\Models\User;
 use App\Models\CreditLimitApprovalApprover;
+use App\Models\Item;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +30,12 @@ class BusinessSettingsController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'business_id']);
 
-        return view('business-settings.edit', compact('business', 'users'));
+        // Get items for this business
+        $items = Item::where('business_id', $business->id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'code', 'type']);
+
+        return view('business-settings.edit', compact('business', 'users', 'items'));
     }
 
     /**
@@ -60,6 +66,8 @@ class BusinessSettingsController extends Controller
             'credit_limit_authorizers.*' => 'string',
             'credit_limit_approvers' => 'nullable|array',
             'credit_limit_approvers.*' => 'string',
+            'credit_excluded_items' => 'nullable|array',
+            'credit_excluded_items.*' => 'integer|exists:items,id',
         ]);
 
         $business->update([
@@ -72,6 +80,7 @@ class BusinessSettingsController extends Controller
             'admit_enable_long_stay' => $request->has('admit_enable_long_stay') ? (bool)$validated['admit_enable_long_stay'] : false,
             'discharge_remove_credit' => $request->has('discharge_remove_credit') ? (bool)$validated['discharge_remove_credit'] : false,
             'discharge_remove_long_stay' => $request->has('discharge_remove_long_stay') ? (bool)$validated['discharge_remove_long_stay'] : true,
+            'credit_excluded_items' => $validated['credit_excluded_items'] ?? [],
         ]);
 
         // Handle credit limit approval approvers

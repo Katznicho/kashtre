@@ -156,6 +156,23 @@ class BalanceHistory extends Model
         
         $newBalance = $previousBalance + $amount; // Credit to balance
 
+        // Default payment_status to 'paid' if not provided
+        if ($paymentStatus === null) {
+            $paymentStatus = 'paid';
+        }
+
+        // Validate payment_method - only allow valid enum values
+        $validPaymentMethods = ['account_balance', 'mobile_money', 'bank_transfer', 'v_card', 'p_card'];
+        if ($paymentMethod !== null && !in_array($paymentMethod, $validPaymentMethods)) {
+            // If invalid payment method provided, default to 'mobile_money' for payments
+            \Log::warning("Invalid payment_method '{$paymentMethod}' provided to recordCredit, defaulting to 'mobile_money'", [
+                'client_id' => $client->id,
+                'invalid_method' => $paymentMethod,
+                'description' => $description
+            ]);
+            $paymentMethod = 'mobile_money';
+        }
+
         return self::create([
             'client_id' => $client->id,
             'business_id' => $client->business_id,

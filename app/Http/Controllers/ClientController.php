@@ -94,11 +94,12 @@ class ClientController extends Controller
         
         // Define the order for payment methods
         $paymentMethodOrder = [
-            'mobile_money' => 1,
-            'v_card' => 2,
-            'p_card' => 3,
-            'bank_transfer' => 4,
-            'cash' => 5,
+            'insurance' => 1,
+            'mobile_money' => 2,
+            'v_card' => 3,
+            'p_card' => 4,
+            'bank_transfer' => 5,
+            'cash' => 6,
         ];
         
         // Sort payment methods according to the defined order

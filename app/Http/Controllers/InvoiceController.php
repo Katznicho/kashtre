@@ -340,6 +340,40 @@ class InvoiceController extends Controller
 
             // Check credit limit for credit-eligible clients
             if ($client->is_credit_eligible) {
+                // Check for excluded items from credit
+                $business = \App\Models\Business::find($validated['business_id']);
+                $excludedItems = $business->credit_excluded_items ?? [];
+                
+                if (!empty($excludedItems)) {
+                    $itemsArray = $validated['items'];
+                    $excludedItemIds = [];
+                    
+                    foreach ($itemsArray as $item) {
+                        $itemId = $item['id'] ?? $item['item_id'] ?? null;
+                        if ($itemId && in_array($itemId, $excludedItems)) {
+                            $excludedItemIds[] = $itemId;
+                        }
+                    }
+                    
+                    if (!empty($excludedItemIds)) {
+                        $excludedItemNames = \App\Models\Item::whereIn('id', $excludedItemIds)
+                            ->pluck('name')
+                            ->toArray();
+                        
+                        return response()->json([
+                            'success' => false,
+                            'message' => "The following items are excluded from credit terms: " . implode(', ', $excludedItemNames) . ". Please remove these items or process payment upfront.",
+                            'errors' => [
+                                'excluded_items' => [
+                                    "The following items cannot be offered on credit: " . implode(', ', $excludedItemNames) . ". Please remove these items from the invoice or process payment upfront."
+                                ]
+                            ],
+                            'excluded_items' => $excludedItemNames,
+                            'excluded_item_ids' => $excludedItemIds,
+                        ], 422);
+                    }
+                }
+                
                 // Calculate current outstanding balance from accounts receivable
                 $currentOutstanding = \App\Models\AccountsReceivable::where('client_id', $client->id)
                     ->where('status', '!=', 'paid')
