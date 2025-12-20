@@ -37,35 +37,29 @@ class BusinessBalanceHistoryController extends Controller
                 ->paginate(20);
         }
 
-        // Calculate totals from filtered records
-        // Exclude pending payments from credits (they haven't been paid yet)
-        $totalCredits = BusinessBalanceHistory::whereIn('money_account_id', $businessAccountIds)
-            ->when($user->business_id != 1, function($query) use ($user) {
-                return $query->where('business_id', $user->business_id);
-            })
-            ->where('type', 'credit')
-            ->where(function($query) {
-                $query->where('payment_status', 'paid')
-                    ->orWhereNull('payment_status'); // Include records without payment_status (legacy data)
-            })
-            ->sum('amount');
+        // Use centralized method to calculate available balance (source of truth)
+        $moneyTrackingService = new \App\Services\MoneyTrackingService();
         
-        $totalDebits = BusinessBalanceHistory::whereIn('money_account_id', $businessAccountIds)
-            ->when($user->business_id != 1, function($query) use ($user) {
-                return $query->where('business_id', $user->business_id);
-            })
-            ->where('type', 'debit')
-            ->sum('amount');
-
-        // Get withdrawal suspense account balance(s) calculated from BusinessBalanceHistory
-        // Available Balance = Total Balance - (Credits in withdrawal suspense) + (Debits in withdrawal suspense)
-        // Which is: Available Balance = Total Balance - (Credits - Debits in withdrawal suspense)
-        $withdrawalSuspenseBalance = 0;
         if ($user->business_id == 1) {
-            // For Kashtre, calculate balance from all withdrawal suspense accounts
+            // For Kashtre (super business), we need to calculate for all businesses
+            // For now, calculate totals from filtered records for display
+            $totalCredits = BusinessBalanceHistory::whereIn('money_account_id', $businessAccountIds)
+                ->where('type', 'credit')
+                ->where(function($query) {
+                    $query->where('payment_status', 'paid')
+                        ->orWhereNull('payment_status'); // Include records without payment_status (legacy data)
+                })
+                ->sum('amount');
+            
+            $totalDebits = BusinessBalanceHistory::whereIn('money_account_id', $businessAccountIds)
+                ->where('type', 'debit')
+                ->sum('amount');
+
+            // For Kashtre, calculate withdrawal suspense from all withdrawal suspense accounts
             $withdrawalSuspenseAccountIds = \App\Models\MoneyAccount::where('type', 'withdrawal_suspense_account')
                 ->pluck('id');
             
+            $withdrawalSuspenseBalance = 0;
             if ($withdrawalSuspenseAccountIds->isNotEmpty()) {
                 $suspenseCredits = BusinessBalanceHistory::whereIn('money_account_id', $withdrawalSuspenseAccountIds)
                     ->where('type', 'credit')
@@ -75,31 +69,20 @@ class BusinessBalanceHistoryController extends Controller
                     ->where('type', 'debit')
                     ->sum('amount');
                 
-                // Available Balance = Total - (Credits - Debits in suspense)
-                // This means: subtract credits (funds held) and add debits (funds released)
                 $withdrawalSuspenseBalance = $suspenseCredits - $suspenseDebits;
             }
         } else {
-            // For regular businesses, calculate balance from their withdrawal suspense account history
-            $moneyTrackingService = new \App\Services\MoneyTrackingService();
-            $withdrawalSuspenseAccount = $moneyTrackingService->getOrCreateWithdrawalSuspenseAccount($user->business);
-            
-            if ($withdrawalSuspenseAccount) {
-                $suspenseCredits = BusinessBalanceHistory::where('money_account_id', $withdrawalSuspenseAccount->id)
-                    ->where('type', 'credit')
-                    ->sum('amount');
-                
-                $suspenseDebits = BusinessBalanceHistory::where('money_account_id', $withdrawalSuspenseAccount->id)
-                    ->where('type', 'debit')
-                    ->sum('amount');
-                
-                // Available Balance = Total - (Credits - Debits in suspense)
-                $withdrawalSuspenseBalance = $suspenseCredits - $suspenseDebits;
-            }
+            // For regular businesses, use centralized calculation method (source of truth)
+            $balanceData = $moneyTrackingService->calculateBusinessAvailableBalance($user->business);
+            $totalCredits = $balanceData['totalCredits'];
+            $totalDebits = $balanceData['totalDebits'];
+            $totalBalance = $balanceData['totalBalance'];
+            $withdrawalSuspenseBalance = $balanceData['withdrawalSuspenseBalance'];
+            $availableBalance = $balanceData['availableBalance'];
         }
 
-        // Calculate pending payments from BusinessBalanceHistory entries with pending_payment status
-        $pendingPayments = BusinessBalanceHistory::whereIn('money_account_id', $businessAccountIds)
+        // Calculate pending payments total and fetch list
+        $pendingPaymentsTotal = BusinessBalanceHistory::whereIn('money_account_id', $businessAccountIds)
             ->when($user->business_id != 1, function($query) use ($user) {
                 return $query->where('business_id', $user->business_id);
             })
@@ -107,7 +90,61 @@ class BusinessBalanceHistoryController extends Controller
             ->where('type', 'credit') // Only count credits (money coming in)
             ->sum('amount');
 
-        return view('business-balance-statement.index', compact('businessBalanceHistories', 'businesses', 'totalCredits', 'totalDebits', 'withdrawalSuspenseBalance', 'pendingPayments'))
+        // Fetch pending payments list for table
+        $pendingPaymentsList = BusinessBalanceHistory::with(['business'])
+            ->whereIn('money_account_id', $businessAccountIds)
+            ->when($user->business_id != 1, function($query) use ($user) {
+                return $query->where('business_id', $user->business_id);
+            })
+            ->where('payment_status', 'pending_payment')
+            ->where('type', 'credit')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Fetch pending maturity (AccountsReceivable with future due_date)
+        $pendingMaturityQuery = \App\Models\AccountsReceivable::with(['client', 'business', 'invoice', 'thirdPartyPayer'])
+            ->where('due_date', '>', now()->toDateString())
+            ->where('balance', '>', 0); // Only unpaid or partially paid
+
+        if ($user->business_id == 1) {
+            // For Kashtre, show all businesses
+            $pendingMaturityQuery->where('business_id', '>', 0);
+        } else {
+            // For regular businesses, show only their own
+            $pendingMaturityQuery->where('business_id', $user->business_id);
+        }
+
+        $pendingMaturityQuery->orderBy('due_date', 'asc');
+
+        $pendingMaturityList = $pendingMaturityQuery->get()->map(function($ar) {
+            // Calculate outstanding days to maturity (days remaining until due date)
+            $dueDate = \Carbon\Carbon::parse($ar->due_date);
+            $today = \Carbon\Carbon::today();
+            $ar->outstanding_days_to_maturity = max(0, $today->diffInDays($dueDate, false));
+            return $ar;
+        });
+
+        $pendingMaturityTotal = $pendingMaturityList->sum('balance');
+
+        // For Kashtre, calculate availableBalance manually
+        if ($user->business_id == 1) {
+            $totalBalance = $totalCredits - $totalDebits;
+            $availableBalance = $totalBalance - $withdrawalSuspenseBalance;
+        }
+
+        return view('business-balance-statement.index', compact(
+            'businessBalanceHistories', 
+            'businesses', 
+            'totalCredits', 
+            'totalDebits', 
+            'totalBalance', 
+            'withdrawalSuspenseBalance', 
+            'availableBalance', 
+            'pendingPaymentsTotal',
+            'pendingPaymentsList',
+            'pendingMaturityTotal',
+            'pendingMaturityList'
+        ))
             ->with('canUserCreateWithdrawal', function($user) {
                 return $this->canUserCreateWithdrawal($user);
             });

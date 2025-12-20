@@ -79,46 +79,13 @@ class WithdrawalRequestController extends Controller
 
         $business = $user->business;
         
-        // Calculate current account balance from BusinessBalanceHistory (source of truth)
-        // Only consider business_account records, not suspense accounts
-        $businessAccount = \App\Models\MoneyAccount::where('business_id', $business->id)
-            ->where('type', 'business_account')
-            ->first();
-        
-        $totalBalance = 0;
-        $withdrawalSuspenseBalance = 0;
-        
-        if ($businessAccount) {
-            $businessBalanceHistories = \App\Models\BusinessBalanceHistory::where('business_id', $business->id)
-                ->where('money_account_id', $businessAccount->id)
-                ->get();
-            
-            $totalCredits = $businessBalanceHistories->where('type', 'credit')->sum('amount');
-            $totalDebits = $businessBalanceHistories->where('type', 'debit')->sum('amount');
-            $totalBalance = $totalCredits - $totalDebits;
-        }
-
-        // Get withdrawal suspense account balance calculated from BusinessBalanceHistory
-        // Available Balance = Total Balance - (Credits in withdrawal suspense) + (Debits in withdrawal suspense)
+        // Use centralized method to calculate available balance (source of truth)
         $moneyTrackingService = new \App\Services\MoneyTrackingService();
-        $withdrawalSuspenseAccount = $moneyTrackingService->getOrCreateWithdrawalSuspenseAccount($business);
+        $balanceData = $moneyTrackingService->calculateBusinessAvailableBalance($business);
         
-        $withdrawalSuspenseBalance = 0;
-        if ($withdrawalSuspenseAccount) {
-            $suspenseCredits = \App\Models\BusinessBalanceHistory::where('money_account_id', $withdrawalSuspenseAccount->id)
-                ->where('type', 'credit')
-                ->sum('amount');
-            
-            $suspenseDebits = \App\Models\BusinessBalanceHistory::where('money_account_id', $withdrawalSuspenseAccount->id)
-                ->where('type', 'debit')
-                ->sum('amount');
-            
-            // Available Balance = Total - (Credits - Debits in suspense)
-            $withdrawalSuspenseBalance = $suspenseCredits - $suspenseDebits;
-        }
-
-        // Available Balance = Total Balance - Withdrawal Suspense Balance
-        $availableBalance = $totalBalance - $withdrawalSuspenseBalance;
+        $totalBalance = $balanceData['totalBalance'];
+        $withdrawalSuspenseBalance = $balanceData['withdrawalSuspenseBalance'];
+        $availableBalance = $balanceData['availableBalance'];
 
         return view('withdrawal-requests.create', compact('withdrawalSettings', 'withdrawalCharges', 'business', 'availableBalance', 'totalBalance', 'withdrawalSuspenseBalance'));
     }
@@ -180,36 +147,13 @@ class WithdrawalRequestController extends Controller
                 throw new \Exception('Business account not found. Please contact administrator.');
             }
 
-            // Calculate current balance from BusinessBalanceHistory
-            $businessBalanceHistories = BusinessBalanceHistory::where('business_id', $user->business_id)
-                ->where('money_account_id', $businessAccount->id)
-                ->get();
-            
-            $totalCredits = $businessBalanceHistories->where('type', 'credit')->sum('amount');
-            $totalDebits = $businessBalanceHistories->where('type', 'debit')->sum('amount');
-            $totalBalance = $totalCredits - $totalDebits;
-
-            // Get withdrawal suspense account balance calculated from BusinessBalanceHistory
-            // Available Balance = Total Balance - (Credits in withdrawal suspense) + (Debits in withdrawal suspense)
+            // Use centralized method to calculate available balance (source of truth)
             $moneyTrackingService = new MoneyTrackingService();
-            $withdrawalSuspenseAccount = $moneyTrackingService->getOrCreateWithdrawalSuspenseAccount($user->business);
+            $balanceData = $moneyTrackingService->calculateBusinessAvailableBalance($user->business);
             
-            $withdrawalSuspenseBalance = 0;
-            if ($withdrawalSuspenseAccount) {
-                $suspenseCredits = BusinessBalanceHistory::where('money_account_id', $withdrawalSuspenseAccount->id)
-                    ->where('type', 'credit')
-                    ->sum('amount');
-                
-                $suspenseDebits = BusinessBalanceHistory::where('money_account_id', $withdrawalSuspenseAccount->id)
-                    ->where('type', 'debit')
-                    ->sum('amount');
-                
-                // Available Balance = Total - (Credits - Debits in suspense)
-                $withdrawalSuspenseBalance = $suspenseCredits - $suspenseDebits;
-            }
-
-            // Available Balance = Total Balance - Withdrawal Suspense Balance
-            $availableBalance = $totalBalance - $withdrawalSuspenseBalance;
+            $totalBalance = $balanceData['totalBalance'];
+            $withdrawalSuspenseBalance = $balanceData['withdrawalSuspenseBalance'];
+            $availableBalance = $balanceData['availableBalance'];
 
             if ($availableBalance < $totalDeduction) {
                 throw new \Exception('Insufficient balance. Your available balance (' . number_format($availableBalance, 2) . ' UGX) is insufficient to cover the total deduction (' . number_format($totalDeduction, 2) . ' UGX). Please reduce the withdrawal amount.');

@@ -1793,6 +1793,73 @@ class MoneyTrackingService
     }
 
     /**
+     * Calculate business available balance from BusinessBalanceHistory (source of truth)
+     * This method ensures consistent calculation across all controllers
+     * 
+     * @param Business $business
+     * @return array Returns ['totalBalance', 'withdrawalSuspenseBalance', 'availableBalance', 'totalCredits', 'totalDebits']
+     */
+    public function calculateBusinessAvailableBalance(Business $business)
+    {
+        // Get business account
+        $businessAccount = MoneyAccount::where('business_id', $business->id)
+            ->where('type', 'business_account')
+            ->first();
+
+        $totalCredits = 0;
+        $totalDebits = 0;
+        $totalBalance = 0;
+
+        if ($businessAccount) {
+            // Calculate total credits - exclude pending payments (they haven't been paid yet)
+            $totalCredits = BusinessBalanceHistory::where('business_id', $business->id)
+                ->where('money_account_id', $businessAccount->id)
+                ->where('type', 'credit')
+                ->where(function($query) {
+                    $query->where('payment_status', 'paid')
+                        ->orWhereNull('payment_status'); // Include records without payment_status (legacy data)
+                })
+                ->sum('amount');
+
+            // Calculate total debits - include all debits
+            $totalDebits = BusinessBalanceHistory::where('business_id', $business->id)
+                ->where('money_account_id', $businessAccount->id)
+                ->where('type', 'debit')
+                ->sum('amount');
+
+            $totalBalance = $totalCredits - $totalDebits;
+        }
+
+        // Get withdrawal suspense account balance calculated from BusinessBalanceHistory
+        $withdrawalSuspenseAccount = $this->getOrCreateWithdrawalSuspenseAccount($business);
+        
+        $withdrawalSuspenseBalance = 0;
+        if ($withdrawalSuspenseAccount) {
+            $suspenseCredits = BusinessBalanceHistory::where('money_account_id', $withdrawalSuspenseAccount->id)
+                ->where('type', 'credit')
+                ->sum('amount');
+            
+            $suspenseDebits = BusinessBalanceHistory::where('money_account_id', $withdrawalSuspenseAccount->id)
+                ->where('type', 'debit')
+                ->sum('amount');
+            
+            // Available Balance = Total - (Credits - Debits in suspense)
+            $withdrawalSuspenseBalance = $suspenseCredits - $suspenseDebits;
+        }
+
+        // Available Balance = Total Balance - Withdrawal Suspense Balance
+        $availableBalance = $totalBalance - $withdrawalSuspenseBalance;
+
+        return [
+            'totalBalance' => $totalBalance,
+            'withdrawalSuspenseBalance' => $withdrawalSuspenseBalance,
+            'availableBalance' => $availableBalance,
+            'totalCredits' => $totalCredits,
+            'totalDebits' => $totalDebits,
+        ];
+    }
+
+    /**
      * Process money transfers when service delivery item moves to in-progress status
      */
     public function processServiceDeliveryMoneyTransfer($serviceDeliveryQueue, $user = null)
