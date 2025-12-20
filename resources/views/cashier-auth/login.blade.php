@@ -46,11 +46,11 @@
             <p class="text-sm text-gray-600 dark:text-gray-400">Not a cashier?</p>
             <div class="flex flex-col sm:flex-row gap-3 justify-center">
                 <a href="{{ route('login') }}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">
-                    👤 Staff Login
+                    Staff Login
                 </a>
                 <span class="hidden sm:inline text-gray-400">|</span>
                 <a href="{{ route('third-party-payer.login') }}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">
-                    🏢 Third-Party Payer Login
+                    Third-Party Payer Login
                 </a>
             </div>
         </div>
