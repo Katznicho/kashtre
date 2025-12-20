@@ -89,7 +89,7 @@ Route::redirect('/', 'login');
 // Third-party payer authentication routes (public)
 Route::prefix('third-party-payer')->name('third-party-payer.')->group(function () {
     Route::get('/login', [App\Http\Controllers\ThirdPartyPayerAuth\LoginController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [App\Http\Controllers\ThirdPartyPayerAuth\LoginController::class, 'login'])->name('login');
+    Route::post('/login', [App\Http\Controllers\ThirdPartyPayerAuth\LoginController::class, 'login']);
     Route::post('/logout', [App\Http\Controllers\ThirdPartyPayerAuth\LoginController::class, 'logout'])->name('logout');
 });
 
@@ -102,7 +102,7 @@ Route::middleware(['auth:third_party_payer'])->prefix('third-party-payer-dashboa
 // Cashier authentication routes (public)
 Route::prefix('cashier')->name('cashier.')->group(function () {
     Route::get('/login', [App\Http\Controllers\CashierAuth\LoginController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [App\Http\Controllers\CashierAuth\LoginController::class, 'login'])->name('login');
+    Route::post('/login', [App\Http\Controllers\CashierAuth\LoginController::class, 'login']);
     Route::post('/logout', [App\Http\Controllers\CashierAuth\LoginController::class, 'logout'])->name('logout');
 });
 
