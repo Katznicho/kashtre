@@ -21,6 +21,16 @@ class RequireTwoFactorForKashtre
             return $next($request);
         }
         
+        // Skip 2FA for third-party payer routes (they use a different guard)
+        if ($request->is('third-party-payer*') || $request->is('third-party-payer-dashboard*')) {
+            return $next($request);
+        }
+        
+        // Skip 2FA for cashier routes (they use a different guard)
+        if ($request->is('cashier*') || $request->is('cashier-dashboard*')) {
+            return $next($request);
+        }
+        
         // Only check for authenticated users
         if (!Auth::check()) {
             return $next($request);

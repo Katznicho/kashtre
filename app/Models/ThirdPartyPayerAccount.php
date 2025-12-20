@@ -32,8 +32,17 @@ class ThirdPartyPayerAccount extends Authenticatable
 
     protected $casts = [
         'last_login_at' => 'datetime',
-        'password' => 'hashed',
     ];
+
+    /**
+     * Mutator to hash password when setting
+     */
+    public function setPasswordAttribute($value)
+    {
+        if ($value) {
+            $this->attributes['password'] = Hash::make($value);
+        }
+    }
 
     // Relationships
     public function thirdPartyPayer()
@@ -49,16 +58,18 @@ class ThirdPartyPayerAccount extends Authenticatable
 
     /**
      * Get the name of the unique identifier for the user.
-     * This tells Laravel to use 'username' instead of 'email' for authentication lookups
+     * For session-based authentication, this should return the primary key name ('id')
+     * to allow the provider to retrieve users by ID from the session.
+     * We override retrieveByCredentials in the provider to use 'username' for login.
      */
     public function getAuthIdentifierName()
     {
-        return 'username';
+        return $this->getKeyName(); // Returns 'id' for session-based retrieval
     }
 
     /**
      * Get the unique identifier for the user.
-     * This must return the integer ID for session storage, even though we authenticate by username.
+     * This returns the integer ID for session storage.
      */
     public function getAuthIdentifier()
     {

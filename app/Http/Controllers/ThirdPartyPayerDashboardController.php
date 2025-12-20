@@ -19,9 +19,15 @@ class ThirdPartyPayerDashboardController extends Controller
      */
     public function index()
     {
+        \Log::info('Third-party payer dashboard access attempt', [
+            'auth_check' => Auth::guard('third_party_payer')->check() ? 'yes' : 'no',
+            'user_id' => Auth::guard('third_party_payer')->id(),
+        ]);
+        
         $account = Auth::guard('third_party_payer')->user();
         
         if (!$account) {
+            \Log::warning('Third-party payer dashboard access denied: No authenticated user');
             return redirect()->route('third-party-payer.login');
         }
 
