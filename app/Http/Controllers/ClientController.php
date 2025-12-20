@@ -7,6 +7,7 @@ use App\Models\Business;
 use App\Models\Branch;
 use App\Models\MaturationPeriod;
 use App\Models\ThirdPartyPayer;
+use App\Models\ThirdPartyPayerAccount;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -384,6 +385,11 @@ class ClientController extends Controller
             'payment_methods' => 'required|array|min:1',
             'payment_methods.*' => 'required|string|in:' . implode(',', $availablePaymentMethods),
             'payment_phone_number' => 'nullable|string|max:255',
+            // Third-party payer account fields (required only when registering as client_and_payer)
+            'account_username' => 'required_if:register_type,client_and_payer|nullable|string|max:255|unique:third_party_payer_accounts,username',
+            'account_password' => 'required_if:register_type,client_and_payer|nullable|string|min:6|confirmed',
+            'account_name' => 'nullable|string|max:255',
+            'account_email' => 'nullable|email|max:255',
         ]);
         
         // Generate client_id for company (using company name)
@@ -423,7 +429,7 @@ class ClientController extends Controller
         
         // Create the company as a third party payer if requested
         if ($validated['register_type'] === 'client_and_payer') {
-            ThirdPartyPayer::create([
+            $thirdPartyPayer = ThirdPartyPayer::create([
                 'business_id' => $business->id,
                 'type' => 'normal_client',
                 'client_id' => $client->id,
@@ -436,7 +442,19 @@ class ClientController extends Controller
                 'status' => 'active',
             ]);
             
-            $message = 'Company client registered successfully as a client and third party payer! Client ID: ' . $clientId;
+            // Create the login account for the third-party payer
+            if (!empty($validated['account_username']) && !empty($validated['account_password'])) {
+                ThirdPartyPayerAccount::create([
+                    'third_party_payer_id' => $thirdPartyPayer->id,
+                    'username' => $validated['account_username'],
+                    'password' => $validated['account_password'], // Will be hashed automatically
+                    'name' => $validated['account_name'] ?? $validated['company_name'],
+                    'email' => $validated['account_email'] ?? $validated['company_email'],
+                    'status' => 'active',
+                ]);
+            }
+            
+            $message = 'Company client registered successfully as a client and third party payer! Client ID: ' . $clientId . '. Login account created with username: ' . $validated['account_username'];
         }
         
         return redirect()->route('clients.show', $client)
@@ -518,7 +536,12 @@ class ClientController extends Controller
             abort(403, 'Unauthorized access to client.');
         }
         
-        return view('clients.show', compact('client', 'business'));
+        // Get items for this business (for exclusions management)
+        $items = \App\Models\Item::where('business_id', $business->id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'code', 'type']);
+        
+        return view('clients.show', compact('client', 'business', 'items'));
     }
 
     /**
@@ -708,6 +731,38 @@ class ClientController extends Controller
             'message' => 'Payment phone number updated successfully!',
             'payment_phone_number' => $client->payment_phone_number
         ]);
+    }
+
+    /**
+     * Update excluded items for a credit client.
+     */
+    public function updateExcludedItems(Request $request, Client $client)
+    {
+        $user = Auth::user();
+        $business = $user->business;
+        
+        // Check if user has access to this client
+        if ($user->business_id !== 1 && $client->business_id !== $business->id) {
+            abort(403, 'Unauthorized access to client.');
+        }
+
+        // Only allow for credit-eligible clients
+        if (!$client->is_credit_eligible) {
+            return redirect()->route('clients.show', $client)
+                ->with('error', 'Excluded items can only be set for credit-eligible clients.');
+        }
+
+        $validated = $request->validate([
+            'excluded_items' => 'nullable|array',
+            'excluded_items.*' => 'integer|exists:items,id',
+        ]);
+
+        $client->update([
+            'excluded_items' => $validated['excluded_items'] ?? [],
+        ]);
+
+        return redirect()->route('clients.show', $client)
+            ->with('success', 'Excluded items updated successfully.');
     }
 
     /**

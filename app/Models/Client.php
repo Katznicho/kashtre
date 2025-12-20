@@ -53,6 +53,7 @@ class Client extends Model
         'max_credit',
         'is_credit_eligible',
         'is_long_stay',
+        'excluded_items',
     ];
 
     protected $casts = [
@@ -62,6 +63,7 @@ class Client extends Model
         'max_credit' => 'decimal:2',
         'is_credit_eligible' => 'boolean',
         'is_long_stay' => 'boolean',
+        'excluded_items' => 'array',
     ];
 
     protected static function booted()

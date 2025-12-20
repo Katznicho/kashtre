@@ -68,6 +68,8 @@ class BusinessSettingsController extends Controller
             'credit_limit_approvers.*' => 'string',
             'credit_excluded_items' => 'nullable|array',
             'credit_excluded_items.*' => 'integer|exists:items,id',
+            'third_party_excluded_items' => 'nullable|array',
+            'third_party_excluded_items.*' => 'integer|exists:items,id',
         ]);
 
         $business->update([
@@ -81,6 +83,7 @@ class BusinessSettingsController extends Controller
             'discharge_remove_credit' => $request->has('discharge_remove_credit') ? (bool)$validated['discharge_remove_credit'] : false,
             'discharge_remove_long_stay' => $request->has('discharge_remove_long_stay') ? (bool)$validated['discharge_remove_long_stay'] : true,
             'credit_excluded_items' => $validated['credit_excluded_items'] ?? [],
+            'third_party_excluded_items' => $validated['third_party_excluded_items'] ?? [],
         ]);
 
         // Handle credit limit approval approvers

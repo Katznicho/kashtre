@@ -40,6 +40,10 @@ trait AccessTrait
         "Sales" => ['View Sales', 'Edit Sales', 'Add Sales'],
     ];
 
+    public static $cashier = [
+        "Cashier" => ['Cashier'],
+    ];
+
     public static $clients = [
         "Clients" => ['View Clients', 'Edit Clients', 'Add Clients'],
     ];
@@ -165,6 +169,7 @@ trait AccessTrait
                 static::$logs,
                 static::$contractor,
                 static::$sales,
+                static::$cashier,
                 static::$clients,
                 static::$visits,
                 static::$queues,
@@ -197,6 +202,7 @@ trait AccessTrait
         "Logs" => self::$logs,
         "Contractor" => self::$contractor,
         "Sales" => self::$sales,
+        "Cashier" => self::$cashier,
         "Clients" => self::$clients,
         "Visits" => self::$visits,
         "Queues" => self::$queues,

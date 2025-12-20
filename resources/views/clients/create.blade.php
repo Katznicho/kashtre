@@ -641,6 +641,88 @@
                             </div>
                         </div>
 
+                        <!-- Third Party Payer Login Account Section -->
+                        <div id="third_party_payer_account_section" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" style="display: none;">
+                            <div class="px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600">
+                                <h2 class="text-lg font-semibold text-white flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                    </svg>
+                                    Login Account (Required for Third Party Payer)
+                                </h2>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                    <div class="flex">
+                                        <svg class="w-5 h-5 text-blue-400 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        <div>
+                                            <h3 class="text-sm font-medium text-blue-800">Login Credentials</h3>
+                                            <p class="mt-1 text-sm text-blue-700">
+                                                When you register as "Client and Third Party Payer", a login account will be created automatically. 
+                                                These credentials will be used to access the third-party payer dashboard. 
+                                                <strong>Login link:</strong> <code class="bg-blue-100 px-2 py-1 rounded">/third-party-payer/login</code>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label for="account_username" class="block text-sm font-medium text-gray-700 mb-2">
+                                            Username <span id="username_required" class="text-red-500 hidden">*</span>
+                                        </label>
+                                        <input type="text" name="account_username" id="account_username" value="{{ old('account_username') }}" 
+                                               placeholder="Enter username for login"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                        <p class="text-xs text-gray-500 mt-1">Required when registering as Third Party Payer</p>
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="account_name" class="block text-sm font-medium text-gray-700 mb-2">
+                                            Account Name
+                                        </label>
+                                        <input type="text" name="account_name" id="account_name" value="{{ old('account_name') }}" 
+                                               placeholder="Enter account holder name (optional)"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                        <p class="text-xs text-gray-500 mt-1">Optional: Name to display in the dashboard</p>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label for="account_password" class="block text-sm font-medium text-gray-700 mb-2">
+                                            Password <span id="password_required" class="text-red-500 hidden">*</span>
+                                        </label>
+                                        <input type="password" name="account_password" id="account_password" value="{{ old('account_password') }}" 
+                                               placeholder="Enter password (min 6 characters)"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                        <p class="text-xs text-gray-500 mt-1">Required when registering as Third Party Payer (min 6 characters)</p>
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="account_password_confirmation" class="block text-sm font-medium text-gray-700 mb-2">
+                                            Confirm Password <span id="password_confirmation_required" class="text-red-500 hidden">*</span>
+                                        </label>
+                                        <input type="password" name="account_password_confirmation" id="account_password_confirmation" value="{{ old('account_password_confirmation') }}" 
+                                               placeholder="Confirm password"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label for="account_email" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Account Email
+                                    </label>
+                                    <input type="email" name="account_email" id="account_email" value="{{ old('account_email') }}" 
+                                           placeholder="Enter email for notifications (optional)"
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                    <p class="text-xs text-gray-500 mt-1">Optional: Email for notifications</p>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Form Actions -->
                         <div class="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-6">
                             <a href="{{ route('clients.index') }}" class="inline-flex justify-center items-center px-6 py-3 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 transition-colors font-medium">
@@ -1134,6 +1216,126 @@
             activeTab.classList.add('active', 'border-blue-500', 'text-blue-600');
             activeTab.classList.remove('border-transparent', 'text-gray-500');
         }
+
+        // Third-party payer account section - show/hide and make required/optional based on registration type
+        document.addEventListener('DOMContentLoaded', function() {
+            const accountSection = document.getElementById('third_party_payer_account_section');
+            const accountUsername = document.getElementById('account_username');
+            const accountPassword = document.getElementById('account_password');
+            const accountPasswordConfirmation = document.getElementById('account_password_confirmation');
+            const clientOnlyBtn = document.querySelector('button[name="register_type"][value="client_only"]');
+            const clientAndPayerBtn = document.querySelector('button[name="register_type"][value="client_and_payer"]');
+
+            // Hide section and make fields optional (for client_only)
+            function hideAccountSection() {
+                if (accountSection) {
+                    accountSection.style.display = 'none';
+                }
+                if (accountUsername) {
+                    accountUsername.removeAttribute('required');
+                    accountUsername.classList.remove('border-red-300');
+                }
+                if (accountPassword) {
+                    accountPassword.removeAttribute('required');
+                    accountPassword.classList.remove('border-red-300');
+                }
+                if (accountPasswordConfirmation) {
+                    accountPasswordConfirmation.removeAttribute('required');
+                    accountPasswordConfirmation.classList.remove('border-red-300');
+                }
+                // Hide required asterisks
+                document.getElementById('username_required')?.classList.add('hidden');
+                document.getElementById('password_required')?.classList.add('hidden');
+                document.getElementById('password_confirmation_required')?.classList.add('hidden');
+            }
+
+            // Show section and make fields required (for client_and_payer)
+            function showAccountSection() {
+                if (accountSection) {
+                    accountSection.style.display = 'block';
+                    // Scroll to section smoothly
+                    setTimeout(() => {
+                        accountSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 100);
+                }
+                if (accountUsername) {
+                    accountUsername.setAttribute('required', 'required');
+                }
+                if (accountPassword) {
+                    accountPassword.setAttribute('required', 'required');
+                }
+                if (accountPasswordConfirmation) {
+                    accountPasswordConfirmation.setAttribute('required', 'required');
+                }
+                // Show required asterisks
+                document.getElementById('username_required')?.classList.remove('hidden');
+                document.getElementById('password_required')?.classList.remove('hidden');
+                document.getElementById('password_confirmation_required')?.classList.remove('hidden');
+            }
+
+            // When clicking "Register as Client Only", hide account section and clear fields
+            if (clientOnlyBtn) {
+                clientOnlyBtn.addEventListener('click', function() {
+                    hideAccountSection();
+                    // Clear account fields
+                    if (accountUsername) accountUsername.value = '';
+                    if (accountPassword) accountPassword.value = '';
+                    if (accountPasswordConfirmation) accountPasswordConfirmation.value = '';
+                    if (document.getElementById('account_name')) document.getElementById('account_name').value = '';
+                    if (document.getElementById('account_email')) document.getElementById('account_email').value = '';
+                });
+            }
+
+            // When clicking "Register as Client and Third Party Payer", show account section and make fields required
+            if (clientAndPayerBtn) {
+                clientAndPayerBtn.addEventListener('click', function() {
+                    showAccountSection();
+                });
+            }
+
+            // Validate password match before submit
+            const companyForm = document.getElementById('client-registration-form-company');
+            if (companyForm) {
+                companyForm.addEventListener('submit', function(e) {
+                    const clickedButton = document.activeElement;
+                    const registerType = clickedButton?.getAttribute('name') === 'register_type' ? clickedButton.value : null;
+                    
+                    if (registerType === 'client_and_payer') {
+                        // Ensure section is visible
+                        showAccountSection();
+                        
+                        // Validate fields
+                        if (accountPassword && accountPasswordConfirmation) {
+                            if (accountPassword.value !== accountPasswordConfirmation.value) {
+                                e.preventDefault();
+                                alert('Passwords do not match!');
+                                accountPasswordConfirmation.focus();
+                                return false;
+                            }
+                            
+                            if (accountPassword.value.length < 6) {
+                                e.preventDefault();
+                                alert('Password must be at least 6 characters long!');
+                                accountPassword.focus();
+                                return false;
+                            }
+                        }
+                        
+                        if (!accountUsername || !accountUsername.value.trim()) {
+                            e.preventDefault();
+                            alert('Username is required for third-party payer accounts!');
+                            accountUsername.focus();
+                            return false;
+                        }
+                    } else if (registerType === 'client_only') {
+                        // Clear account fields if registering as client only
+                        if (accountUsername) accountUsername.value = '';
+                        if (accountPassword) accountPassword.value = '';
+                        if (accountPasswordConfirmation) accountPasswordConfirmation.value = '';
+                    }
+                });
+            }
+        });
 
     </script>
 </x-app-layout>

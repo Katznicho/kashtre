@@ -337,12 +337,73 @@ class InvoiceController extends Controller
             
             // Get client
             $client = Client::find($validated['client_id']);
+            
+            // Get business
+            $business = \App\Models\Business::find($validated['business_id']);
 
-            // Check credit limit for credit-eligible clients
-            if ($client->is_credit_eligible) {
-                // Check for excluded items from credit
-                $business = \App\Models\Business::find($validated['business_id']);
-                $excludedItems = $business->credit_excluded_items ?? [];
+            // Check for third-party payer exclusions (when payment method is insurance)
+            $paymentMethods = $validated['payment_methods'] ?? [];
+            $isThirdPartyPayer = in_array('insurance', $paymentMethods);
+            
+            if ($isThirdPartyPayer) {
+                // Get business-level exclusions
+                $businessExcludedItems = $business->third_party_excluded_items ?? [];
+                
+                // Get individual third-party payer exclusions if client has one
+                $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('client_id', $client->id)
+                    ->where('business_id', $business->id)
+                    ->where('status', 'active')
+                    ->first();
+                
+                $payerExcludedItems = $thirdPartyPayer ? ($thirdPartyPayer->excluded_items ?? []) : [];
+                
+                // Merge business and individual exclusions
+                $excludedItems = array_unique(array_merge($businessExcludedItems, $payerExcludedItems));
+                
+                if (!empty($excludedItems)) {
+                    $itemsArray = $validated['items'];
+                    $excludedItemIds = [];
+                    
+                    foreach ($itemsArray as $item) {
+                        $itemId = $item['id'] ?? $item['item_id'] ?? null;
+                        if ($itemId && in_array($itemId, $excludedItems)) {
+                            $excludedItemIds[] = $itemId;
+                        }
+                    }
+                    
+                    if (!empty($excludedItemIds)) {
+                        $excludedItemNames = \App\Models\Item::whereIn('id', $excludedItemIds)
+                            ->pluck('name')
+                            ->toArray();
+                        
+                        return response()->json([
+                            'success' => false,
+                            'message' => "The following items are excluded from third-party payer terms: " . implode(', ', $excludedItemNames) . ". Please remove these items or use a different payment method.",
+                            'errors' => [
+                                'excluded_items' => [
+                                    "The following items cannot be offered to third-party payers: " . implode(', ', $excludedItemNames) . ". Please remove these items from the invoice or use a different payment method."
+                                ]
+                            ],
+                            'excluded_items' => $excludedItemNames,
+                            'excluded_item_ids' => $excludedItemIds,
+                        ], 422);
+                    }
+                }
+            }
+
+            // Check for credit client exclusions (when client is credit-eligible and using credit)
+            $isCreditClient = $client->is_credit_eligible;
+            $isUsingCredit = $validated['balance_due'] > 0;
+            
+            if ($isCreditClient && $isUsingCredit) {
+                // Get business-level exclusions
+                $businessExcludedItems = $business->credit_excluded_items ?? [];
+                
+                // Get individual client exclusions
+                $clientExcludedItems = $client->excluded_items ?? [];
+                
+                // Merge business and individual exclusions
+                $excludedItems = array_unique(array_merge($businessExcludedItems, $clientExcludedItems));
                 
                 if (!empty($excludedItems)) {
                     $itemsArray = $validated['items'];
@@ -373,6 +434,10 @@ class InvoiceController extends Controller
                         ], 422);
                     }
                 }
+            }
+
+            // Check credit limit for credit-eligible clients
+            if ($client->is_credit_eligible) {
                 
                 // Calculate current outstanding balance from accounts receivable
                 $currentOutstanding = \App\Models\AccountsReceivable::where('client_id', $client->id)
@@ -1071,10 +1136,229 @@ class InvoiceController extends Controller
                 }
             }
             
+            // For insurance payments: Create accounts receivable and update third-party payer balance
+            // Similar to credit clients, but debit the insurance company instead of the client
+            $paymentMethods = $validated['payment_methods'] ?? [];
+            $isInsurancePayment = in_array('insurance', $paymentMethods);
+            $thirdPartyPayer = null;
+            $isInsuranceTransaction = false;
+            
+            if ($isInsurancePayment) {
+                // Find the third-party payer linked to this client
+                $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('client_id', $client->id)
+                    ->where('business_id', $business->id)
+                    ->where('type', 'insurance_company')
+                    ->where('status', 'active')
+                    ->first();
+                
+                if ($thirdPartyPayer) {
+                    $isInsuranceTransaction = true;
+                    
+                    Log::info("=== INSURANCE TRANSACTION DETECTED - STARTING PROCESSING ===", [
+                        'invoice_id' => $invoice->id,
+                        'invoice_number' => $invoice->invoice_number,
+                        'client_id' => $client->id,
+                        'client_name' => $client->name,
+                        'third_party_payer_id' => $thirdPartyPayer->id,
+                        'third_party_payer_name' => $thirdPartyPayer->name,
+                    ]);
+                    
+                    // For insurance payments, payment_status should be 'pending_payment' if there's balance due
+                    if ($invoice->payment_status !== 'pending_payment' && $invoice->balance_due > 0) {
+                        $oldPaymentStatus = $invoice->payment_status;
+                        $invoice->update(['payment_status' => 'pending_payment']);
+                        $invoice->refresh();
+                        Log::info("=== INSURANCE INVOICE PAYMENT STATUS UPDATED ===", [
+                            'invoice_id' => $invoice->id,
+                            'old_payment_status' => $oldPaymentStatus,
+                            'new_payment_status' => $invoice->payment_status,
+                        ]);
+                    }
+                    
+                    // Create accounts receivable entry for third-party payer
+                    try {
+                        $dueDate = now()->addDays($business->default_payment_terms_days ?? 30)->toDateString();
+                        $arStatus = 'current';
+                        $arAmountPaid = 0;
+                        $arBalance = $invoice->total_amount;
+                        
+                        $accountsReceivable = \App\Models\AccountsReceivable::create([
+                            'client_id' => $client->id, // Client who received the service
+                            'third_party_payer_id' => $thirdPartyPayer->id, // Who will pay
+                            'business_id' => $business->id,
+                            'branch_id' => $validated['branch_id'],
+                            'invoice_id' => $invoice->id,
+                            'created_by' => $validated['created_by'],
+                            'amount_due' => $invoice->total_amount,
+                            'amount_paid' => $arAmountPaid,
+                            'balance' => $arBalance,
+                            'invoice_date' => now()->toDateString(),
+                            'due_date' => $dueDate,
+                            'status' => $arStatus,
+                            'payer_type' => 'third_party',
+                            'notes' => "Insurance transaction - Invoice #{$invoiceNumber}",
+                        ]);
+                        
+                        Log::info("=== INSURANCE ACCOUNTS RECEIVABLE CREATED ===", [
+                            'accounts_receivable_id' => $accountsReceivable->id,
+                            'third_party_payer_id' => $thirdPartyPayer->id,
+                            'amount_due' => $accountsReceivable->amount_due,
+                            'balance' => $accountsReceivable->balance,
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error("=== ERROR CREATING INSURANCE ACCOUNTS RECEIVABLE ===", [
+                            'invoice_id' => $invoice->id,
+                            'third_party_payer_id' => $thirdPartyPayer->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                    
+                    // Update third-party payer balance (debit - they owe money)
+                    $previousPayerBalance = $thirdPartyPayer->current_balance ?? 0;
+                    $amountToDebit = $invoice->balance_due > 0 ? $invoice->balance_due : $invoice->total_amount;
+                    $newPayerBalance = $previousPayerBalance - $amountToDebit;
+                    
+                    $thirdPartyPayer->update(['current_balance' => $newPayerBalance]);
+                    $thirdPartyPayer->refresh();
+                    
+                    Log::info("=== INSURANCE PAYER BALANCE UPDATED ===", [
+                        'third_party_payer_id' => $thirdPartyPayer->id,
+                        'previous_balance' => $previousPayerBalance,
+                        'amount_debited' => $amountToDebit,
+                        'new_balance' => $newPayerBalance,
+                    ]);
+                    
+                    // Create separate debit entry for each item
+                    $itemsCollection = collect($invoice->items ?? []);
+                    $debitCount = 0;
+                    $primaryMethod = 'insurance';
+                    
+                    foreach ($itemsCollection as $index => $itemData) {
+                        $itemId = $itemData['id'] ?? $itemData['item_id'] ?? null;
+                        if (!$itemId) {
+                            continue;
+                        }
+                        
+                        $item = \App\Models\Item::find($itemId);
+                        if (!$item) {
+                            continue;
+                        }
+                        
+                        $quantity = $itemData['quantity'] ?? 1;
+                        $itemTotalAmount = $itemData['total_amount'] ?? ($itemData['price'] ?? $item->default_price ?? 0) * $quantity;
+                        
+                        if ($itemTotalAmount <= 0) {
+                            continue;
+                        }
+                        
+                        // Skip package adjustment items
+                        $isPackageAdjustmentItem = false;
+                        if ($invoice->package_adjustment > 0) {
+                            $validPackages = \App\Models\PackageTracking::where('client_id', $client->id)
+                                ->where('business_id', $business->id)
+                                ->where('status', 'active')
+                                ->where('remaining_quantity', '>', 0)
+                                ->get();
+                            
+                            foreach ($validPackages as $packageTracking) {
+                                $packageItems = $packageTracking->packageItem->packageItems ?? collect();
+                                foreach ($packageItems as $packageItem) {
+                                    if ($packageItem->included_item_id == $itemId) {
+                                        $isPackageAdjustmentItem = true;
+                                        break 2;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if ($isPackageAdjustmentItem) {
+                            continue;
+                        }
+                        
+                        // Create debit entry for third-party payer
+                        $itemDisplayName = $item->name;
+                        $debitDescription = "{$itemDisplayName} (x{$quantity})";
+                        $debitNotes = "Insurance purchase - {$itemDisplayName} (x{$quantity}) - Invoice #{$invoiceNumber}";
+                        
+                        try {
+                            $payerBalanceHistory = \App\Models\ThirdPartyPayerBalanceHistory::recordDebit(
+                                $thirdPartyPayer,
+                                $itemTotalAmount,
+                                $debitDescription,
+                                $invoiceNumber,
+                                $debitNotes,
+                                $primaryMethod,
+                                $invoice->id,
+                                $client->id
+                            );
+                            
+                            $debitCount++;
+                            
+                            Log::info("Insurance debit entry created for item", [
+                                'invoice_id' => $invoice->id,
+                                'third_party_payer_id' => $thirdPartyPayer->id,
+                                'item_id' => $itemId,
+                                'amount' => $itemTotalAmount,
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::error("Error creating insurance debit entry for item", [
+                                'invoice_id' => $invoice->id,
+                                'third_party_payer_id' => $thirdPartyPayer->id,
+                                'item_id' => $itemId,
+                                'error' => $e->getMessage(),
+                            ]);
+                            throw $e;
+                        }
+                    }
+                    
+                    // Create debit entry for service charge if applicable
+                    if ($invoice->service_charge > 0) {
+                        try {
+                            $serviceChargeBalanceHistory = \App\Models\ThirdPartyPayerBalanceHistory::recordDebit(
+                                $thirdPartyPayer,
+                                $invoice->service_charge,
+                                "Service Fee",
+                                $invoiceNumber,
+                                "Insurance purchase - Service Fee - Invoice #{$invoiceNumber}",
+                                $primaryMethod,
+                                $invoice->id,
+                                $client->id
+                            );
+                            
+                            $debitCount++;
+                            
+                            Log::info("Insurance service charge debit entry created", [
+                                'invoice_id' => $invoice->id,
+                                'third_party_payer_id' => $thirdPartyPayer->id,
+                                'service_charge' => $invoice->service_charge,
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::error("Error creating insurance service charge debit entry", [
+                                'invoice_id' => $invoice->id,
+                                'third_party_payer_id' => $thirdPartyPayer->id,
+                                'error' => $e->getMessage(),
+                            ]);
+                            throw $e;
+                        }
+                    }
+                    
+                    Log::info("=== INSURANCE TRANSACTION COMPLETE ===", [
+                        'invoice_id' => $invoice->id,
+                        'third_party_payer_id' => $thirdPartyPayer->id,
+                        'total_debit_entries_created' => $debitCount,
+                    ]);
+                } else {
+                    Log::warning("Insurance payment selected but no active third-party payer found for client", [
+                        'invoice_id' => $invoice->id,
+                        'client_id' => $client->id,
+                    ]);
+                }
+            }
+            
             // MONEY TRACKING: Step 1 - Process payment received
-            // For credit clients with balance due, skip suspense account processing
+            // For credit clients and insurance payments with balance due, skip suspense account processing
             // For non-credit clients or fully paid invoices, process normally
-            if ($validated['amount_paid'] > 0 && !$isCreditTransaction) {
+            if ($validated['amount_paid'] > 0 && !$isCreditTransaction && !$isInsuranceTransaction) {
                 $paymentMethods = $validated['payment_methods'] ?? [];
                 $primaryMethod = !empty($paymentMethods) ? $paymentMethods[0] : 'cash';
                 

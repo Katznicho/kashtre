@@ -64,6 +64,7 @@ use App\Http\Controllers\RefundController;
 use App\Http\Controllers\ServicePointSupervisorController;
 use App\Http\Controllers\AccountsReceivableController;
 use App\Http\Controllers\CreditLimitChangeRequestController;
+use App\Http\Controllers\ThirdPartyPayerDashboardController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
@@ -84,6 +85,31 @@ use Illuminate\Http\Request;
 */
 
 Route::redirect('/', 'login');
+
+// Third-party payer authentication routes (public)
+Route::prefix('third-party-payer')->name('third-party-payer.')->group(function () {
+    Route::get('/login', [App\Http\Controllers\ThirdPartyPayerAuth\LoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [App\Http\Controllers\ThirdPartyPayerAuth\LoginController::class, 'login'])->name('login');
+    Route::post('/logout', [App\Http\Controllers\ThirdPartyPayerAuth\LoginController::class, 'logout'])->name('logout');
+});
+
+// Third-party payer dashboard routes (protected)
+Route::middleware(['auth:third_party_payer'])->prefix('third-party-payer-dashboard')->name('third-party-payer-dashboard.')->group(function () {
+    Route::get('/', [ThirdPartyPayerDashboardController::class, 'index'])->name('index');
+    Route::get('/balance-statement', [ThirdPartyPayerDashboardController::class, 'balanceStatement'])->name('balance-statement');
+});
+
+// Cashier authentication routes (public)
+Route::prefix('cashier')->name('cashier.')->group(function () {
+    Route::get('/login', [App\Http\Controllers\CashierAuth\LoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [App\Http\Controllers\CashierAuth\LoginController::class, 'login'])->name('login');
+    Route::post('/logout', [App\Http\Controllers\CashierAuth\LoginController::class, 'logout'])->name('logout');
+});
+
+// Cashier dashboard routes (protected)
+Route::middleware(['auth', 'cashier'])->prefix('cashier-dashboard')->name('cashier-dashboard.')->group(function () {
+    Route::get('/', [App\Http\Controllers\CashierDashboardController::class, 'index'])->name('index');
+});
 
 // Route::get("makePayment",[PaymentController::class,"makePayment"])->name("makePayment");    
 
@@ -235,6 +261,7 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     
     // Third Party Payers
     Route::resource("third-party-payers", ThirdPartyPayerController::class);
+    Route::post('/third-party-payers/{thirdPartyPayer}/update-excluded-items', [ThirdPartyPayerController::class, 'updateExcludedItems'])->name('third-party-payers.update-excluded-items');
     
     // Testing routes (Admin only) - Rate limited to prevent abuse
     Route::post('/testing/clear-data', [TestingController::class, 'clearData'])
@@ -247,6 +274,7 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::resource("clients", ClientController::class);
     Route::post('/clients/{client}/update-payment-methods', [ClientController::class, 'updatePaymentMethods'])->name('clients.update-payment-methods');
     Route::post('/clients/{client}/update-payment-phone', [ClientController::class, 'updatePaymentPhone'])->name('clients.update-payment-phone');
+    Route::post('/clients/{client}/update-excluded-items', [ClientController::class, 'updateExcludedItems'])->name('clients.update-excluded-items');
     Route::post('/clients/{client}/admit', [ClientController::class, 'admit'])->name('clients.admit');
     Route::post('/clients/{client}/discharge', [ClientController::class, 'discharge'])->name('clients.discharge');
     

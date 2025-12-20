@@ -17,6 +17,7 @@ class AccountsReceivable extends Model
     protected $fillable = [
         'uuid',
         'client_id',
+        'third_party_payer_id',
         'business_id',
         'branch_id',
         'invoice_id',
@@ -75,6 +76,11 @@ class AccountsReceivable extends Model
     public function client()
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function thirdPartyPayer()
+    {
+        return $this->belongsTo(ThirdPartyPayer::class);
     }
 
     public function business()

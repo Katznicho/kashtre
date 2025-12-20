@@ -98,7 +98,12 @@ class TransactionController extends Controller
         // Filter out excluded items for credit clients BEFORE calculating branch prices
         if ($client->is_credit_eligible) {
             $business = $client->business;
-            $excludedItems = $business->credit_excluded_items ?? [];
+            // Get business-level exclusions
+            $businessExcludedItems = $business->credit_excluded_items ?? [];
+            // Get individual client exclusions
+            $clientExcludedItems = $client->excluded_items ?? [];
+            // Merge business and individual exclusions
+            $excludedItems = array_unique(array_merge($businessExcludedItems, $clientExcludedItems));
             
             if (!empty($excludedItems)) {
                 $items = $items->reject(function ($item) use ($excludedItems) {
@@ -108,7 +113,43 @@ class TransactionController extends Controller
                 \Illuminate\Support\Facades\Log::info("=== FILTERED EXCLUDED ITEMS FOR CREDIT CLIENT ===", [
                     'client_id' => $client->id,
                     'client_name' => $client->name,
-                    'excluded_item_ids' => $excludedItems,
+                    'business_excluded_items' => $businessExcludedItems,
+                    'client_excluded_items' => $clientExcludedItems,
+                    'merged_excluded_item_ids' => $excludedItems,
+                    'items_after_filter' => $items->count(),
+                    'excluded_count' => count($excludedItems)
+                ]);
+            }
+        }
+        
+        // Filter out excluded items for third-party payers BEFORE calculating branch prices
+        // Check if client has an associated third-party payer
+        $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('client_id', $client->id)
+            ->where('business_id', $user->business_id)
+            ->where('status', 'active')
+            ->first();
+        
+        if ($thirdPartyPayer) {
+            $business = $client->business;
+            // Get business-level exclusions
+            $businessExcludedItems = $business->third_party_excluded_items ?? [];
+            // Get individual payer exclusions
+            $payerExcludedItems = $thirdPartyPayer->excluded_items ?? [];
+            // Merge business and individual exclusions
+            $excludedItems = array_unique(array_merge($businessExcludedItems, $payerExcludedItems));
+            
+            if (!empty($excludedItems)) {
+                $items = $items->reject(function ($item) use ($excludedItems) {
+                    return in_array($item->id, $excludedItems);
+                });
+                
+                \Illuminate\Support\Facades\Log::info("=== FILTERED EXCLUDED ITEMS FOR THIRD-PARTY PAYER CLIENT ===", [
+                    'client_id' => $client->id,
+                    'client_name' => $client->name,
+                    'third_party_payer_id' => $thirdPartyPayer->id,
+                    'business_excluded_items' => $businessExcludedItems,
+                    'payer_excluded_items' => $payerExcludedItems,
+                    'merged_excluded_item_ids' => $excludedItems,
                     'items_after_filter' => $items->count(),
                     'excluded_count' => count($excludedItems)
                 ]);

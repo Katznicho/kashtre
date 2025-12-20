@@ -389,6 +389,71 @@
                         @endif
                     </div>
 
+                    <!-- Credit Service Exclusions (for credit-eligible clients only) -->
+                    @if($client->is_credit_eligible)
+                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-8">
+                        <div class="p-6">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">Credit Service Exclusions</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                Select items that should be excluded from credit terms for this specific client. These exclusions will be applied in addition to any business-level exclusions.
+                            </p>
+                            
+                            <form action="{{ route('clients.update-excluded-items', $client) }}" method="POST">
+                                @csrf
+                                @method('POST')
+                                
+                                <div class="mb-4">
+                                    <label for="excluded_items_client" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Excluded Items
+                                    </label>
+                                    
+                                    <!-- Quick Filter Buttons -->
+                                    <div class="mb-3 flex flex-wrap gap-2">
+                                        <button type="button" class="filter-btn-client px-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 active" data-filter="all">
+                                            All Items
+                                        </button>
+                                        <button type="button" class="filter-btn-client px-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600" data-filter="service">
+                                            Services
+                                        </button>
+                                        <button type="button" class="filter-btn-client px-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600" data-filter="good">
+                                            Goods
+                                        </button>
+                                        <button type="button" class="filter-btn-client px-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600" data-filter="package">
+                                            Packages
+                                        </button>
+                                        <button type="button" class="filter-btn-client px-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600" data-filter="bulk">
+                                            Bulk Items
+                                        </button>
+                                    </div>
+                                    
+                                    <select 
+                                        name="excluded_items[]" 
+                                        id="excluded_items_client" 
+                                        multiple
+                                        class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                        @foreach($items as $item)
+                                            <option 
+                                                value="{{ $item->id }}"
+                                                data-type="{{ $item->type }}"
+                                                {{ in_array($item->id, old('excluded_items', $client->excluded_items ?? [])) ? 'selected' : '' }}
+                                            >
+                                                {{ $item->name }}@if($item->code) ({{ $item->code }})@endif
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                
+                                <div class="flex justify-end">
+                                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                                        Update Exclusions
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    @endif
+
                     <!-- Action Buttons -->
                     <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
                         <a href="{{ route('clients.edit', $client) }}" 
@@ -462,4 +527,67 @@
         }
 
     </script>
+
+    <!-- Select2 CSS for client exclusions -->
+    @if($client->is_credit_eligible)
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+    
+    <style>
+        .filter-btn-client.active {
+            background-color: #2563eb !important;
+            color: white !important;
+            border-color: #2563eb !important;
+        }
+        .filter-btn-client.active:hover {
+            background-color: #1d4ed8 !important;
+        }
+    </style>
+    
+    <!-- Select2 JS for client exclusions -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            const $select = $('#excluded_items_client');
+            
+            $select.select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select items to exclude from credit terms',
+                allowClear: true,
+                width: '100%'
+            });
+            
+            // Quick filter functionality
+            $('.filter-btn-client').on('click', function() {
+                const filter = $(this).data('filter');
+                
+                // Update active button
+                $('.filter-btn-client').removeClass('active bg-blue-600 text-white').addClass('bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300');
+                $(this).removeClass('bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300').addClass('active bg-blue-600 text-white');
+                
+                // Filter options
+                if (filter === 'all') {
+                    $select.find('option').prop('disabled', false);
+                } else {
+                    $select.find('option').each(function() {
+                        const $option = $(this);
+                        if ($option.data('type') === filter) {
+                            $option.prop('disabled', false);
+                        } else {
+                            $option.prop('disabled', true);
+                        }
+                    });
+                }
+                
+                // Update Select2 to reflect changes
+                $select.trigger('change.select2');
+                
+                // Open Select2 dropdown to show filtered results
+                $select.select2('open');
+            });
+        });
+    </script>
+    @endif
 </x-app-layout>

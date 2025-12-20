@@ -35,7 +35,8 @@ class Business extends Model
         'admit_enable_long_stay',
         'discharge_remove_credit',
         'discharge_remove_long_stay',
-        'credit_excluded_items'
+        'credit_excluded_items',
+        'third_party_excluded_items'
     ];
 
     protected $casts = [
@@ -48,6 +49,7 @@ class Business extends Model
         'discharge_remove_credit' => 'boolean',
         'discharge_remove_long_stay' => 'boolean',
         'credit_excluded_items' => 'array',
+        'third_party_excluded_items' => 'array',
     ];
 
     // a businness has many users

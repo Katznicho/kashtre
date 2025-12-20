@@ -3,6 +3,7 @@
 namespace App\Livewire\ThirdPartyPayers;
 
 use App\Models\ThirdPartyPayer;
+use App\Models\ThirdPartyPayerAccount;
 use App\Models\Business;
 use App\Models\InsuranceCompany;
 use App\Models\Client;
@@ -266,6 +267,49 @@ class ListThirdPartyPayers extends Component implements HasForms, HasTable
                             ->placeholder('Enter any additional notes')
                             ->rows(3)
                             ->nullable(),
+
+                        Forms\Components\Section::make('Login Account')
+                            ->description(fn($record) => $record->accounts()->exists() ? 'Update login account details' : 'Create a login account for this third-party payer')
+                            ->schema([
+                                TextInput::make('account_username')
+                                    ->label('Username')
+                                    ->placeholder('Enter username for login')
+                                    ->default(fn($record) => $record?->accounts()->first()?->username)
+                                    ->required(fn($record) => !$record?->accounts()->exists())
+                                    ->unique('third_party_payer_accounts', 'username', ignoreRecord: fn($record) => $record?->accounts()->first()?->id)
+                                    ->helperText('This will be used to log in to the dashboard')
+                                    ->maxLength(255),
+
+                                TextInput::make('account_password')
+                                    ->label('Password')
+                                    ->password()
+                                    ->required(fn($record) => !$record?->accounts()->exists())
+                                    ->minLength(6)
+                                    ->helperText('Leave blank to keep current password. Minimum 6 characters if changing.')
+                                    ->dehydrated(),
+
+                                TextInput::make('account_password_confirmation')
+                                    ->label('Confirm Password')
+                                    ->password()
+                                    ->required(fn($get) => !empty($get('account_password')))
+                                    ->same('account_password')
+                                    ->dehydrated(false),
+
+                                TextInput::make('account_name')
+                                    ->label('Account Name')
+                                    ->placeholder('Enter account holder name')
+                                    ->default(fn($record) => $record?->accounts()->first()?->name)
+                                    ->nullable()
+                                    ->helperText('Optional: Name to display in the dashboard'),
+
+                                TextInput::make('account_email')
+                                    ->label('Account Email')
+                                    ->email()
+                                    ->default(fn($record) => $record?->accounts()->first()?->email)
+                                    ->nullable()
+                                    ->helperText('Optional: Email for notifications'),
+                            ])
+                            ->collapsible(),
                     ])
                     ->mutateFormDataUsing(function (array $data): array {
                         // Ensure business_id is always set, even if field is disabled
@@ -273,6 +317,38 @@ class ListThirdPartyPayers extends Component implements HasForms, HasTable
                             $data['business_id'] = Auth::user()->business_id;
                         }
                         return $data;
+                    })
+                    ->after(function (ThirdPartyPayer $record, array $data) {
+                        // Update or create the login account
+                        $account = $record->accounts()->first();
+                        
+                        if ($account) {
+                            // Update existing account
+                            $updateData = [
+                                'name' => $data['account_name'] ?? $account->name,
+                                'email' => $data['account_email'] ?? $account->email,
+                            ];
+                            
+                            if (!empty($data['account_username'])) {
+                                $updateData['username'] = $data['account_username'];
+                            }
+                            
+                            if (!empty($data['account_password'])) {
+                                $updateData['password'] = $data['account_password'];
+                            }
+                            
+                            $account->update($updateData);
+                        } elseif (!empty($data['account_username']) && !empty($data['account_password'])) {
+                            // Create new account
+                            ThirdPartyPayerAccount::create([
+                                'third_party_payer_id' => $record->id,
+                                'username' => $data['account_username'],
+                                'password' => $data['account_password'],
+                                'name' => $data['account_name'] ?? $record->name,
+                                'email' => $data['account_email'] ?? $record->email,
+                                'status' => 'active',
+                            ]);
+                        }
                     })
                     ->successNotificationTitle('Third party payer updated successfully.'),
             ])
@@ -377,6 +453,46 @@ class ListThirdPartyPayers extends Component implements HasForms, HasTable
                             ->placeholder('Enter any additional notes')
                             ->rows(3)
                             ->nullable(),
+
+                        Forms\Components\Section::make('Login Account')
+                            ->description('Create a login account for this third-party payer')
+                            ->schema([
+                                TextInput::make('account_username')
+                                    ->label('Username')
+                                    ->placeholder('Enter username for login')
+                                    ->required()
+                                    ->unique('third_party_payer_accounts', 'username', ignoreRecord: false)
+                                    ->helperText('This will be used to log in to the dashboard')
+                                    ->maxLength(255),
+
+                                TextInput::make('account_password')
+                                    ->label('Password')
+                                    ->password()
+                                    ->required()
+                                    ->minLength(6)
+                                    ->helperText('Minimum 6 characters')
+                                    ->dehydrated(),
+
+                                TextInput::make('account_password_confirmation')
+                                    ->label('Confirm Password')
+                                    ->password()
+                                    ->required()
+                                    ->same('account_password')
+                                    ->dehydrated(false),
+
+                                TextInput::make('account_name')
+                                    ->label('Account Name')
+                                    ->placeholder('Enter account holder name')
+                                    ->nullable()
+                                    ->helperText('Optional: Name to display in the dashboard'),
+
+                                TextInput::make('account_email')
+                                    ->label('Account Email')
+                                    ->email()
+                                    ->nullable()
+                                    ->helperText('Optional: Email for notifications'),
+                            ])
+                            ->collapsible(),
                     ])
                     ->mutateFormDataUsing(function (array $data): array {
                         // Ensure business_id is always set, even if field is disabled
@@ -386,9 +502,22 @@ class ListThirdPartyPayers extends Component implements HasForms, HasTable
                         return $data;
                     })
                     ->createAnother(false)
-                    ->after(function (ThirdPartyPayer $record) {
+                    ->after(function (ThirdPartyPayer $record, array $data) {
+                        // Create the login account
+                        if (!empty($data['account_username']) && !empty($data['account_password'])) {
+                            ThirdPartyPayerAccount::create([
+                                'third_party_payer_id' => $record->id,
+                                'username' => $data['account_username'],
+                                'password' => $data['account_password'], // Will be hashed automatically
+                                'name' => $data['account_name'] ?? $record->name,
+                                'email' => $data['account_email'] ?? $record->email,
+                                'status' => 'active',
+                            ]);
+                        }
+
                         Notification::make()
                             ->title('Third party payer created successfully.')
+                            ->body($data['account_username'] ? "Login account created. Username: {$data['account_username']}" : '')
                             ->success()
                             ->send();
                     }),

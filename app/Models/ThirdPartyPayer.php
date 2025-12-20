@@ -25,10 +25,12 @@ class ThirdPartyPayer extends Model
         'credit_limit',
         'status',
         'notes',
+        'excluded_items',
     ];
 
     protected $casts = [
         'credit_limit' => 'decimal:2',
+        'excluded_items' => 'array',
     ];
 
     protected static function booted()
@@ -78,5 +80,15 @@ class ThirdPartyPayer extends Model
     public function creditLimitChangeRequests()
     {
         return $this->morphMany(CreditLimitChangeRequest::class, 'entity');
+    }
+
+    public function accounts()
+    {
+        return $this->hasMany(ThirdPartyPayerAccount::class);
+    }
+
+    public function balanceHistories()
+    {
+        return $this->hasMany(ThirdPartyPayerBalanceHistory::class);
     }
 }

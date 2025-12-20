@@ -49,6 +49,8 @@ class User extends Authenticatable
         'profile_photo_path',
         'email_verified_at',
         'remember_token',
+        'total_balance',
+        'current_balance',
     ];
 
     /**
@@ -80,6 +82,8 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'remember_token' => 'string',
         'status' => 'string',
+        'total_balance' => 'decimal:2',
+        'current_balance' => 'decimal:2',
     ];
 
     /**
@@ -124,6 +128,15 @@ class User extends Authenticatable
     public function contractorProfile()
     {
         return $this->hasOne(ContractorProfile::class);
+    }
+
+    /**
+     * Check if user is a cashier (has Cashier permission)
+     */
+    public function isCashier()
+    {
+        $permissions = $this->permissions ?? [];
+        return in_array('Cashier', $permissions);
     }
 
     /**

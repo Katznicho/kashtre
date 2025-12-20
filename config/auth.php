@@ -44,6 +44,10 @@ return [
             'driver' => 'sanctum',
             'provider' => 'members',
         ],
+        'third_party_payer' => [
+            'driver' => 'session',
+            'provider' => 'third_party_payer_accounts',
+        ],
     ],
 
     /*
@@ -74,6 +78,10 @@ return [
             'model' => App\Models\Member::class,
         ],
 
+        'third_party_payer_accounts' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\ThirdPartyPayerAccount::class,
+        ],
 
         // 'users' => [
         //     'driver' => 'database',

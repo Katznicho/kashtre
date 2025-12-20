@@ -65,8 +65,13 @@ class ThirdPartyPayerController extends Controller
         }
 
         $thirdPartyPayer->load(['business', 'insuranceCompany', 'client']);
+        
+        // Get items for this business
+        $items = \App\Models\Item::where('business_id', $thirdPartyPayer->business_id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'code', 'type']);
 
-        return view('third-party-payers.show', compact('thirdPartyPayer'));
+        return view('third-party-payers.show', compact('thirdPartyPayer', 'items'));
     }
 
     /**
@@ -124,5 +129,34 @@ class ThirdPartyPayerController extends Controller
 
         // This is handled by Livewire component
         return redirect()->route('third-party-payers.index');
+    }
+
+    /**
+     * Update excluded items for a third-party payer.
+     */
+    public function updateExcludedItems(Request $request, ThirdPartyPayer $thirdPartyPayer)
+    {
+        // Check if user has permission
+        if (!in_array('Edit Third Party Payers', Auth::user()->permissions ?? [])) {
+            return redirect()->route('third-party-payers.show', $thirdPartyPayer)
+                ->with('error', 'You do not have permission to edit third party payers.');
+        }
+
+        // Check access
+        if (Auth::user()->business_id != 1 && $thirdPartyPayer->business_id !== Auth::user()->business_id) {
+            return redirect()->route('third-party-payers.index')->with('error', 'Access denied.');
+        }
+
+        $validated = $request->validate([
+            'excluded_items' => 'nullable|array',
+            'excluded_items.*' => 'integer|exists:items,id',
+        ]);
+
+        $thirdPartyPayer->update([
+            'excluded_items' => $validated['excluded_items'] ?? [],
+        ]);
+
+        return redirect()->route('third-party-payers.show', $thirdPartyPayer)
+            ->with('success', 'Excluded items updated successfully.');
     }
 }

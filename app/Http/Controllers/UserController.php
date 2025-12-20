@@ -105,6 +105,9 @@ class UserController extends Controller
                 $validated['business_id'] = Auth::user()->business_id;
             }
 
+            // Check if user is a cashier (has Cashier permission)
+            $isCashier = in_array('Cashier', $validated['permissions_menu']);
+
             // Create the user
             $user = User::create([
                 'name' => $validated['name'],
@@ -123,6 +126,9 @@ class UserController extends Controller
                 'allowed_branches' => $validated['allowed_branches'] ?? [],
                 'permissions' => $validated['permissions_menu'],
                 'password' => '',
+                // Auto-set balances for cashier users
+                'total_balance' => $isCashier ? 0.00 : null,
+                'current_balance' => $isCashier ? 0.00 : null,
             ]);
             // Send password setup link (uses Laravel’s password reset logic)
             Password::sendResetLink(['email' => $user->email]);

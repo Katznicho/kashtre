@@ -28,6 +28,7 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
+        
         $business = $user->business;
         $branch = $user->branch;
         $rooms = Room::where('branch_id', $branch->id)->get();
