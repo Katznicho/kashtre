@@ -333,6 +333,7 @@ class InvoiceController extends Controller
                 'payment_status' => 'required|in:pending,pending_payment,partial,paid,cancelled',
                 'status' => 'required|in:draft,confirmed,printed,cancelled',
                 'notes' => 'nullable|string',
+                'third_party_payer_id' => 'nullable|exists:third_party_payers,id',
             ]);
             
             // Get client
@@ -700,7 +701,11 @@ class InvoiceController extends Controller
             // For credit clients: Create accounts receivable and update client balance
             // NO suspense account movement - money stays in accounts receivable
             // This applies even if they pay upfront - items are still offered on credit
-            if ($isCreditTransaction) {
+            // BUT: Skip client BalanceHistory if insurance is selected (insurance payments debit third-party payer, not client)
+            $paymentMethods = $validated['payment_methods'] ?? [];
+            $isInsurancePayment = in_array('insurance', $paymentMethods);
+            
+            if ($isCreditTransaction && !$isInsurancePayment) {
                 Log::info("=== STEP 4: CREDIT TRANSACTION DETECTED - STARTING PROCESSING ===", [
                     'invoice_id' => $invoice->id,
                     'invoice_number' => $invoice->invoice_number,
@@ -1138,18 +1143,35 @@ class InvoiceController extends Controller
             
             // For insurance payments: Create accounts receivable and update third-party payer balance
             // Similar to credit clients, but debit the insurance company instead of the client
-            $paymentMethods = $validated['payment_methods'] ?? [];
-            $isInsurancePayment = in_array('insurance', $paymentMethods);
+            // Note: $paymentMethods and $isInsurancePayment are already defined above
             $thirdPartyPayer = null;
             $isInsuranceTransaction = false;
             
             if ($isInsurancePayment) {
-                // Find the third-party payer linked to this client
-                $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('client_id', $client->id)
-                    ->where('business_id', $business->id)
-                    ->where('type', 'insurance_company')
-                    ->where('status', 'active')
-                    ->first();
+                // Use selected third-party payer ID if provided, otherwise find one linked to this client
+                $selectedThirdPartyPayerId = $validated['third_party_payer_id'] ?? null;
+                
+                if ($selectedThirdPartyPayerId) {
+                    // Use the selected third-party payer
+                    $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('id', $selectedThirdPartyPayerId)
+                        ->where('business_id', $business->id)
+                        ->where('status', 'active')
+                        ->first();
+                    
+                    if (!$thirdPartyPayer) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Selected third-party payer not found or inactive.'
+                        ], 400);
+                    }
+                } else {
+                    // Fallback: Find the third-party payer linked to this client
+                    $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('client_id', $client->id)
+                        ->where('business_id', $business->id)
+                        ->where('type', 'insurance_company')
+                        ->where('status', 'active')
+                        ->first();
+                }
                 
                 if ($thirdPartyPayer) {
                     $isInsuranceTransaction = true;
@@ -1347,6 +1369,153 @@ class InvoiceController extends Controller
                         'third_party_payer_id' => $thirdPartyPayer->id,
                         'total_debit_entries_created' => $debitCount,
                     ]);
+                    
+                    // Create tracking entries in client's BalanceHistory (for display purposes only, no balance change)
+                    // These entries are styled in blue/purple to indicate they're just for tracking
+                    Log::info("=== CREATING CLIENT TRACKING ENTRIES FOR INSURANCE PAYMENT ===", [
+                        'invoice_id' => $invoice->id,
+                        'client_id' => $client->id,
+                    ]);
+                    
+                    $itemsCollectionForTracking = collect($invoice->items ?? []);
+                    $trackingCount = 0;
+                    
+                    foreach ($itemsCollectionForTracking as $index => $itemData) {
+                        $itemId = $itemData['id'] ?? $itemData['item_id'] ?? null;
+                        if (!$itemId) {
+                            continue;
+                        }
+                        
+                        $item = \App\Models\Item::find($itemId);
+                        if (!$item) {
+                            continue;
+                        }
+                        
+                        $quantity = $itemData['quantity'] ?? 1;
+                        $itemTotalAmount = $itemData['total_amount'] ?? ($itemData['price'] ?? $item->default_price ?? 0) * $quantity;
+                        
+                        if ($itemTotalAmount <= 0) {
+                            continue;
+                        }
+                        
+                        // Skip package adjustment items
+                        $isPackageAdjustmentItem = false;
+                        if ($invoice->package_adjustment > 0) {
+                            $validPackages = \App\Models\PackageTracking::where('client_id', $client->id)
+                                ->where('business_id', $business->id)
+                                ->where('status', 'active')
+                                ->where('remaining_quantity', '>', 0)
+                                ->get();
+                            
+                            foreach ($validPackages as $packageTracking) {
+                                $packageItems = $packageTracking->packageItem->packageItems ?? collect();
+                                foreach ($packageItems as $packageItem) {
+                                    if ($packageItem->included_item_id == $itemId) {
+                                        $isPackageAdjustmentItem = true;
+                                        break 2;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if ($isPackageAdjustmentItem) {
+                            continue;
+                        }
+                        
+                        // Create tracking entry (no balance change - just for display)
+                        $itemDisplayName = $item->name;
+                        $trackingDescription = "{$itemDisplayName} (x{$quantity}) [Insurance]";
+                        $trackingNotes = "Insurance payment - {$itemDisplayName} (x{$quantity}) - Invoice #{$invoiceNumber} - Paid by {$thirdPartyPayer->name}";
+                        
+                        try {
+                            // Get current balance (won't change, but needed for the record)
+                            $currentBalance = \App\Models\BalanceHistory::where('client_id', $client->id)
+                                ->orderBy('created_at', 'desc')
+                                ->value('new_balance') ?? ($client->balance ?? 0);
+                            
+                            // Create tracking entry with transaction_type='debit' but change_amount=0
+                            // payment_method='insurance' and special notes identify it as tracking
+                            $trackingEntry = \App\Models\BalanceHistory::create([
+                                'client_id' => $client->id,
+                                'business_id' => $client->business_id,
+                                'branch_id' => $client->branch_id,
+                                'invoice_id' => $invoice->id,
+                                'user_id' => auth()->id() ?? 1,
+                                'previous_balance' => $currentBalance,
+                                'change_amount' => 0, // No balance change - just tracking
+                                'new_balance' => $currentBalance, // Balance stays the same
+                                'transaction_type' => 'debit', // Use debit type but with 0 amount
+                                'description' => $trackingDescription,
+                                'reference_number' => $invoiceNumber,
+                                'notes' => $trackingNotes,
+                                'payment_method' => 'insurance',
+                                'payment_status' => 'paid', // Insurance payments are considered paid
+                            ]);
+                            
+                            $trackingCount++;
+                            
+                            Log::info("Client tracking entry created for insurance payment", [
+                                'invoice_id' => $invoice->id,
+                                'client_id' => $client->id,
+                                'item_id' => $itemId,
+                                'tracking_entry_id' => $trackingEntry->id,
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::error("Error creating client tracking entry for insurance payment", [
+                                'invoice_id' => $invoice->id,
+                                'client_id' => $client->id,
+                                'item_id' => $itemId,
+                                'error' => $e->getMessage(),
+                            ]);
+                            // Don't throw - tracking entries are not critical
+                        }
+                    }
+                    
+                    // Create tracking entry for service charge if applicable
+                    if ($invoice->service_charge > 0) {
+                        try {
+                            $currentBalance = \App\Models\BalanceHistory::where('client_id', $client->id)
+                                ->orderBy('created_at', 'desc')
+                                ->value('new_balance') ?? ($client->balance ?? 0);
+                            
+                            $trackingEntry = \App\Models\BalanceHistory::create([
+                                'client_id' => $client->id,
+                                'business_id' => $client->business_id,
+                                'branch_id' => $client->branch_id,
+                                'invoice_id' => $invoice->id,
+                                'user_id' => auth()->id() ?? 1,
+                                'previous_balance' => $currentBalance,
+                                'change_amount' => 0, // No balance change
+                                'new_balance' => $currentBalance,
+                                'transaction_type' => 'debit',
+                                'description' => "Service Fee [Insurance]",
+                                'reference_number' => $invoiceNumber,
+                                'notes' => "Insurance payment - Service Fee - Invoice #{$invoiceNumber} - Paid by {$thirdPartyPayer->name}",
+                                'payment_method' => 'insurance',
+                                'payment_status' => 'paid',
+                            ]);
+                            
+                            $trackingCount++;
+                            
+                            Log::info("Client tracking entry created for service charge (insurance)", [
+                                'invoice_id' => $invoice->id,
+                                'client_id' => $client->id,
+                                'tracking_entry_id' => $trackingEntry->id,
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::error("Error creating client tracking entry for service charge (insurance)", [
+                                'invoice_id' => $invoice->id,
+                                'client_id' => $client->id,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    }
+                    
+                    Log::info("=== CLIENT TRACKING ENTRIES CREATED FOR INSURANCE PAYMENT ===", [
+                        'invoice_id' => $invoice->id,
+                        'client_id' => $client->id,
+                        'tracking_entries_created' => $trackingCount,
+                    ]);
                 } else {
                     Log::warning("Insurance payment selected but no active third-party payer found for client", [
                         'invoice_id' => $invoice->id,
@@ -1526,25 +1695,29 @@ class InvoiceController extends Controller
                 'has_balance_due' => $hasBalanceDue,
             ]);
             
-            if ($isCreditTransaction && $nonDepositItems->isNotEmpty()) {
-                Log::info("=== STEP 16: CREDIT CLIENT TRANSACTION - QUEUING ITEMS IMMEDIATELY ===", [
+            // Queue items for credit clients OR insurance payments (both need service delivery)
+            if (($isCreditTransaction || $isInsuranceTransaction) && $nonDepositItems->isNotEmpty()) {
+                $transactionType = $isInsuranceTransaction ? 'INSURANCE' : 'CREDIT';
+                Log::info("=== STEP 16: {$transactionType} CLIENT TRANSACTION - QUEUING ITEMS IMMEDIATELY ===", [
                     'invoice_id' => $invoice->id,
                     'invoice_number' => $invoice->invoice_number,
                     'client_id' => $client->id,
                     'client_name' => $client->name,
                     'is_credit_eligible' => $isCreditClient,
+                    'is_insurance_payment' => $isInsuranceTransaction,
                     'balance_due' => $invoice->balance_due,
                     'items_count' => $nonDepositItems->count(),
                     'items' => $nonDepositItems->toArray()
                 ]);
                 
                 try {
-                    // Queue items immediately for credit clients
+                    // Queue items immediately for credit clients or insurance payments
                     $this->queueItemsAtServicePoints($invoice, $nonDepositItems->toArray());
                     
                     // For credit clients: Process suspense account movements even though no payment was received
                     // This ensures money moves to suspense accounts (general, package, kashtre) for proper tracking
-                    Log::info("=== STEP 17: PROCESSING SUSPENSE ACCOUNT MOVEMENTS FOR CREDIT CLIENT ===", [
+                    // For insurance payments, also process suspense movements
+                    Log::info("=== STEP 17: PROCESSING SUSPENSE ACCOUNT MOVEMENTS FOR {$transactionType} CLIENT ===", [
                         'invoice_id' => $invoice->id,
                         'invoice_number' => $invoice->invoice_number,
                         'client_id' => $client->id,
@@ -1553,7 +1726,7 @@ class InvoiceController extends Controller
                     
                     $suspenseMovements = $moneyTrackingService->processSuspenseAccountMovements($invoice, $nonDepositItems->toArray());
                     
-                    Log::info("=== STEP 18: SUSPENSE ACCOUNT MOVEMENTS COMPLETED FOR CREDIT CLIENT ===", [
+                    Log::info("=== STEP 18: SUSPENSE ACCOUNT MOVEMENTS COMPLETED FOR {$transactionType} CLIENT ===", [
                         'invoice_id' => $invoice->id,
                         'movements_count' => count($suspenseMovements),
                         'movements' => $suspenseMovements
@@ -1562,7 +1735,7 @@ class InvoiceController extends Controller
                     // Verify items were queued
                     $queuedCount = \App\Models\ServiceDeliveryQueue::where('invoice_id', $invoice->id)->count();
                     
-                    Log::info("=== STEP 17: ITEMS QUEUED SUCCESSFULLY FOR CREDIT CLIENT ===", [
+                    Log::info("=== STEP 19: ITEMS QUEUED SUCCESSFULLY FOR {$transactionType} CLIENT ===", [
                         'invoice_id' => $invoice->id,
                         'items_queued' => $nonDepositItems->count(),
                         'verified_queued_count' => $queuedCount,

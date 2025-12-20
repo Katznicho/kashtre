@@ -46,8 +46,9 @@ class ThirdPartyPayerDashboardController extends Controller
         // Current balance is the calculated balance (negative means they owe money)
         $currentBalance = $calculatedBalance;
         
-        // Get recent transactions
+        // Get recent transactions with relationships
         $recentTransactions = ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $thirdPartyPayer->id)
+            ->with(['invoice', 'client', 'business', 'branch'])
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();
@@ -193,10 +194,10 @@ class ThirdPartyPayerDashboardController extends Controller
             abort(404, 'Third-party payer not found.');
         }
 
-        // Get all balance history records
+        // Get all balance history records with all relationships
         $balanceHistories = ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $thirdPartyPayer->id)
             ->orderBy('created_at', 'desc')
-            ->with(['invoice', 'client'])
+            ->with(['invoice', 'client', 'business', 'branch', 'user'])
             ->paginate(50);
 
         // Calculate totals

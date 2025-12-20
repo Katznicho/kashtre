@@ -185,13 +185,22 @@
                                                 {{ $history->created_at->format('Y-m-d H:i:s') }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
+                                                @php
+                                                    // Check if this is an insurance tracking entry (payment_method='insurance' and change_amount=0)
+                                                    $isInsuranceTracking = $history->payment_method === 'insurance' && $history->change_amount == 0;
+                                                @endphp
                                                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
-                                                    @if($history->transaction_type === 'credit') bg-green-100 text-green-800
+                                                    @if($isInsuranceTracking) bg-purple-100 text-purple-800
+                                                    @elseif($history->transaction_type === 'credit') bg-green-100 text-green-800
                                                     @elseif($history->transaction_type === 'debit') bg-red-100 text-red-800
                                                     @elseif($history->transaction_type === 'payment') bg-orange-100 text-orange-800
                                                     @elseif($history->transaction_type === 'package') bg-blue-100 text-blue-800
                                                     @else bg-yellow-100 text-yellow-800 @endif">
-                                                    {{ ucfirst($history->transaction_type) }}
+                                                    @if($isInsuranceTracking)
+                                                        Insurance (Tracking)
+                                                    @else
+                                                        {{ ucfirst($history->transaction_type) }}
+                                                    @endif
                                                 </span>
                                             </td>
                                             <td class="px-6 py-4 text-sm text-gray-900">
@@ -240,8 +249,13 @@
                                                 {{ $description }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                <span class="@if($history->transaction_type === 'package') text-blue-600 @elseif($history->change_amount > 0) text-green-600 @else text-red-600 @endif">
-                                                    @if($history->transaction_type === 'debit')
+                                                @php
+                                                    $isInsuranceTracking = $history->payment_method === 'insurance' && $history->change_amount == 0;
+                                                @endphp
+                                                <span class="@if($isInsuranceTracking) text-purple-600 @elseif($history->transaction_type === 'package') text-blue-600 @elseif($history->change_amount > 0) text-green-600 @else text-red-600 @endif">
+                                                    @if($isInsuranceTracking)
+                                                        UGX {{ number_format(abs($history->change_amount ?? 0), 2) }} <span class="text-xs text-purple-500">(Tracking)</span>
+                                                    @elseif($history->transaction_type === 'debit')
                                                         UGX {{ number_format(abs($history->change_amount), 2) }}
                                                     @else
                                                         {{ $history->getFormattedChangeAmount() }}

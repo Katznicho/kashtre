@@ -598,6 +598,25 @@
                     </div>
                 </div>
                 
+                <!-- Third-Party Payer Selection (for credit clients with insurance) -->
+                @if($client->is_credit_eligible)
+                <div id="third-party-payer-section" class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Select Third-Party Payer <span class="text-red-500">*</span>
+                    </label>
+                    <select id="third-party-payer-select" name="third_party_payer_id" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">-- Select Third-Party Payer --</option>
+                        @foreach($thirdPartyPayers ?? [] as $payer)
+                            <option value="{{ $payer->id }}">{{ $payer->name }}</option>
+                        @endforeach
+                    </select>
+                    <p class="mt-2 text-xs text-gray-600">
+                        <strong>Note:</strong> For credit clients with insurance, you must select a third-party payer. The third-party payer's account will be debited instead of the client's account.
+                    </p>
+                </div>
+                @endif
+                
                 <!-- Action Buttons -->
                 <div class="flex justify-end space-x-4 mt-6">
                     <button onclick="closeInvoicePreview()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">
@@ -641,6 +660,30 @@
             if (initialPaymentMethods.includes('mobile_money')) {
                 document.getElementById('payment-phone-section').style.display = 'block';
             }
+            
+            // Handle third-party payer section visibility for credit clients with insurance
+            @if($client->is_credit_eligible)
+            const insuranceCheckbox = document.querySelector('input[name="payment_methods[]"][value="insurance"]');
+            if (insuranceCheckbox) {
+                insuranceCheckbox.addEventListener('change', function() {
+                    const thirdPartyPayerSection = document.getElementById('third-party-payer-section');
+                    const thirdPartyPayerSelect = document.getElementById('third-party-payer-select');
+                    
+                    if (this.checked && thirdPartyPayerSection) {
+                        thirdPartyPayerSection.classList.remove('hidden');
+                        if (thirdPartyPayerSelect) {
+                            thirdPartyPayerSelect.required = true;
+                        }
+                    } else if (thirdPartyPayerSection) {
+                        thirdPartyPayerSection.classList.add('hidden');
+                        if (thirdPartyPayerSelect) {
+                            thirdPartyPayerSelect.required = false;
+                            thirdPartyPayerSelect.value = '';
+                        }
+                    }
+                });
+            }
+            @endif
             
             const quantityInputs = document.querySelectorAll('.quantity-input');
             quantityInputs.forEach(input => {
@@ -1173,6 +1216,20 @@
             
             document.getElementById('invoice-final-total').textContent = `UGX ${finalTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
+            // Show/hide third-party payer section for credit clients with insurance
+            @if($client->is_credit_eligible)
+            const thirdPartyPayerSection = document.getElementById('third-party-payer-section');
+            const insuranceCheckbox = document.querySelector('input[name="payment_methods[]"][value="insurance"]');
+            if (insuranceCheckbox && insuranceCheckbox.checked && thirdPartyPayerSection) {
+                thirdPartyPayerSection.classList.remove('hidden');
+                // Make the select required
+                document.getElementById('third-party-payer-select').required = true;
+            } else if (thirdPartyPayerSection) {
+                thirdPartyPayerSection.classList.add('hidden');
+                document.getElementById('third-party-payer-select').required = false;
+            }
+            @endif
+            
             // Show modal
             document.getElementById('invoice-modal').classList.remove('hidden');
         }
@@ -1368,6 +1425,24 @@
                 const paymentMethods = Array.from(document.querySelectorAll('input[name="payment_methods[]"]:checked'))
                     .map(cb => cb.value);
                 
+                // Validate third-party payer selection for credit clients with insurance
+                @if($client->is_credit_eligible)
+                if (paymentMethods.includes('insurance')) {
+                    const thirdPartyPayerId = document.getElementById('third-party-payer-select')?.value;
+                    if (!thirdPartyPayerId) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Third-Party Payer Required',
+                            text: 'Please select a third-party payer for insurance payments. The third-party payer\'s account will be debited instead of the client\'s account.',
+                            confirmButtonText: 'OK'
+                        });
+                        button.textContent = originalText;
+                        button.disabled = false;
+                        return;
+                    }
+                }
+                @endif
+                
                 // Check if mobile money is selected and process payment
                 let paymentResult = null;
                 let amountPaid = 0;
@@ -1456,6 +1531,15 @@
                     return;
                 }
                 
+                // Get third-party payer ID if insurance is selected
+                @if($client->is_credit_eligible)
+                const thirdPartyPayerId = paymentMethods.includes('insurance') 
+                    ? (document.getElementById('third-party-payer-select')?.value || null)
+                    : null;
+                @else
+                const thirdPartyPayerId = null;
+                @endif
+                
                 // Prepare invoice data with all required fields
                 const invoiceData = {
                     invoice_number: invoiceNumber,
@@ -1466,6 +1550,7 @@
                     client_name: '{{ $client->name }}',
                     client_phone: '{{ $client->phone_number }}',
                     payment_phone: paymentPhone,
+                    third_party_payer_id: thirdPartyPayerId,
                     visit_id: '{{ $client->visit_id }}',
                     items: itemsWithTotals,
                     subtotal: parseFloat(subtotal),

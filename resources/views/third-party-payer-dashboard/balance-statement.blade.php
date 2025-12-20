@@ -85,6 +85,9 @@
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
@@ -100,12 +103,34 @@
                                     </td>
                                     <td class="px-6 py-4 text-sm text-gray-900">
                                         {{ $history->description }}
-                                        @if($history->invoice)
-                                            <br><span class="text-xs text-gray-500">Invoice: {{ $history->invoice->invoice_number ?? 'N/A' }}</span>
+                                        @if($history->notes)
+                                            <br><span class="text-xs text-gray-500">{{ $history->notes }}</span>
                                         @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         @if($history->client)
-                                            <br><span class="text-xs text-gray-500">Client: {{ $history->client->name ?? 'N/A' }}</span>
+                                            <span class="font-medium">{{ $history->client->name }}</span>
+                                            @if($history->client->client_id)
+                                                <br><span class="text-xs text-gray-500">ID: {{ $history->client->client_id }}</span>
+                                            @endif
+                                            @if($history->client->phone_number)
+                                                <br><span class="text-xs text-gray-500">Phone: {{ $history->client->phone_number }}</span>
+                                            @endif
+                                        @else
+                                            <span class="text-gray-400">N/A</span>
                                         @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        @if($history->invoice)
+                                            <a href="{{ route('invoices.show', $history->invoice->id) }}" class="text-blue-600 hover:text-blue-800 font-medium">
+                                                {{ $history->invoice->invoice_number ?? 'N/A' }}
+                                            </a>
+                                        @else
+                                            <span class="text-gray-400">N/A</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {{ $history->reference_number ?? 'N/A' }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                                         <span class="px-2 py-1 text-xs rounded-full {{ $history->transaction_type === 'credit' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
@@ -119,11 +144,11 @@
                                         {{ number_format($history->new_balance, 2) }} UGX
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {{ $history->payment_method ? ucfirst(str_replace('_', ' ', $history->payment_method)) : 'N/A' }}
+                                        {{ $history->payment_method ? ucwords(str_replace('_', ' ', $history->payment_method)) : 'N/A' }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                                         @if($history->payment_status)
-                                        <span class="px-2 py-1 text-xs rounded-full {{ $history->payment_status === 'paid' ? 'bg-green-100 text-green-800' : ($history->payment_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
+                                        <span class="px-2 py-1 text-xs rounded-full {{ $history->payment_status === 'paid' ? 'bg-green-100 text-green-800' : ($history->payment_status === 'pending_payment' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
                                             {{ ucfirst(str_replace('_', ' ', $history->payment_status)) }}
                                         </span>
                                         @else

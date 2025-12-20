@@ -286,13 +286,20 @@ class TransactionController extends Controller
             $servicePoint = \App\Models\ServicePoint::find($servicePointId);
         }
         
+        // Get available third-party payers for this business (for credit clients with insurance)
+        $thirdPartyPayers = \App\Models\ThirdPartyPayer::where('business_id', $user->business_id)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get();
+
         return view('pos.item-selection', compact(
             'client', 
             'items', 
             'pendingItems', 
             'partiallyDoneItems', 
             'correctTotalAmount',
-            'servicePoint'
+            'servicePoint',
+            'thirdPartyPayers'
         ));
     }
 }
