@@ -38,4 +38,9 @@ return [
         'x_signature' => env('AIRTEL_X_SIGNATURE'),
     ],
 
+    'third_party' => [
+        'api_url' => env('THIRD_PARTY_API_URL', 'http://127.0.0.1:8001'),
+        'timeout' => env('THIRD_PARTY_API_TIMEOUT', 30),
+    ],
+
 ];

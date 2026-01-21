@@ -54,6 +54,7 @@ class Client extends Model
         'is_credit_eligible',
         'is_long_stay',
         'excluded_items',
+        'insurance_company_id',
     ];
 
     protected $casts = [
@@ -80,6 +81,11 @@ class Client extends Model
     public function branch()
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function insuranceCompany()
+    {
+        return $this->belongsTo(InsuranceCompany::class);
     }
 
     public function balanceHistories()

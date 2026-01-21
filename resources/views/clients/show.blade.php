@@ -20,6 +20,59 @@
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <!-- Success Message with Third-Party Credentials -->
+            @if(session('success'))
+                <div class="mb-4 bg-green-50 border-l-4 border-green-400 p-4 rounded">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3 flex-1">
+                            <p class="text-sm text-green-700">{!! session('success') !!}</p>
+                        </div>
+                    </div>
+                </div>
+            @endif
+            
+            @if(session('third_party_credentials'))
+                @php
+                    $creds = session('third_party_credentials');
+                @endphp
+                <div class="mb-4 bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
+                    <h3 class="text-lg font-semibold text-blue-900 mb-3">🔐 Third-Party System Login Credentials</h3>
+                    <div class="space-y-2">
+                        <div class="flex items-center">
+                            <span class="text-sm font-medium text-gray-700 w-24">Username:</span>
+                            <span class="text-sm font-mono bg-white px-3 py-1 rounded border">{{ $creds['username'] }}</span>
+                            <button onclick="copyToClipboard('{{ $creds['username'] }}')" class="ml-2 text-blue-600 hover:text-blue-800 text-sm">
+                                📋 Copy
+                            </button>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-sm font-medium text-gray-700 w-24">Password:</span>
+                            <span class="text-sm font-mono bg-white px-3 py-1 rounded border" id="password-display" data-password="{{ $creds['password'] }}">{{ $creds['password'] }}</span>
+                            <button onclick="copyToClipboard('{{ $creds['password'] }}')" class="ml-2 text-blue-600 hover:text-blue-800 text-sm">
+                                📋 Copy
+                            </button>
+                            <button onclick="togglePassword()" class="ml-2 text-blue-600 hover:text-blue-800 text-sm">
+                                👁️ Show/Hide
+                            </button>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-blue-200">
+                            <a href="{{ $creds['login_url'] }}" target="_blank" 
+                               class="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                </svg>
+                                🔗 Login to Third-Party System
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            @endif
+            
             <div class="bg-white overflow-hidden shadow-xl sm:rounded-lg">
                 <div class="p-6">
                     <!-- Client ID and Status -->
@@ -471,6 +524,35 @@
     </div>
 
     <script>
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(function() {
+                // Show temporary success message
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                btn.classList.add('text-green-600');
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.classList.remove('text-green-600');
+                }, 2000);
+            }, function(err) {
+                console.error('Failed to copy: ', err);
+                alert('Failed to copy to clipboard');
+            });
+        }
+
+        function togglePassword() {
+            const passwordDisplay = document.getElementById('password-display');
+            if (passwordDisplay) {
+                const actualPassword = passwordDisplay.getAttribute('data-password');
+                if (passwordDisplay.textContent === actualPassword) {
+                    passwordDisplay.textContent = '••••••••••••';
+                } else {
+                    passwordDisplay.textContent = actualPassword;
+                }
+            }
+        }
+
         async function refreshClientBalance() {
             try {
                 const response = await fetch('/invoices/balance-adjustment', {
@@ -589,5 +671,113 @@
             });
         });
     </script>
+    @endif
+
+    <!-- Show SweetAlert for Third-Party Credentials -->
+    @if(session('third_party_credentials'))
+        @php
+            $creds = session('third_party_credentials');
+        @endphp
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Company Registered Successfully!',
+                    html: `
+                        <div class="text-left space-y-4">
+                            <p class="text-gray-700 font-semibold">Client ID: <span class="font-mono text-blue-600">{{ $client->client_id }}</span></p>
+                            
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                                <h4 class="text-md font-semibold text-blue-900 mb-3 flex items-center">
+                                    <svg class="w-5 h-5 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3a1 1 0 001 1h1a1 1 0 100-2h-1V7zm-1 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    Third-Party System Account Created
+                                </h4>
+                                <div class="space-y-3 text-sm">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-medium text-gray-700">Username:</span>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="font-mono bg-white px-3 py-1 rounded border text-blue-600" id="swal-username">{{ $creds['username'] }}</span>
+                                            <button onclick="copyToSwalClipboard('{{ $creds['username'] }}', 'Username')" class="text-blue-600 hover:text-blue-800 focus:outline-none" title="Copy username">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h2"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-medium text-gray-700">Password:</span>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="font-mono bg-white px-3 py-1 rounded border text-blue-600" id="swal-password" data-password="{{ $creds['password'] }}">••••••••••••</span>
+                                            <button onclick="toggleSwalPassword()" class="text-blue-600 hover:text-blue-800 focus:outline-none" title="Show/Hide password">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                                </svg>
+                                            </button>
+                                            <button onclick="copyToSwalClipboard('{{ $creds['password'] }}', 'Password')" class="text-blue-600 hover:text-blue-800 focus:outline-none" title="Copy password">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h2"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="pt-3 border-t border-blue-200 mt-3">
+                                        <a href="{{ $creds['login_url'] }}" target="_blank" 
+                                           class="inline-flex items-center justify-center w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                            </svg>
+                                            Login to Third-Party System
+                                        </a>
+                                    </div>
+                                    <p class="text-xs text-red-600 mt-2 font-semibold">⚠️ IMPORTANT: Please save these credentials securely!</p>
+                                </div>
+                            </div>
+                        </div>
+                    `,
+                    width: '600px',
+                    showConfirmButton: true,
+                    confirmButtonText: 'Got it!',
+                    confirmButtonColor: '#2563eb',
+                    allowOutsideClick: false,
+                    allowEscapeKey: true,
+                });
+            });
+
+            function copyToSwalClipboard(text, type) {
+                navigator.clipboard.writeText(text).then(function() {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Copied!',
+                        text: type + ' copied to clipboard.',
+                        timer: 1500,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                }, function(err) {
+                    console.error('Failed to copy: ', err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to copy ' + type.toLowerCase() + '.'
+                    });
+                });
+            }
+
+            function toggleSwalPassword() {
+                const passwordElement = document.getElementById('swal-password');
+                if (passwordElement) {
+                    const actualPassword = passwordElement.getAttribute('data-password');
+                    if (passwordElement.textContent === '••••••••••••') {
+                        passwordElement.textContent = actualPassword;
+                    } else {
+                        passwordElement.textContent = '••••••••••••';
+                    }
+                }
+            }
+        </script>
     @endif
 </x-app-layout>

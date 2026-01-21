@@ -6,10 +6,13 @@ use App\Models\Client;
 use App\Models\Business;
 use App\Models\Branch;
 use App\Models\MaturationPeriod;
+use App\Models\InsuranceCompany;
 use App\Models\ThirdPartyPayer;
 use App\Models\ThirdPartyPayerAccount;
+use App\Services\ThirdPartyApiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class ClientController extends Controller
@@ -83,52 +86,59 @@ class ClientController extends Controller
         if (!$currentBranch) {
             return redirect()->route('dashboard')->with('error', 'No branch assigned. Please contact administrator.');
         }
-        
-        // Get available payment methods from maturation periods for this business
-        $availablePaymentMethods = MaturationPeriod::where('business_id', $business->id)
-            ->where('is_active', true)
-            ->get()
-            ->pluck('payment_method')
-            ->unique()
-            ->values()
-            ->toArray();
-        
-        // Define the order for payment methods
-        $paymentMethodOrder = [
-            'insurance' => 1,
-            'mobile_money' => 2,
-            'v_card' => 3,
-            'p_card' => 4,
-            'bank_transfer' => 5,
-            'cash' => 6,
-        ];
-        
-        // Sort payment methods according to the defined order
-        // Methods not in the order list will come after (with higher priority number)
-        usort($availablePaymentMethods, function ($a, $b) use ($paymentMethodOrder) {
-            $orderA = $paymentMethodOrder[$a] ?? 999;
-            $orderB = $paymentMethodOrder[$b] ?? 999;
             
-            if ($orderA === $orderB) {
-                // If both have the same priority (or both not in list), maintain original order
-                return 0;
-            }
+            // Get available payment methods from maturation periods for this business
+            $availablePaymentMethods = MaturationPeriod::where('business_id', $business->id)
+                ->where('is_active', true)
+                ->get()
+                ->pluck('payment_method')
+                ->unique()
+                ->values()
+                ->toArray();
             
-            return $orderA <=> $orderB;
-        });
-        
-        // Payment method display names
-        $paymentMethodNames = [
-            'insurance' => '🛡️ Insurance',
-            'credit_arrangement' => '💳 Credit Arrangement',
-            'mobile_money' => '📱 MM (Mobile Money)',
-            'v_card' => '💳 V Card (Virtual Card)',
-            'p_card' => '💳 P Card (Physical Card)',
-            'bank_transfer' => '🏦 Bank Transfer',
-            'cash' => '💵 Cash',
-        ];
-        
-        return view('clients.create', compact('business', 'currentBranch', 'availablePaymentMethods', 'paymentMethodNames'));
+            // Define the order for payment methods
+            $paymentMethodOrder = [
+                'insurance' => 1,
+                'mobile_money' => 2,
+                'v_card' => 3,
+                'p_card' => 4,
+                'bank_transfer' => 5,
+                'cash' => 6,
+            ];
+            
+            // Sort payment methods according to the defined order
+            // Methods not in the order list will come after (with higher priority number)
+            usort($availablePaymentMethods, function ($a, $b) use ($paymentMethodOrder) {
+                $orderA = $paymentMethodOrder[$a] ?? 999;
+                $orderB = $paymentMethodOrder[$b] ?? 999;
+                
+                if ($orderA === $orderB) {
+                    // If both have the same priority (or both not in list), maintain original order
+                    return 0;
+                }
+                
+                return $orderA <=> $orderB;
+            });
+            
+            // Payment method display names
+            $paymentMethodNames = [
+                'insurance' => '🛡️ Insurance',
+                'credit_arrangement' => '💳 Credit Arrangement',
+                'mobile_money' => '📱 MM (Mobile Money)',
+                'v_card' => '💳 V Card (Virtual Card)',
+                'p_card' => '💳 P Card (Physical Card)',
+                'bank_transfer' => '🏦 Bank Transfer',
+                'cash' => '💵 Cash',
+            ];
+
+        // Get all insurance companies (not filtered by business as per user requirement)
+        // Group by name to avoid duplicates, taking the first ID for each unique name
+        $insuranceCompanies = InsuranceCompany::selectRaw('MIN(id) as id, name')
+            ->groupBy('name')
+            ->orderBy('name', 'asc')
+            ->get();
+
+        return view('clients.create', compact('business', 'currentBranch', 'availablePaymentMethods', 'paymentMethodNames', 'insuranceCompanies'));
     }
 
     /**
@@ -381,15 +391,11 @@ class ClientController extends Controller
             'company_email' => 'required|email|max:255',
             'company_address' => 'required|string',
             'company_contact_person' => 'required|string|max:255',
-            'register_type' => 'required|in:client_only,client_and_payer',
+            'insurance_company_id' => 'nullable|exists:insurance_companies,id',
+            'register_type' => 'nullable|in:client_only,client_and_payer',
             'payment_methods' => 'required|array|min:1',
             'payment_methods.*' => 'required|string|in:' . implode(',', $availablePaymentMethods),
             'payment_phone_number' => 'nullable|string|max:255',
-            // Third-party payer account fields (required only when registering as client_and_payer)
-            'account_username' => 'required_if:register_type,client_and_payer|nullable|string|max:255|unique:third_party_payer_accounts,username',
-            'account_password' => 'required_if:register_type,client_and_payer|nullable|string|min:6|confirmed',
-            'account_name' => 'nullable|string|max:255',
-            'account_email' => 'nullable|email|max:255',
         ]);
         
         // Generate client_id for company (using company name)
@@ -402,6 +408,234 @@ class ClientController extends Controller
         
         $visitId = Client::generateVisitId($business, $currentBranch, false, false);
         $visitExpiresAt = \Carbon\Carbon::tomorrow()->startOfDay();
+        
+        // Always register business and user in third-party system for company clients
+        $thirdPartyData = null;
+        $registerType = $validated['register_type'] ?? 'client_only';
+        $generatedPassword = null;
+        $generatedUsername = null;
+        
+        // Log the registration
+        Log::info('Company client registration - API will be called', [
+            'client_id' => $clientId,
+            'company_name' => $validated['company_name'],
+            'register_type' => $registerType,
+        ]);
+        
+        // Always call the API for company client registrations
+        $finalUsername = null; // Initialize for later use
+        try {
+            $apiService = new ThirdPartyApiService();
+            
+            // First, check if business already exists in third-party system
+            $existingBusiness = $apiService->checkBusinessExists(
+                $validated['company_name'],
+                $validated['company_email']
+            );
+            
+            // Generate a username from company name
+            $generatedUsername = strtolower(Str::slug($validated['company_name']));
+            // Ensure username is unique by appending random string if needed
+            $generatedUsername = $generatedUsername . '_' . Str::random(4);
+            
+            // Generate a secure password
+            $generatedPassword = Str::random(12);
+            
+            // Prepare user data for third-party system
+            $userData = [
+                'name' => $validated['company_contact_person'],
+                'email' => $validated['company_email'],
+                'username' => $generatedUsername,
+                'password' => $generatedPassword,
+            ];
+            
+            if ($existingBusiness && isset($existingBusiness['id'])) {
+                // Business already exists, check if user email/username already exists
+                // Check for duplicate user email/username BEFORE attempting to create
+                $userExists = $apiService->checkUserExists($validated['company_email'], $generatedUsername);
+                
+                if ($userExists) {
+                    // User already exists - return validation error
+                    $errorMessage = 'A user with this email or username already exists in the third-party system. ';
+                    if (isset($userExists['email']) && $userExists['email'] === $validated['company_email']) {
+                        $errorMessage .= 'The email "' . $validated['company_email'] . '" is already registered.';
+                    } elseif (isset($userExists['username'])) {
+                        $errorMessage .= 'The username is already taken.';
+                    }
+                    
+                    Log::warning('Duplicate user detected in third-party system', [
+                        'email' => $validated['company_email'],
+                        'username' => $generatedUsername,
+                        'business_id' => $existingBusiness['id'],
+                    ]);
+                    
+                    return redirect()->back()
+                        ->withInput()
+                        ->withErrors([
+                            'company_email' => $errorMessage . ' Please use a different email address or contact support.',
+                        ]);
+                }
+                
+                // Business exists and user doesn't - proceed with user creation
+                Log::info('Business already exists in third-party system, creating user only', [
+                    'business_id' => $existingBusiness['id'],
+                    'business_name' => $existingBusiness['name'],
+                    'username' => $generatedUsername,
+                    'email' => $validated['company_email'],
+                    'password' => $generatedPassword,
+                ]);
+                
+                try {
+                    $thirdPartyData = $apiService->createUserForBusiness($existingBusiness['id'], $userData);
+                    
+                    if ($thirdPartyData) {
+                        // Use the username from API response if available, otherwise use generated
+                        $finalUsername = $thirdPartyData['user']['username'] ?? $generatedUsername;
+                        
+                        Log::info('User created for existing third-party business', [
+                            'client_id' => $clientId,
+                            'third_party_business_id' => $existingBusiness['id'],
+                            'third_party_user_id' => $thirdPartyData['user']['id'] ?? null,
+                            'username' => $finalUsername,
+                            'email' => $validated['company_email'],
+                            'password' => $generatedPassword,
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    // Check if it's a duplicate error
+                    $errorMessage = $e->getMessage();
+                    if (str_contains($errorMessage, 'email') || str_contains($errorMessage, 'Email') || 
+                        str_contains($errorMessage, 'username') || str_contains($errorMessage, 'Username')) {
+                        
+                        Log::error('Duplicate detected during user creation', [
+                            'error' => $errorMessage,
+                            'email' => $validated['company_email'],
+                            'username' => $generatedUsername,
+                        ]);
+                        
+                        return redirect()->back()
+                            ->withInput()
+                            ->withErrors([
+                                'company_email' => 'This email or username already exists in the third-party system. Please use a different email address.',
+                            ]);
+                    }
+                    
+                    // Re-throw if it's not a duplicate error
+                    throw $e;
+                }
+            } else {
+                // Business doesn't exist, check for duplicate business first
+                // The business check already happened, but let's also check for duplicate user
+                $userExists = $apiService->checkUserExists($validated['company_email'], $generatedUsername);
+                
+                if ($userExists) {
+                    $errorMessage = 'A user with this email or username already exists in the third-party system. ';
+                    if (isset($userExists['email']) && $userExists['email'] === $validated['company_email']) {
+                        $errorMessage .= 'The email "' . $validated['company_email'] . '" is already registered.';
+                    } elseif (isset($userExists['username'])) {
+                        $errorMessage .= 'The username is already taken.';
+                    }
+                    
+                    Log::warning('Duplicate user detected before business creation', [
+                        'email' => $validated['company_email'],
+                        'username' => $generatedUsername,
+                    ]);
+                    
+                    return redirect()->back()
+                        ->withInput()
+                        ->withErrors([
+                            'company_email' => $errorMessage . ' Please use a different email address or contact support.',
+                        ]);
+                }
+                
+                // No duplicates found - create both business and user
+                $businessData = [
+                    'name' => $validated['company_name'],
+                    'code' => null, // Will be auto-generated
+                    'email' => $validated['company_email'],
+                    'phone' => $validated['company_phone'],
+                    'address' => $validated['company_address'],
+                    'description' => 'Company client registered from Kashtre system',
+                ];
+                
+                try {
+                    $thirdPartyData = $apiService->registerBusinessAndUser($businessData, $userData);
+                    
+                    if ($thirdPartyData) {
+                        // Use the username from API response if available, otherwise use generated
+                        $finalUsername = $thirdPartyData['user']['username'] ?? $generatedUsername;
+                        
+                        Log::info('Third-party business and user created successfully', [
+                            'client_id' => $clientId,
+                            'third_party_business_id' => $thirdPartyData['business']['id'] ?? null,
+                            'third_party_user_id' => $thirdPartyData['user']['id'] ?? null,
+                            'username' => $finalUsername,
+                            'password' => $generatedPassword,
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    // Check if it's a duplicate error
+                    $errorMessage = $e->getMessage();
+                    if (str_contains($errorMessage, 'email') || str_contains($errorMessage, 'Email') || 
+                        str_contains($errorMessage, 'username') || str_contains($errorMessage, 'Username') ||
+                        str_contains($errorMessage, 'unique') || str_contains($errorMessage, 'already')) {
+                        
+                        Log::error('Duplicate detected during business/user creation', [
+                            'error' => $errorMessage,
+                            'email' => $validated['company_email'],
+                            'username' => $generatedUsername,
+                            'company_name' => $validated['company_name'],
+                        ]);
+                        
+                        return redirect()->back()
+                            ->withInput()
+                            ->withErrors([
+                                'company_email' => 'This email, username, or company name already exists in the third-party system. Please use different information or contact support.',
+                            ]);
+                    }
+                    
+                    // Re-throw if it's not a duplicate error
+                    throw $e;
+                }
+            }
+        } catch (\Exception $e) {
+            // Check if it's a duplicate error that wasn't caught above
+            $errorMessage = $e->getMessage();
+            if (str_contains($errorMessage, 'email') || str_contains($errorMessage, 'Email') || 
+                str_contains($errorMessage, 'username') || str_contains($errorMessage, 'Username') ||
+                str_contains($errorMessage, 'unique') || str_contains($errorMessage, 'already')) {
+                
+                Log::error('Duplicate detected - registration failed', [
+                    'error' => $errorMessage,
+                    'client_data' => [
+                        'company_name' => $validated['company_name'],
+                        'company_email' => $validated['company_email'],
+                        'register_type' => $registerType,
+                    ],
+                ]);
+                
+                return redirect()->back()
+                    ->withInput()
+                    ->withErrors([
+                        'company_email' => 'This information already exists in the third-party system. Please use different details or contact support.',
+                    ]);
+            }
+            
+            // For other errors, log and fail the client creation
+            Log::error('Failed to register business in third-party system', [
+                'error' => $e->getMessage(),
+                'client_data' => [
+                    'company_name' => $validated['company_name'],
+                    'register_type' => $registerType,
+                ],
+            ]);
+            
+            return redirect()->back()
+                ->withInput()
+                ->withErrors([
+                    'company_email' => 'Failed to register in third-party system: ' . $e->getMessage() . ' Please try again or contact support.',
+                ]);
+        }
         
         // Create the company client
         $client = Client::create([
@@ -418,6 +652,7 @@ class ClientController extends Controller
             'phone_number' => $validated['company_phone'],
             'email' => $validated['company_email'],
             'occupation' => $validated['company_contact_person'],
+            'insurance_company_id' => $validated['insurance_company_id'] ?? null,
             'payment_methods' => $validated['payment_methods'] ?? [],
             'payment_phone_number' => $validated['payment_phone_number'],
             'balance' => 0,
@@ -427,38 +662,47 @@ class ClientController extends Controller
         
         $message = 'Company client registered successfully! Client ID: ' . $clientId;
         
-        // Create the company as a third party payer if requested
-        if ($validated['register_type'] === 'client_and_payer') {
-            $thirdPartyPayer = ThirdPartyPayer::create([
-                'business_id' => $business->id,
-                'type' => 'normal_client',
-                'client_id' => $client->id,
-                'name' => $validated['company_name'],
-                'contact_person' => $validated['company_contact_person'],
-                'phone_number' => $validated['company_phone'],
-                'email' => $validated['company_email'],
-                'address' => $validated['company_address'],
-                'credit_limit' => 0, // Will be set up later
-                'status' => 'active',
+        // Prepare redirect
+        $redirect = redirect()->route('clients.show', $client);
+        
+        // Add third-party registration info to message if successful
+        if ($thirdPartyData && $generatedPassword) {
+            // Use the finalUsername we set earlier, or get from API response, or fall back to generated
+            $finalUsername = $finalUsername ?? $thirdPartyData['user']['username'] ?? $generatedUsername ?? 'N/A';
+            
+            // Get third-party system base URL for login link
+            $thirdPartyBaseUrl = config('services.third_party.api_url', env('THIRD_PARTY_API_URL', 'http://127.0.0.1:8001'));
+            $loginUrl = rtrim($thirdPartyBaseUrl, '/') . '/login';
+            
+            // Format message with HTML for better display
+            $message .= '<br><br><strong>=== Third-Party System Account Created ===</strong>';
+            $message .= '<br><br><strong>Username:</strong> ' . htmlspecialchars($finalUsername);
+            $message .= '<br><strong>Password:</strong> ' . htmlspecialchars($generatedPassword);
+            $message .= '<br><br><a href="' . htmlspecialchars($loginUrl) . '" target="_blank" class="text-blue-600 hover:text-blue-800 underline font-semibold">🔗 Click here to login to Third-Party System</a>';
+            $message .= '<br><br><span class="text-red-600 font-semibold">⚠️ IMPORTANT:</span> Please save these credentials securely!';
+            $message .= '<br>You can use these to log into the third-party system.';
+            
+            // Also log credentials for admin reference
+            Log::info('Third-party credentials for client', [
+                'client_id' => $clientId,
+                'client_name' => $validated['company_name'],
+                'third_party_username' => $finalUsername,
+                'third_party_password' => $generatedPassword,
+                'third_party_business_id' => $thirdPartyData['business']['id'] ?? null,
+                'third_party_user_id' => $thirdPartyData['user']['id'] ?? null,
+                'login_url' => $loginUrl,
             ]);
             
-            // Create the login account for the third-party payer
-            if (!empty($validated['account_username']) && !empty($validated['account_password'])) {
-                ThirdPartyPayerAccount::create([
-                    'third_party_payer_id' => $thirdPartyPayer->id,
-                    'username' => $validated['account_username'],
-                    'password' => $validated['account_password'], // Will be hashed automatically
-                    'name' => $validated['account_name'] ?? $validated['company_name'],
-                    'email' => $validated['account_email'] ?? $validated['company_email'],
-                    'status' => 'active',
-                ]);
-            }
-            
-            $message = 'Company client registered successfully as a client and third party payer! Client ID: ' . $clientId . '. Login account created with username: ' . $validated['account_username'];
+            // Add credentials to flash data
+            $redirect->with('third_party_credentials', [
+                'username' => $finalUsername,
+                'password' => $generatedPassword,
+                'login_url' => $loginUrl,
+                'client_id' => $clientId,
+            ]);
         }
         
-        return redirect()->route('clients.show', $client)
-            ->with('success', $message);
+        return $redirect->with('success', $message);
     }
     
     /**

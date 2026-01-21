@@ -3,7 +3,6 @@
 namespace App\Livewire\InsuranceCompany;
 
 use App\Models\InsuranceCompany;
-use App\Models\Business;
 use Filament\Forms;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
@@ -29,11 +28,7 @@ class ListInsuranceCompanies extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
-        $query = InsuranceCompany::query()->where('business_id', '!=', 1)->latest();
-
-        if (Auth::check() && Auth::user()->business_id !== 1) {
-            $query->where('business_id', Auth::user()->business_id);
-        }
+        $query = InsuranceCompany::query()->latest();
 
         return $table
             ->query($query)
@@ -46,7 +41,8 @@ class ListInsuranceCompanies extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('business.name')
                     ->label('Business')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->placeholder('N/A'),
 
                 Tables\Columns\TextColumn::make('description')
                     ->label('Description')
@@ -74,26 +70,12 @@ class ListInsuranceCompanies extends Component implements HasForms, HasTable
             ])
             ->filters([
                 Tables\Filters\TrashedFilter::make(),
-                ...(Auth::check() && Auth::user()->business_id === 1 ? [
-                    Tables\Filters\SelectFilter::make('business_id')
-                        ->label('Filter by Business')
-                        ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
-                        ->searchable()
-                        ->multiple(),
-                ] : []),
             ])
             ->actions([
                 EditAction::make()
                     ->visible(fn() => in_array('Edit Insurance Companies', Auth::user()->permissions))
                     ->modalHeading('Edit Insurance Company')
                     ->form(fn(InsuranceCompany $record) => [
-                        Select::make('business_id')
-                            ->label('Business')
-                            ->placeholder('Select a business')
-                            ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
-                            ->required()
-                            ->disabled(fn() => Auth::user()->business_id !== 1),
-
                         TextInput::make('name')
                             ->label('Company Name')
                             ->placeholder('Enter company name')
@@ -124,14 +106,6 @@ class ListInsuranceCompanies extends Component implements HasForms, HasTable
                     ->label('Create Insurance Company')
                     ->modalHeading('Add New Insurance Company')
                     ->form([
-                        Select::make('business_id')
-                            ->label('Business')
-                            ->placeholder('Select a business')
-                            ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
-                            ->required()
-                            ->default(Auth::user()->business_id)
-                            ->disabled(fn() => Auth::user()->business_id !== 1),
-
                         TextInput::make('name')
                             ->label('Company Name')
                             ->placeholder('Enter company name')
