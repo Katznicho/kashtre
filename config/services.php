@@ -39,7 +39,7 @@ return [
     ],
 
     'third_party' => [
-        'api_url' => env('THIRD_PARTY_API_URL', 'http://127.0.0.1:8001'),
+        'api_url' => env('THIRD_PARTY_API_URL', 'https://vendor.kashtre.com'),
         'timeout' => env('THIRD_PARTY_API_TIMEOUT', 30),
     ],
 
