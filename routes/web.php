@@ -199,8 +199,10 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     // Settings (includes Insurance Companies)
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     
-    // Insurance Companies routes
-    Route::get('/insurance-companies', [InsuranceCompanyController::class, 'index'])->name('insurance-companies.index');
+    // Insurance Companies routes (redirect index to settings)
+    Route::get('/insurance-companies', function() {
+        return redirect()->route('settings.index', ['tab' => 'insurance-companies']);
+    })->name('insurance-companies.index');
     Route::get('/insurance-companies/create', [InsuranceCompanyController::class, 'create'])->name('insurance-companies.create');
     Route::post('/insurance-companies', [InsuranceCompanyController::class, 'store'])->name('insurance-companies.store');
     Route::get('/insurance-companies/{insuranceCompany}', [InsuranceCompanyController::class, 'show'])->name('insurance-companies.show');

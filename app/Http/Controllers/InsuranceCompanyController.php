@@ -17,11 +17,7 @@ class InsuranceCompanyController extends Controller
      */
     public function index()
     {
-        $insuranceCompanies = InsuranceCompany::with('business')
-            ->latest()
-            ->paginate(15);
-        
-        return view('insurance-company.index', compact('insuranceCompanies'));
+        return redirect()->route('settings.index', ['tab' => 'insurance-companies']);
     }
 
     /**
