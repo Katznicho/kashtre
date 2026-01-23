@@ -22,9 +22,10 @@ class ThirdPartyApiService
      *
      * @param array $businessData
      * @param array $userData
+     * @param int|null $connectToInsuranceCompanyId Optional: ID of insurance company to connect to
      * @return array|null
      */
-    public function registerBusinessAndUser(array $businessData, array $userData): ?array
+    public function registerBusinessAndUser(array $businessData, array $userData, ?int $connectToInsuranceCompanyId = null): ?array
     {
         try {
             $payload = [
@@ -45,6 +46,11 @@ class ThirdPartyApiService
                 'user_username' => $userData['username'] ?? '',
                 'user_password' => $userData['password'] ?? '',
             ];
+            
+            // Add connection if provided
+            if ($connectToInsuranceCompanyId) {
+                $payload['connect_to_insurance_company_id'] = $connectToInsuranceCompanyId;
+            }
 
             Log::info('ThirdPartyApiService: Registering business and user', [
                 'business_name' => $payload['name'],
@@ -158,17 +164,19 @@ class ThirdPartyApiService
      * Check if user exists by email or username
      *
      * @param string $email
-     * @param string $username
+     * @param string|null $username
      * @return array|null Returns user data if exists, null otherwise
      */
-    public function checkUserExists(string $email, string $username): ?array
+    public function checkUserExists(string $email, ?string $username = null): ?array
     {
         try {
+            $params = ['email' => $email];
+            if ($username !== null) {
+                $params['username'] = $username;
+            }
+            
             $response = Http::timeout($this->timeout)
-                ->get("{$this->baseUrl}/api/v1/users/check", [
-                    'email' => $email,
-                    'username' => $username,
-                ]);
+                ->get("{$this->baseUrl}/api/v1/users/check", $params);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -271,6 +279,88 @@ class ThirdPartyApiService
         } catch (Exception $e) {
             Log::error('ThirdPartyApiService: Failed to login', [
                 'email' => $email,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Generate password reset token for a user and send email (handled by third-party system)
+     *
+     * @param string $email
+     * @return array|null Returns the full response including success status
+     */
+    public function generatePasswordResetToken(string $email): ?array
+    {
+        try {
+            $response = Http::timeout($this->timeout)
+                ->post("{$this->baseUrl}/api/v1/password/reset-token", [
+                    'email' => $email,
+                ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                // Return the full response including success and data
+                return $data;
+            }
+
+            Log::error('ThirdPartyApiService: Failed to generate password reset token', [
+                'email' => $email,
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+
+            return null;
+        } catch (Exception $e) {
+            Log::error('ThirdPartyApiService: Exception while generating password reset token', [
+                'email' => $email,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Get insurance company by code from third-party system
+     *
+     * @param string $code 8-digit insurance company code
+     * @return array|null
+     */
+    public function getInsuranceCompanyByCode(string $code): ?array
+    {
+        try {
+            Log::info('ThirdPartyApiService: Getting insurance company by code', [
+                'code' => $code,
+            ]);
+
+            $response = Http::timeout($this->timeout)
+                ->get("{$this->baseUrl}/api/v1/businesses/by-code/{$code}");
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                Log::info('ThirdPartyApiService: Insurance company found by code', [
+                    'code' => $code,
+                    'business_id' => $data['data']['business']['id'] ?? null,
+                ]);
+
+                return $data['data'] ?? null;
+            } else {
+                $error = $response->json();
+                Log::warning('ThirdPartyApiService: Insurance company not found by code', [
+                    'code' => $code,
+                    'status' => $response->status(),
+                    'error' => $error,
+                ]);
+
+                return null;
+            }
+        } catch (Exception $e) {
+            Log::error('ThirdPartyApiService: Exception while getting insurance company by code', [
+                'code' => $code,
                 'message' => $e->getMessage(),
             ]);
 

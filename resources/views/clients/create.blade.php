@@ -481,11 +481,122 @@
 
                 <!-- Tab Content: Company Client -->
                 <div id="tab-content-company" class="tab-content hidden">
-                    <form id="client-registration-form-company" action="{{ route('clients.store') }}" method="POST" class="space-y-8" x-data="{ registerType: 'client_only' }">
+                    <form id="client-registration-form-company" action="{{ route('clients.store') }}" method="POST" class="space-y-8" x-data="{ 
+                        registerType: 'client_only', 
+                        loadingCompany: false, 
+                        companyLoaded: false,
+                        fetchCompanyDetails(code) {
+                            if (!code || code.length !== 8 || !/^[0-9]{8}$/.test(code)) return;
+                            
+                            this.loadingCompany = true;
+                            this.companyLoaded = false;
+                            
+                            fetch(`/api/insurance-company/by-code/${code}`)
+                                .then(response => response.json())
+                                .then(data => {
+                                    this.loadingCompany = false;
+                                    
+                                    if (data.success && data.data) {
+                                        const companyData = data.data;
+                                        
+                                        // Auto-fill form fields only if they're empty
+                                        const companyNameField = document.getElementById('company_name');
+                                        if (companyNameField && !companyNameField.value) {
+                                            companyNameField.value = companyData.name || '';
+                                        }
+                                        
+                                        const companyEmailField = document.getElementById('company_email');
+                                        if (companyEmailField && !companyEmailField.value) {
+                                            companyEmailField.value = companyData.email || '';
+                                        }
+                                        
+                                        const companyPhoneField = document.getElementById('company_phone');
+                                        if (companyPhoneField && !companyPhoneField.value) {
+                                            companyPhoneField.value = companyData.phone || '';
+                                        }
+                                        
+                                        const companyAddressField = document.getElementById('company_address');
+                                        if (companyAddressField && !companyAddressField.value) {
+                                            companyAddressField.value = companyData.head_office_address || companyData.postal_address || '';
+                                        }
+                                        
+                                        this.companyLoaded = true;
+                                        setTimeout(() => { this.companyLoaded = false; }, 3000);
+                                    } else {
+                                        Swal.fire({
+                                            icon: 'error',
+                                            title: 'Company Not Found',
+                                            text: data.message || 'Insurance company not found with the provided code.',
+                                            confirmButtonColor: '#3085d6',
+                                        });
+                                    }
+                                })
+                                .catch(error => {
+                                    this.loadingCompany = false;
+                                    console.error('Error fetching company details:', error);
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Error',
+                                        text: 'An error occurred while fetching company details. Please try again.',
+                                        confirmButtonColor: '#3085d6',
+                                    });
+                                });
+                        }
+                    }">
                         @csrf
                         <input type="hidden" name="client_type" value="company">
                         <input type="hidden" name="register_type" x-model="registerType">
                         
+                        <!-- Insurance Company Code (First Field - Only for Third Party Payer) -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" x-show="registerType === 'client_and_payer'" x-transition>
+                            <div class="px-6 py-4 bg-gradient-to-r from-green-600 to-teal-600">
+                                <h2 class="text-lg font-semibold text-white flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                                    </svg>
+                                    Insurance Company Code
+                                </h2>
+                            </div>
+                            <div class="p-6">
+                                <div>
+                                    <label for="insurance_company_code" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Enter 8-Digit Insurance Company Code <span class="text-red-500">*</span>
+                                    </label>
+                                    <div class="relative">
+                                        <input type="text" 
+                                               name="insurance_company_code" 
+                                               id="insurance_company_code" 
+                                               value="{{ old('insurance_company_code') }}"
+                                               placeholder="Enter 8-digit code (e.g., 12345678)"
+                                               pattern="[0-9]{8}"
+                                               maxlength="8"
+                                               minlength="8"
+                                               x-bind:required="registerType === 'client_and_payer'"
+                                               x-on:input.debounce.500ms="fetchCompanyDetails($el.value)"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors font-mono text-lg @error('insurance_company_code') border-red-300 @enderror">
+                                        <div x-show="loadingCompany" class="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                            <svg class="animate-spin h-5 w-5 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-1">Enter the 8-digit code to auto-fill company information</p>
+                                    <div x-show="companyLoaded" class="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                        <p class="text-sm text-green-800 flex items-center">
+                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                            </svg>
+                                            Company information loaded successfully!
+                                        </p>
+                                    </div>
+                                    @error('insurance_company_code')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Registration Type Radio Buttons -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                             <div class="px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600">
@@ -576,32 +687,6 @@
                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">{{ old('company_address') }}</textarea>
                                 </div>
 
-                                <div>
-                                    <label for="company_contact_person" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Contact Person Name <span class="text-red-500">*</span>
-                                    </label>
-                                    <input type="text" name="company_contact_person" id="company_contact_person" value="{{ old('company_contact_person') }}" required 
-                                           placeholder="Enter contact person name"
-                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
-                                </div>
-
-                                <div>
-                                    <label for="insurance_company_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Insurance Company
-                                    </label>
-                                    <select name="insurance_company_id" id="insurance_company_id" 
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
-                                        <option value="">Select Insurance Company (Optional)</option>
-                                        @if(isset($insuranceCompanies) && $insuranceCompanies->count() > 0)
-                                            @foreach($insuranceCompanies as $insuranceCompany)
-                                                <option value="{{ $insuranceCompany->id }}" {{ old('insurance_company_id') == $insuranceCompany->id ? 'selected' : '' }}>
-                                                    {{ $insuranceCompany->name }}
-                                                </option>
-                                            @endforeach
-                                        @endif
-                                    </select>
-                                    <p class="text-xs text-gray-500 mt-1">Select an insurance company if this client is associated with one</p>
-                                </div>
                             </div>
                         </div>
 

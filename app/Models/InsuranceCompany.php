@@ -16,7 +16,18 @@ class InsuranceCompany extends Model
         'uuid',
         'business_id',
         'name',
+        'code',
+        'email',
+        'phone',
+        'address',
+        'head_office_address',
+        'postal_address',
+        'website',
         'description',
+        'third_party_business_id',
+        'third_party_user_id',
+        'third_party_username',
+        'third_party_password',
     ];
     
 

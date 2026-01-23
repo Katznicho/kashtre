@@ -165,4 +165,33 @@ class Constants {
     const DEFAULT_MIN_BUSINESS_APPROVERS = 3;
     const DEFAULT_MIN_KASHTRE_APPROVERS = 3;
     const DEFAULT_WITHDRAWAL_TYPE = 'regular';
+
+    // Insurance Company Names
+    const INSURANCE_COMPANY_NAMES = [
+        'Prudential Assurance Uganda Limited',
+        'AAR Health Insurance',
+        'AAR Insurance',
+        'Jubilee Insurance Uganda',
+        'Jubilee Insurance',
+        'UAP Insurance',
+        'Liberty Health Insurance',
+        'Prudential Insurance',
+        'National Insurance',
+        'Sanlam Insurance',
+        'CIC Insurance',
+        'APA Insurance',
+        'Resolution Insurance',
+        'Britam Insurance',
+        'Phoenix Insurance',
+    ];
+
+    /**
+     * Get list of insurance company names
+     *
+     * @return array
+     */
+    public static function getInsuranceCompanyNames(): array
+    {
+        return self::INSURANCE_COMPANY_NAMES;
+    }
 }

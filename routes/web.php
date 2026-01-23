@@ -24,6 +24,7 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ContractorProfileController;
 use App\Http\Controllers\ContractorProfileBulkUploadController;
 use App\Http\Controllers\InsuranceCompanyController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\SubGroupController;
 use App\Http\Controllers\AdminController;
@@ -195,7 +196,14 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::post('/contractor-profiles/bulk-upload/import', [ContractorProfileBulkUploadController::class, 'import'])->name('contractor-profiles.bulk-upload.import');
     Route::get('/contractor-profiles/bulk-upload/users', [ContractorProfileBulkUploadController::class, 'getUsers'])->name('contractor-profiles.bulk-upload.users');
     
-    Route::resource("insurance-companies", InsuranceCompanyController::class);
+    // Settings (includes Insurance Companies)
+    Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+    
+    // Insurance Companies routes
+    Route::get('/insurance-companies', [InsuranceCompanyController::class, 'index'])->name('insurance-companies.index');
+    Route::get('/insurance-companies/create', [InsuranceCompanyController::class, 'create'])->name('insurance-companies.create');
+    Route::post('/insurance-companies', [InsuranceCompanyController::class, 'store'])->name('insurance-companies.store');
+    Route::get('/insurance-companies/{insuranceCompany}', [InsuranceCompanyController::class, 'show'])->name('insurance-companies.show');
     Route::resource("stores", StoreController::class);
     Route::resource("suppliers", SupplierController::class);
     Route::resource("contractor-profiles", ContractorProfileController::class);
@@ -234,6 +242,9 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
             ->get(['id', 'name']);
         return response()->json($branches);
     })->name('api.branches');
+    
+    // API route for fetching insurance company by code
+    Route::get('/api/insurance-company/by-code/{code}', [ClientController::class, 'getInsuranceCompanyByCode'])->name('api.insurance-company.by-code');
     
     // Credit Note Workflow Settings (Kashtre only)
     Route::get('credit-note-workflows/bulk-upload', [CreditNoteWorkflowBulkUploadController::class, 'index'])->name('credit-note-workflows.bulk-upload.index');
