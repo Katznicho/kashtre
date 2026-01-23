@@ -454,73 +454,45 @@ class ClientController extends Controller
                 ]);
             }
             
-            // First, check if business already exists in third-party system
-            $existingBusiness = $apiService->checkBusinessExists(
-                $validated['company_name'],
-                $validated['company_email']
-            );
-            
-            // We only create connections, not new users
-            // Check if user exists by email
-            $userExists = $apiService->checkUserExists($validated['company_email'], null);
-            
-            if ($existingBusiness && isset($existingBusiness['id'])) {
-                // Business exists - check if user exists
-                if ($userExists) {
-                    // User exists - create connection record
-                    $userWasExisting = true;
-                    Log::info('User and business exist in third-party system, creating connection record', [
-                        'email' => $validated['company_email'],
-                        'username' => $userExists['username'] ?? null,
-                        'business_id' => $existingBusiness['id'],
-                        'user_id' => $userExists['id'] ?? null,
-                    ]);
-                    
-                    // Store connection info for later (after client is created)
-                    $thirdPartyData = [
-                        'business' => [
-                            'id' => $existingBusiness['id'],
-                            'name' => $existingBusiness['name'] ?? $validated['company_name'],
-                        ],
-                        'user' => [
-                            'id' => $userExists['id'] ?? null,
-                            'username' => $userExists['username'] ?? null,
-                            'email' => $userExists['email'] ?? $validated['company_email'],
-                        ],
-                    ];
-                    $finalUsername = $userExists['username'] ?? null;
-                } else {
-                    // Business exists but user doesn't - we don't create users, just create connection to business
-                    Log::info('Business exists but user does not, creating connection to business only', [
-                        'email' => $validated['company_email'],
-                        'business_id' => $existingBusiness['id'],
-                    ]);
-                    
-                    $thirdPartyData = [
-                        'business' => [
-                            'id' => $existingBusiness['id'],
-                            'name' => $existingBusiness['name'] ?? $validated['company_name'],
-                        ],
-                        'user' => null, // No user exists
-                    ];
-                    $finalUsername = null;
-                }
-            } else {
-                // Business doesn't exist - we can't create connection without business
-                Log::warning('Business does not exist in third-party system, cannot create connection', [
-                    'company_name' => $validated['company_name'],
-                    'company_email' => $validated['company_email'],
-                ]);
+            // If insurance company code was provided, create connection between current Kashtre business and insurance company
+            if ($linkedInsuranceCompany && isset($linkedInsuranceCompany['id'])) {
+                // Use current Kashtre business ID directly (we're already in this business)
+                $kashtreBusinessId = $business->id;
                 
-                // Return error - business must exist first
-                return redirect()->back()
-                    ->withInput()
-                    ->withErrors([
-                        'company_email' => 'The business does not exist in the third-party system. Please ensure the business is registered first before creating a client connection.',
+                // Create connection: current Kashtre business -> insurance company (from code)
+                $connectionResult = $apiService->createBusinessConnection(
+                    $linkedInsuranceCompany['id'], // Insurance company to connect to (from code)
+                    $kashtreBusinessId, // Current Kashtre business ID
+                    $business->name // Business name to display in third-party system
+                );
+                
+                if ($connectionResult) {
+                    Log::info('Business connection created in third-party system', [
+                        'insurance_company_id' => $linkedInsuranceCompany['id'],
+                        'insurance_company_name' => $linkedInsuranceCompany['name'] ?? null,
+                        'kashtre_business_id' => $kashtreBusinessId,
+                        'kashtre_business_name' => $business->name,
+                        'connection_id' => $connectionResult['connection_id'] ?? null,
                     ]);
+                } else {
+                    Log::warning('Failed to create business connection in third-party system', [
+                        'insurance_company_id' => $linkedInsuranceCompany['id'],
+                        'kashtre_business_id' => $kashtreBusinessId,
+                    ]);
+                }
+                
+                // Store connection info for tracking (use insurance company ID for connected_accounts)
+                $thirdPartyData = [
+                    'business' => [
+                        'id' => $linkedInsuranceCompany['id'], // Insurance company ID for connected_accounts table
+                        'name' => $linkedInsuranceCompany['name'] ?? null,
+                    ],
+                    'user' => null,
+                ];
+            } else {
+                // No insurance company code provided - no connection needed
+                $thirdPartyData = null;
             }
-            
-            // All user creation logic removed - we only create connections now
         } catch (\Exception $e) {
             // Check if it's a duplicate error that wasn't caught above
             $errorMessage = $e->getMessage();
@@ -587,24 +559,22 @@ class ClientController extends Controller
         // Prepare redirect
         $redirect = redirect()->route('clients.show', $client);
         
-        // Create connected account record if third-party data exists
+        // Create connected account record if connection was made
         if ($thirdPartyData && isset($thirdPartyData['business']['id'])) {
             try {
-                
                 ConnectedAccount::create([
                     'client_id' => $client->id,
                     'third_party_business_id' => $thirdPartyData['business']['id'],
-                    'third_party_user_id' => $thirdPartyData['user']['id'] ?? null,
-                    'third_party_username' => $thirdPartyData['user']['username'] ?? $finalUsername ?? null,
+                    'third_party_user_id' => null, // We don't create users anymore
+                    'third_party_username' => null,
                     'connection_type' => $registerType === 'client_and_payer' ? 'payer' : 'client',
                     'status' => 'active',
                     'notes' => 'Connected to third-party system during client registration',
                 ]);
                 
-                Log::info('Connected account record created', [
+                Log::info('Connected account record created in Kashtre', [
                     'client_id' => $client->id,
                     'third_party_business_id' => $thirdPartyData['business']['id'],
-                    'third_party_user_id' => $thirdPartyData['user']['id'] ?? null,
                 ]);
             } catch (\Exception $e) {
                 Log::error('Failed to create connected account record', [

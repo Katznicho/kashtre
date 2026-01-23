@@ -367,4 +367,61 @@ class ThirdPartyApiService
             return null;
         }
     }
+
+    /**
+     * Create a business connection in the third-party system
+     *
+     * @param int $insuranceCompanyId The insurance company to connect to
+     * @param int $connectedBusinessId The business being connected
+     * @return array|null Returns connection data if successful, null otherwise
+     */
+    public function createBusinessConnection(int $insuranceCompanyId, int $connectedBusinessId, ?string $connectedBusinessName = null): ?array
+    {
+        try {
+            $payload = [
+                'insurance_company_id' => $insuranceCompanyId,
+                'connected_business_id' => $connectedBusinessId,
+            ];
+            
+            if ($connectedBusinessName) {
+                $payload['connected_business_name'] = $connectedBusinessName;
+            }
+
+            Log::info('ThirdPartyApiService: Creating business connection', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'connected_business_id' => $connectedBusinessId,
+            ]);
+
+            $response = Http::timeout($this->timeout)
+                ->post("{$this->baseUrl}/api/v1/businesses/connections", $payload);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                Log::info('ThirdPartyApiService: Business connection created successfully', [
+                    'insurance_company_id' => $insuranceCompanyId,
+                    'connected_business_id' => $connectedBusinessId,
+                    'connection_id' => $data['data']['connection_id'] ?? null,
+                ]);
+
+                return $data['data'] ?? null;
+            } else {
+                $error = $response->json();
+                Log::error('ThirdPartyApiService: Failed to create business connection', [
+                    'status' => $response->status(),
+                    'error' => $error,
+                ]);
+
+                return null;
+            }
+        } catch (Exception $e) {
+            Log::error('ThirdPartyApiService: Exception while creating business connection', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'connected_business_id' => $connectedBusinessId,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
 }
