@@ -19,6 +19,7 @@ class InsuranceCompany extends Model
         'code',
         'email',
         'phone',
+        'tin',
         'address',
         'head_office_address',
         'postal_address',

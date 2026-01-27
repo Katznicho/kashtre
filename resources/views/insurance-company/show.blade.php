@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Insurance Company Details') }}
+                {{ __('Third Party Vendor Details') }}
             </h2>
             <div class="flex space-x-2">
                 <a href="{{ route('settings.index', ['tab' => 'insurance-companies']) }}" 
@@ -45,6 +45,10 @@
                                 <div>
                                     <dt class="text-sm font-medium text-gray-500">Phone</dt>
                                     <dd class="mt-1 text-sm text-gray-900">{{ $insuranceCompany->phone ?? 'N/A' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">TIN (Tax Identification Number)</dt>
+                                    <dd class="mt-1 text-sm text-gray-900">{{ $insuranceCompany->tin ?? 'N/A' }}</dd>
                                 </div>
                                 <div>
                                     <dt class="text-sm font-medium text-gray-500">Website</dt>

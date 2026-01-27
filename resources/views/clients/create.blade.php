@@ -486,7 +486,7 @@
                         loadingCompany: false, 
                         companyLoaded: false,
                         fetchCompanyDetails(code) {
-                            if (!code || code.length !== 8 || !/^[0-9]{8}$/.test(code)) return;
+                            if (!code || code.length !== 8 || !/^[A-Z0-9]{8}$/.test(code)) return;
                             
                             this.loadingCompany = true;
                             this.companyLoaded = false;
@@ -526,7 +526,7 @@
                                         Swal.fire({
                                             icon: 'error',
                                             title: 'Company Not Found',
-                                            text: data.message || 'Insurance company not found with the provided code.',
+                                            text: data.message || 'Third party vendor not found with the provided code.',
                                             confirmButtonColor: '#3085d6',
                                         });
                                     }
@@ -547,32 +547,34 @@
                         <input type="hidden" name="client_type" value="company">
                         <input type="hidden" name="register_type" x-model="registerType">
                         
-                        <!-- Insurance Company Code (First Field - Only for Third Party Payer) -->
+                        <!-- Third Party Vendor Code (First Field - Only for Third Party Payer) -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" x-show="registerType === 'client_and_payer'" x-transition>
                             <div class="px-6 py-4 bg-gradient-to-r from-green-600 to-teal-600">
                                 <h2 class="text-lg font-semibold text-white flex items-center">
                                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
                                     </svg>
-                                    Insurance Company Code
+                                    Third Party Vendor Code
                                 </h2>
                             </div>
                             <div class="p-6">
                                 <div>
                                     <label for="insurance_company_code" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Enter 8-Digit Insurance Company Code <span class="text-red-500">*</span>
+                                        Enter 8-Character Third Party Vendor Code <span class="text-red-500">*</span>
                                     </label>
                                     <div class="relative">
                                         <input type="text" 
                                                name="insurance_company_code" 
                                                id="insurance_company_code" 
                                                value="{{ old('insurance_company_code') }}"
-                                               placeholder="Enter 8-digit code (e.g., 12345678)"
-                                               pattern="[0-9]{8}"
+                                               placeholder="Enter 8-character code (e.g., A1B2C3D4)"
+                                               pattern="[A-Z0-9]{8}"
                                                maxlength="8"
                                                minlength="8"
+                                               style="text-transform: uppercase;"
                                                x-bind:required="registerType === 'client_and_payer'"
-                                               x-on:input.debounce.500ms="fetchCompanyDetails($el.value)"
+                                               x-on:input.debounce.500ms="fetchCompanyDetails($el.value.toUpperCase())"
+                                               x-on:keyup="$el.value = $el.value.toUpperCase()"
                                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors font-mono text-lg @error('insurance_company_code') border-red-300 @enderror">
                                         <div x-show="loadingCompany" class="absolute right-3 top-1/2 transform -translate-y-1/2">
                                             <svg class="animate-spin h-5 w-5 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -581,7 +583,7 @@
                                             </svg>
                                         </div>
                                     </div>
-                                    <p class="text-xs text-gray-500 mt-1">Enter the 8-digit code to auto-fill company information</p>
+                                    <p class="text-xs text-gray-500 mt-1">Enter the 8-character alphanumeric code (uppercase letters and numbers) to auto-fill company information</p>
                                     <div x-show="companyLoaded" class="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
                                         <p class="text-sm text-green-800 flex items-center">
                                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -617,7 +619,7 @@
                                     <label for="register_type_client_and_payer" class="flex items-center p-4 rounded-lg border cursor-pointer transition-all duration-200 ease-in-out"
                                         :class="{ 'border-green-500 bg-green-50 shadow-md': registerType === 'client_and_payer', 'border-gray-300 bg-white hover:bg-gray-50': registerType !== 'client_and_payer' }">
                                         <input type="radio" name="register_type" id="register_type_client_and_payer" value="client_and_payer" class="form-radio h-4 w-4 text-green-600" x-model="registerType">
-                                        <span class="ml-3 text-sm font-medium text-gray-700">Register as Client and Third Party Payer</span>
+                                        <span class="ml-3 text-sm font-medium text-gray-700">Register as Client and Third Party Vendor</span>
                                     </label>
                                 </div>
                                 <p class="text-xs text-gray-500 mt-2">

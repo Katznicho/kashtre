@@ -3,7 +3,7 @@
 
 Hello {{ $userName }},
 
-Your insurance company has been successfully registered in the third-party system. To access your account, please set your password using the link below.
+Your third party vendor has been successfully registered in the third-party system. To access your account, please set your password using the link below.
 
 **Username:** {{ $username }}
 

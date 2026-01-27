@@ -573,7 +573,7 @@
 
 
                             @if(in_array('View Insurance Companies', $permissions))
-                            <li><a href="{{ route('settings.index', ['tab' => 'insurance-companies']) }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Insurance Companies</a></li>
+                            <li><a href="{{ route('settings.index', ['tab' => 'insurance-companies']) }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Third Party Vendors</a></li>
                             @endif
 
                             @if(in_array('View Sub Groups', $permissions))

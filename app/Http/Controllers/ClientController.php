@@ -391,15 +391,15 @@ class ClientController extends Controller
             'company_phone' => 'required|string|max:255',
             'company_email' => 'required|email|max:255',
             'company_address' => 'required|string',
-            'insurance_company_code' => 'required_if:register_type,client_and_payer|string|size:8|regex:/^[0-9]{8}$/',
+            'insurance_company_code' => 'required_if:register_type,client_and_payer|string|size:8|regex:/^[A-Z0-9]{8}$/',
             'register_type' => 'nullable|in:client_only,client_and_payer',
             'payment_methods' => 'required|array|min:1',
             'payment_methods.*' => 'required|string|in:' . implode(',', $availablePaymentMethods),
             'payment_phone_number' => 'nullable|string|max:255',
         ], [
-            'insurance_company_code.required_if' => 'Insurance company code is required when registering as third party payer.',
-            'insurance_company_code.size' => 'Insurance company code must be exactly 8 digits.',
-            'insurance_company_code.regex' => 'Insurance company code must contain only numbers (8 digits).',
+            'insurance_company_code.required_if' => 'Third party vendor code is required when registering as third party payer.',
+            'insurance_company_code.size' => 'Third party vendor code must be exactly 8 characters.',
+            'insurance_company_code.regex' => 'Third party vendor code must contain only uppercase letters and numbers (8 characters).',
         ]);
         
         // Generate client_id for company (using company name)
@@ -436,18 +436,20 @@ class ClientController extends Controller
             
             // If registering as third party payer, validate and get insurance company by code
             if ($registerType === 'client_and_payer' && !empty($validated['insurance_company_code'])) {
+                // Normalize code to uppercase for consistency
+                $validated['insurance_company_code'] = strtoupper($validated['insurance_company_code']);
                 $insuranceCompanyData = $apiService->getInsuranceCompanyByCode($validated['insurance_company_code']);
                 
                 if (!$insuranceCompanyData || !isset($insuranceCompanyData['business'])) {
                     return redirect()->back()
                         ->withInput()
                         ->withErrors([
-                            'insurance_company_code' => 'Insurance company with code ' . $validated['insurance_company_code'] . ' not found in the third-party system. Please verify the code and try again.',
+                            'insurance_company_code' => 'Third party vendor with code ' . $validated['insurance_company_code'] . ' not found in the third-party system. Please verify the code and try again.',
                         ]);
                 }
                 
                 $linkedInsuranceCompany = $insuranceCompanyData['business'];
-                Log::info('Insurance company found by code for client registration', [
+                Log::info('Third party vendor found by code for client registration', [
                     'code' => $validated['insurance_company_code'],
                     'business_id' => $linkedInsuranceCompany['id'] ?? null,
                     'business_name' => $linkedInsuranceCompany['name'] ?? null,
@@ -1582,13 +1584,16 @@ class ClientController extends Controller
     public function getInsuranceCompanyByCode(string $code)
     {
         try {
-            // Validate code format
-            if (!preg_match('/^[0-9]{8}$/', $code)) {
+            // Validate code format (8-character alphanumeric)
+            if (!preg_match('/^[A-Z0-9]{8}$/', strtoupper($code))) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid code format. Code must be exactly 8 digits.',
+                    'message' => 'Invalid code format. Code must be exactly 8 characters (uppercase letters and numbers).',
                 ], 422);
             }
+            
+            // Convert to uppercase for consistency
+            $code = strtoupper($code);
 
             $apiService = new ThirdPartyApiService();
             $insuranceCompanyData = $apiService->getInsuranceCompanyByCode($code);
@@ -1596,7 +1601,7 @@ class ClientController extends Controller
             if (!$insuranceCompanyData || !isset($insuranceCompanyData['business'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insurance company not found with code: ' . $code,
+                    'message' => 'Third party vendor not found with code: ' . $code,
                 ], 404);
             }
 
@@ -1614,14 +1619,14 @@ class ClientController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
-            Log::error('Failed to get insurance company by code', [
+            Log::error('Failed to get third party vendor by code', [
                 'code' => $code,
                 'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while fetching insurance company details.',
+                'message' => 'An error occurred while fetching third party vendor details.',
                 'error' => $e->getMessage(),
             ], 500);
         }

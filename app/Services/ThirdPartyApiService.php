@@ -326,7 +326,7 @@ class ThirdPartyApiService
     /**
      * Get insurance company by code from third-party system
      *
-     * @param string $code 8-digit insurance company code
+     * @param string $code 8-character alphanumeric third party vendor code
      * @return array|null
      */
     public function getInsuranceCompanyByCode(string $code): ?array

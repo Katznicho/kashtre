@@ -25,8 +25,7 @@ class InsuranceCompanyController extends Controller
      */
     public function create()
     {
-        $insuranceCompanyNames = Constants::getInsuranceCompanyNames();
-        return view('insurance-company.create', compact('insuranceCompanyNames'));
+        return view('insurance-company.create');
     }
 
     /**
@@ -40,6 +39,7 @@ class InsuranceCompanyController extends Controller
             'code' => 'nullable|string|max:20',
             'email' => 'required|email|max:255',
             'phone' => 'nullable|string|max:20',
+            'tin' => 'nullable|string|max:50',
             'address' => 'nullable|string|max:500',
             'head_office_address' => 'nullable|string|max:500',
             'postal_address' => 'nullable|string|max:500',
@@ -52,7 +52,7 @@ class InsuranceCompanyController extends Controller
         ]);
 
         try {
-            // Always auto-generate 8-digit numeric code (not editable)
+            // Always auto-generate 8-character alphanumeric code (not editable)
             // Keep generating until we get a unique one
             $maxAttempts = 20;
             $attempts = 0;
@@ -60,7 +60,12 @@ class InsuranceCompanyController extends Controller
             $thirdPartyService = app(ThirdPartyApiService::class);
             
             do {
-                $code = str_pad(rand(10000000, 99999999), 8, '0', STR_PAD_LEFT);
+                // Generate 8-character alphanumeric code (uppercase letters and numbers)
+                $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                $code = '';
+                for ($i = 0; $i < 8; $i++) {
+                    $code .= $characters[rand(0, strlen($characters) - 1)];
+                }
                 $attempts++;
                 
                 // Check if code exists in local database first (faster)
@@ -77,7 +82,7 @@ class InsuranceCompanyController extends Controller
                 }
                 
                 if ($attempts >= $maxAttempts) {
-                    Log::error('Failed to generate unique insurance company code after multiple attempts', [
+                    Log::error('Failed to generate unique third party vendor code after multiple attempts', [
                         'attempts' => $attempts,
                     ]);
                     return back()->withInput()->withErrors([
@@ -88,7 +93,7 @@ class InsuranceCompanyController extends Controller
             
             $validated['code'] = $code;
             
-            Log::info('Auto-generated insurance company code', [
+            Log::info('Auto-generated third party vendor code', [
                 'code' => $code,
                 'attempts' => $attempts,
             ]);
@@ -98,9 +103,9 @@ class InsuranceCompanyController extends Controller
             
             $existingBusiness = $thirdPartyService->checkBusinessExists($validated['name'], $validated['email']);
             if ($existingBusiness) {
-                return back()->withInput()->withErrors([
-                    'email' => 'This insurance company already exists in the third-party system.'
-                ]);
+                    return back()->withInput()->withErrors([
+                        'email' => 'This third party vendor already exists in the third-party system.'
+                    ]);
             }
 
             $existingUser = $thirdPartyService->checkUserExists($validated['user_email'], $validated['user_username']);
@@ -117,6 +122,7 @@ class InsuranceCompanyController extends Controller
                 'code' => $validated['code'],
                 'email' => $validated['email'],
                 'phone' => $validated['phone'] ?? null,
+                'tin' => $validated['tin'] ?? null,
                 'address' => $validated['address'] ?? null,
                 'head_office_address' => $validated['head_office_address'] ?? $validated['address'] ?? null,
                 'postal_address' => $validated['postal_address'] ?? null,
@@ -130,6 +136,7 @@ class InsuranceCompanyController extends Controller
                 'code' => $insuranceCompany->code,
                 'email' => $insuranceCompany->email,
                 'phone' => $insuranceCompany->phone,
+                'tin' => $insuranceCompany->tin,
                 'address' => $insuranceCompany->address,
                 'head_office_address' => $insuranceCompany->head_office_address,
                 'postal_address' => $insuranceCompany->postal_address,
@@ -188,7 +195,7 @@ class InsuranceCompanyController extends Controller
                 }
                 
                 return redirect()->route('settings.index', ['tab' => 'insurance-companies'])
-                    ->with('success', 'Insurance company created and registered successfully!' . $emailMessage);
+                    ->with('success', 'Third party vendor created and registered successfully!' . $emailMessage);
             } else {
                 return back()->withInput()->withErrors([
                     'error' => 'Failed to register with third-party system. Please try again.'
@@ -196,7 +203,7 @@ class InsuranceCompanyController extends Controller
             }
 
         } catch (\Exception $e) {
-            Log::error('Failed to create insurance company', [
+            Log::error('Failed to create third party vendor', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);

@@ -19,7 +19,7 @@
                             <svg class="w-5 h-5 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                             </svg>
-                            Insurance Companies
+                            Third Party Vendors
                         </button>
                     </nav>
                 </div>
@@ -43,13 +43,13 @@
                         @endif
 
                         <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-lg font-semibold text-gray-900">Insurance Companies</h3>
+                            <h3 class="text-lg font-semibold text-gray-900">Third Party Vendors</h3>
                             <a href="{{ route('insurance-companies.create') }}" 
                                class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md hover:bg-blue-700 transition duration-150">
                                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                                 </svg>
-                                Create Insurance Company
+                                Create Third Party Vendor
                             </a>
                         </div>
 
@@ -105,15 +105,15 @@
                                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                                 </svg>
-                                <h3 class="mt-2 text-sm font-medium text-gray-900">No insurance companies</h3>
-                                <p class="mt-1 text-sm text-gray-500">Get started by creating a new insurance company.</p>
+                                <h3 class="mt-2 text-sm font-medium text-gray-900">No third party vendors</h3>
+                                <p class="mt-1 text-sm text-gray-500">Get started by creating a new third party vendor.</p>
                                 <div class="mt-6">
                                     <a href="{{ route('insurance-companies.create') }}" 
                                        class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
                                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                                         </svg>
-                                        Create Insurance Company
+                                        Create Third Party Vendor
                                     </a>
                                 </div>
                             </div>

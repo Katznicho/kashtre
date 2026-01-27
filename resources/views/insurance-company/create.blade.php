@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Create Insurance Company') }}
+                {{ __('Create Third Party Vendor') }}
             </h2>
             <a href="{{ route('settings.index', ['tab' => 'insurance-companies']) }}" 
                class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
@@ -53,15 +53,13 @@
                                     <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
                                         Company Name <span class="text-red-500">*</span>
                                     </label>
-                                    <select name="name" 
-                                            id="name" 
-                                            required
-                                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm @error('name') border-red-300 @enderror">
-                                        <option value="">-- Select Insurance Company --</option>
-                                        @foreach($insuranceCompanyNames as $companyName)
-                                            <option value="{{ $companyName }}" {{ old('name') == $companyName ? 'selected' : '' }}>{{ $companyName }}</option>
-                                        @endforeach
-                                    </select>
+                                    <input type="text" 
+                                           name="name" 
+                                           id="name" 
+                                           value="{{ old('name') }}"
+                                           required
+                                           placeholder="Enter third party vendor name"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm @error('name') border-red-300 @enderror">
                                     @error('name')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
@@ -70,7 +68,7 @@
                                 <!-- Company Code (Auto-generated) -->
                                 <div>
                                     <label for="code_display" class="block text-sm font-medium text-gray-700 mb-1">
-                                        Company Code <span class="text-gray-400">(8-digit, auto-generated)</span>
+                                        Company Code <span class="text-gray-400">(8-character alphanumeric, auto-generated)</span>
                                     </label>
                                     <div class="mt-1 relative">
                                         <input type="text" 
@@ -81,7 +79,7 @@
                                                class="block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm sm:text-sm font-mono text-gray-600 cursor-not-allowed">
                                         <input type="hidden" name="code" value="">
                                     </div>
-                                    <p class="mt-1 text-xs text-gray-500">An 8-digit code will be automatically generated when you save</p>
+                                    <p class="mt-1 text-xs text-gray-500">An 8-character alphanumeric code (letters and numbers) will be automatically generated when you save</p>
                                     @error('code')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
@@ -117,6 +115,23 @@
                                            maxlength="20"
                                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm @error('phone') border-red-300 @enderror">
                                     @error('phone')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                </div>
+
+                                <!-- TIN (Tax Identification Number) -->
+                                <div>
+                                    <label for="tin" class="block text-sm font-medium text-gray-700 mb-1">
+                                        TIN (Tax Identification Number)
+                                    </label>
+                                    <input type="text" 
+                                           name="tin" 
+                                           id="tin" 
+                                           value="{{ old('tin') }}"
+                                           placeholder="Enter TIN (optional)"
+                                           maxlength="50"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm @error('tin') border-red-300 @enderror">
+                                    @error('tin')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
                                 </div>
@@ -272,7 +287,7 @@
                             </a>
                             <button type="submit" 
                                     class="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                Create Insurance Company
+                                Create Third Party Vendor
                             </button>
                         </div>
                     </form>
