@@ -71,7 +71,24 @@ class ThirdPartyPayerController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'code', 'type']);
 
-        return view('third-party-payers.show', compact('thirdPartyPayer', 'items'));
+        // Get balance history for this third-party payer
+        $balanceHistories = \App\Models\ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $thirdPartyPayer->id)
+            ->with(['invoice', 'client', 'business', 'branch', 'user'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(50);
+
+        // Calculate totals
+        $totalCredits = \App\Models\ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $thirdPartyPayer->id)
+            ->where('transaction_type', 'credit')
+            ->sum('change_amount');
+        
+        $totalDebits = abs(\App\Models\ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $thirdPartyPayer->id)
+            ->where('transaction_type', 'debit')
+            ->sum('change_amount'));
+
+        $currentBalance = $thirdPartyPayer->current_balance ?? 0;
+
+        return view('third-party-payers.show', compact('thirdPartyPayer', 'items', 'balanceHistories', 'totalCredits', 'totalDebits', 'currentBalance'));
     }
 
     /**

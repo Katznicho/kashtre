@@ -197,7 +197,7 @@
                                                     @elseif($history->transaction_type === 'package') bg-blue-100 text-blue-800
                                                     @else bg-yellow-100 text-yellow-800 @endif">
                                                     @if($isInsuranceTracking)
-                                                        Insurance (Tracking)
+                                                        Insurance
                                                     @else
                                                         {{ ucfirst($history->transaction_type) }}
                                                     @endif
@@ -254,7 +254,7 @@
                                                 @endphp
                                                 <span class="@if($isInsuranceTracking) text-purple-600 @elseif($history->transaction_type === 'package') text-blue-600 @elseif($history->change_amount > 0) text-green-600 @else text-red-600 @endif">
                                                     @if($isInsuranceTracking)
-                                                        UGX {{ number_format(abs($history->change_amount ?? 0), 2) }} <span class="text-xs text-purple-500">(Tracking)</span>
+                                                        UGX {{ number_format(abs($history->change_amount ?? 0), 2) }}
                                                     @elseif($history->transaction_type === 'debit')
                                                         UGX {{ number_format(abs($history->change_amount), 2) }}
                                                     @else

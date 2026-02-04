@@ -88,6 +88,17 @@
                             <h3 class="text-lg font-medium text-gray-900 mb-4">Financial Information</h3>
                             <dl class="space-y-3">
                                 <div>
+                                    <dt class="text-sm font-medium text-gray-500">Current Balance</dt>
+                                    <dd class="mt-1 text-lg font-semibold {{ $currentBalance < 0 ? 'text-red-600' : ($currentBalance > 0 ? 'text-green-600' : 'text-gray-900') }}">
+                                        UGX {{ number_format(abs($currentBalance ?? 0), 2) }}
+                                        @if($currentBalance < 0)
+                                            <span class="text-xs text-red-500">(Amount Owed)</span>
+                                        @elseif($currentBalance > 0)
+                                            <span class="text-xs text-green-500">(Credit Available)</span>
+                                        @endif
+                                    </dd>
+                                </div>
+                                <div>
                                     <dt class="text-sm font-medium text-gray-500">Credit Limit</dt>
                                     <dd class="mt-1 text-lg font-semibold text-gray-900">
                                         UGX {{ number_format($thirdPartyPayer->credit_limit ?? 0, 2) }}
@@ -117,6 +128,120 @@
                             </dl>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Balance Statement Section -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mt-6">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium text-gray-900">Balance Statement</h3>
+                    </div>
+                    
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="text-sm font-medium text-gray-500 mb-2">Total Credits</h4>
+                            <p class="text-2xl font-bold text-green-600">UGX {{ number_format($totalCredits ?? 0, 2) }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="text-sm font-medium text-gray-500 mb-2">Total Debits</h4>
+                            <p class="text-2xl font-bold text-red-600">UGX {{ number_format($totalDebits ?? 0, 2) }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="text-sm font-medium text-gray-500 mb-2">Current Balance</h4>
+                            <p class="text-2xl font-bold {{ ($currentBalance ?? 0) < 0 ? 'text-red-600' : (($currentBalance ?? 0) > 0 ? 'text-green-600' : 'text-gray-700') }}">
+                                UGX {{ number_format(abs($currentBalance ?? 0), 2) }}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Transaction History Table -->
+                    @if(isset($balanceHistories) && $balanceHistories->count() > 0)
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                @foreach($balanceHistories as $history)
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {{ $history->created_at->format('M d, Y H:i') }}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">
+                                        {{ $history->description }}
+                                        @if($history->notes)
+                                            <br><span class="text-xs text-gray-500">{{ $history->notes }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        @if($history->client)
+                                            <span class="font-medium">{{ $history->client->name }}</span>
+                                            @if($history->client->client_id)
+                                                <br><span class="text-xs text-gray-500">ID: {{ $history->client->client_id }}</span>
+                                            @endif
+                                        @else
+                                            <span class="text-gray-400">N/A</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        @if($history->invoice)
+                                            <a href="{{ route('invoices.show', $history->invoice->id) }}" class="text-blue-600 hover:text-blue-800 font-medium">
+                                                {{ $history->invoice->invoice_number ?? 'N/A' }}
+                                            </a>
+                                        @else
+                                            <span class="text-gray-400">N/A</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        <span class="px-2 py-1 text-xs rounded-full {{ $history->transaction_type === 'credit' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                            {{ ucfirst($history->transaction_type) }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium {{ $history->transaction_type === 'credit' ? 'text-green-600' : 'text-red-600' }}">
+                                        {{ $history->transaction_type === 'credit' ? '+' : '-' }}{{ number_format(abs($history->change_amount), 2) }} UGX
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {{ number_format($history->new_balance, 2) }} UGX
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {{ $history->payment_method ? ucwords(str_replace('_', ' ', $history->payment_method)) : 'N/A' }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        @if($history->payment_status)
+                                        <span class="px-2 py-1 text-xs rounded-full {{ $history->payment_status === 'paid' ? 'bg-green-100 text-green-800' : ($history->payment_status === 'pending_payment' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
+                                            {{ ucfirst(str_replace('_', ' ', $history->payment_status)) }}
+                                        </span>
+                                        @else
+                                        <span class="text-gray-400">N/A</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <div class="mt-4">
+                        {{ $balanceHistories->links() }}
+                    </div>
+                    @else
+                    <div class="text-center py-8">
+                        <p class="text-gray-500">No transactions found. Balance history entries will appear here when invoices are created with this third-party payer.</p>
+                    </div>
+                    @endif
                 </div>
             </div>
 

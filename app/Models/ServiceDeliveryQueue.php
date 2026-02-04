@@ -18,6 +18,7 @@ class ServiceDeliveryQueue extends Model
         'service_point_id',
         'invoice_id',
         'client_id',
+        'insurance_company_id',
         'item_id',
         'item_name',
         'quantity',
@@ -80,6 +81,11 @@ class ServiceDeliveryQueue extends Model
     public function item()
     {
         return $this->belongsTo(Item::class);
+    }
+
+    public function insuranceCompany()
+    {
+        return $this->belongsTo(InsuranceCompany::class);
     }
 
     public function assignedTo()
@@ -151,6 +157,21 @@ class ServiceDeliveryQueue extends Model
     public function scopeMoneyNotMoved($query)
     {
         return $query->where('is_money_moved', false);
+    }
+
+    public function scopeForInsuranceCompany($query, $insuranceCompanyId)
+    {
+        return $query->where('insurance_company_id', $insuranceCompanyId);
+    }
+
+    public function scopeInsuranceItems($query)
+    {
+        return $query->whereNotNull('insurance_company_id');
+    }
+
+    public function scopeNonInsuranceItems($query)
+    {
+        return $query->whereNull('insurance_company_id');
     }
 
 

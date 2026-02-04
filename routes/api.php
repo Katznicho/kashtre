@@ -9,4 +9,8 @@ Route::prefix('v1')->group(function () {
     include_once __DIR__ . '/custom/airtel_routes.php';
     include_once __DIR__ . '/custom/mtn_routes.php';
 
+    // Invoice API routes for third-party vendors
+    Route::get('/invoices/insurance-company/{insuranceCompanyId}', [\App\Http\Controllers\Api\InvoiceController::class, 'getInvoicesForInsuranceCompany']);
+    Route::post('/invoices/{invoiceId}/mark-paid', [\App\Http\Controllers\Api\InvoiceController::class, 'markInvoiceAsPaid']);
+    Route::get('/invoices/{invoiceId}/details', [\App\Http\Controllers\Api\InvoiceController::class, 'getInvoiceDetails']);
 });

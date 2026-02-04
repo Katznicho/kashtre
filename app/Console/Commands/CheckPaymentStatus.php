@@ -441,16 +441,26 @@ class CheckPaymentStatus extends Command
 
     /**
      * Queue items at their respective service points
+     * 
+     * @param \App\Models\Invoice $invoice
+     * @param array $items
+     * @param int|null $insuranceCompanyId Optional insurance company ID to mark items as insurance items
      */
-    private function queueItemsAtServicePoints($invoice, $items)
+    private function queueItemsAtServicePoints($invoice, $items, $insuranceCompanyId = null)
     {
         $queuedCount = 0;
         
         Log::info("=== STARTING ITEM QUEUING PROCESS ===", [
             'invoice_id' => $invoice->id,
             'invoice_number' => $invoice->invoice_number,
-            'total_items' => count($items ?? [])
+            'total_items' => count($items ?? []),
+            'insurance_company_id' => $insuranceCompanyId
         ]);
+        
+        // If insurance_company_id not provided, try to get it from client
+        if (!$insuranceCompanyId && $invoice->client) {
+            $insuranceCompanyId = $invoice->client->insurance_company_id ?? null;
+        }
 
         if (empty($items)) {
             Log::warning("No items found in invoice for queuing", [
@@ -572,6 +582,7 @@ class CheckPaymentStatus extends Command
                         'service_point_id' => $servicePointId,
                         'invoice_id' => $invoice->id,
                         'client_id' => $invoice->client_id,
+                        'insurance_company_id' => $insuranceCompanyId,
                         'item_id' => $itemId,
                         'item_name' => $item['name'] ?? $itemModel->name,
                         'quantity' => $quantity,
@@ -614,6 +625,7 @@ class CheckPaymentStatus extends Command
                     'service_point_id' => $branchServicePoint->service_point_id,
                     'invoice_id' => $invoice->id,
                     'client_id' => $invoice->client_id,
+                    'insurance_company_id' => $insuranceCompanyId,
                     'item_id' => $itemId,
                     'item_name' => $item['name'] ?? $itemModel->name,
                     'quantity' => $quantity,

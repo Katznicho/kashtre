@@ -279,6 +279,8 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     
     // Third Party Vendors (for non-Kashtre businesses - shows connected vendors)
     Route::get('/third-party-vendors', [\App\Http\Controllers\ThirdPartyVendorsController::class, 'index'])->name('third-party-vendors.index');
+    Route::get('/third-party-vendors/{vendorId}', [\App\Http\Controllers\ThirdPartyVendorsController::class, 'show'])->name('third-party-vendors.show');
+    Route::get('/third-party-vendors/{vendorId}/balance-statement', [\App\Http\Controllers\ThirdPartyVendorsController::class, 'balanceStatement'])->name('third-party-vendors.balance-statement');
     
     // Testing routes (Admin only) - Rate limited to prevent abuse
     Route::post('/testing/clear-data', [TestingController::class, 'clearData'])

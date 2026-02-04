@@ -1728,59 +1728,105 @@ class InvoiceController extends Controller
             // EXCEPTIONS:
             // 1. For zero-amount transactions (due to package adjustments OR balance adjustments), queue immediately
             // 2. For credit clients with balance_due > 0, queue immediately (no payment required upfront)
+            // 3. For insurance payments, queue immediately (regardless of third-party payer status)
+            // 4. For fully paid cash transactions, queue immediately (payment is complete)
             // Zero-amount transactions should always be auto-completed regardless of payment method
+            
+            // Determine if this is an insurance payment (check payment methods, not just third-party payer)
+            $paymentMethods = $validated['payment_methods'] ?? [];
+            $isInsurancePaymentMethod = in_array('insurance', $paymentMethods);
+            
+            // Check if payment is fully completed (for cash payments)
+            $isFullyPaid = ($validated['amount_paid'] ?? 0) >= $invoice->total_amount && $invoice->payment_status === 'paid';
+            $isCashPayment = in_array('cash', $paymentMethods) && !$isCreditTransaction && !$isInsurancePaymentMethod;
             
             // Queue items immediately for credit clients (they're approved for credit, items should be offered)
             Log::info("=== STEP 15: CHECKING IF ITEMS SHOULD BE QUEUED ===", [
                 'invoice_id' => $invoice->id,
                 'is_credit_transaction' => $isCreditTransaction,
+                'is_insurance_transaction' => $isInsuranceTransaction,
+                'is_insurance_payment_method' => $isInsurancePaymentMethod,
+                'is_fully_paid' => $isFullyPaid,
+                'is_cash_payment' => $isCashPayment,
                 'non_deposit_items_empty' => $nonDepositItems->isEmpty(),
                 'non_deposit_items_count' => $nonDepositItems->count(),
                 'is_credit_client' => $isCreditClient,
                 'has_balance_due' => $hasBalanceDue,
+                'payment_status' => $invoice->payment_status,
+                'amount_paid' => $validated['amount_paid'] ?? 0,
+                'total_amount' => $invoice->total_amount,
             ]);
             
-            // Queue items for credit clients OR insurance payments (both need service delivery)
-            if (($isCreditTransaction || $isInsuranceTransaction) && $nonDepositItems->isNotEmpty()) {
-                $transactionType = $isInsuranceTransaction ? 'INSURANCE' : 'CREDIT';
-                Log::info("=== STEP 16: {$transactionType} CLIENT TRANSACTION - QUEUING ITEMS IMMEDIATELY ===", [
+            // Queue items for:
+            // 1. Credit clients OR insurance payments (both need service delivery)
+            // 2. Fully paid cash transactions (payment is complete, queue immediately)
+            $shouldQueueItems = (
+                ($isCreditTransaction || $isInsuranceTransaction || $isInsurancePaymentMethod) || 
+                ($isFullyPaid && $isCashPayment)
+            ) && $nonDepositItems->isNotEmpty();
+            
+            if ($shouldQueueItems) {
+                // Determine transaction type for logging
+                if ($isInsuranceTransaction || $isInsurancePaymentMethod) {
+                    $transactionType = 'INSURANCE';
+                } elseif ($isCreditTransaction) {
+                    $transactionType = 'CREDIT';
+                } elseif ($isFullyPaid && $isCashPayment) {
+                    $transactionType = 'CASH (FULLY PAID)';
+                } else {
+                    $transactionType = 'OTHER';
+                }
+                
+                Log::info("=== STEP 16: {$transactionType} TRANSACTION - QUEUING ITEMS IMMEDIATELY ===", [
                     'invoice_id' => $invoice->id,
                     'invoice_number' => $invoice->invoice_number,
                     'client_id' => $client->id,
                     'client_name' => $client->name,
                     'is_credit_eligible' => $isCreditClient,
-                    'is_insurance_payment' => $isInsuranceTransaction,
+                    'is_insurance_payment' => $isInsuranceTransaction || $isInsurancePaymentMethod,
+                    'is_fully_paid_cash' => $isFullyPaid && $isCashPayment,
                     'balance_due' => $invoice->balance_due,
                     'items_count' => $nonDepositItems->count(),
                     'items' => $nonDepositItems->toArray()
                 ]);
                 
                 try {
-                    // Queue items immediately for credit clients or insurance payments
-                    $this->queueItemsAtServicePoints($invoice, $nonDepositItems->toArray());
+                    // Get insurance company ID if this is an insurance payment
+                    $insuranceCompanyId = null;
+                    if ($isInsuranceTransaction || $isInsurancePaymentMethod) {
+                        $insuranceCompanyId = $client->insurance_company_id ?? null;
+                        if (!$insuranceCompanyId && $thirdPartyPayer) {
+                            $insuranceCompanyId = $thirdPartyPayer->insurance_company_id ?? null;
+                        }
+                    }
                     
-                    // For credit clients: Process suspense account movements even though no payment was received
+                    // Queue items immediately for credit clients, insurance payments, or fully paid cash transactions
+                    $this->queueItemsAtServicePoints($invoice, $nonDepositItems->toArray(), $insuranceCompanyId);
+                    
+                    // For credit clients and insurance payments: Process suspense account movements even though no payment was received
                     // This ensures money moves to suspense accounts (general, package, kashtre) for proper tracking
-                    // For insurance payments, also process suspense movements
-                    Log::info("=== STEP 17: PROCESSING SUSPENSE ACCOUNT MOVEMENTS FOR {$transactionType} CLIENT ===", [
-                        'invoice_id' => $invoice->id,
-                        'invoice_number' => $invoice->invoice_number,
-                        'client_id' => $client->id,
-                        'items_count' => count($nonDepositItems)
-                    ]);
-                    
-                    $suspenseMovements = $moneyTrackingService->processSuspenseAccountMovements($invoice, $nonDepositItems->toArray());
-                    
-                    Log::info("=== STEP 18: SUSPENSE ACCOUNT MOVEMENTS COMPLETED FOR {$transactionType} CLIENT ===", [
-                        'invoice_id' => $invoice->id,
-                        'movements_count' => count($suspenseMovements),
-                        'movements' => $suspenseMovements
-                    ]);
+                    // For fully paid cash transactions, suspense movements are already processed above
+                    if ($isCreditTransaction || $isInsuranceTransaction || $isInsurancePaymentMethod) {
+                        Log::info("=== STEP 17: PROCESSING SUSPENSE ACCOUNT MOVEMENTS FOR {$transactionType} TRANSACTION ===", [
+                            'invoice_id' => $invoice->id,
+                            'invoice_number' => $invoice->invoice_number,
+                            'client_id' => $client->id,
+                            'items_count' => count($nonDepositItems)
+                        ]);
+                        
+                        $suspenseMovements = $moneyTrackingService->processSuspenseAccountMovements($invoice, $nonDepositItems->toArray());
+                        
+                        Log::info("=== STEP 18: SUSPENSE ACCOUNT MOVEMENTS COMPLETED FOR {$transactionType} TRANSACTION ===", [
+                            'invoice_id' => $invoice->id,
+                            'movements_count' => count($suspenseMovements),
+                            'movements' => $suspenseMovements
+                        ]);
+                    }
                     
                     // Verify items were queued
                     $queuedCount = \App\Models\ServiceDeliveryQueue::where('invoice_id', $invoice->id)->count();
                     
-                    Log::info("=== STEP 19: ITEMS QUEUED SUCCESSFULLY FOR {$transactionType} CLIENT ===", [
+                    Log::info("=== STEP 19: ITEMS QUEUED SUCCESSFULLY FOR {$transactionType} TRANSACTION ===", [
                         'invoice_id' => $invoice->id,
                         'items_queued' => $nonDepositItems->count(),
                         'verified_queued_count' => $queuedCount,
@@ -1868,8 +1914,15 @@ class InvoiceController extends Controller
                     'description' => $itemsDescription
                 ]);
                 
+                // Get insurance company ID if this is an insurance payment
+                $insuranceCompanyId = null;
+                $paymentMethods = $validated['payment_methods'] ?? [];
+                if (in_array('insurance', $paymentMethods)) {
+                    $insuranceCompanyId = $client->insurance_company_id ?? null;
+                }
+                
                 // Queue items immediately for zero-amount transactions
-                $this->queueItemsAtServicePoints($invoice, $nonDepositItems->toArray());
+                $this->queueItemsAtServicePoints($invoice, $nonDepositItems->toArray(), $insuranceCompanyId);
                 
                 Log::info("Zero-amount transaction auto-completed and items queued", [
                     'invoice_id' => $invoice->id,
@@ -3339,8 +3392,12 @@ class InvoiceController extends Controller
 
     /**
      * Queue items at their respective service points
+     * 
+     * @param \App\Models\Invoice $invoice
+     * @param array $items
+     * @param int|null $insuranceCompanyId Optional insurance company ID to mark items as insurance items
      */
-    private function queueItemsAtServicePoints($invoice, $items)
+    private function queueItemsAtServicePoints($invoice, $items, $insuranceCompanyId = null)
     {
         $filteredItems = collect($items)->reject(function ($item) {
             $name = Str::lower(trim((string)($item['displayName'] ?? $item['name'] ?? $item['item_name'] ?? '')));
@@ -3351,6 +3408,7 @@ class InvoiceController extends Controller
             'invoice_id' => $invoice->id,
             'invoice_number' => $invoice->invoice_number,
             'items_count' => $filteredItems->count(),
+            'insurance_company_id' => $insuranceCompanyId,
             'items' => $filteredItems->toArray()
         ]);
 
@@ -3402,7 +3460,109 @@ class InvoiceController extends Controller
                 'service_point_id' => $branchServicePoint ? $branchServicePoint->service_point_id : null
             ]);
 
-            // Handle regular items with service points
+            // Handle package items FIRST - packages use their own tracking system, not service point queuing
+            if ($itemModel->type === 'package') {
+                Log::info("Package item detected - using package tracking system instead of service point queuing", [
+                    'package_item_id' => $itemId,
+                    'package_name' => $itemModel->name,
+                    'invoice_id' => $invoice->id,
+                    'client_id' => $invoice->client_id
+                ]);
+                
+                // Packages are handled by package tracking logic, not service point queuing
+                // No queuing action needed here
+                continue; // Skip to next item
+            }
+
+            // Handle bulk items - bulk items don't have service points, use service point from one of their included items
+            if ($itemModel->type === 'bulk') {
+                Log::info("Processing bulk item", [
+                    'bulk_item_id' => $itemId,
+                    'bulk_name' => $itemModel->name
+                ]);
+
+                // Get service point from one of the bulk item's contained items
+                Log::info("Bulk items don't have service points, checking contained items for service point", [
+                    'bulk_item_id' => $itemId,
+                    'bulk_name' => $itemModel->name
+                ]);
+
+                $bulkItems = $itemModel->bulkItems()->with('includedItem')->get();
+                
+                Log::info("Found bulk items for service point lookup", [
+                    'bulk_item_id' => $itemId,
+                    'included_items_count' => $bulkItems->count()
+                ]);
+
+                $servicePointId = null;
+                $selectedIncludedItem = null;
+                
+                // Find the first included item that has a service point for this business/branch
+                foreach ($bulkItems as $bulkItem) {
+                    $includedItem = $bulkItem->includedItem;
+                    
+                    $includedItemBranchServicePoint = $includedItem->branchServicePoints()
+                        ->where('business_id', $invoice->business_id)
+                        ->where('branch_id', $invoice->branch_id)
+                        ->first();
+
+                    if ($includedItemBranchServicePoint && $includedItemBranchServicePoint->service_point_id) {
+                        $servicePointId = $includedItemBranchServicePoint->service_point_id;
+                        $selectedIncludedItem = $includedItem;
+                        Log::info("Found service point from included item", [
+                            'included_item_id' => $includedItem->id,
+                            'included_item_name' => $includedItem->name,
+                            'service_point_id' => $servicePointId
+                        ]);
+                        break;
+                    }
+                }
+
+                // Queue bulk item at the service point from its included item
+                if ($servicePointId) {
+                    Log::info("Creating service delivery queue for bulk item using included item's service point", [
+                        'bulk_item_id' => $itemId,
+                        'service_point_id' => $servicePointId,
+                        'selected_included_item' => $selectedIncludedItem ? $selectedIncludedItem->name : 'Unknown',
+                        'quantity' => $quantity
+                    ]);
+
+                    $queueRecord = \App\Models\ServiceDeliveryQueue::create([
+                        'business_id' => $invoice->business_id,
+                        'branch_id' => $invoice->branch_id,
+                        'service_point_id' => $servicePointId,
+                        'invoice_id' => $invoice->id,
+                        'client_id' => $invoice->client_id,
+                        'insurance_company_id' => $insuranceCompanyId,
+                        'item_id' => $itemId,
+                        'item_name' => $item['name'] ?? $itemModel->name,
+                        'quantity' => $quantity,
+                        'price' => $item['price'] ?? $itemModel->default_price ?? 0,
+                        'status' => 'pending',
+                        'priority' => 'normal',
+                        'notes' => "Bulk item queued at SP from included item: {$selectedIncludedItem->name}, Invoice: {$invoice->invoice_number}, Client: {$invoice->client_name}",
+                        'queued_at' => now(),
+                        'estimated_delivery_time' => now()->addHours(2), // Default 2 hours
+                    ]);
+
+                    Log::info("Service delivery queue created for bulk item using included item's service point", [
+                        'queue_id' => $queueRecord->id,
+                        'bulk_item_id' => $itemId,
+                        'service_point_id' => $servicePointId,
+                        'selected_included_item' => $selectedIncludedItem ? $selectedIncludedItem->name : 'Unknown'
+                    ]);
+                } else {
+                    Log::info("No service point found for bulk item or any of its contained items, skipping queuing", [
+                        'bulk_item_id' => $itemId,
+                        'bulk_name' => $itemModel->name,
+                        'business_id' => $invoice->business_id,
+                        'branch_id' => $invoice->branch_id
+                    ]);
+                }
+                continue; // Skip to next item after handling bulk
+            }
+
+            // Handle regular items with service points (only for non-package, non-bulk items)
             if ($branchServicePoint && $branchServicePoint->service_point_id) {
                 Log::info("Creating service delivery queue for regular item", [
                     'item_id' => $itemId,
@@ -3417,6 +3577,7 @@ class InvoiceController extends Controller
                     'service_point_id' => $branchServicePoint->service_point_id,
                     'invoice_id' => $invoice->id,
                     'client_id' => $invoice->client_id,
+                    'insurance_company_id' => $insuranceCompanyId,
                     'item_id' => $itemId,
                     'item_name' => $item['name'] ?? $itemModel->name,
                     'quantity' => $quantity,
@@ -3486,6 +3647,7 @@ class InvoiceController extends Controller
                             'service_point_id' => $includedBranchServicePoint->service_point_id,
                             'invoice_id' => $invoice->id,
                             'client_id' => $invoice->client_id,
+                            'insurance_company_id' => $insuranceCompanyId,
                             'item_id' => $includedItem->id,
                             'item_name' => $includedItem->name,
                             'quantity' => $totalQuantity,
