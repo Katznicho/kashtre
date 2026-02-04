@@ -132,14 +132,26 @@ class ClientController extends Controller
                 'cash' => '💵 Cash',
             ];
 
-        // Get all insurance companies (not filtered by business as per user requirement)
-        // Group by name to avoid duplicates, taking the first ID for each unique name
-        $insuranceCompanies = InsuranceCompany::selectRaw('MIN(id) as id, name')
-            ->groupBy('name')
-            ->orderBy('name', 'asc')
-            ->get();
+        // Get connected third-party vendors for this business
+        $connectedVendors = [];
+        try {
+            $apiService = new ThirdPartyApiService();
+            $baseUrl = config('services.third_party.api_url', env('THIRD_PARTY_API_URL', 'http://127.0.0.1:8001'));
+            $response = \Illuminate\Support\Facades\Http::timeout(30)
+                ->get("{$baseUrl}/api/v1/businesses/{$business->id}/connected-vendors");
 
-        return view('clients.create', compact('business', 'currentBranch', 'availablePaymentMethods', 'paymentMethodNames', 'insuranceCompanies'));
+            if ($response->successful()) {
+                $data = $response->json();
+                $connectedVendors = $data['data'] ?? [];
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to fetch connected vendors for client creation', [
+                'business_id' => $business->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return view('clients.create', compact('business', 'currentBranch', 'availablePaymentMethods', 'paymentMethodNames', 'connectedVendors'));
     }
 
     /**
@@ -268,6 +280,9 @@ class ClientController extends Controller
                 ->withInput();
         }
         
+        // Check if insurance payment method is selected
+        $isInsuranceSelected = in_array('insurance', $request->input('payment_methods', []));
+        
         $validated = $request->validate([
             'surname' => 'required|string|max:255',
             'first_name' => 'required|string|max:255',
@@ -287,6 +302,10 @@ class ClientController extends Controller
             'payment_methods.*' => 'required|string|in:' . implode(',', $availablePaymentMethods),
             'payment_phone_number' => 'nullable|string|max:255',
             
+            // Insurance fields (required if insurance payment method is selected)
+            'insurance_company_id' => $isInsuranceSelected ? 'required|integer|exists:insurance_companies,id' : 'nullable|integer',
+            'policy_number' => $isInsuranceSelected ? 'required|string|max:255' : 'nullable|string|max:255',
+            
             // Next of Kin details
             'nok_surname' => 'required|string|max:255',
             'nok_first_name' => 'required|string|max:255',
@@ -300,7 +319,24 @@ class ClientController extends Controller
             'is_credit_eligible' => 'nullable|boolean',
             'is_long_stay' => 'nullable|boolean',
             'max_credit' => 'nullable|numeric|min:0',
+        ], [
+            'insurance_company_id.required' => 'Please select an insurance company when insurance payment method is selected.',
+            'policy_number.required' => 'Please enter the client\'s policy number when insurance payment method is selected.',
         ]);
+
+        // If insurance is selected, verify the policy number exists
+        if ($isInsuranceSelected && !empty($validated['insurance_company_id']) && !empty($validated['policy_number'])) {
+            $apiService = new ThirdPartyApiService();
+            $policyData = $apiService->verifyPolicyNumber((int)$validated['insurance_company_id'], $validated['policy_number']);
+            
+            if (!$policyData) {
+                return redirect()->back()
+                    ->withInput()
+                    ->withErrors([
+                        'policy_number' => 'The policy number could not be verified. Please ensure the policy number is correct and active.',
+                    ]);
+            }
+        }
         
         // Generate new client_id and visit_id for new client
         $clientId = Client::generateClientId(
@@ -1627,6 +1663,44 @@ class ClientController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while fetching third party vendor details.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Verify policy number exists (API endpoint)
+     */
+    public function verifyPolicyNumber($insuranceCompanyId, $policyNumber)
+    {
+        try {
+            $apiService = new ThirdPartyApiService();
+            $policyData = $apiService->verifyPolicyNumber((int)$insuranceCompanyId, $policyNumber);
+
+            if (!$policyData) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Policy number not found or inactive',
+                    'exists' => false,
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Policy number verified',
+                'exists' => true,
+                'data' => $policyData,
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Failed to verify policy number', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'policy_number' => $policyNumber,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while verifying policy number.',
                 'error' => $e->getMessage(),
             ], 500);
         }

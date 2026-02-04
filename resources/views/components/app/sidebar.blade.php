@@ -422,8 +422,8 @@
                     </li>
                     @endif
 
-                    <!-- Third Party Payers Group -->
-                    @if(in_array('View Third Party Payers', (array) $permissions))
+                    <!-- Third Party Payers Group (only for Kashtre - business_id == 1) -->
+                    @if(Auth::user()->business_id == 1 && in_array('View Third Party Payers', (array) $permissions))
                     <li>
                         <button @click="openGroup === 'third-party-payers' ? openGroup = '' : openGroup = 'third-party-payers'" :class="openGroup === 'third-party-payers' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
                             <span class="flex items-center">
@@ -444,6 +444,18 @@
                             <li><a href="{{ route('third-party-payers.create') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Add Third Party Payer</a></li>
                             @endif
                         </ul>
+                    </li>
+                    @endif
+
+                    <!-- Third Party Vendors (for non-Kashtre businesses) -->
+                    @if(Auth::user()->business_id != 1)
+                    <li>
+                        <a href="{{ route('third-party-vendors.index') }}" class="flex items-center pl-4 pr-3 py-2 rounded-lg {{ request()->routeIs('third-party-vendors.*') ? 'bg-blue-100 text-blue-900 font-semibold' : 'text-gray-700 hover:text-blue-700 hover:bg-blue-50' }}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                            </svg>
+                            <span class="text-sm font-medium ml-3 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">Third Party Vendors</span>
+                        </a>
                     </li>
                     @endif
 

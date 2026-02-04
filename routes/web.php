@@ -247,6 +247,7 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     
     // API route for fetching insurance company by code
     Route::get('/api/insurance-company/by-code/{code}', [ClientController::class, 'getInsuranceCompanyByCode'])->name('api.insurance-company.by-code');
+    Route::get('/api/policies/verify/{insuranceCompanyId}/{policyNumber}', [ClientController::class, 'verifyPolicyNumber'])->name('api.policies.verify');
     
     // Credit Note Workflow Settings (Kashtre only)
     Route::get('credit-note-workflows/bulk-upload', [CreditNoteWorkflowBulkUploadController::class, 'index'])->name('credit-note-workflows.bulk-upload.index');
@@ -275,6 +276,9 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     // Third Party Payers
     Route::resource("third-party-payers", ThirdPartyPayerController::class);
     Route::post('/third-party-payers/{thirdPartyPayer}/update-excluded-items', [ThirdPartyPayerController::class, 'updateExcludedItems'])->name('third-party-payers.update-excluded-items');
+    
+    // Third Party Vendors (for non-Kashtre businesses - shows connected vendors)
+    Route::get('/third-party-vendors', [\App\Http\Controllers\ThirdPartyVendorsController::class, 'index'])->name('third-party-vendors.index');
     
     // Testing routes (Admin only) - Rate limited to prevent abuse
     Route::post('/testing/clear-data', [TestingController::class, 'clearData'])

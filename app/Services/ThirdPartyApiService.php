@@ -424,4 +424,54 @@ class ThirdPartyApiService
             return null;
         }
     }
+
+    /**
+     * Verify if a policy number exists for a given insurance company
+     *
+     * @param int $insuranceCompanyId
+     * @param string $policyNumber
+     * @return array|null Returns policy data if exists, null otherwise
+     */
+    public function verifyPolicyNumber(int $insuranceCompanyId, string $policyNumber): ?array
+    {
+        try {
+            Log::info('ThirdPartyApiService: Verifying policy number', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'policy_number' => $policyNumber,
+            ]);
+
+            $response = Http::timeout($this->timeout)
+                ->get("{$this->baseUrl}/api/v1/policies/verify/{$insuranceCompanyId}/{$policyNumber}");
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                Log::info('ThirdPartyApiService: Policy number verified', [
+                    'insurance_company_id' => $insuranceCompanyId,
+                    'policy_number' => $policyNumber,
+                    'exists' => $data['exists'] ?? false,
+                ]);
+
+                return $data['data'] ?? null;
+            } else {
+                $error = $response->json();
+                Log::warning('ThirdPartyApiService: Policy number not found', [
+                    'insurance_company_id' => $insuranceCompanyId,
+                    'policy_number' => $policyNumber,
+                    'status' => $response->status(),
+                    'error' => $error,
+                ]);
+
+                return null;
+            }
+        } catch (Exception $e) {
+            Log::error('ThirdPartyApiService: Exception while verifying policy number', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'policy_number' => $policyNumber,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
 }

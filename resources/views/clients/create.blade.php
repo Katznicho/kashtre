@@ -58,7 +58,7 @@
                                 <svg class="w-5 h-5 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                                 </svg>
-                                Individual Repeat Customer
+                                Individual Repeat Client
                             </button>
                             <button type="button" onclick="switchTab('company')" id="tab-company" class="tab-button flex-1 py-4 px-6 text-center text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors">
                                 <svg class="w-5 h-5 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,7 +76,7 @@
                     </div>
                 </div>
 
-                <!-- Tab Content: Individual Repeat Customer -->
+                <!-- Tab Content: Individual Repeat Client -->
                 <div id="tab-content-individual" class="tab-content">
                     <form id="client-registration-form-individual" action="{{ route('clients.store') }}" method="POST" class="space-y-8">
                         @csrf
@@ -325,6 +325,53 @@
                                         </button>
                                     </div>
                                 @endif
+                            </div>
+
+                            <!-- Insurance Company Selection (shown when insurance payment method is selected) -->
+                            <div id="insurance_company_section" style="display: none;" class="bg-green-50 p-4 rounded-lg border border-green-200">
+                                <h4 class="text-sm font-medium text-green-900 mb-3">Insurance Company Information</h4>
+                                
+                                <div class="space-y-4">
+                                    <div>
+                                        <label for="insurance_company_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                            Select Insurance Company <span class="text-red-500">*</span>
+                                        </label>
+                                        <select name="insurance_company_id" id="insurance_company_id" 
+                                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors">
+                                            <option value="">-- Select Insurance Company --</option>
+                                            @foreach($connectedVendors as $vendor)
+                                                <option value="{{ $vendor['id'] }}" {{ old('insurance_company_id') == $vendor['id'] ? 'selected' : '' }}>
+                                                    {{ $vendor['name'] }} ({{ $vendor['code'] }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <p class="text-xs text-gray-500 mt-1">Select the insurance company connected to this entity</p>
+                                        @error('insurance_company_id')
+                                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    
+                                    <!-- Policy Number Field (shown after insurance company is selected) -->
+                                    <div id="policy_number_section" style="display: none;">
+                                        <label for="policy_number" class="block text-sm font-medium text-gray-700 mb-2">
+                                            Policy Number <span class="text-red-500">*</span>
+                                        </label>
+                                        <div class="flex gap-2">
+                                            <input type="text" name="policy_number" id="policy_number" value="{{ old('policy_number') }}" 
+                                                   placeholder="Enter client's policy number"
+                                                   class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors @error('policy_number') border-red-300 @enderror">
+                                            <button type="button" id="verify_policy_btn" 
+                                                    class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap">
+                                                Verify
+                                            </button>
+                                        </div>
+                                        <div id="policy_verification_result" class="mt-2"></div>
+                                        <p class="text-xs text-gray-500 mt-1">Enter the client's policy number to confirm they exist in the insurance system</p>
+                                        @error('policy_number')
+                                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Payment Phone Number Section -->
@@ -1242,6 +1289,125 @@
             surnameInput.addEventListener('blur', checkAndSearch);
             firstNameInput.addEventListener('blur', checkAndSearch);
             dobInput.addEventListener('change', checkAndSearch);
+        })();
+
+        // Insurance Company and Policy Number Handling
+        (function() {
+            const insuranceCompanySection = document.getElementById('insurance_company_section');
+            const policyNumberSection = document.getElementById('policy_number_section');
+            const insuranceCompanySelect = document.getElementById('insurance_company_id');
+            const policyNumberInput = document.getElementById('policy_number');
+            const verifyPolicyBtn = document.getElementById('verify_policy_btn');
+            const policyVerificationResult = document.getElementById('policy_verification_result');
+
+            // Function to check if insurance payment method is selected
+            function isInsuranceSelected() {
+                const insuranceCheckbox = document.getElementById('payment_insurance');
+                return insuranceCheckbox && insuranceCheckbox.checked;
+            }
+
+            // Function to toggle insurance company section
+            function toggleInsuranceSection() {
+                if (isInsuranceSelected()) {
+                    insuranceCompanySection.style.display = 'block';
+                } else {
+                    insuranceCompanySection.style.display = 'none';
+                    policyNumberSection.style.display = 'none';
+                    if (insuranceCompanySelect) insuranceCompanySelect.value = '';
+                    if (policyNumberInput) policyNumberInput.value = '';
+                    if (policyVerificationResult) policyVerificationResult.innerHTML = '';
+                }
+            }
+
+            // Function to toggle policy number section
+            function togglePolicyNumberSection() {
+                if (insuranceCompanySelect && insuranceCompanySelect.value) {
+                    policyNumberSection.style.display = 'block';
+                } else {
+                    policyNumberSection.style.display = 'none';
+                    if (policyNumberInput) policyNumberInput.value = '';
+                    if (policyVerificationResult) policyVerificationResult.innerHTML = '';
+                }
+            }
+
+            // Function to verify policy number
+            async function verifyPolicyNumber() {
+                const insuranceCompanyId = insuranceCompanySelect?.value;
+                const policyNumber = policyNumberInput?.value?.trim();
+
+                if (!insuranceCompanyId || !policyNumber) {
+                    policyVerificationResult.innerHTML = '<p class="text-sm text-red-600">Please select an insurance company and enter a policy number.</p>';
+                    return;
+                }
+
+                verifyPolicyBtn.disabled = true;
+                verifyPolicyBtn.textContent = 'Verifying...';
+                policyVerificationResult.innerHTML = '<p class="text-sm text-blue-600">Verifying policy number...</p>';
+
+                try {
+                    const response = await fetch(`/api/policies/verify/${insuranceCompanyId}/${encodeURIComponent(policyNumber)}`);
+                    const data = await response.json();
+
+                    if (data.success && data.exists) {
+                        policyVerificationResult.innerHTML = `
+                            <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <p class="text-sm font-medium text-green-800">✓ Policy verified successfully</p>
+                                <p class="text-xs text-green-700 mt-1">Policy holder: ${data.data.principal_member_name || 'N/A'}</p>
+                                <p class="text-xs text-green-700">Status: ${data.data.status || 'N/A'}</p>
+                            </div>
+                        `;
+                        policyNumberInput.classList.remove('border-red-300');
+                        policyNumberInput.classList.add('border-green-300');
+                    } else {
+                        policyVerificationResult.innerHTML = `
+                            <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <p class="text-sm font-medium text-red-800">✗ Policy number not found or inactive</p>
+                                <p class="text-xs text-red-700 mt-1">${data.message || 'Please verify the policy number and try again.'}</p>
+                            </div>
+                        `;
+                        policyNumberInput.classList.remove('border-green-300');
+                        policyNumberInput.classList.add('border-red-300');
+                    }
+                } catch (error) {
+                    policyVerificationResult.innerHTML = `
+                        <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <p class="text-sm font-medium text-yellow-800">⚠ Verification failed</p>
+                            <p class="text-xs text-yellow-700 mt-1">Unable to verify policy number. Please try again later.</p>
+                        </div>
+                    `;
+                } finally {
+                    verifyPolicyBtn.disabled = false;
+                    verifyPolicyBtn.textContent = 'Verify';
+                }
+            }
+
+            // Add event listeners
+            const insuranceCheckbox = document.getElementById('payment_insurance');
+            if (insuranceCheckbox) {
+                insuranceCheckbox.addEventListener('change', toggleInsuranceSection);
+            }
+
+            // Check on page load if insurance is already selected
+            if (isInsuranceSelected()) {
+                toggleInsuranceSection();
+            }
+
+            if (insuranceCompanySelect) {
+                insuranceCompanySelect.addEventListener('change', togglePolicyNumberSection);
+            }
+
+            if (verifyPolicyBtn) {
+                verifyPolicyBtn.addEventListener('click', verifyPolicyNumber);
+            }
+
+            // Also verify on policy number input blur
+            if (policyNumberInput) {
+                policyNumberInput.addEventListener('blur', function() {
+                    if (policyNumberInput.value.trim() && insuranceCompanySelect?.value) {
+                        verifyPolicyNumber();
+                    }
+                });
+            }
         })();
 
         // Tab switching functionality
