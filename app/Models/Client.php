@@ -55,6 +55,7 @@ class Client extends Model
         'is_long_stay',
         'excluded_items',
         'insurance_company_id',
+        'policy_number',
     ];
 
     protected $casts = [

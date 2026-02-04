@@ -395,6 +395,9 @@ class ClientController extends Controller
             'is_credit_eligible' => $isCreditEligible,
             'is_long_stay' => $isLongStay,
             'max_credit' => $isCreditEligible ? ($validated['max_credit'] ?? $business->max_first_party_credit_limit) : null,
+            // Insurance information (if insurance payment method is selected)
+            'insurance_company_id' => $isInsuranceSelected ? $validated['insurance_company_id'] : null,
+            'policy_number' => $isInsuranceSelected ? $validated['policy_number'] : null,
         ]);
         
         return redirect()->route('pos.item-selection', $client)

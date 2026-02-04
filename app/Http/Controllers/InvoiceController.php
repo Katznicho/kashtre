@@ -1148,7 +1148,7 @@ class InvoiceController extends Controller
             $isInsuranceTransaction = false;
             
             if ($isInsurancePayment) {
-                // Use selected third-party payer ID if provided, otherwise find one linked to this client
+                // Use selected third-party payer ID if provided, otherwise find one linked to this client or insurance company
                 $selectedThirdPartyPayerId = $validated['third_party_payer_id'] ?? null;
                 
                 if ($selectedThirdPartyPayerId) {
@@ -1165,12 +1165,57 @@ class InvoiceController extends Controller
                         ], 400);
                     }
                 } else {
-                    // Fallback: Find the third-party payer linked to this client
-                    $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('client_id', $client->id)
-                        ->where('business_id', $business->id)
-                        ->where('type', 'insurance_company')
-                        ->where('status', 'active')
-                        ->first();
+                    // First, try to find a business-level third-party payer for this insurance company
+                    // (shared by all clients with this insurance company - this is the "internal" account)
+                    if ($client->insurance_company_id) {
+                        $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('insurance_company_id', $client->insurance_company_id)
+                            ->where('business_id', $business->id)
+                            ->where('type', 'insurance_company')
+                            ->whereNull('client_id') // Business-level, not client-specific
+                            ->where('status', 'active')
+                            ->first();
+                        
+                        // If not found, try client-specific one as fallback
+                        if (!$thirdPartyPayer) {
+                            $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('client_id', $client->id)
+                                ->where('business_id', $business->id)
+                                ->where('type', 'insurance_company')
+                                ->where('status', 'active')
+                                ->first();
+                        }
+                        
+                        // If still not found, create a business-level one automatically
+                        // This is the "internal" account where all invoices for this insurance company are posted
+                        if (!$thirdPartyPayer) {
+                            $insuranceCompany = \App\Models\InsuranceCompany::find($client->insurance_company_id);
+                            if ($insuranceCompany) {
+                                $thirdPartyPayer = \App\Models\ThirdPartyPayer::create([
+                                    'business_id' => $business->id,
+                                    'type' => 'insurance_company',
+                                    'insurance_company_id' => $insuranceCompany->id,
+                                    'client_id' => null, // Business-level account (shared by all clients)
+                                    'name' => $insuranceCompany->name,
+                                    'status' => 'active',
+                                    'credit_limit' => 0, // Can be configured later
+                                ]);
+                                
+                                Log::info('Auto-created business-level third-party payer for insurance company', [
+                                    'third_party_payer_id' => $thirdPartyPayer->id,
+                                    'insurance_company_id' => $insuranceCompany->id,
+                                    'insurance_company_name' => $insuranceCompany->name,
+                                    'business_id' => $business->id,
+                                    'note' => 'This is the internal account where all invoices for this insurance company are posted',
+                                ]);
+                            }
+                        }
+                    } else {
+                        // Fallback: Find the third-party payer linked to this client (if no insurance_company_id)
+                        $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('client_id', $client->id)
+                            ->where('business_id', $business->id)
+                            ->where('type', 'insurance_company')
+                            ->where('status', 'active')
+                            ->first();
+                    }
                 }
                 
                 if ($thirdPartyPayer) {

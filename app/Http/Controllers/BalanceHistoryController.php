@@ -36,6 +36,8 @@ class BalanceHistoryController extends Controller
         
         // Calculate balance from balance history: credits - debits
         // This is the source of truth for account balance
+        // Note: Insurance payment tracking entries have change_amount=0, so they appear on the statement
+        // for follow-up purposes but don't affect balance calculations (insurance company pays, not client)
         $credits = BalanceHistory::where('client_id', $clientId)
             ->where('transaction_type', 'credit')
             ->sum('change_amount');
