@@ -325,16 +325,107 @@ class ClientController extends Controller
         ]);
 
         // If insurance is selected, verify the policy number exists
-        if ($isInsuranceSelected && !empty($validated['insurance_company_id']) && !empty($validated['policy_number'])) {
+        if ($isInsuranceSelected && !empty($validated['insurance_company_id'])) {
             $apiService = new ThirdPartyApiService();
-            $policyData = $apiService->verifyPolicyNumber((int)$validated['insurance_company_id'], $validated['policy_number']);
+            $policyData = null;
+            $verificationMethod = null;
+            $verificationWarnings = [];
             
+            // Try policy number verification first if provided
+            if (!empty($validated['policy_number'])) {
+                $policyData = $apiService->verifyPolicyNumber((int)$validated['insurance_company_id'], $validated['policy_number']);
+                if ($policyData) {
+                    $verificationMethod = 'policy_number';
+                }
+            }
+            
+            // If policy number verification failed, try alternative methods
             if (!$policyData) {
+                // Prepare alternative verification data
+                $alternativeData = [];
+                
+                // Build full name from available fields
+                $fullName = trim(($validated['surname'] ?? '') . ' ' . ($validated['first_name'] ?? '') . ' ' . ($validated['other_names'] ?? ''));
+                if (!empty($fullName)) {
+                    $alternativeData['name'] = $fullName;
+                }
+                
+                if (!empty($validated['date_of_birth'])) {
+                    $alternativeData['date_of_birth'] = $validated['date_of_birth'];
+                }
+                
+                if (!empty($validated['nin'])) {
+                    $alternativeData['id_passport_no'] = $validated['nin'];
+                }
+                
+                if (!empty($validated['phone_number'])) {
+                    $alternativeData['phone'] = $validated['phone_number'];
+                }
+                
+                if (!empty($validated['email'])) {
+                    $alternativeData['email'] = $validated['email'];
+                }
+                
+                // Generate visit_id if not already set (for visit-based verification)
+                if (empty($validated['visit_id'])) {
+                    $visitId = Client::generateVisitId(
+                        $business, 
+                        $currentBranch, 
+                        $validated['is_credit_eligible'] ?? false, 
+                        $validated['is_long_stay'] ?? false
+                    );
+                    $alternativeData['visit_id'] = $visitId;
+                } else {
+                    $alternativeData['visit_id'] = $validated['visit_id'];
+                }
+                
+                // Try alternative verification if we have at least one piece of data
+                if (!empty($alternativeData)) {
+                    $verificationResult = $apiService->verifyAlternativeIdentity(
+                        (int)$validated['insurance_company_id'], 
+                        $alternativeData
+                    );
+                    
+                    if ($verificationResult && isset($verificationResult['success']) && $verificationResult['success']) {
+                        $policyData = $verificationResult['data'] ?? null;
+                        $verificationMethod = $verificationResult['verification_method'] ?? 'alternative';
+                        $verificationWarnings = $verificationResult['warnings'] ?? [];
+                        
+                        // If verification is flagged for review, log it but allow creation
+                        if (isset($verificationResult['verification_status']) && $verificationResult['verification_status'] === 'flagged') {
+                            Log::warning('Client verification flagged for review', [
+                                'insurance_company_id' => $validated['insurance_company_id'],
+                                'verification_method' => $verificationMethod,
+                                'warnings' => $verificationWarnings,
+                            ]);
+                        }
+                    }
+                }
+            }
+            
+            // If still no verification, return error
+            if (!$policyData) {
+                $errorMessage = 'The policy number could not be verified.';
+                if (!empty($validated['policy_number'])) {
+                    $errorMessage .= ' Please ensure the policy number is correct and active, or provide alternative verification information (name, date of birth, ID/Passport, phone, or email).';
+                } else {
+                    $errorMessage .= ' Please provide a policy number or alternative verification information.';
+                }
+                
                 return redirect()->back()
                     ->withInput()
                     ->withErrors([
-                        'policy_number' => 'The policy number could not be verified. Please ensure the policy number is correct and active.',
+                        'policy_number' => $errorMessage,
                     ]);
+            }
+            
+            // Log successful verification
+            if ($verificationMethod && $verificationMethod !== 'policy_number') {
+                Log::info('Client verified using alternative method', [
+                    'insurance_company_id' => $validated['insurance_company_id'],
+                    'verification_method' => $verificationMethod,
+                    'warnings' => $verificationWarnings,
+                ]);
             }
         }
         
@@ -1673,27 +1764,78 @@ class ClientController extends Controller
 
     /**
      * Verify policy number exists (API endpoint)
+     * Supports both GET (policy number only) and POST (with alternative verification data)
      */
-    public function verifyPolicyNumber($insuranceCompanyId, $policyNumber)
+    public function verifyPolicyNumber(Request $request, $insuranceCompanyId, $policyNumber = null)
     {
         try {
             $apiService = new ThirdPartyApiService();
-            $policyData = $apiService->verifyPolicyNumber((int)$insuranceCompanyId, $policyNumber);
-
-            if (!$policyData) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Policy number not found or inactive',
-                    'exists' => false,
-                ], 404);
+            
+            // Get policy number from route parameter or request
+            $policyNumber = $policyNumber ?? $request->input('policy_number');
+            
+            // Try policy number verification first if provided
+            if ($policyNumber) {
+                $policyData = $apiService->verifyPolicyNumber((int)$insuranceCompanyId, $policyNumber);
+                
+                if ($policyData) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Policy number verified',
+                        'exists' => true,
+                        'verification_method' => 'policy_number',
+                        'data' => $policyData,
+                    ], 200);
+                }
             }
-
+            
+            // If policy number verification failed, try alternative methods
+            $alternativeData = $request->only([
+                'name', 'date_of_birth', 'id_passport_no', 'phone', 'email', 'visit_id'
+            ]);
+            
+            // Remove empty values
+            $alternativeData = array_filter($alternativeData);
+            
+            if (!empty($alternativeData)) {
+                $verificationResult = $apiService->verifyAlternativeIdentity((int)$insuranceCompanyId, $alternativeData);
+                
+                if ($verificationResult && isset($verificationResult['success']) && $verificationResult['success']) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => $verificationResult['message'] ?? 'Client verified using alternative method',
+                        'exists' => true,
+                        'verification_method' => $verificationResult['verification_method'] ?? 'alternative',
+                        'verification_status' => $verificationResult['verification_status'] ?? 'verified',
+                        'data' => $verificationResult['data'] ?? null,
+                        'warnings' => $verificationResult['warnings'] ?? [],
+                    ], 200);
+                } else {
+                    // Alternative verification failed
+                    $message = $verificationResult['message'] ?? 'Policy number not found and alternative verification failed';
+                    $status = $verificationResult['verification_status'] ?? 'not_found';
+                    
+                    return response()->json([
+                        'success' => false,
+                        'message' => $message,
+                        'exists' => false,
+                        'verification_status' => $status,
+                        'mismatches' => $verificationResult['mismatches'] ?? [],
+                        'requires_alternative_verification' => empty($policyNumber),
+                    ], 404);
+                }
+            }
+            
+            // No alternative data provided
             return response()->json([
-                'success' => true,
-                'message' => 'Policy number verified',
-                'exists' => true,
-                'data' => $policyData,
-            ], 200);
+                'success' => false,
+                'message' => $policyNumber 
+                    ? 'Policy number not found or inactive. Please provide alternative verification information.'
+                    : 'Please provide a policy number or alternative verification information.',
+                'exists' => false,
+                'requires_alternative_verification' => true,
+            ], 404);
+            
         } catch (\Exception $e) {
             Log::error('Failed to verify policy number', [
                 'insurance_company_id' => $insuranceCompanyId,

@@ -474,4 +474,112 @@ class ThirdPartyApiService
             return null;
         }
     }
+
+    /**
+     * Verify client identity using alternative methods when policy number fails
+     *
+     * @param int $insuranceCompanyId
+     * @param array $verificationData Array containing: name, date_of_birth, id_passport_no, phone, email, visit_id
+     * @return array|null Returns verification result with policy data if verified, null otherwise
+     */
+    public function verifyAlternativeIdentity(int $insuranceCompanyId, array $verificationData): ?array
+    {
+        try {
+            Log::info('ThirdPartyApiService: Attempting alternative identity verification', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'has_name' => !empty($verificationData['name']),
+                'has_dob' => !empty($verificationData['date_of_birth']),
+                'has_id' => !empty($verificationData['id_passport_no']),
+                'has_phone' => !empty($verificationData['phone']),
+                'has_email' => !empty($verificationData['email']),
+                'has_visit_id' => !empty($verificationData['visit_id']),
+            ]);
+
+            $response = Http::timeout($this->timeout)
+                ->post("{$this->baseUrl}/api/v1/policies/verify/{$insuranceCompanyId}", $verificationData);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                Log::info('ThirdPartyApiService: Alternative verification successful', [
+                    'insurance_company_id' => $insuranceCompanyId,
+                    'verification_method' => $data['verification_method'] ?? null,
+                    'verification_status' => $data['verification_status'] ?? null,
+                    'exists' => $data['exists'] ?? false,
+                ]);
+
+                return $data;
+            } else {
+                $error = $response->json();
+                Log::warning('ThirdPartyApiService: Alternative verification failed', [
+                    'insurance_company_id' => $insuranceCompanyId,
+                    'status' => $response->status(),
+                    'error' => $error,
+                ]);
+
+                return $error;
+            }
+        } catch (Exception $e) {
+            Log::error('ThirdPartyApiService: Exception while verifying alternative identity', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Verify identity using visit ID
+     *
+     * @param int $insuranceCompanyId
+     * @param string $visitId
+     * @param array $additionalData Optional additional verification data
+     * @return array|null Returns verification result with policy data if verified, null otherwise
+     */
+    public function verifyVisitIdentity(int $insuranceCompanyId, string $visitId, array $additionalData = []): ?array
+    {
+        try {
+            $data = array_merge(['visit_id' => $visitId], $additionalData);
+
+            Log::info('ThirdPartyApiService: Verifying visit identity', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'visit_id' => $visitId,
+            ]);
+
+            $response = Http::timeout($this->timeout)
+                ->post("{$this->baseUrl}/api/v1/policies/verify-visit/{$insuranceCompanyId}", $data);
+
+            if ($response->successful()) {
+                $result = $response->json();
+                
+                Log::info('ThirdPartyApiService: Visit identity verified', [
+                    'insurance_company_id' => $insuranceCompanyId,
+                    'visit_id' => $visitId,
+                    'verification_method' => $result['verification_method'] ?? null,
+                    'verification_status' => $result['verification_status'] ?? null,
+                ]);
+
+                return $result;
+            } else {
+                $error = $response->json();
+                Log::warning('ThirdPartyApiService: Visit identity verification failed', [
+                    'insurance_company_id' => $insuranceCompanyId,
+                    'visit_id' => $visitId,
+                    'status' => $response->status(),
+                    'error' => $error,
+                ]);
+
+                return $error;
+            }
+        } catch (Exception $e) {
+            Log::error('ThirdPartyApiService: Exception while verifying visit identity', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'visit_id' => $visitId,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
 }

@@ -247,7 +247,9 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     
     // API route for fetching insurance company by code
     Route::get('/api/insurance-company/by-code/{code}', [ClientController::class, 'getInsuranceCompanyByCode'])->name('api.insurance-company.by-code');
+    // Policy verification - supports both GET (policy number only) and POST (with alternative data)
     Route::get('/api/policies/verify/{insuranceCompanyId}/{policyNumber}', [ClientController::class, 'verifyPolicyNumber'])->name('api.policies.verify');
+    Route::post('/api/policies/verify/{insuranceCompanyId}', [ClientController::class, 'verifyPolicyNumber'])->name('api.policies.verify.post');
     
     // Credit Note Workflow Settings (Kashtre only)
     Route::get('credit-note-workflows/bulk-upload', [CreditNoteWorkflowBulkUploadController::class, 'index'])->name('credit-note-workflows.bulk-upload.index');

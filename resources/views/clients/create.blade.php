@@ -1330,13 +1330,19 @@
                 }
             }
 
-            // Function to verify policy number
+            // Function to verify policy number (with automatic fallback to alternative methods)
             async function verifyPolicyNumber() {
                 const insuranceCompanyId = insuranceCompanySelect?.value;
                 const policyNumber = policyNumberInput?.value?.trim();
 
-                if (!insuranceCompanyId || !policyNumber) {
-                    policyVerificationResult.innerHTML = '<p class="text-sm text-red-600">Please select an insurance company and enter a policy number.</p>';
+                if (!insuranceCompanyId) {
+                    policyVerificationResult.innerHTML = '<p class="text-sm text-red-600">Please select an insurance company.</p>';
+                    return;
+                }
+
+                if (!policyNumber) {
+                    // If no policy number, try alternative verification with available form data
+                    await tryAlternativeVerification(insuranceCompanyId);
                     return;
                 }
 
@@ -1345,39 +1351,135 @@
                 policyVerificationResult.innerHTML = '<p class="text-sm text-blue-600">Verifying policy number...</p>';
 
                 try {
+                    // First try policy number verification
                     const response = await fetch(`/api/policies/verify/${insuranceCompanyId}/${encodeURIComponent(policyNumber)}`);
                     const data = await response.json();
 
                     if (data.success && data.exists) {
+                        const method = data.verification_method || 'policy_number';
+                        const methodLabel = method === 'policy_number' ? 'Policy Number' : method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                        
                         policyVerificationResult.innerHTML = `
                             <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
-                                <p class="text-sm font-medium text-green-800">✓ Policy verified successfully</p>
-                                <p class="text-xs text-green-700 mt-1">Policy holder: ${data.data.principal_member_name || 'N/A'}</p>
-                                <p class="text-xs text-green-700">Status: ${data.data.status || 'N/A'}</p>
+                                <p class="text-sm font-medium text-green-800">✓ Verified successfully (${methodLabel})</p>
+                                <p class="text-xs text-green-700 mt-1">Policy holder: ${data.data?.principal_member_name || 'N/A'}</p>
+                                <p class="text-xs text-green-700">Status: ${data.data?.status || 'N/A'}</p>
+                                ${data.warnings && data.warnings.length > 0 ? `<p class="text-xs text-yellow-700 mt-1">⚠ ${data.warnings.join(', ')}</p>` : ''}
                             </div>
                         `;
                         policyNumberInput.classList.remove('border-red-300');
                         policyNumberInput.classList.add('border-green-300');
                     } else {
+                        // Policy number failed, try alternative verification
+                        policyVerificationResult.innerHTML = '<p class="text-sm text-blue-600">Policy number not found. Trying alternative verification methods...</p>';
+                        await tryAlternativeVerification(insuranceCompanyId, policyNumber);
+                    }
+                } catch (error) {
+                    console.error('Verification error:', error);
+                    policyVerificationResult.innerHTML = `
+                        <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <p class="text-sm font-medium text-yellow-800">⚠ Verification failed</p>
+                            <p class="text-xs text-yellow-700 mt-1">Unable to verify. Please try again later.</p>
+                        </div>
+                    `;
+                } finally {
+                    verifyPolicyBtn.disabled = false;
+                    verifyPolicyBtn.textContent = 'Verify';
+                }
+            }
+
+            // Function to try alternative verification methods
+            async function tryAlternativeVerification(insuranceCompanyId, policyNumber = null) {
+                // Collect available form data for alternative verification
+                const surnameInput = document.querySelector('input[name="surname"]');
+                const firstNameInput = document.querySelector('input[name="first_name"]');
+                const otherNamesInput = document.querySelector('input[name="other_names"]');
+                const dobInput = document.querySelector('input[name="date_of_birth"]');
+                const ninInput = document.querySelector('input[name="nin"]');
+                const phoneInput = document.querySelector('input[name="phone_number"]');
+                const emailInput = document.querySelector('input[name="email"]');
+
+                const alternativeData = {};
+                
+                // Build full name
+                const nameParts = [];
+                if (surnameInput?.value) nameParts.push(surnameInput.value.trim());
+                if (firstNameInput?.value) nameParts.push(firstNameInput.value.trim());
+                if (otherNamesInput?.value) nameParts.push(otherNamesInput.value.trim());
+                if (nameParts.length > 0) {
+                    alternativeData.name = nameParts.join(' ');
+                }
+
+                if (dobInput?.value) alternativeData.date_of_birth = dobInput.value;
+                if (ninInput?.value) alternativeData.id_passport_no = ninInput.value;
+                if (phoneInput?.value) alternativeData.phone = phoneInput.value;
+                if (emailInput?.value) alternativeData.email = emailInput.value;
+                if (policyNumber) alternativeData.policy_number = policyNumber;
+
+                // Check if we have at least one piece of alternative data
+                const hasAlternativeData = Object.keys(alternativeData).filter(k => k !== 'policy_number').length > 0;
+
+                if (!hasAlternativeData) {
+                    policyVerificationResult.innerHTML = `
+                        <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <p class="text-sm font-medium text-red-800">✗ Policy number not found</p>
+                            <p class="text-xs text-red-700 mt-1">Please provide alternative verification information (name, date of birth, ID/Passport, phone, or email) or correct the policy number.</p>
+                        </div>
+                    `;
+                    policyNumberInput.classList.remove('border-green-300');
+                    policyNumberInput.classList.add('border-red-300');
+                    return;
+                }
+
+                try {
+                    // Try alternative verification via POST
+                    const response = await fetch(`/api/policies/verify/${insuranceCompanyId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        },
+                        body: JSON.stringify(alternativeData)
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success && data.exists) {
+                        const method = data.verification_method || 'alternative';
+                        const methodLabel = method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                        const statusLabel = data.verification_status === 'flagged' ? ' (Flagged for Review)' : '';
+                        
+                        policyVerificationResult.innerHTML = `
+                            <div class="p-3 ${data.verification_status === 'flagged' ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'} border rounded-lg">
+                                <p class="text-sm font-medium ${data.verification_status === 'flagged' ? 'text-yellow-800' : 'text-green-800'}">
+                                    ✓ Verified using ${methodLabel}${statusLabel}
+                                </p>
+                                <p class="text-xs ${data.verification_status === 'flagged' ? 'text-yellow-700' : 'text-green-700'} mt-1">
+                                    Policy holder: ${data.data?.principal_member_name || 'N/A'}
+                                </p>
+                                ${data.warnings && data.warnings.length > 0 ? `<p class="text-xs text-yellow-700 mt-1">⚠ ${data.warnings.join(', ')}</p>` : ''}
+                            </div>
+                        `;
+                        policyNumberInput.classList.remove('border-red-300');
+                        policyNumberInput.classList.add(data.verification_status === 'flagged' ? 'border-yellow-300' : 'border-green-300');
+                    } else {
                         policyVerificationResult.innerHTML = `
                             <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
-                                <p class="text-sm font-medium text-red-800">✗ Policy number not found or inactive</p>
-                                <p class="text-xs text-red-700 mt-1">${data.message || 'Please verify the policy number and try again.'}</p>
+                                <p class="text-sm font-medium text-red-800">✗ Verification failed</p>
+                                <p class="text-xs text-red-700 mt-1">${data.message || 'Unable to verify using provided information. Please check your details and try again.'}</p>
                             </div>
                         `;
                         policyNumberInput.classList.remove('border-green-300');
                         policyNumberInput.classList.add('border-red-300');
                     }
                 } catch (error) {
+                    console.error('Alternative verification error:', error);
                     policyVerificationResult.innerHTML = `
                         <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                             <p class="text-sm font-medium text-yellow-800">⚠ Verification failed</p>
-                            <p class="text-xs text-yellow-700 mt-1">Unable to verify policy number. Please try again later.</p>
+                            <p class="text-xs text-yellow-700 mt-1">Unable to verify. Please try again later.</p>
                         </div>
                     `;
-                } finally {
-                    verifyPolicyBtn.disabled = false;
-                    verifyPolicyBtn.textContent = 'Verify';
                 }
             }
 
