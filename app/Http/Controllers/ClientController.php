@@ -134,6 +134,8 @@ class ClientController extends Controller
 
         // Get connected third-party vendors for this business
         $connectedVendors = [];
+        $insuranceCompanies = [];
+        
         try {
             $apiService = new ThirdPartyApiService();
             $baseUrl = config('services.third_party.api_url', env('THIRD_PARTY_API_URL', 'http://127.0.0.1:8001'));
@@ -143,6 +145,49 @@ class ClientController extends Controller
             if ($response->successful()) {
                 $data = $response->json();
                 $connectedVendors = $data['data'] ?? [];
+                
+                // Map third-party vendors to local insurance companies
+                // Find or create local insurance company records for each connected vendor
+                foreach ($connectedVendors as $vendor) {
+                    $thirdPartyBusinessId = $vendor['id'] ?? null;
+                    if (!$thirdPartyBusinessId) {
+                        continue;
+                    }
+                    
+                    // Try to find existing local insurance company by third_party_business_id
+                    $insuranceCompany = InsuranceCompany::where('third_party_business_id', $thirdPartyBusinessId)
+                        ->where(function($query) use ($business) {
+                            $query->where('business_id', $business->id)
+                                  ->orWhereNull('business_id');
+                        })
+                        ->first();
+                    
+                    // If not found, create a new local insurance company record
+                    if (!$insuranceCompany) {
+                        $insuranceCompany = InsuranceCompany::create([
+                            'business_id' => $business->id,
+                            'name' => $vendor['name'] ?? 'Unknown Insurance Company',
+                            'code' => $vendor['code'] ?? null,
+                            'email' => $vendor['email'] ?? null,
+                            'phone' => $vendor['phone'] ?? null,
+                            'third_party_business_id' => (string)$thirdPartyBusinessId,
+                        ]);
+                        
+                        Log::info('Created local insurance company for connected vendor', [
+                            'insurance_company_id' => $insuranceCompany->id,
+                            'third_party_business_id' => $thirdPartyBusinessId,
+                            'name' => $vendor['name'] ?? null,
+                        ]);
+                    }
+                    
+                    // Add to list with local ID
+                    $insuranceCompanies[] = [
+                        'id' => $insuranceCompany->id, // Local insurance company ID
+                        'name' => $insuranceCompany->name,
+                        'code' => $insuranceCompany->code ?? $vendor['code'] ?? null,
+                        'third_party_id' => $thirdPartyBusinessId, // Keep for reference
+                    ];
+                }
             }
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::warning('Failed to fetch connected vendors for client creation', [
@@ -151,7 +196,7 @@ class ClientController extends Controller
             ]);
         }
 
-        return view('clients.create', compact('business', 'currentBranch', 'availablePaymentMethods', 'paymentMethodNames', 'connectedVendors'));
+        return view('clients.create', compact('business', 'currentBranch', 'availablePaymentMethods', 'paymentMethodNames', 'connectedVendors', 'insuranceCompanies'));
     }
 
     /**
@@ -326,6 +371,26 @@ class ClientController extends Controller
 
         // If insurance is selected, verify the policy number exists
         if ($isInsuranceSelected && !empty($validated['insurance_company_id'])) {
+            // Get the local insurance company to find the third-party business ID
+            $insuranceCompany = InsuranceCompany::find($validated['insurance_company_id']);
+            if (!$insuranceCompany) {
+                return redirect()->back()
+                    ->withInput()
+                    ->withErrors([
+                        'insurance_company_id' => 'Selected insurance company not found.',
+                    ]);
+            }
+            
+            // Get the third-party business ID for API calls
+            $thirdPartyBusinessId = $insuranceCompany->third_party_business_id;
+            if (!$thirdPartyBusinessId) {
+                return redirect()->back()
+                    ->withInput()
+                    ->withErrors([
+                        'insurance_company_id' => 'Selected insurance company is not connected to a third-party vendor.',
+                    ]);
+            }
+            
             $apiService = new ThirdPartyApiService();
             $policyData = null;
             $verificationMethod = null;
@@ -333,7 +398,7 @@ class ClientController extends Controller
             
             // Try policy number verification first if provided
             if (!empty($validated['policy_number'])) {
-                $policyData = $apiService->verifyPolicyNumber((int)$validated['insurance_company_id'], $validated['policy_number']);
+                $policyData = $apiService->verifyPolicyNumber((int)$thirdPartyBusinessId, $validated['policy_number']);
                 if ($policyData) {
                     $verificationMethod = 'policy_number';
                 }
@@ -382,7 +447,7 @@ class ClientController extends Controller
                 // Try alternative verification if we have at least one piece of data
                 if (!empty($alternativeData)) {
                     $verificationResult = $apiService->verifyAlternativeIdentity(
-                        (int)$validated['insurance_company_id'], 
+                        (int)$thirdPartyBusinessId, 
                         $alternativeData
                     );
                     
@@ -395,6 +460,7 @@ class ClientController extends Controller
                         if (isset($verificationResult['verification_status']) && $verificationResult['verification_status'] === 'flagged') {
                             Log::warning('Client verification flagged for review', [
                                 'insurance_company_id' => $validated['insurance_company_id'],
+                                'third_party_business_id' => $thirdPartyBusinessId,
                                 'verification_method' => $verificationMethod,
                                 'warnings' => $verificationWarnings,
                             ]);
@@ -423,6 +489,7 @@ class ClientController extends Controller
             if ($verificationMethod && $verificationMethod !== 'policy_number') {
                 Log::info('Client verified using alternative method', [
                     'insurance_company_id' => $validated['insurance_company_id'],
+                    'third_party_business_id' => $thirdPartyBusinessId,
                     'verification_method' => $verificationMethod,
                     'warnings' => $verificationWarnings,
                 ]);

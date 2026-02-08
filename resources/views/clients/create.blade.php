@@ -339,11 +339,19 @@
                                         <select name="insurance_company_id" id="insurance_company_id" 
                                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors">
                                             <option value="">-- Select Insurance Company --</option>
-                                            @foreach($connectedVendors as $vendor)
-                                                <option value="{{ $vendor['id'] }}" {{ old('insurance_company_id') == $vendor['id'] ? 'selected' : '' }}>
-                                                    {{ $vendor['name'] }} ({{ $vendor['code'] }})
-                                                </option>
-                                            @endforeach
+                                            @if(isset($insuranceCompanies) && !empty($insuranceCompanies))
+                                                @foreach($insuranceCompanies as $company)
+                                                    <option value="{{ $company['id'] }}" {{ old('insurance_company_id') == $company['id'] ? 'selected' : '' }}>
+                                                        {{ $company['name'] }}@if($company['code']) ({{ $company['code'] }})@endif
+                                                    </option>
+                                                @endforeach
+                                            @else
+                                                @foreach($connectedVendors as $vendor)
+                                                    <option value="{{ $vendor['id'] }}" {{ old('insurance_company_id') == $vendor['id'] ? 'selected' : '' }}>
+                                                        {{ $vendor['name'] }} ({{ $vendor['code'] }})
+                                                    </option>
+                                                @endforeach
+                                            @endif
                                         </select>
                                         <p class="text-xs text-gray-500 mt-1">Select the insurance company connected to this entity</p>
                                         @error('insurance_company_id')
