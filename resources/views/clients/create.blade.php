@@ -1349,8 +1349,8 @@
                 }
 
                 if (!policyNumber) {
-                    // If no policy number, try alternative verification with available form data
-                    await tryAlternativeVerification(insuranceCompanyId);
+                    // If no policy number, show alternative verification options
+                    showAlternativeVerificationOptions(insuranceCompanyId);
                     return;
                 }
 
@@ -1378,9 +1378,8 @@
                         policyNumberInput.classList.remove('border-red-300');
                         policyNumberInput.classList.add('border-green-300');
                     } else {
-                        // Policy number failed, try alternative verification
-                        policyVerificationResult.innerHTML = '<p class="text-sm text-blue-600">Policy number not found. Trying alternative verification methods...</p>';
-                        await tryAlternativeVerification(insuranceCompanyId, policyNumber);
+                        // Policy number failed, show alternative verification options
+                        showAlternativeVerificationOptions(insuranceCompanyId, policyNumber);
                     }
                 } catch (error) {
                     console.error('Verification error:', error);
@@ -1396,8 +1395,114 @@
                 }
             }
 
-            // Function to try alternative verification methods
-            async function tryAlternativeVerification(insuranceCompanyId, policyNumber = null) {
+            // Function to show alternative verification options
+            function showAlternativeVerificationOptions(insuranceCompanyId, policyNumber = null) {
+                // Collect available form data to check what's available
+                const surnameInput = document.querySelector('input[name="surname"]');
+                const firstNameInput = document.querySelector('input[name="first_name"]');
+                const otherNamesInput = document.querySelector('input[name="other_names"]');
+                const dobInput = document.querySelector('input[name="date_of_birth"]');
+                const ninInput = document.querySelector('input[name="nin"]');
+                const phoneInput = document.querySelector('input[name="phone_number"]');
+                const emailInput = document.querySelector('input[name="email"]');
+
+                // Check which methods have data available
+                const hasName = (surnameInput?.value || firstNameInput?.value || otherNamesInput?.value) && dobInput?.value;
+                const hasIdPassport = ninInput?.value;
+                const hasPhone = phoneInput?.value;
+                const hasEmail = emailInput?.value;
+
+                let optionsHtml = `
+                    <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p class="text-sm font-medium text-yellow-800 mb-2">✗ Policy number not found</p>
+                        <p class="text-xs text-yellow-700 mb-3">Try another verification method:</p>
+                        <div class="space-y-2">
+                `;
+
+                // Name & Date of Birth option
+                if (hasName) {
+                    optionsHtml += `
+                        <button type="button" data-method="name_dob" data-insurance-id="${insuranceCompanyId}" data-policy-number="${policyNumber || ''}" 
+                                class="alternative-verify-btn w-full text-left px-3 py-2 bg-white border border-yellow-300 rounded-lg hover:bg-yellow-100 transition-colors text-sm">
+                            <span class="font-medium">Name & Date of Birth</span>
+                            <span class="text-xs text-gray-600 block mt-1">Verify using full name and date of birth</span>
+                        </button>
+                    `;
+                } else {
+                    optionsHtml += `
+                        <div class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm opacity-60">
+                            <span class="font-medium text-gray-600">Name & Date of Birth</span>
+                            <span class="text-xs text-gray-500 block mt-1">Fill in name and date of birth fields first</span>
+                        </div>
+                    `;
+                }
+
+                // ID/Passport option
+                if (hasIdPassport) {
+                    optionsHtml += `
+                        <button type="button" data-method="id_passport" data-insurance-id="${insuranceCompanyId}" data-policy-number="${policyNumber || ''}" 
+                                class="alternative-verify-btn w-full text-left px-3 py-2 bg-white border border-yellow-300 rounded-lg hover:bg-yellow-100 transition-colors text-sm">
+                            <span class="font-medium">ID/Passport Number</span>
+                            <span class="text-xs text-gray-600 block mt-1">Verify using National ID or Passport number</span>
+                        </button>
+                    `;
+                } else {
+                    optionsHtml += `
+                        <div class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm opacity-60">
+                            <span class="font-medium text-gray-600">ID/Passport Number</span>
+                            <span class="text-xs text-gray-500 block mt-1">Fill in NIN/ID/Passport field first</span>
+                        </div>
+                    `;
+                }
+
+                // Phone option
+                if (hasPhone) {
+                    optionsHtml += `
+                        <button type="button" data-method="phone" data-insurance-id="${insuranceCompanyId}" data-policy-number="${policyNumber || ''}" 
+                                class="alternative-verify-btn w-full text-left px-3 py-2 bg-white border border-yellow-300 rounded-lg hover:bg-yellow-100 transition-colors text-sm">
+                            <span class="font-medium">Phone Number</span>
+                            <span class="text-xs text-gray-600 block mt-1">Verify using registered phone number</span>
+                        </button>
+                    `;
+                } else {
+                    optionsHtml += `
+                        <div class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm opacity-60">
+                            <span class="font-medium text-gray-600">Phone Number</span>
+                            <span class="text-xs text-gray-500 block mt-1">Fill in phone number field first</span>
+                        </div>
+                    `;
+                }
+
+                // Email option
+                if (hasEmail) {
+                    optionsHtml += `
+                        <button type="button" data-method="email" data-insurance-id="${insuranceCompanyId}" data-policy-number="${policyNumber || ''}" 
+                                class="alternative-verify-btn w-full text-left px-3 py-2 bg-white border border-yellow-300 rounded-lg hover:bg-yellow-100 transition-colors text-sm">
+                            <span class="font-medium">Email Address</span>
+                            <span class="text-xs text-gray-600 block mt-1">Verify using registered email address</span>
+                        </button>
+                    `;
+                } else {
+                    optionsHtml += `
+                        <div class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm opacity-60">
+                            <span class="font-medium text-gray-600">Email Address</span>
+                            <span class="text-xs text-gray-500 block mt-1">Fill in email field first</span>
+                        </div>
+                    `;
+                }
+
+                optionsHtml += `
+                        </div>
+                    </div>
+                `;
+
+                policyVerificationResult.innerHTML = optionsHtml;
+                policyNumberInput.classList.remove('border-green-300');
+                policyNumberInput.classList.add('border-red-300');
+            }
+
+            // Function to try a specific alternative verification method
+            async function tryAlternativeMethod(method, insuranceCompanyId, policyNumber = null) {
                 // Collect available form data for alternative verification
                 const surnameInput = document.querySelector('input[name="surname"]');
                 const firstNameInput = document.querySelector('input[name="first_name"]');
@@ -1424,20 +1529,12 @@
                 if (emailInput?.value) alternativeData.email = emailInput.value;
                 if (policyNumber) alternativeData.policy_number = policyNumber;
 
-                // Check if we have at least one piece of alternative data
-                const hasAlternativeData = Object.keys(alternativeData).filter(k => k !== 'policy_number').length > 0;
-
-                if (!hasAlternativeData) {
-                    policyVerificationResult.innerHTML = `
-                        <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
-                            <p class="text-sm font-medium text-red-800">✗ Policy number not found</p>
-                            <p class="text-xs text-red-700 mt-1">Please provide alternative verification information (name, date of birth, ID/Passport, phone, or email) or correct the policy number.</p>
-                        </div>
-                    `;
-                    policyNumberInput.classList.remove('border-green-300');
-                    policyNumberInput.classList.add('border-red-300');
-                    return;
-                }
+                // Show loading state
+                policyVerificationResult.innerHTML = `
+                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p class="text-sm font-medium text-blue-800">Verifying using ${method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}...</p>
+                    </div>
+                `;
 
                 try {
                     // Try alternative verification via POST
@@ -1453,8 +1550,7 @@
                     const data = await response.json();
 
                     if (data.success && data.exists) {
-                        const method = data.verification_method || 'alternative';
-                        const methodLabel = method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                        const methodLabel = data.verification_method ? data.verification_method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
                         const statusLabel = data.verification_status === 'flagged' ? ' (Flagged for Review)' : '';
                         
                         policyVerificationResult.innerHTML = `
@@ -1475,6 +1571,10 @@
                             <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
                                 <p class="text-sm font-medium text-red-800">✗ Verification failed</p>
                                 <p class="text-xs text-red-700 mt-1">${data.message || 'Unable to verify using provided information. Please check your details and try again.'}</p>
+                                <button type="button" data-show-alternatives="true" data-insurance-id="${insuranceCompanyId}" data-policy-number="${policyNumber || ''}" 
+                                        class="show-alternatives-btn mt-2 text-xs text-blue-600 hover:text-blue-800 underline">
+                                    Try another method
+                                </button>
                             </div>
                         `;
                         policyNumberInput.classList.remove('border-green-300');
@@ -1486,9 +1586,35 @@
                         <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                             <p class="text-sm font-medium text-yellow-800">⚠ Verification failed</p>
                             <p class="text-xs text-yellow-700 mt-1">Unable to verify. Please try again later.</p>
+                            <button type="button" data-show-alternatives="true" data-insurance-id="${insuranceCompanyId}" data-policy-number="${policyNumber || ''}" 
+                                    class="show-alternatives-btn mt-2 text-xs text-blue-600 hover:text-blue-800 underline">
+                                Try another method
+                            </button>
                         </div>
                     `;
                 }
+            }
+
+            // Event delegation for alternative verification buttons
+            if (policyVerificationResult) {
+                policyVerificationResult.addEventListener('click', function(e) {
+                    // Handle alternative verification method buttons
+                    if (e.target.closest('.alternative-verify-btn')) {
+                        const btn = e.target.closest('.alternative-verify-btn');
+                        const method = btn.getAttribute('data-method');
+                        const insuranceId = btn.getAttribute('data-insurance-id');
+                        const policyNum = btn.getAttribute('data-policy-number') || null;
+                        tryAlternativeMethod(method, insuranceId, policyNum);
+                    }
+                    
+                    // Handle "Try another method" buttons
+                    if (e.target.closest('.show-alternatives-btn')) {
+                        const btn = e.target.closest('.show-alternatives-btn');
+                        const insuranceId = btn.getAttribute('data-insurance-id');
+                        const policyNum = btn.getAttribute('data-policy-number') || null;
+                        showAlternativeVerificationOptions(insuranceId, policyNum);
+                    }
+                });
             }
 
             // Add event listeners
