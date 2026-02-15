@@ -138,9 +138,12 @@ class InvoiceController extends Controller
         try {
             $validated = $request->validate([
                 'insurance_company_id' => 'required|integer',
+                'payment_method' => 'required|in:bank_transfer,mobile_money,cash',
                 'payment_reference' => 'nullable|string|max:255',
                 'payment_date' => 'nullable|date',
                 'notes' => 'nullable|string',
+                'proof_of_payment' => 'nullable|file|mimes:jpg,jpeg,png,pdf,doc,docx|max:10240', // 10MB max
+                'payment_status' => 'nullable|string', // Can be 'pending_review' for bank/cash
             ]);
 
             // Find the third-party payer
@@ -168,6 +171,21 @@ class InvoiceController extends Controller
                 ], 404);
             }
 
+            // Handle proof of payment file upload
+            $proofOfPaymentPath = null;
+            if ($request->hasFile('proof_of_payment')) {
+                $file = $request->file('proof_of_payment');
+                $fileName = 'proof_' . $invoiceId . '_' . time() . '.' . $file->getClientOriginalExtension();
+                $proofOfPaymentPath = $file->storeAs('proof-of-payments', $fileName, 'public');
+                
+                Log::info('Proof of payment uploaded in Kashtre', [
+                    'invoice_id' => $invoiceId,
+                    'file_path' => $proofOfPaymentPath,
+                    'file_name' => $fileName,
+                    'payment_method' => $validated['payment_method'],
+                ]);
+            }
+
             // Calculate total amount
             $totalAmount = abs($balanceHistories->sum('change_amount'));
 
@@ -178,6 +196,14 @@ class InvoiceController extends Controller
             
             $previousBalance = $lastBalanceHistory ? $lastBalanceHistory->new_balance : ($thirdPartyPayer->current_balance ?? 0);
             $newBalance = $previousBalance + $totalAmount;
+
+            // Determine payment status based on payment method
+            $paymentStatus = 'paid';
+            if ($validated['payment_method'] === 'mobile_money') {
+                $paymentStatus = 'pending_payment'; // Mobile money is pending until confirmed
+            } elseif (in_array($validated['payment_method'], ['bank_transfer', 'cash'])) {
+                $paymentStatus = $validated['payment_status'] ?? 'pending_review'; // Bank/cash requires review
+            }
 
             // Create a single credit entry for the total amount (instead of one per debit entry)
             ThirdPartyPayerBalanceHistory::create([
@@ -194,8 +220,9 @@ class InvoiceController extends Controller
                 'description' => "Payment for Invoice #" . ($balanceHistories->first()->invoice->invoice_number ?? 'N/A'),
                 'reference_number' => $validated['payment_reference'] ?? ($balanceHistories->first()->invoice->invoice_number ?? null),
                 'notes' => $validated['notes'] ?? "Invoice cleared from third-party system",
-                'payment_method' => 'bank_transfer', // Default, can be customized
-                'payment_status' => 'paid',
+                'payment_method' => $validated['payment_method'], // Use provided payment method
+                'payment_status' => $paymentStatus,
+                'proof_of_payment_path' => $proofOfPaymentPath, // Store proof of payment path
             ]);
 
             // Update third-party payer balance
@@ -206,13 +233,22 @@ class InvoiceController extends Controller
                 $entry->update(['payment_status' => 'paid']);
             });
 
+            $message = 'Invoice marked as paid successfully.';
+            if ($paymentStatus === 'pending_review') {
+                $message = 'Proof of payment uploaded successfully. Payment is pending review.';
+            } elseif ($paymentStatus === 'pending_payment') {
+                $message = 'Mobile money payment request sent. Payment is pending confirmation.';
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'Invoice marked as paid successfully.',
+                'message' => $message,
                 'data' => [
                     'invoice_id' => $invoiceId,
                     'total_amount' => $totalAmount,
                     'new_balance' => $newBalance,
+                    'payment_status' => $paymentStatus,
+                    'has_proof_of_payment' => !is_null($proofOfPaymentPath),
                 ]
             ]);
 

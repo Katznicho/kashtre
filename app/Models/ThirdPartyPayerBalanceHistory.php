@@ -27,6 +27,7 @@ class ThirdPartyPayerBalanceHistory extends Model
         'payment_method',
         'payment_reference',
         'payment_status',
+        'proof_of_payment_path',
     ];
 
     protected $casts = [

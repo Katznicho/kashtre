@@ -1677,17 +1677,67 @@ class MoneyTrackingService
         $toAccount->credit($amount);   // Money comes into destination account
 
         // Determine payment_status and payment_method based on client type and transfer type
-        $paymentStatus = null;
+        $paymentStatus = 'paid'; // Default to paid
         $paymentMethod = null;
         
-        // If this is a suspense_to_final transfer (services being delivered) and client is credit-eligible
-        if ($transferType === 'suspense_to_final' && $invoice && $invoice->client) {
+        // Current valid enum values (before migration adds insurance/credit_arrangement)
+        $currentValidMethods = ['account_balance', 'mobile_money', 'bank_transfer', 'v_card', 'p_card'];
+        // Future valid enum values (after migration)
+        $futureValidMethods = ['account_balance', 'mobile_money', 'bank_transfer', 'v_card', 'p_card', 'insurance', 'credit_arrangement'];
+        
+        if ($invoice && $invoice->client) {
             $client = $invoice->client;
-            if ($client->is_credit_eligible) {
-                // For credit clients, payment is pending and no payment method yet
-                $paymentStatus = 'pending_payment';
-                $paymentMethod = null;
+            $paymentMethods = $invoice->payment_methods ?? [];
+            
+            // Check for insurance payments
+            if (in_array('insurance', $paymentMethods)) {
+                $paymentStatus = 'paid';
+                // Try to use 'insurance' if enum supports it, otherwise fallback to 'mobile_money'
+                // Check if enum has been updated by trying to determine current enum values
+                $paymentMethod = 'insurance'; // Will be validated below
             }
+            // Check for credit arrangements
+            elseif (in_array('credit_arrangement', $paymentMethods) || $client->is_credit_eligible) {
+                // If this is a suspense_to_final transfer (services being delivered) and client is credit-eligible
+                if ($transferType === 'suspense_to_final') {
+                    $paymentStatus = 'pending_payment';
+                    $paymentMethod = 'credit_arrangement'; // Will be validated below
+                } else {
+                    $paymentStatus = $invoice->payment_status ?? 'paid';
+                    $paymentMethod = 'credit_arrangement'; // Will be validated below
+                }
+            }
+            // For other payment methods, use invoice payment status
+            else {
+                $paymentStatus = $invoice->payment_status ?? 'paid';
+                if (!empty($paymentMethods)) {
+                    $paymentMethod = $paymentMethods[0] ?? null;
+                }
+            }
+        }
+        
+        // Validate and fix payment_method to ensure it's a valid enum value
+        // IMPORTANT: The database enum currently only supports: account_balance, mobile_money, bank_transfer, v_card, p_card
+        // Until the migration is run, we must use one of these values
+        if ($paymentMethod) {
+            if (!in_array($paymentMethod, $currentValidMethods)) {
+                // The enum doesn't support this value yet - use fallback and log
+                $originalMethod = $paymentMethod;
+                $paymentMethod = 'mobile_money'; // Safe fallback that's always valid
+                
+                \Log::warning("Payment method enum not updated - using fallback", [
+                    'invoice_id' => $invoice->id ?? null,
+                    'invoice_number' => $invoice->invoice_number ?? null,
+                    'attempted_method' => $originalMethod,
+                    'fallback_method' => $paymentMethod,
+                    'action_required' => 'URGENT: Run migration or visit http://127.0.0.1:8000/fix-payment-method-enum to add insurance and credit_arrangement to enum',
+                    'migration_file' => '2026_02_15_183500_add_insurance_to_business_balance_histories_payment_method_enum.php',
+                    'fix_url' => 'http://127.0.0.1:8000/fix-payment-method-enum'
+                ]);
+            }
+        } else {
+            // If payment_method is null, set a default
+            $paymentMethod = 'mobile_money';
         }
 
         // Create BusinessBalanceHistory records for business accounts
@@ -1952,6 +2002,28 @@ class MoneyTrackingService
                 "Service delivery payment for {$item->name} ({$serviceDeliveryQueue->quantity})"
             );
             
+            // Determine payment status and method from invoice
+            $paymentStatus = 'paid'; // Default to paid for service delivery
+            $paymentMethod = null;
+            
+            if ($invoice) {
+                // Check invoice payment methods
+                $paymentMethods = $invoice->payment_methods ?? [];
+                if (in_array('insurance', $paymentMethods)) {
+                    $paymentMethod = 'insurance';
+                    $paymentStatus = 'paid'; // Insurance payments are considered paid
+                } elseif (in_array('credit_arrangement', $paymentMethods) || $invoice->client->is_credit_eligible ?? false) {
+                    $paymentStatus = 'pending_payment';
+                    $paymentMethod = 'credit_arrangement';
+                } else {
+                    $paymentStatus = $invoice->payment_status ?? 'paid';
+                    // Try to get payment method from invoice
+                    if (!empty($paymentMethods)) {
+                        $paymentMethod = $paymentMethods[0] ?? null;
+                    }
+                }
+            }
+            
             // Record business balance statement
             BusinessBalanceHistory::recordChange(
                 $business->id,
@@ -1966,7 +2038,9 @@ class MoneyTrackingService
                     'item_id' => $item->id,
                     'client_id' => $invoice->client_id
                 ],
-                $user ? $user->id : null
+                $user ? $user->id : null,
+                $paymentStatus,
+                $paymentMethod
             );
             
             // Transfer service charge to Kashtre account
@@ -1996,7 +2070,9 @@ class MoneyTrackingService
                         'client_id' => $invoice->client_id,
                         'business_id' => $business->id
                     ],
-                    $user ? $user->id : null
+                    $user ? $user->id : null,
+                    $paymentStatus,
+                    $paymentMethod
                 );
             }
             
@@ -2675,6 +2751,26 @@ class MoneyTrackingService
                 'type' => 'credit'
             ]);
             
+            // Determine payment status and method from invoice
+            $paymentStatus = 'paid'; // Default to paid for service delivery
+            $paymentMethod = null;
+            
+            if ($invoice) {
+                $paymentMethods = $invoice->payment_methods ?? [];
+                if (in_array('insurance', $paymentMethods)) {
+                    $paymentMethod = 'insurance';
+                    $paymentStatus = 'paid';
+                } elseif (in_array('credit_arrangement', $paymentMethods) || $invoice->client->is_credit_eligible ?? false) {
+                    $paymentStatus = 'pending_payment';
+                    $paymentMethod = 'credit_arrangement';
+                } else {
+                    $paymentStatus = $invoice->payment_status ?? 'paid';
+                    if (!empty($paymentMethods)) {
+                        $paymentMethod = $paymentMethods[0] ?? null;
+                    }
+                }
+            }
+            
             BusinessBalanceHistory::recordChange(
                 $business->id,
                 $destinationAccount->id,
@@ -2687,7 +2783,10 @@ class MoneyTrackingService
                     'invoice_number' => $invoice->invoice_number,
                     'bulk_item_name' => $bulkItem->name,
                     'description' => "Service delivery completed - Bulk: {$bulkItem->name}"
-                ]
+                ],
+                auth()->id(),
+                $paymentStatus,
+                $paymentMethod
             );
         }
 
@@ -3156,6 +3255,26 @@ class MoneyTrackingService
         $businessAccount->credit($packageAdjustmentAmount);       // Money comes into business account
         
         // Record the balance changes in BusinessBalanceHistory for dashboard display
+        // Determine payment status and method from invoice
+        $paymentStatus = 'paid'; // Default to paid for package adjustments
+        $paymentMethod = null;
+        
+        if ($invoice) {
+            $paymentMethods = $invoice->payment_methods ?? [];
+            if (in_array('insurance', $paymentMethods)) {
+                $paymentMethod = 'insurance';
+                $paymentStatus = 'paid';
+            } elseif (in_array('credit_arrangement', $paymentMethods) || $invoice->client->is_credit_eligible ?? false) {
+                $paymentStatus = 'pending_payment';
+                $paymentMethod = 'credit_arrangement';
+            } else {
+                $paymentStatus = $invoice->payment_status ?? 'paid';
+                if (!empty($paymentMethods)) {
+                    $paymentMethod = $paymentMethods[0] ?? null;
+                }
+            }
+        }
+        
         BusinessBalanceHistory::recordChange(
             $business->id,
             $businessAccount->id,
@@ -3171,7 +3290,9 @@ class MoneyTrackingService
                 'from_account' => $clientSuspenseAccount->name,
                 'to_account' => $businessAccount->name
             ],
-            auth()->id()
+            auth()->id(),
+            $paymentStatus,
+            $paymentMethod
         );
         
         Log::info("Account balances after debit/credit operations", [

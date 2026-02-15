@@ -48,6 +48,7 @@ use App\Http\Controllers\ServiceDeliveryController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\MoneyTrackingController;
 use App\Http\Controllers\SuspenseAccountController;
+use App\Http\Controllers\PaymentReviewController;
 use App\Http\Controllers\ServiceQueueController;
 use App\Http\Controllers\ServiceDeliveryQueueController;
 use App\Http\Controllers\TestingController;
@@ -367,6 +368,22 @@ Route::get('/finance/withdrawals', function () {
 })->name('finance.withdrawals.index');
 Route::get('/balance-statement/{clientId}/json', [BalanceHistoryController::class, 'getBalanceHistory'])->name('balance-statement.json');
 
+// Temporary route to fix payment_method enum - REMOVE AFTER RUNNING
+Route::get('/fix-payment-method-enum', function() {
+    try {
+        \Illuminate\Support\Facades\DB::statement("ALTER TABLE business_balance_histories MODIFY COLUMN payment_method ENUM('account_balance', 'mobile_money', 'bank_transfer', 'v_card', 'p_card', 'insurance', 'credit_arrangement') NULL DEFAULT 'mobile_money'");
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment method enum updated successfully! The enum now includes: account_balance, mobile_money, bank_transfer, v_card, p_card, insurance, credit_arrangement'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error: ' . $e->getMessage()
+        ], 500);
+    }
+})->middleware('auth');
+
 Route::get('/invoices/generate-number', [InvoiceController::class, 'generateInvoiceNumber'])->name('invoices.generate-number');
 Route::post('/invoices/generate-invoice-number', [InvoiceController::class, 'generateInvoiceNumber'])->name('invoices.generate-invoice-number');
 Route::post('/invoices/{invoice}/generate-quotation', [QuotationController::class, 'generateFromInvoice'])->name('invoices.generate-quotation');
@@ -402,6 +419,13 @@ Route::get('/service-delivery/statement/{invoice}', [ServiceDeliveryController::
 // Money Tracking routes
 Route::get('/money-tracking/dashboard', [MoneyTrackingController::class, 'dashboard'])->name('money-tracking.dashboard');
 Route::get('/money-tracking/client-account/{client}', [MoneyTrackingController::class, 'getClientAccount'])->name('money-tracking.client-account');
+
+// Payment Review routes (for reviewing third-party payer payments)
+Route::get('/payment-reviews', [PaymentReviewController::class, 'index'])->name('payment-reviews.index');
+Route::get('/payment-reviews/{id}', [PaymentReviewController::class, 'show'])->name('payment-reviews.show');
+Route::post('/payment-reviews/{id}/approve', [PaymentReviewController::class, 'approve'])->name('payment-reviews.approve');
+Route::post('/payment-reviews/{id}/reject', [PaymentReviewController::class, 'reject'])->name('payment-reviews.reject');
+Route::get('/payment-reviews/{id}/download-proof', [PaymentReviewController::class, 'downloadProof'])->name('payment-reviews.download-proof');
 Route::get('/money-tracking/contractor-account/{contractor}', [MoneyTrackingController::class, 'getContractorAccount'])->name('money-tracking.contractor-account');
 Route::get('/money-tracking/transfer-statement', [MoneyTrackingController::class, 'getTransferHistory'])->name('money-tracking.transfer-statement');
 Route::get('/money-tracking/account-summary', [MoneyTrackingController::class, 'getAccountSummary'])->name('money-tracking.account-summary');

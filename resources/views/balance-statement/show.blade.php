@@ -19,17 +19,54 @@
                         <div class="text-right">
                             <div class="space-y-2">
                                 @php
+                                    // Check if client is paying via insurance
+                                    $isInsuranceClient = false;
+                                    $hasInsuranceInvoices = $client->balanceHistories()
+                                        ->where('payment_method', 'insurance')
+                                        ->exists();
+                                    
+                                    if ($hasInsuranceInvoices) {
+                                        // If client has insurance invoices, check if all recent invoices are insurance
+                                        $recentInvoices = \App\Models\Invoice::where('client_id', $client->id)
+                                            ->where('status', 'confirmed')
+                                            ->orderBy('created_at', 'desc')
+                                            ->limit(10)
+                                            ->get();
+                                        
+                                        if ($recentInvoices->count() > 0) {
+                                            $insuranceCount = $recentInvoices->filter(function($invoice) {
+                                                return in_array('insurance', $invoice->payment_methods ?? []);
+                                            })->count();
+                                            
+                                            // If most recent invoices are insurance, treat as insurance client
+                                            $isInsuranceClient = ($insuranceCount / $recentInvoices->count()) >= 0.5;
+                                        }
+                                    }
+                                    
                                     // Available Balance = credits - debits (from balance history)
-                                    $credits = $client->balanceHistories()->where('transaction_type', 'credit')->sum('change_amount');
-                                    $debits = abs($client->balanceHistories()->where('transaction_type', 'debit')->sum('change_amount'));
+                                    // Exclude insurance entries from balance calculation (they have change_amount=0 anyway)
+                                    $credits = $client->balanceHistories()
+                                        ->where('transaction_type', 'credit')
+                                        ->where('payment_method', '!=', 'insurance')
+                                        ->sum('change_amount');
+                                    $debits = abs($client->balanceHistories()
+                                        ->where('transaction_type', 'debit')
+                                        ->where('payment_method', '!=', 'insurance')
+                                        ->sum('change_amount'));
                                     $availableBalance = $credits - $debits;
+                                    
+                                    // For insurance clients, balance should be 0
+                                    if ($isInsuranceClient) {
+                                        $availableBalance = 0;
+                                    }
                                     
                                     // Suspense Balance = credits - debits in suspense accounts (from MoneyAccount balances)
                                     // This represents money in suspense accounts that hasn't been moved to final accounts yet
                                     $suspenseBalance = $client->suspense_balance ?? 0;
                                     
                                     // Total Balance = Available Balance + Suspense Balance
-                                    $totalBalance = $availableBalance + $suspenseBalance;
+                                    // For insurance clients, total balance should be 0
+                                    $totalBalance = $isInsuranceClient ? 0 : ($availableBalance + $suspenseBalance);
                                     
                                     // Credit Remaining calculation for credit clients
                                     $creditLimit = $client->max_credit ?? 0;
@@ -251,15 +288,54 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 @php
                                                     $isInsuranceTracking = $history->payment_method === 'insurance' && $history->change_amount == 0;
+                                                    
+                                                    // For insurance tracking entries, get actual amount from invoice
+                                                    $displayAmount = 0;
+                                                    if ($isInsuranceTracking && $history->invoice) {
+                                                        $description = $history->description;
+                                                        $invoice = $history->invoice;
+                                                        $items = $invoice->items ?? [];
+                                                        
+                                                        // Extract item name and quantity from description (e.g., "Acinone S (x5) [Insurance]")
+                                                        if (preg_match('/^(.+?)\s*\(x(\d+)\)\s*\[Insurance\]$/', $description, $matches)) {
+                                                            $itemName = trim($matches[1]);
+                                                            $quantity = (int)$matches[2];
+                                                            
+                                                            // Find matching item in invoice by name
+                                                            foreach ($items as $item) {
+                                                                $itemNameFromInvoice = trim($item['name'] ?? '');
+                                                                // Match item name (case-insensitive, partial match)
+                                                                if (stripos($itemNameFromInvoice, $itemName) !== false || 
+                                                                    stripos($itemName, $itemNameFromInvoice) !== false ||
+                                                                    $itemNameFromInvoice === $itemName) {
+                                                                    $itemPrice = (float)($item['price'] ?? 0);
+                                                                    $itemQty = (int)($item['quantity'] ?? $quantity);
+                                                                    $displayAmount = $itemPrice * $itemQty;
+                                                                    break;
+                                                                }
+                                                            }
+                                                        } elseif (stripos($description, 'Service Fee') !== false || 
+                                                                  stripos($description, 'Service Charge') !== false) {
+                                                            // For service fee entries
+                                                            $displayAmount = (float)($invoice->service_charge ?? 0);
+                                                        } else {
+                                                            // Fallback: if we can't match, try to get from invoice items total
+                                                            // This handles cases where description format doesn't match
+                                                            $totalFromItems = 0;
+                                                            foreach ($items as $item) {
+                                                                $itemPrice = (float)($item['price'] ?? 0);
+                                                                $itemQty = (int)($item['quantity'] ?? 1);
+                                                                $totalFromItems += $itemPrice * $itemQty;
+                                                            }
+                                                            $displayAmount = $totalFromItems > 0 ? $totalFromItems : (float)($invoice->total_amount ?? 0);
+                                                        }
+                                                    } else {
+                                                        // For non-insurance entries, use change_amount
+                                                        $displayAmount = abs($history->change_amount ?? 0);
+                                                    }
                                                 @endphp
                                                 <span class="@if($isInsuranceTracking) text-purple-600 @elseif($history->transaction_type === 'package') text-blue-600 @elseif($history->change_amount > 0) text-green-600 @else text-red-600 @endif">
-                                                    @if($isInsuranceTracking)
-                                                        UGX {{ number_format(abs($history->change_amount ?? 0), 2) }}
-                                                    @elseif($history->transaction_type === 'debit')
-                                                        UGX {{ number_format(abs($history->change_amount), 2) }}
-                                                    @else
-                                                        {{ $history->getFormattedChangeAmount() }}
-                                                    @endif
+                                                    UGX {{ number_format($displayAmount, 2) }}
                                                 </span>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
