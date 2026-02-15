@@ -1501,6 +1501,9 @@
                 policyNumberInput.classList.add('border-red-300');
             }
 
+            // Get third-party API URL from config
+            const THIRD_PARTY_API_URL = '{{ config("services.third_party.api_url", "http://127.0.0.1:8001") }}';
+            
             // Function to try a specific alternative verification method
             async function tryAlternativeMethod(method, insuranceCompanyId, policyNumber = null) {
                 // Collect available form data for alternative verification
@@ -1512,6 +1515,72 @@
                 const phoneInput = document.querySelector('input[name="phone_number"]');
                 const emailInput = document.querySelector('input[name="email"]');
 
+                // Handle Phone and Email with OTP verification
+                if (method === 'phone') {
+                    // Always ask for phone number first
+                    const { value: phone } = await Swal.fire({
+                        icon: 'info',
+                        title: 'Enter Phone Number',
+                        html: `
+                            <p class="mb-4 text-sm text-gray-600">Please enter the phone number you registered with your insurance company to receive the OTP:</p>
+                        `,
+                        input: 'tel',
+                        inputLabel: 'Phone Number',
+                        inputPlaceholder: 'e.g., 0759983853 or +256759983853',
+                        showCancelButton: true,
+                        confirmButtonText: 'Send OTP',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#3b82f6',
+                        cancelButtonColor: '#6b7280',
+                        inputValidator: (value) => {
+                            if (!value) {
+                                return 'Please enter a phone number';
+                            }
+                            if (value.length < 9) {
+                                return 'Please enter a valid phone number';
+                            }
+                        }
+                    });
+                    
+                    if (phone) {
+                        await sendPhoneOtpForVerification(phone, insuranceCompanyId, policyNumber);
+                    }
+                    return;
+                }
+                
+                if (method === 'email') {
+                    // Always ask for email first
+                    const { value: email } = await Swal.fire({
+                        icon: 'info',
+                        title: 'Enter Email Address',
+                        html: `
+                            <p class="mb-4 text-sm text-gray-600">Please enter the email address you registered with your insurance company to receive the OTP:</p>
+                        `,
+                        input: 'email',
+                        inputLabel: 'Email Address',
+                        inputPlaceholder: 'e.g., client@example.com',
+                        showCancelButton: true,
+                        confirmButtonText: 'Send OTP',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#3b82f6',
+                        cancelButtonColor: '#6b7280',
+                        inputValidator: (value) => {
+                            if (!value) {
+                                return 'Please enter an email address';
+                            }
+                            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                                return 'Please enter a valid email address';
+                            }
+                        }
+                    });
+                    
+                    if (email) {
+                        await sendEmailOtpForVerification(email, insuranceCompanyId, policyNumber);
+                    }
+                    return;
+                }
+
+                // For other methods (name_dob, id_passport), use direct verification
                 const alternativeData = {};
                 
                 // Build full name
@@ -1592,6 +1661,560 @@
                             </button>
                         </div>
                     `;
+                }
+            }
+            
+            // Function to send OTP for phone verification
+            async function sendPhoneOtpForVerification(phone, insuranceCompanyId, policyNumber = null) {
+                policyVerificationResult.innerHTML = `
+                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p class="text-sm font-medium text-blue-800">Sending OTP to ${phone}...</p>
+                    </div>
+                `;
+                
+                try {
+                    const response = await fetch(THIRD_PARTY_API_URL + '/api/v1/clients/search-and-send-otp', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ phone: phone })
+                    });
+                    
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        // If response is not JSON, create a simple error object
+                        data = { success: false, message: `HTTP error! status: ${response.status}` };
+                    }
+                    
+                    // Handle client not found (404 or success:false with "not found" message)
+                    if (response.status === 404 || (!data.success && data.message && (data.message.toLowerCase().includes('not found') || data.message.toLowerCase().includes('client not found')))) {
+                        // Client not found - ask for registered phone number
+                        const { value: registeredPhone } = await Swal.fire({
+                            icon: 'info',
+                            title: 'Client Not Found',
+                            html: `
+                                <p class="mb-4">No client found with the phone number: <strong>${phone}</strong></p>
+                                <p class="text-sm text-gray-600 mb-4">Please enter the phone number you registered with your insurance company:</p>
+                            `,
+                            input: 'tel',
+                            inputLabel: 'Registered Phone Number',
+                            inputPlaceholder: 'Enter your registered phone number',
+                            showCancelButton: true,
+                            confirmButtonText: 'Send OTP',
+                            cancelButtonText: 'Cancel',
+                            confirmButtonColor: '#3b82f6',
+                            cancelButtonColor: '#6b7280',
+                            inputValidator: (value) => {
+                                if (!value) {
+                                    return 'Please enter a phone number';
+                                }
+                                if (value.length < 9) {
+                                    return 'Please enter a valid phone number';
+                                }
+                            }
+                        });
+                        
+                        if (registeredPhone) {
+                            await sendPhoneOtpForVerification(registeredPhone, insuranceCompanyId, policyNumber);
+                        } else {
+                            showAlternativeVerificationOptions(insuranceCompanyId, policyNumber);
+                        }
+                        return;
+                    }
+                    
+                    // Handle other errors
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+                    }
+                    
+                    if (data.success) {
+                        // Escape phone and policyNumber for safe use in HTML
+                        const safePhone = phone.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        const safePolicyNumber = (policyNumber || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        
+                        // Show OTP input
+                        policyVerificationResult.innerHTML = `
+                            <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p class="text-sm font-medium text-blue-800 mb-2">✓ OTP sent to ${phone}</p>
+                                <p class="text-xs text-blue-700 mb-3">Please check your SMS and enter the 6-digit OTP below:</p>
+                                <div class="flex gap-2">
+                                    <input type="text" id="policy_phone_otp" placeholder="Enter 6-digit OTP" maxlength="6"
+                                           class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <button type="button" id="verify_policy_phone_otp_btn" 
+                                            data-phone="${safePhone}"
+                                            data-insurance-id="${insuranceCompanyId}"
+                                            data-policy-number="${safePolicyNumber}"
+                                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-150">
+                                        Verify OTP
+                                    </button>
+                                    <button type="button" id="resend_policy_phone_otp_btn" 
+                                            data-phone="${safePhone}"
+                                            data-insurance-id="${insuranceCompanyId}"
+                                            data-policy-number="${safePolicyNumber}"
+                                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
+                                        Resend OTP
+                                    </button>
+                                </div>
+                                <p id="policy_phone_otp_message" class="mt-2 text-xs"></p>
+                            </div>
+                        `;
+                        
+                        // Attach event listeners
+                        document.getElementById('verify_policy_phone_otp_btn').addEventListener('click', function() {
+                            const phone = this.getAttribute('data-phone');
+                            const insuranceId = parseInt(this.getAttribute('data-insurance-id'));
+                            const policyNum = this.getAttribute('data-policy-number') || null;
+                            verifyPhoneOtpForPolicy(phone, insuranceId, policyNum);
+                        });
+                        
+                        document.getElementById('resend_policy_phone_otp_btn').addEventListener('click', function() {
+                            const phone = this.getAttribute('data-phone');
+                            const insuranceId = parseInt(this.getAttribute('data-insurance-id'));
+                            const policyNum = this.getAttribute('data-policy-number') || null;
+                            resendPhoneOtpForVerification(phone, insuranceId, policyNum);
+                        });
+                        
+                        document.getElementById('policy_phone_otp').focus();
+                    }
+                } catch (error) {
+                    console.error('OTP send error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Unable to Send OTP',
+                        html: `
+                            <p class="mb-2 text-sm">We encountered an issue while trying to send the OTP.</p>
+                            <p class="text-xs text-gray-600 mt-2">${error.message}</p>
+                            <p class="text-xs text-gray-500 mt-3">Please try again or use a different verification method.</p>
+                        `,
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                    showAlternativeVerificationOptions(insuranceCompanyId, policyNumber);
+                }
+            }
+            
+            // Function to verify phone OTP and complete policy verification
+            async function verifyPhoneOtpForPolicy(phone, insuranceCompanyId, policyNumber = null) {
+                const otp = document.getElementById('policy_phone_otp').value.trim();
+                const btn = document.getElementById('verify_policy_phone_otp_btn');
+                const messageEl = document.getElementById('policy_phone_otp_message');
+                
+                if (!otp || otp.length !== 6) {
+                    messageEl.textContent = 'Please enter a valid 6-digit OTP';
+                    messageEl.className = 'mt-2 text-xs text-red-600';
+                    return;
+                }
+                
+                btn.disabled = true;
+                btn.textContent = 'Verifying...';
+                
+                try {
+                    // First verify the OTP
+                    const otpResponse = await fetch(THIRD_PARTY_API_URL + '/api/v1/clients/verify-otp', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ phone: phone, otp: otp })
+                    });
+                    
+                    if (!otpResponse.ok) {
+                        throw new Error(`HTTP error! status: ${otpResponse.status}`);
+                    }
+                    
+                    const otpData = await otpResponse.json();
+                    
+                    if (!otpData.success) {
+                        messageEl.textContent = otpData.message || 'Invalid OTP. Please try again.';
+                        messageEl.className = 'mt-2 text-xs text-red-600';
+                        if (otpData.attempts_remaining !== undefined) {
+                            messageEl.textContent += ' (' + otpData.attempts_remaining + ' attempts remaining)';
+                        }
+                        btn.disabled = false;
+                        btn.textContent = 'Verify OTP';
+                        return;
+                    }
+                    
+                    // OTP verified successfully, now verify policy
+                    policyVerificationResult.innerHTML = `
+                        <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p class="text-sm font-medium text-blue-800">OTP verified. Verifying policy...</p>
+                        </div>
+                    `;
+                    
+                    const policyResponse = await fetch(`/api/policies/verify/${insuranceCompanyId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        },
+                        body: JSON.stringify({ phone: phone, policy_number: policyNumber })
+                    });
+                    
+                    const policyData = await policyResponse.json();
+                    
+                    if (policyData.success && policyData.exists) {
+                        const methodLabel = 'Phone Number';
+                        const statusLabel = policyData.verification_status === 'flagged' ? ' (Flagged for Review)' : '';
+                        
+                        policyVerificationResult.innerHTML = `
+                            <div class="p-3 ${policyData.verification_status === 'flagged' ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'} border rounded-lg">
+                                <p class="text-sm font-medium ${policyData.verification_status === 'flagged' ? 'text-yellow-800' : 'text-green-800'}">
+                                    ✓ Verified using ${methodLabel}${statusLabel}
+                                </p>
+                                <p class="text-xs ${policyData.verification_status === 'flagged' ? 'text-yellow-700' : 'text-green-700'} mt-1">
+                                    Policy holder: ${policyData.data?.principal_member_name || 'N/A'}
+                                </p>
+                                ${policyData.warnings && policyData.warnings.length > 0 ? `<p class="text-xs text-yellow-700 mt-1">⚠ ${policyData.warnings.join(', ')}</p>` : ''}
+                            </div>
+                        `;
+                        policyNumberInput.classList.remove('border-red-300');
+                        policyNumberInput.classList.add(policyData.verification_status === 'flagged' ? 'border-yellow-300' : 'border-green-300');
+                    } else {
+                        policyVerificationResult.innerHTML = `
+                            <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <p class="text-sm font-medium text-red-800">✗ Verification failed</p>
+                                <p class="text-xs text-red-700 mt-1">${policyData.message || 'Unable to verify policy. Please try again.'}</p>
+                                <button type="button" data-show-alternatives="true" data-insurance-id="${insuranceCompanyId}" data-policy-number="${policyNumber || ''}" 
+                                        class="show-alternatives-btn mt-2 text-xs text-blue-600 hover:text-blue-800 underline">
+                                    Try another method
+                                </button>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Verification failed: ' + error.message,
+                        confirmButtonColor: '#3b82f6'
+                    });
+                    showAlternativeVerificationOptions(insuranceCompanyId, policyNumber);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Verify OTP';
+                }
+            }
+            
+            // Function to send OTP for email verification
+            async function sendEmailOtpForVerification(email, insuranceCompanyId, policyNumber = null) {
+                policyVerificationResult.innerHTML = `
+                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p class="text-sm font-medium text-blue-800">Sending OTP to ${email}...</p>
+                    </div>
+                `;
+                
+                try {
+                    const response = await fetch(THIRD_PARTY_API_URL + '/api/v1/clients/search-and-send-otp-email', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ email: email })
+                    });
+                    
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        // If response is not JSON, create a simple error object
+                        data = { success: false, message: `HTTP error! status: ${response.status}` };
+                    }
+                    
+                    // Handle client not found (404 or success:false with "not found" message)
+                    if (response.status === 404 || (!data.success && data.message && (data.message.toLowerCase().includes('not found') || data.message.toLowerCase().includes('client not found')))) {
+                        // Client not found - ask for registered email
+                        const { value: registeredEmail } = await Swal.fire({
+                            icon: 'info',
+                            title: 'Client Not Found',
+                            html: `
+                                <p class="mb-4">No client found with the email: <strong>${email}</strong></p>
+                                <p class="text-sm text-gray-600 mb-4">Please enter the email address you registered with your insurance company:</p>
+                            `,
+                            input: 'email',
+                            inputLabel: 'Registered Email Address',
+                            inputPlaceholder: 'Enter your registered email address',
+                            showCancelButton: true,
+                            confirmButtonText: 'Send OTP',
+                            cancelButtonText: 'Cancel',
+                            confirmButtonColor: '#3b82f6',
+                            cancelButtonColor: '#6b7280',
+                            inputValidator: (value) => {
+                                if (!value) {
+                                    return 'Please enter an email address';
+                                }
+                                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                                    return 'Please enter a valid email address';
+                                }
+                            }
+                        });
+                        
+                        if (registeredEmail) {
+                            await sendEmailOtpForVerification(registeredEmail, insuranceCompanyId, policyNumber);
+                        } else {
+                            showAlternativeVerificationOptions(insuranceCompanyId, policyNumber);
+                        }
+                        return;
+                    }
+                    
+                    // Handle other errors
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+                    }
+                    
+                    if (data.success) {
+                        // Escape email and policyNumber for safe use in HTML
+                        const safeEmail = email.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        const safePolicyNumber = (policyNumber || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        
+                        // Show OTP input
+                        policyVerificationResult.innerHTML = `
+                            <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p class="text-sm font-medium text-blue-800 mb-2">✓ OTP sent to ${email}</p>
+                                <p class="text-xs text-blue-700 mb-3">Please check your inbox and enter the 6-digit OTP below:</p>
+                                <div class="flex gap-2">
+                                    <input type="text" id="policy_email_otp" placeholder="Enter 6-digit OTP" maxlength="6"
+                                           class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <button type="button" id="verify_policy_email_otp_btn" 
+                                            data-email="${safeEmail}"
+                                            data-insurance-id="${insuranceCompanyId}"
+                                            data-policy-number="${safePolicyNumber}"
+                                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-150">
+                                        Verify OTP
+                                    </button>
+                                    <button type="button" id="resend_policy_email_otp_btn" 
+                                            data-email="${safeEmail}"
+                                            data-insurance-id="${insuranceCompanyId}"
+                                            data-policy-number="${safePolicyNumber}"
+                                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
+                                        Resend OTP
+                                    </button>
+                                </div>
+                                <p id="policy_email_otp_message" class="mt-2 text-xs"></p>
+                            </div>
+                        `;
+                        
+                        // Attach event listeners
+                        document.getElementById('verify_policy_email_otp_btn').addEventListener('click', function() {
+                            const email = this.getAttribute('data-email');
+                            const insuranceId = parseInt(this.getAttribute('data-insurance-id'));
+                            const policyNum = this.getAttribute('data-policy-number') || null;
+                            verifyEmailOtpForPolicy(email, insuranceId, policyNum);
+                        });
+                        
+                        document.getElementById('resend_policy_email_otp_btn').addEventListener('click', function() {
+                            const email = this.getAttribute('data-email');
+                            const insuranceId = parseInt(this.getAttribute('data-insurance-id'));
+                            const policyNum = this.getAttribute('data-policy-number') || null;
+                            resendEmailOtpForVerification(email, insuranceId, policyNum);
+                        });
+                        
+                        document.getElementById('policy_email_otp').focus();
+                    }
+                } catch (error) {
+                    console.error('OTP send error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Unable to Send OTP',
+                        html: `
+                            <p class="mb-2 text-sm">We encountered an issue while trying to send the OTP.</p>
+                            <p class="text-xs text-gray-600 mt-2">${error.message}</p>
+                            <p class="text-xs text-gray-500 mt-3">Please try again or use a different verification method.</p>
+                        `,
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                    showAlternativeVerificationOptions(insuranceCompanyId, policyNumber);
+                }
+            }
+            
+            // Function to resend phone OTP
+            async function resendPhoneOtpForVerification(phone, insuranceCompanyId, policyNumber = null) {
+                const btn = document.getElementById('resend_policy_phone_otp_btn');
+                const messageEl = document.getElementById('policy_phone_otp_message');
+                
+                if (!btn) return;
+                
+                const originalText = btn.textContent;
+                btn.disabled = true;
+                btn.textContent = 'Sending...';
+                if (messageEl) messageEl.textContent = '';
+                
+                try {
+                    await sendPhoneOtpForVerification(phone, insuranceCompanyId, policyNumber);
+                    
+                    if (messageEl) {
+                        messageEl.textContent = '✓ OTP resent successfully!';
+                        messageEl.className = 'mt-2 text-xs text-green-600';
+                    }
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'OTP Resent',
+                        text: 'A new OTP has been sent to your phone number.',
+                        confirmButtonColor: '#3b82f6',
+                        timer: 2000,
+                        timerProgressBar: true
+                    });
+                } catch (error) {
+                    console.error('Resend OTP error:', error);
+                    if (messageEl) {
+                        messageEl.textContent = 'Failed to resend OTP. Please try again.';
+                        messageEl.className = 'mt-2 text-xs text-red-600';
+                    }
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            }
+            
+            // Function to verify email OTP and complete policy verification
+            async function verifyEmailOtpForPolicy(email, insuranceCompanyId, policyNumber = null) {
+                const otp = document.getElementById('policy_email_otp').value.trim();
+                const btn = document.getElementById('verify_policy_email_otp_btn');
+                const messageEl = document.getElementById('policy_email_otp_message');
+                
+                if (!otp || otp.length !== 6) {
+                    messageEl.textContent = 'Please enter a valid 6-digit OTP';
+                    messageEl.className = 'mt-2 text-xs text-red-600';
+                    return;
+                }
+                
+                btn.disabled = true;
+                btn.textContent = 'Verifying...';
+                
+                try {
+                    // First verify the OTP
+                    const otpResponse = await fetch(THIRD_PARTY_API_URL + '/api/v1/clients/verify-otp-email', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ email: email, otp: otp })
+                    });
+                    
+                    if (!otpResponse.ok) {
+                        throw new Error(`HTTP error! status: ${otpResponse.status}`);
+                    }
+                    
+                    const otpData = await otpResponse.json();
+                    
+                    if (!otpData.success) {
+                        messageEl.textContent = otpData.message || 'Invalid OTP. Please try again.';
+                        messageEl.className = 'mt-2 text-xs text-red-600';
+                        if (otpData.attempts_remaining !== undefined) {
+                            messageEl.textContent += ' (' + otpData.attempts_remaining + ' attempts remaining)';
+                        }
+                        btn.disabled = false;
+                        btn.textContent = 'Verify OTP';
+                        return;
+                    }
+                    
+                    // OTP verified successfully, now verify policy
+                    policyVerificationResult.innerHTML = `
+                        <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p class="text-sm font-medium text-blue-800">OTP verified. Verifying policy...</p>
+                        </div>
+                    `;
+                    
+                    const policyResponse = await fetch(`/api/policies/verify/${insuranceCompanyId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        },
+                        body: JSON.stringify({ email: email, policy_number: policyNumber })
+                    });
+                    
+                    const policyData = await policyResponse.json();
+                    
+                    if (policyData.success && policyData.exists) {
+                        const methodLabel = 'Email Address';
+                        const statusLabel = policyData.verification_status === 'flagged' ? ' (Flagged for Review)' : '';
+                        
+                        policyVerificationResult.innerHTML = `
+                            <div class="p-3 ${policyData.verification_status === 'flagged' ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'} border rounded-lg">
+                                <p class="text-sm font-medium ${policyData.verification_status === 'flagged' ? 'text-yellow-800' : 'text-green-800'}">
+                                    ✓ Verified using ${methodLabel}${statusLabel}
+                                </p>
+                                <p class="text-xs ${policyData.verification_status === 'flagged' ? 'text-yellow-700' : 'text-green-700'} mt-1">
+                                    Policy holder: ${policyData.data?.principal_member_name || 'N/A'}
+                                </p>
+                                ${policyData.warnings && policyData.warnings.length > 0 ? `<p class="text-xs text-yellow-700 mt-1">⚠ ${policyData.warnings.join(', ')}</p>` : ''}
+                            </div>
+                        `;
+                        policyNumberInput.classList.remove('border-red-300');
+                        policyNumberInput.classList.add(policyData.verification_status === 'flagged' ? 'border-yellow-300' : 'border-green-300');
+                    } else {
+                        policyVerificationResult.innerHTML = `
+                            <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <p class="text-sm font-medium text-red-800">✗ Verification failed</p>
+                                <p class="text-xs text-red-700 mt-1">${policyData.message || 'Unable to verify policy. Please try again.'}</p>
+                                <button type="button" data-show-alternatives="true" data-insurance-id="${insuranceCompanyId}" data-policy-number="${policyNumber || ''}" 
+                                        class="show-alternatives-btn mt-2 text-xs text-blue-600 hover:text-blue-800 underline">
+                                    Try another method
+                                </button>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Verification failed: ' + error.message,
+                        confirmButtonColor: '#3b82f6'
+                    });
+                    showAlternativeVerificationOptions(insuranceCompanyId, policyNumber);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Verify OTP';
+                }
+            }
+            
+            // Function to resend email OTP
+            async function resendEmailOtpForVerification(email, insuranceCompanyId, policyNumber = null) {
+                const btn = document.getElementById('resend_policy_email_otp_btn');
+                const messageEl = document.getElementById('policy_email_otp_message');
+                
+                if (!btn) return;
+                
+                const originalText = btn.textContent;
+                btn.disabled = true;
+                btn.textContent = 'Sending...';
+                if (messageEl) messageEl.textContent = '';
+                
+                try {
+                    await sendEmailOtpForVerification(email, insuranceCompanyId, policyNumber);
+                    
+                    if (messageEl) {
+                        messageEl.textContent = '✓ OTP resent successfully!';
+                        messageEl.className = 'mt-2 text-xs text-green-600';
+                    }
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'OTP Resent',
+                        text: 'A new OTP has been sent to your email address.',
+                        confirmButtonColor: '#3b82f6',
+                        timer: 2000,
+                        timerProgressBar: true
+                    });
+                } catch (error) {
+                    console.error('Resend OTP error:', error);
+                    if (messageEl) {
+                        messageEl.textContent = 'Failed to resend OTP. Please try again.';
+                        messageEl.className = 'mt-2 text-xs text-red-600';
+                    }
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = originalText;
                 }
             }
 
