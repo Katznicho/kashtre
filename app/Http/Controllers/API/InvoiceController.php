@@ -17,12 +17,23 @@ class InvoiceController extends Controller
     public function getInvoicesForInsuranceCompany(Request $request, $insuranceCompanyId)
     {
         try {
+            Log::info('API: getInvoicesForInsuranceCompany called', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'url' => $request->fullUrl(),
+                'method' => $request->method(),
+            ]);
+
             // Find the third-party payer for this insurance company
             // We need to find all third-party payers with this insurance_company_id
             $thirdPartyPayers = ThirdPartyPayer::where('insurance_company_id', $insuranceCompanyId)
                 ->where('type', 'insurance_company')
                 ->where('status', 'active')
                 ->get();
+
+            Log::info('API: Found third-party payers', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'count' => $thirdPartyPayers->count(),
+            ]);
 
             if ($thirdPartyPayers->isEmpty()) {
                 return response()->json([
