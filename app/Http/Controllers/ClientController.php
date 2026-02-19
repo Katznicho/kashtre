@@ -328,6 +328,56 @@ class ClientController extends Controller
         // Check if insurance payment method is selected
         $isInsuranceSelected = in_array('insurance', $request->input('payment_methods', []));
         
+        // Validate fallback payment method if insurance is selected
+        if ($isInsuranceSelected) {
+            $paymentMethods = $request->input('payment_methods', []);
+            $nonInsuranceMethods = array_filter($paymentMethods, function($method) {
+                return $method !== 'insurance';
+            });
+            
+            if (empty($nonInsuranceMethods)) {
+                return redirect()->back()
+                    ->withErrors(['payment_methods' => 'When insurance is selected, you must also select at least one additional payment method (cash, mobile_money, or credit) as a fallback for rejected claims.'])
+                    ->withInput();
+            }
+        }
+        
+        // Validate physical ID verification if insurance is selected
+        if ($isInsuranceSelected) {
+            // Get insurance company to check if physical ID is required
+            $insuranceCompanyId = $request->input('insurance_company_id');
+            $requirePhysicalId = true; // Default to required
+            
+            if ($insuranceCompanyId) {
+                // Fetch from third-party API to get settings
+                try {
+                    $apiService = new ThirdPartyApiService();
+                    $settingsResponse = $apiService->getInsuranceCompanySettings((int)$insuranceCompanyId);
+                    if ($settingsResponse && isset($settingsResponse['verification_settings']['require_physical_id'])) {
+                        $requirePhysicalId = $settingsResponse['verification_settings']['require_physical_id'];
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to fetch insurance company settings, defaulting to require physical ID', [
+                        'insurance_company_id' => $insuranceCompanyId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+            
+            // Only validate physical ID if it's required by the insurance company
+            if ($requirePhysicalId && !$request->boolean('physical_id_verified')) {
+                return redirect()->back()
+                    ->withErrors(['physical_id_verified' => 'Physical National ID verification is required by this insurance company.'])
+                    ->withInput();
+            }
+            
+            if (!$request->boolean('policy_verified')) {
+                return redirect()->back()
+                    ->withErrors(['policy_number' => 'Policy number must be verified before submitting the form.'])
+                    ->withInput();
+            }
+        }
+        
         $validated = $request->validate([
             'surname' => 'required|string|max:255',
             'first_name' => 'required|string|max:255',
@@ -350,6 +400,8 @@ class ClientController extends Controller
             // Insurance fields (required if insurance payment method is selected)
             'insurance_company_id' => $isInsuranceSelected ? 'required|integer|exists:insurance_companies,id' : 'nullable|integer',
             'policy_number' => $isInsuranceSelected ? 'required|string|max:255' : 'nullable|string|max:255',
+            'physical_id_verified' => $isInsuranceSelected ? 'required|accepted' : 'nullable|boolean',
+            'policy_verified' => $isInsuranceSelected ? 'required|accepted' : 'nullable|boolean',
             
             // Next of Kin details
             'nok_surname' => 'required|string|max:255',
@@ -567,6 +619,22 @@ class ClientController extends Controller
      */
     private function storeCompany(Request $request, $business, $currentBranch)
     {
+        // Check if insurance payment method is selected
+        $isInsuranceSelected = in_array('insurance', $request->input('payment_methods', []));
+        
+        // Validate fallback payment method if insurance is selected
+        if ($isInsuranceSelected) {
+            $paymentMethods = $request->input('payment_methods', []);
+            $nonInsuranceMethods = array_filter($paymentMethods, function($method) {
+                return $method !== 'insurance';
+            });
+            
+            if (empty($nonInsuranceMethods)) {
+                return redirect()->back()
+                    ->withErrors(['payment_methods' => 'When insurance is selected, you must also select at least one additional payment method (cash, mobile_money, or credit) as a fallback for rejected claims.'])
+                    ->withInput();
+            }
+        }
         // Get available payment methods from maturation periods for this business
         $availablePaymentMethods = MaturationPeriod::where('business_id', $business->id)
             ->where('is_active', true)
@@ -803,6 +871,22 @@ class ClientController extends Controller
      */
     private function storeWalkIn(Request $request, $business, $currentBranch)
     {
+        // Check if insurance payment method is selected
+        $isInsuranceSelected = in_array('insurance', $request->input('payment_methods', []));
+        
+        // Validate fallback payment method if insurance is selected
+        if ($isInsuranceSelected) {
+            $paymentMethods = $request->input('payment_methods', []);
+            $nonInsuranceMethods = array_filter($paymentMethods, function($method) {
+                return $method !== 'insurance';
+            });
+            
+            if (empty($nonInsuranceMethods)) {
+                return redirect()->back()
+                    ->withErrors(['payment_methods' => 'When insurance is selected, you must also select at least one additional payment method (cash, mobile_money, or credit) as a fallback for rejected claims.'])
+                    ->withInput();
+            }
+        }
         // Get available payment methods from maturation periods for this business
         $availablePaymentMethods = MaturationPeriod::where('business_id', $business->id)
             ->where('is_active', true)

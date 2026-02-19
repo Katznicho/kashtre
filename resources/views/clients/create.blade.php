@@ -286,6 +286,27 @@
                                 </label>
                                 <p class="text-sm text-gray-600 mb-4">Select all payment methods this client can use in order of preference</p>
                                 
+                                <!-- Fallback Payment Method Warning (shown when insurance is selected) -->
+                                <div id="fallback_payment_warning" style="display: none;" class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                                    <div class="flex">
+                                        <svg class="w-5 h-5 text-amber-400 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        <div>
+                                            <h3 class="text-sm font-semibold text-amber-800">Fallback Payment Method Required</h3>
+                                            <p class="mt-1 text-sm text-amber-700">
+                                                When insurance is selected, you must also select at least one additional payment method (cash, mobile money, or credit) as a fallback for rejected insurance claims.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                @error('payment_methods')
+                                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                                        <p class="text-sm text-red-800">{{ $message }}</p>
+                                    </div>
+                                @enderror
+                                
                                 @if(empty($availablePaymentMethods))
                                     <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
                                         <div class="flex">
@@ -332,6 +353,31 @@
                                 <h4 class="text-sm font-medium text-green-900 mb-3">Insurance Company Information</h4>
                                 
                                 <div class="space-y-4">
+                                    <!-- Physical ID Verification Checkbox (Optional based on insurance company settings) -->
+                                    <div class="bg-white rounded-lg p-4 border-2 border-green-300" id="physical_id_container">
+                                        <label class="flex items-start cursor-pointer">
+                                            <input 
+                                                type="checkbox" 
+                                                name="physical_id_verified" 
+                                                id="physical_id_verified"
+                                                value="1"
+                                                {{ old('physical_id_verified', false) ? 'checked' : '' }}
+                                                class="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 rounded mt-1"
+                                            >
+                                            <div class="ml-3 flex-1">
+                                                <span class="block text-sm font-semibold text-gray-900">
+                                                    Physical National ID Verification <span class="text-red-500" id="physical_id_required_star" style="display: none;">*</span>
+                                                </span>
+                                                <p class="text-xs text-gray-600 mt-1">
+                                                    I confirm that the client has presented their physical National ID/Passport for verification and I have verified it matches the client.
+                                                </p>
+                                            </div>
+                                        </label>
+                                        @error('physical_id_verified')
+                                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
                                     <div>
                                         <label for="insurance_company_id" class="block text-sm font-medium text-gray-700 mb-2">
                                             Select Insurance Company <span class="text-red-500">*</span>
@@ -374,6 +420,7 @@
                                             </button>
                                         </div>
                                         <div id="policy_verification_result" class="mt-2"></div>
+                                        <input type="hidden" name="policy_verified" id="policy_verified" value="0">
                                         <p class="text-xs text-gray-500 mt-1">Enter the client's policy number to confirm they exist in the insurance system</p>
                                         @error('policy_number')
                                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -1314,18 +1361,50 @@
                 return insuranceCheckbox && insuranceCheckbox.checked;
             }
 
+            // Function to check if at least one fallback payment method is selected
+            function hasFallbackPaymentMethod() {
+                const paymentCheckboxes = document.querySelectorAll('input[name="payment_methods[]"]:checked');
+                let hasNonInsurance = false;
+                paymentCheckboxes.forEach(checkbox => {
+                    if (checkbox.value !== 'insurance') {
+                        hasNonInsurance = true;
+                    }
+                });
+                return hasNonInsurance;
+            }
+
+            // Function to toggle fallback payment warning
+            function toggleFallbackWarning() {
+                const fallbackWarning = document.getElementById('fallback_payment_warning');
+                if (isInsuranceSelected() && !hasFallbackPaymentMethod()) {
+                    if (fallbackWarning) fallbackWarning.style.display = 'block';
+                } else {
+                    if (fallbackWarning) fallbackWarning.style.display = 'none';
+                }
+            }
+
             // Function to toggle insurance company section
             function toggleInsuranceSection() {
                 if (isInsuranceSelected()) {
                     insuranceCompanySection.style.display = 'block';
+                    toggleFallbackWarning();
                 } else {
                     insuranceCompanySection.style.display = 'none';
                     policyNumberSection.style.display = 'none';
                     if (insuranceCompanySelect) insuranceCompanySelect.value = '';
                     if (policyNumberInput) policyNumberInput.value = '';
                     if (policyVerificationResult) policyVerificationResult.innerHTML = '';
+                    toggleFallbackWarning();
                 }
             }
+
+            // Add event listeners to all payment method checkboxes
+            document.querySelectorAll('input[name="payment_methods[]"]').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    toggleInsuranceSection();
+                    toggleFallbackWarning();
+                });
+            });
 
             // Function to toggle policy number section
             function togglePolicyNumberSection() {
@@ -1340,8 +1419,16 @@
 
             // Function to verify policy number (with automatic fallback to alternative methods)
             async function verifyPolicyNumber() {
+                const physicalIdVerified = document.getElementById('physical_id_verified');
                 const insuranceCompanyId = insuranceCompanySelect?.value;
                 const policyNumber = policyNumberInput?.value?.trim();
+
+                // Check if physical ID is verified first (only if required)
+                if (physicalIdVerified && physicalIdVerified.required && !physicalIdVerified.checked) {
+                    policyVerificationResult.innerHTML = '<p class="text-sm text-red-600">Please confirm that the client has presented their Physical National ID for verification first.</p>';
+                    physicalIdVerified.focus();
+                    return;
+                }
 
                 if (!insuranceCompanyId) {
                     policyVerificationResult.innerHTML = '<p class="text-sm text-red-600">Please select an insurance company.</p>';
@@ -1377,6 +1464,7 @@
                         `;
                         policyNumberInput.classList.remove('border-red-300');
                         policyNumberInput.classList.add('border-green-300');
+                        document.getElementById('policy_verified').value = '1';
                     } else {
                         // Policy number failed, show alternative verification options
                         showAlternativeVerificationOptions(insuranceCompanyId, policyNumber);
@@ -1506,6 +1594,15 @@
             
             // Function to try a specific alternative verification method
             async function tryAlternativeMethod(method, insuranceCompanyId, policyNumber = null) {
+                const physicalIdVerified = document.getElementById('physical_id_verified');
+                
+                // Check if physical ID is verified first (only if required)
+                if (physicalIdVerified && physicalIdVerified.required && !physicalIdVerified.checked) {
+                    policyVerificationResult.innerHTML = '<p class="text-sm text-red-600">Please confirm that the client has presented their Physical National ID for verification first.</p>';
+                    physicalIdVerified.focus();
+                    return;
+                }
+                
                 // Collect available form data for alternative verification
                 const surnameInput = document.querySelector('input[name="surname"]');
                 const firstNameInput = document.querySelector('input[name="first_name"]');
@@ -1635,6 +1732,7 @@
                         `;
                         policyNumberInput.classList.remove('border-red-300');
                         policyNumberInput.classList.add(data.verification_status === 'flagged' ? 'border-yellow-300' : 'border-green-300');
+                        document.getElementById('policy_verified').value = '1';
                     } else {
                         policyVerificationResult.innerHTML = `
                             <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -1666,6 +1764,15 @@
             
             // Function to send OTP for phone verification
             async function sendPhoneOtpForVerification(phone, insuranceCompanyId, policyNumber = null) {
+                const physicalIdVerified = document.getElementById('physical_id_verified');
+                
+                // Check if physical ID is verified first (only if required)
+                if (physicalIdVerified && physicalIdVerified.required && !physicalIdVerified.checked) {
+                    policyVerificationResult.innerHTML = '<p class="text-sm text-red-600">Please confirm that the client has presented their Physical National ID for verification first.</p>';
+                    physicalIdVerified.focus();
+                    return;
+                }
+                
                 policyVerificationResult.innerHTML = `
                     <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <p class="text-sm font-medium text-blue-800">Sending OTP to ${phone}...</p>
@@ -1875,6 +1982,7 @@
                         `;
                         policyNumberInput.classList.remove('border-red-300');
                         policyNumberInput.classList.add(policyData.verification_status === 'flagged' ? 'border-yellow-300' : 'border-green-300');
+                        document.getElementById('policy_verified').value = '1';
                     } else {
                         policyVerificationResult.innerHTML = `
                             <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -1903,6 +2011,15 @@
             
             // Function to send OTP for email verification
             async function sendEmailOtpForVerification(email, insuranceCompanyId, policyNumber = null) {
+                const physicalIdVerified = document.getElementById('physical_id_verified');
+                
+                // Check if physical ID is verified first (only if required)
+                if (physicalIdVerified && physicalIdVerified.required && !physicalIdVerified.checked) {
+                    policyVerificationResult.innerHTML = '<p class="text-sm text-red-600">Please confirm that the client has presented their Physical National ID for verification first.</p>';
+                    physicalIdVerified.focus();
+                    return;
+                }
+                
                 policyVerificationResult.innerHTML = `
                     <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <p class="text-sm font-medium text-blue-800">Sending OTP to ${email}...</p>
@@ -2152,6 +2269,7 @@
                         `;
                         policyNumberInput.classList.remove('border-red-300');
                         policyNumberInput.classList.add(policyData.verification_status === 'flagged' ? 'border-yellow-300' : 'border-green-300');
+                        document.getElementById('policy_verified').value = '1';
                     } else {
                         policyVerificationResult.innerHTML = `
                             <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -2251,6 +2369,23 @@
                 toggleInsuranceSection();
             }
 
+            // Form submission validation for fallback payment method
+            const individualForm = document.getElementById('client-registration-form-individual');
+            if (individualForm) {
+                individualForm.addEventListener('submit', function(e) {
+                    if (isInsuranceSelected() && !hasFallbackPaymentMethod()) {
+                        e.preventDefault();
+                        const fallbackWarning = document.getElementById('fallback_payment_warning');
+                        if (fallbackWarning) {
+                            fallbackWarning.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            fallbackWarning.style.display = 'block';
+                        }
+                        alert('When insurance is selected, you must also select at least one additional payment method (cash, mobile money, or credit) as a fallback for rejected insurance claims.');
+                        return false;
+                    }
+                });
+            }
+
             if (insuranceCompanySelect) {
                 insuranceCompanySelect.addEventListener('change', togglePolicyNumberSection);
             }
@@ -2290,6 +2425,42 @@
             activeTab.classList.add('active', 'border-blue-500', 'text-blue-600');
             activeTab.classList.remove('border-transparent', 'text-gray-500');
         }
+
+        // Global fallback payment method validation for all forms
+        function validateFallbackPaymentMethod(formId, warningId) {
+            const form = document.getElementById(formId);
+            if (!form) return;
+
+            form.addEventListener('submit', function(e) {
+                const paymentCheckboxes = form.querySelectorAll('input[name="payment_methods[]"]:checked');
+                let hasInsurance = false;
+                let hasNonInsurance = false;
+
+                paymentCheckboxes.forEach(checkbox => {
+                    if (checkbox.value === 'insurance') {
+                        hasInsurance = true;
+                    } else {
+                        hasNonInsurance = true;
+                    }
+                });
+
+                if (hasInsurance && !hasNonInsurance) {
+                    e.preventDefault();
+                    const fallbackWarning = document.getElementById(warningId);
+                    if (fallbackWarning) {
+                        fallbackWarning.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        fallbackWarning.style.display = 'block';
+                    }
+                    alert('When insurance is selected, you must also select at least one additional payment method (cash, mobile money, or credit) as a fallback for rejected insurance claims.');
+                    return false;
+                }
+            });
+        }
+
+        // Apply validation to all forms
+        validateFallbackPaymentMethod('client-registration-form-individual', 'fallback_payment_warning');
+        validateFallbackPaymentMethod('client-registration-form-company', 'fallback_payment_warning_company');
+        validateFallbackPaymentMethod('client-registration-form-walk_in', 'fallback_payment_warning_walkin');
 
 
     </script>

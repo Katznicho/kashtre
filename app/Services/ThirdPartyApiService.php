@@ -582,4 +582,49 @@ class ThirdPartyApiService
             return null;
         }
     }
+
+    /**
+     * Get insurance company settings by ID
+     *
+     * @param int $insuranceCompanyId
+     * @return array|null Returns settings data if found, null otherwise
+     */
+    public function getInsuranceCompanySettings(int $insuranceCompanyId): ?array
+    {
+        try {
+            Log::info('ThirdPartyApiService: Fetching insurance company settings', [
+                'insurance_company_id' => $insuranceCompanyId,
+            ]);
+
+            $response = Http::timeout($this->timeout)
+                ->get("{$this->baseUrl}/api/v1/businesses/{$insuranceCompanyId}/settings");
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                Log::info('ThirdPartyApiService: Insurance company settings retrieved', [
+                    'insurance_company_id' => $insuranceCompanyId,
+                    'success' => $data['success'] ?? false,
+                ]);
+
+                return $data['data'] ?? null;
+            } else {
+                $error = $response->json();
+                Log::warning('ThirdPartyApiService: Failed to fetch insurance company settings', [
+                    'insurance_company_id' => $insuranceCompanyId,
+                    'status' => $response->status(),
+                    'error' => $error,
+                ]);
+
+                return null;
+            }
+        } catch (Exception $e) {
+            Log::error('ThirdPartyApiService: Exception while fetching insurance company settings', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
 }
