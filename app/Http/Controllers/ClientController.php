@@ -337,7 +337,7 @@ class ClientController extends Controller
             
             if (empty($nonInsuranceMethods)) {
                 return redirect()->back()
-                    ->withErrors(['payment_methods' => 'When insurance is selected, you must also select at least one additional payment method (cash, mobile_money, or credit) as a fallback for rejected claims.'])
+                    ->withErrors(['payment_methods' => 'Please select at least one other payment method (cash, mobile money, or credit) in case insurance doesn\'t cover the full amount.'])
                     ->withInput();
             }
         }
@@ -631,7 +631,7 @@ class ClientController extends Controller
             
             if (empty($nonInsuranceMethods)) {
                 return redirect()->back()
-                    ->withErrors(['payment_methods' => 'When insurance is selected, you must also select at least one additional payment method (cash, mobile_money, or credit) as a fallback for rejected claims.'])
+                    ->withErrors(['payment_methods' => 'Please select at least one other payment method (cash, mobile money, or credit) in case insurance doesn\'t cover the full amount.'])
                     ->withInput();
             }
         }
@@ -883,7 +883,7 @@ class ClientController extends Controller
             
             if (empty($nonInsuranceMethods)) {
                 return redirect()->back()
-                    ->withErrors(['payment_methods' => 'When insurance is selected, you must also select at least one additional payment method (cash, mobile_money, or credit) as a fallback for rejected claims.'])
+                    ->withErrors(['payment_methods' => 'Please select at least one other payment method (cash, mobile money, or credit) in case insurance doesn\'t cover the full amount.'])
                     ->withInput();
             }
         }
