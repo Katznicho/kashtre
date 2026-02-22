@@ -840,7 +840,7 @@
                     <button onclick="closeInvoicePreview()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">
                         Close
                     </button>
-                    <button onclick="confirmAndSaveInvoice()" class="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
+                    <button id="confirm-save-invoice-button" onclick="confirmAndSaveInvoice()" class="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
                         Confirm & Save
                     </button>
                 </div>
@@ -892,11 +892,17 @@
                             total: paymentResponsibility.deductibleAmount
                         });
                     }
-                } else {
-                    console.error('Failed to fetch deductible used:', response.status, response.statusText);
-                }
+                    } else {
+                        console.error('Failed to fetch deductible used:', response.status, response.statusText);
+                        // Fail closed: assume full deductible is remaining if API fails
+                        paymentResponsibility.deductibleRemaining = paymentResponsibility.deductibleAmount;
+                        paymentResponsibility.deductibleUsed = 0;
+                    }
             } catch (error) {
                 console.error('Error calculating deductible used:', error);
+                // Fail closed: assume full deductible is remaining if API fails
+                paymentResponsibility.deductibleRemaining = paymentResponsibility.deductibleAmount;
+                paymentResponsibility.deductibleUsed = 0;
             }
         }
         
@@ -1225,10 +1231,22 @@
                 };
             } catch (error) {
                 console.error('Error checking payment requirements:', error);
-                // Allow order to proceed if check fails (fail open)
+                // FAIL CLOSED: Block order if we can't verify payment status
+                // This prevents service when payment verification is unavailable
                 return {
-                    allowed: true,
-                    message: 'Payment check failed, proceeding anyway.'
+                    allowed: false,
+                    unpaidType: 'verification_error',
+                    message: `
+                        <div class="text-left">
+                            <p class="mb-2 text-red-600 font-semibold">⚠️ Payment Verification Unavailable</p>
+                            <p class="text-sm text-gray-600 mb-3">
+                                Unable to verify payment status. Please ensure all required payments (deductible/co-pay) have been completed before placing orders.
+                            </p>
+                            <p class="text-sm text-gray-500">
+                                If you have already made payments, please wait a moment and try again, or contact support.
+                            </p>
+                        </div>
+                    `
                 };
             }
             @else
@@ -1949,11 +1967,13 @@
             }
             @endif
             
-            // Show loading state
-            const button = event.target;
-            const originalText = button.textContent;
-            button.textContent = 'Saving...';
-            button.disabled = true;
+            // Show loading state - find the button by ID since event is not available
+            const button = document.getElementById('confirm-save-invoice-button');
+            const originalText = button ? button.textContent : 'Save';
+            if (button) {
+                button.textContent = 'Saving...';
+                button.disabled = true;
+            }
             
             try {
                 // Calculate totals
@@ -2014,8 +2034,10 @@
                             confirmButtonText: 'OK',
                             width: '500px'
                         });
-                        button.textContent = originalText;
-                        button.disabled = false;
+                        if (button) {
+                            button.textContent = originalText;
+                            button.disabled = false;
+                        }
                         return;
                     }
                 }
@@ -2030,8 +2052,10 @@
                         text: 'Deposit invoices must include a service charge. Please configure the service charge and try again.',
                         confirmButtonText: 'OK'
                     });
-                    button.textContent = originalText;
-                    button.disabled = false;
+                    if (button) {
+                        button.textContent = originalText;
+                        button.disabled = false;
+                    }
                     return;
                 }
 
@@ -2047,8 +2071,10 @@
                         text: errorMessage,
                         confirmButtonText: 'OK'
                     });
-                    button.textContent = originalText;
-                    button.disabled = false;
+                    if (button) {
+                        button.textContent = originalText;
+                        button.disabled = false;
+                    }
                     return;
                 }
                 
@@ -2081,8 +2107,10 @@
                             text: 'Please select a third-party payer for insurance payments. The third-party payer\'s account will be debited instead of the client\'s account.',
                             confirmButtonText: 'OK'
                         });
-                        button.textContent = originalText;
-                        button.disabled = false;
+                        if (button) {
+                            button.textContent = originalText;
+                            button.disabled = false;
+                        }
                         return;
                     }
                 }
@@ -2296,8 +2324,10 @@
                 });
             } finally {
                 // Restore button state
-                button.textContent = originalText;
-                button.disabled = false;
+                if (button) {
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }
             }
         }
         

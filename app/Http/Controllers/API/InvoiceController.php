@@ -23,15 +23,37 @@ class InvoiceController extends Controller
                 'method' => $request->method(),
             ]);
 
-            // Find the third-party payer for this insurance company
-            // We need to find all third-party payers with this insurance_company_id
-            $thirdPartyPayers = ThirdPartyPayer::where('insurance_company_id', $insuranceCompanyId)
+            // The insuranceCompanyId parameter is from the third-party system
+            // We need to find the Kashtre InsuranceCompany by third_party_business_id
+            $kashtreInsuranceCompany = \App\Models\InsuranceCompany::where('third_party_business_id', $insuranceCompanyId)
+                ->first();
+
+            if (!$kashtreInsuranceCompany) {
+                Log::warning('API: Kashtre insurance company not found for third-party business ID', [
+                    'third_party_business_id' => $insuranceCompanyId,
+                ]);
+                return response()->json([
+                    'success' => true,
+                    'data' => [],
+                    'message' => 'Insurance company not found in Kashtre system.'
+                ]);
+            }
+
+            Log::info('API: Found Kashtre insurance company', [
+                'kashtre_insurance_company_id' => $kashtreInsuranceCompany->id,
+                'third_party_business_id' => $insuranceCompanyId,
+                'name' => $kashtreInsuranceCompany->name,
+            ]);
+
+            // Find the third-party payer for this insurance company using Kashtre's insurance_company_id
+            $thirdPartyPayers = ThirdPartyPayer::where('insurance_company_id', $kashtreInsuranceCompany->id)
                 ->where('type', 'insurance_company')
                 ->where('status', 'active')
                 ->get();
 
             Log::info('API: Found third-party payers', [
-                'insurance_company_id' => $insuranceCompanyId,
+                'kashtre_insurance_company_id' => $kashtreInsuranceCompany->id,
+                'third_party_business_id' => $insuranceCompanyId,
                 'count' => $thirdPartyPayers->count(),
             ]);
 
