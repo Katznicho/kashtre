@@ -437,6 +437,10 @@ Route::get('/suspense-accounts/{id}', [SuspenseAccountController::class, 'show']
 Route::get('/suspense-accounts-api/data', [SuspenseAccountController::class, 'getSuspenseAccountsData'])->name('suspense-accounts.data');
     Route::get('/pos/item-selection/{client}', [TransactionController::class, 'itemSelection'])->name('pos.item-selection');
     
+    // Payment Responsibility Routes
+    Route::get('/payment-responsibility/{client}/pay', [TransactionController::class, 'showPaymentResponsibilityPayment'])->name('payment-responsibility.pay');
+    Route::post('/payment-responsibility/{client}/pay', [TransactionController::class, 'processPaymentResponsibilityPayment'])->name('payment-responsibility.process');
+    
     // Admin bulk operations
     Route::get('/admins/bulk/template', [AdminController::class, 'downloadTemplate'])->name('admins.bulk.template');
     Route::post('/admins/bulk/upload', [AdminController::class, 'bulkUpload'])->name('admins.bulk.upload');

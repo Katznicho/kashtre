@@ -17,6 +17,9 @@ class Kernel extends ConsoleKernel
         // Check payment statuses every minute
         $schedule->command('payments:check-status')->everyMinute();
         
+        // Check payment responsibility (deductible/copay) mobile money payment statuses every minute
+        $schedule->command('payments:check-responsibility-status')->everyMinute();
+        
         // Complete pay-back payments every minute
         $schedule->command('payments:complete-pay-back')->everyMinute();
         

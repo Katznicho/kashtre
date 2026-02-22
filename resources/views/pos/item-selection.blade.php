@@ -144,6 +144,224 @@
                 </div>
             </div>
             
+            <!-- Payment Responsibility Section (if client has insurance) -->
+            @if($client->insurance_company_id && ($client->has_deductible || $client->copay_amount || $client->coinsurance_percentage))
+            @php
+                // Get insurance company settings for payment collection timing
+                $insuranceCompany = $client->insuranceCompany;
+                $collectionTiming = 'immediate'; // Default
+                if ($insuranceCompany && $insuranceCompany->third_party_business_id) {
+                    try {
+                        $apiService = app(\App\Services\ThirdPartyApiService::class);
+                        $settings = $apiService->getInsuranceCompanySettings((int)$insuranceCompany->third_party_business_id);
+                        $collectionTiming = $settings['payment_responsibility_collection'] ?? 'immediate';
+                    } catch (\Exception $e) {
+                        // Default to immediate if API call fails
+                        $collectionTiming = 'immediate';
+                    }
+                }
+            @endphp
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6" x-data="{ expanded: true }">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900">Payment Responsibility</h3>
+                            @if($collectionTiming === 'immediate')
+                            <p class="text-xs text-yellow-600 mt-1">
+                                <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                </svg>
+                                Payment required at time of service
+                            </p>
+                            @else
+                            <p class="text-xs text-blue-600 mt-1">
+                                <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                Payment can be collected later
+                            </p>
+                            @endif
+                        </div>
+                        <button @click="expanded = !expanded" class="text-gray-500 hover:text-gray-700 transition-colors">
+                            <svg x-show="expanded" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                            </svg>
+                            <svg x-show="!expanded" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div x-show="expanded" x-transition>
+                        <div class="space-y-4">
+                            @if($client->has_deductible && $client->deductible_amount)
+                            <div id="deductible-card-container">
+                                <!-- Clickable link when not met -->
+                                <a href="{{ route('payment-responsibility.pay', ['client' => $client->id, 'type' => 'deductible']) }}" 
+                                   id="deductible-pay-link"
+                                   class="block bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 hover:border-yellow-400 hover:shadow-md transition-all cursor-pointer">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex-1">
+                                            <div class="flex items-center space-x-2 mb-2">
+                                                <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                                </svg>
+                                                <h4 class="text-sm font-semibold text-yellow-800">Deductible</h4>
+                                                <span id="deductible-action-text" class="text-xs text-yellow-600 ml-2">Click to pay →</span>
+                                            </div>
+                                            <p class="text-lg font-bold text-yellow-900 mb-1">UGX {{ number_format($client->deductible_amount, 2) }}</p>
+                                            <p class="text-xs text-yellow-700">Amount client must pay before insurance coverage begins</p>
+                                            <div id="deductible-status" class="mt-2">
+                                                <p class="text-xs text-yellow-600">
+                                                    <span id="deductible-used">UGX 0.00</span> used, 
+                                                    <span id="deductible-remaining">UGX {{ number_format($client->deductible_amount, 2) }}</span> remaining
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="ml-4">
+                                            <span id="deductible-status-badge" class="px-3 py-1 text-xs font-medium rounded-full bg-yellow-200 text-yellow-800">
+                                                Not Met
+                                            </span>
+                                        </div>
+                                    </div>
+                                </a>
+                                
+                                <!-- Non-clickable display when met -->
+                                <div id="deductible-details-display" 
+                                     class="hidden bg-green-50 border-2 border-green-200 rounded-lg p-4 cursor-default">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex-1">
+                                            <div class="flex items-center space-x-2 mb-2">
+                                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                </svg>
+                                                <h4 class="text-sm font-semibold text-green-800">Deductible</h4>
+                                                <span class="text-xs text-green-600 ml-2">✓ Fully Paid</span>
+                                            </div>
+                                            <p class="text-lg font-bold text-green-900 mb-1">UGX {{ number_format($client->deductible_amount, 2) }}</p>
+                                            <p class="text-xs text-green-700">Amount client must pay before insurance coverage begins</p>
+                                            <div id="deductible-status-met" class="mt-2">
+                                                <p class="text-xs text-green-600">
+                                                    <span id="deductible-used-met">UGX 0.00</span> used, 
+                                                    <span id="deductible-remaining-met">UGX 0.00</span> remaining
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="ml-4">
+                                            <span id="deductible-status-badge-met" class="px-3 py-1 text-xs font-medium rounded-full bg-green-200 text-green-800">
+                                                Met
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+                            
+                            @if($client->copay_amount)
+                            <div id="copay-card-container">
+                                <!-- Clickable link when not paid -->
+                                <a href="{{ route('payment-responsibility.pay', ['client' => $client->id, 'type' => 'copay']) }}" 
+                                   id="copay-pay-link"
+                                   class="block bg-blue-50 border-2 border-blue-200 rounded-lg p-4 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex-1">
+                                            <div class="flex items-center space-x-2 mb-2">
+                                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                                </svg>
+                                                <h4 class="text-sm font-semibold text-blue-800">Co-pay</h4>
+                                                <span id="copay-action-text" class="text-xs text-blue-600 ml-2">Click to pay →</span>
+                                            </div>
+                                            <p class="text-lg font-bold text-blue-900 mb-1">UGX {{ number_format($client->copay_amount, 2) }} per visit</p>
+                                            <p class="text-xs text-blue-700">Fixed amount payable at each visit</p>
+                                            @if($client->copay_max_limit)
+                                            <p class="text-xs text-blue-600 mt-1">Maximum: UGX {{ number_format($client->copay_max_limit, 2) }}</p>
+                                            @endif
+                                        </div>
+                                        <div class="ml-4">
+                                            <span id="copay-status-badge" class="px-3 py-1 text-xs font-medium rounded-full bg-blue-200 text-blue-800">
+                                                Required
+                                            </span>
+                                        </div>
+                                    </div>
+                                </a>
+                                
+                                <!-- Non-clickable display when paid -->
+                                <div id="copay-details-display" 
+                                     class="hidden bg-green-50 border-2 border-green-200 rounded-lg p-4 cursor-default">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex-1">
+                                            <div class="flex items-center space-x-2 mb-2">
+                                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                </svg>
+                                                <h4 class="text-sm font-semibold text-green-800">Co-pay</h4>
+                                                <span class="text-xs text-green-600 ml-2">✓ Paid for this visit</span>
+                                            </div>
+                                            <p class="text-lg font-bold text-green-900 mb-1">UGX {{ number_format($client->copay_amount, 2) }} per visit</p>
+                                            <p class="text-xs text-green-700">Fixed amount payable at each visit</p>
+                                            <div id="copay-status-paid" class="mt-2">
+                                                <p class="text-xs text-green-600">
+                                                    <span id="copay-paid-amount">UGX 0.00</span> paid for this visit
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="ml-4">
+                                            <span id="copay-status-badge-paid" class="px-3 py-1 text-xs font-medium rounded-full bg-green-200 text-green-800">
+                                                Paid
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+                            
+                            @if($client->coinsurance_percentage)
+                            <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                <div class="flex items-start">
+                                    <div class="flex-1">
+                                        <div class="flex items-center space-x-2 mb-2">
+                                            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                            </svg>
+                                            <h4 class="text-sm font-semibold text-purple-800">Co-insurance</h4>
+                                        </div>
+                                        <p class="text-lg font-bold text-purple-900 mb-1">{{ number_format($client->coinsurance_percentage, 2) }}%</p>
+                                        <p class="text-xs text-purple-700">Percentage of invoice amount paid by client</p>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+                            
+                            <!-- Payment Summary for Current Visit -->
+                            <div id="payment-responsibility-summary" class="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-4" style="display: none;">
+                                <h4 class="text-sm font-semibold text-gray-800 mb-3">Payment Required for This Visit</h4>
+                                <div class="space-y-2">
+                                    <div id="copay-payment-line" class="flex justify-between items-center text-sm" style="display: none;">
+                                        <span class="text-gray-600">Co-pay:</span>
+                                        <span class="font-semibold text-gray-900">UGX <span id="copay-amount-display">0.00</span></span>
+                                    </div>
+                                    <div id="deductible-payment-line" class="flex justify-between items-center text-sm" style="display: none;">
+                                        <span class="text-gray-600">Deductible (remaining):</span>
+                                        <span class="font-semibold text-gray-900">UGX <span id="deductible-payment-display">0.00</span></span>
+                                    </div>
+                                    <div id="coinsurance-payment-line" class="flex justify-between items-center text-sm" style="display: none;">
+                                        <span class="text-gray-600">Co-insurance:</span>
+                                        <span class="font-semibold text-gray-900">UGX <span id="coinsurance-amount-display">0.00</span></span>
+                                    </div>
+                                    <div class="pt-2 border-t border-gray-300 mt-2">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-sm font-semibold text-gray-800">Total Client Payment:</span>
+                                            <span class="text-lg font-bold text-gray-900">UGX <span id="total-client-payment">0.00</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @endif
+            
             <!-- Section 2: Client Statement -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6">
@@ -636,6 +854,392 @@
         let packageAdjustment = 0;
         let balanceAdjustment = 0;
         
+        // Payment responsibility information
+        @if($client->insurance_company_id && ($client->has_deductible || $client->copay_amount || $client->coinsurance_percentage))
+        const paymentResponsibility = {
+            hasDeductible: {{ $client->has_deductible ? 'true' : 'false' }},
+            deductibleAmount: {{ $client->deductible_amount ?? 0 }},
+            deductibleUsed: 0, // TODO: Calculate from invoices/payments
+            deductibleRemaining: {{ $client->deductible_amount ?? 0 }},
+            copayAmount: {{ $client->copay_amount ?? 0 }},
+            copayMaxLimit: {{ $client->copay_max_limit ?? 0 }},
+            coinsurancePercentage: {{ $client->coinsurance_percentage ?? 0 }},
+            copayContributesToDeductible: {{ $client->copay_contributes_to_deductible ? 'true' : 'false' }},
+            coinsuranceContributesToDeductible: {{ $client->coinsurance_contributes_to_deductible ? 'true' : 'false' }}
+        };
+        
+        // Calculate deductible used from client's payment history
+        async function calculateDeductibleUsed() {
+            try {
+                const response = await fetch(`/api/v1/clients/{{ $client->id }}/deductible-used`, {
+                    method: 'GET',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.deductible_used !== undefined) {
+                        paymentResponsibility.deductibleUsed = parseFloat(data.deductible_used) || 0;
+                        paymentResponsibility.deductibleRemaining = Math.max(0, paymentResponsibility.deductibleAmount - paymentResponsibility.deductibleUsed);
+                        updateDeductibleDisplay();
+                        
+                        console.log('Deductible updated:', {
+                            used: paymentResponsibility.deductibleUsed,
+                            remaining: paymentResponsibility.deductibleRemaining,
+                            total: paymentResponsibility.deductibleAmount
+                        });
+                    }
+                } else {
+                    console.error('Failed to fetch deductible used:', response.status, response.statusText);
+                }
+            } catch (error) {
+                console.error('Error calculating deductible used:', error);
+            }
+        }
+        
+        // Refresh deductible status after payment (when returning from payment page)
+        @if(session('success'))
+        @php
+            $successMessage = session('success');
+            $isDeductiblePayment = stripos($successMessage, 'deductible') !== false;
+            $isCopayPayment = stripos($successMessage, 'copay') !== false || stripos($successMessage, 'co-pay') !== false;
+        @endphp
+        @if($isDeductiblePayment)
+        setTimeout(() => {
+            calculateDeductibleUsed();
+        }, 500);
+        @endif
+        @if($isCopayPayment && $client->copay_amount)
+        setTimeout(() => {
+            checkCopayStatus();
+        }, 500);
+        @endif
+        @endif
+        
+        function updateDeductibleDisplay() {
+            const deductibleUsedEl = document.getElementById('deductible-used');
+            const deductibleRemainingEl = document.getElementById('deductible-remaining');
+            const deductibleStatusBadge = document.getElementById('deductible-status-badge');
+            const deductibleActionText = document.getElementById('deductible-action-text');
+            const deductiblePayLink = document.getElementById('deductible-pay-link');
+            const deductibleDetailsDisplay = document.getElementById('deductible-details-display');
+            
+            // Update "met" display elements
+            const deductibleUsedMetEl = document.getElementById('deductible-used-met');
+            const deductibleRemainingMetEl = document.getElementById('deductible-remaining-met');
+            const deductibleStatusBadgeMet = document.getElementById('deductible-status-badge-met');
+            
+            if (deductibleUsedEl && deductibleRemainingEl && deductibleStatusBadge) {
+                deductibleUsedEl.textContent = `UGX ${paymentResponsibility.deductibleUsed.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                deductibleRemainingEl.textContent = `UGX ${paymentResponsibility.deductibleRemaining.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                
+                if (paymentResponsibility.deductibleRemaining <= 0) {
+                    // Deductible is met - show details display, hide payment link
+                    deductibleStatusBadge.textContent = 'Met';
+                    deductibleStatusBadge.className = 'px-3 py-1 text-xs font-medium rounded-full bg-green-200 text-green-800';
+                    
+                    // Update met display
+                    if (deductibleUsedMetEl) {
+                        deductibleUsedMetEl.textContent = `UGX ${paymentResponsibility.deductibleUsed.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    }
+                    if (deductibleRemainingMetEl) {
+                        deductibleRemainingMetEl.textContent = `UGX ${paymentResponsibility.deductibleRemaining.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    }
+                    
+                    // Hide payment link, show details display
+                    if (deductiblePayLink) {
+                        deductiblePayLink.classList.add('hidden');
+                    }
+                    if (deductibleDetailsDisplay) {
+                        deductibleDetailsDisplay.classList.remove('hidden');
+                    }
+                    if (deductibleActionText) {
+                        deductibleActionText.textContent = '✓ Fully Paid';
+                        deductibleActionText.classList.remove('text-yellow-600');
+                        deductibleActionText.classList.add('text-green-600');
+                    }
+                } else {
+                    // Deductible not met - show payment link, hide details display
+                    deductibleStatusBadge.textContent = 'Not Met';
+                    deductibleStatusBadge.className = 'px-3 py-1 text-xs font-medium rounded-full bg-yellow-200 text-yellow-800';
+                    
+                    // Show payment link, hide details display
+                    if (deductiblePayLink) {
+                        deductiblePayLink.classList.remove('hidden');
+                    }
+                    if (deductibleDetailsDisplay) {
+                        deductibleDetailsDisplay.classList.add('hidden');
+                    }
+                    if (deductibleActionText) {
+                        deductibleActionText.textContent = 'Click to pay →';
+                        deductibleActionText.classList.remove('text-green-600');
+                        deductibleActionText.classList.add('text-yellow-600');
+                    }
+                }
+            }
+        }
+        
+        function calculatePaymentResponsibility(cartTotal) {
+            let copayPayment = 0;
+            let deductiblePayment = 0;
+            let coinsurancePayment = 0;
+            
+            // Co-pay is always required per visit
+            if (paymentResponsibility.copayAmount > 0) {
+                copayPayment = paymentResponsibility.copayAmount;
+                if (paymentResponsibility.copayMaxLimit > 0 && copayPayment > paymentResponsibility.copayMaxLimit) {
+                    copayPayment = paymentResponsibility.copayMaxLimit;
+                }
+            }
+            
+            // Deductible: if not met, client must pay remaining deductible first
+            if (paymentResponsibility.hasDeductible && paymentResponsibility.deductibleRemaining > 0) {
+                // Client needs to pay remaining deductible before insurance covers
+                deductiblePayment = Math.min(paymentResponsibility.deductibleRemaining, cartTotal);
+            }
+            
+            // Co-insurance: percentage of invoice amount after deductible
+            if (paymentResponsibility.coinsurancePercentage > 0 && cartTotal > 0) {
+                // Calculate amount after deductible
+                const amountAfterDeductible = Math.max(0, cartTotal - deductiblePayment);
+                coinsurancePayment = (amountAfterDeductible * paymentResponsibility.coinsurancePercentage) / 100;
+            }
+            
+            return {
+                copay: copayPayment,
+                deductible: deductiblePayment,
+                coinsurance: coinsurancePayment,
+                total: copayPayment + deductiblePayment + coinsurancePayment
+            };
+        }
+        
+        function updatePaymentResponsibilitySummary() {
+            const summaryDiv = document.getElementById('payment-responsibility-summary');
+            if (!summaryDiv) return;
+            
+            const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const payments = calculatePaymentResponsibility(cartTotal);
+            
+            // Show/hide payment lines
+            const copayLine = document.getElementById('copay-payment-line');
+            const deductibleLine = document.getElementById('deductible-payment-line');
+            const coinsuranceLine = document.getElementById('coinsurance-payment-line');
+            
+            if (payments.copay > 0) {
+                document.getElementById('copay-amount-display').textContent = payments.copay.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                if (copayLine) copayLine.style.display = 'flex';
+            } else {
+                if (copayLine) copayLine.style.display = 'none';
+            }
+            
+            if (payments.deductible > 0) {
+                document.getElementById('deductible-payment-display').textContent = payments.deductible.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                if (deductibleLine) deductibleLine.style.display = 'flex';
+            } else {
+                if (deductibleLine) deductibleLine.style.display = 'none';
+            }
+            
+            if (payments.coinsurance > 0) {
+                document.getElementById('coinsurance-amount-display').textContent = payments.coinsurance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                if (coinsuranceLine) coinsuranceLine.style.display = 'flex';
+            } else {
+                if (coinsuranceLine) coinsuranceLine.style.display = 'none';
+            }
+            
+            // Update total
+            document.getElementById('total-client-payment').textContent = payments.total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            // Show summary if there's any payment required
+            if (payments.total > 0) {
+                summaryDiv.style.display = 'block';
+            } else {
+                summaryDiv.style.display = 'none';
+            }
+        }
+        
+        // Initialize deductible calculation on page load
+        @if($client->has_deductible && $client->deductible_amount)
+        calculateDeductibleUsed();
+        @endif
+        
+        // Check co-pay status on page load
+        @if($client->copay_amount)
+        async function checkCopayStatus() {
+            try {
+                const response = await fetch(`/api/v1/clients/{{ $client->id }}/copay-status`, {
+                    method: 'GET',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.copay_paid !== undefined) {
+                        updateCopayDisplay(data.copay_paid, data.copay_paid_amount || 0);
+                        
+                        console.log('Co-pay status updated:', {
+                            paid: data.copay_paid,
+                            paid_amount: data.copay_paid_amount,
+                            required: data.copay_amount
+                        });
+                    }
+                } else {
+                    console.error('Failed to fetch co-pay status:', response.status, response.statusText);
+                }
+            } catch (error) {
+                console.error('Error checking co-pay status:', error);
+            }
+        }
+        
+        function updateCopayDisplay(isPaid, paidAmount) {
+            const copayPayLink = document.getElementById('copay-pay-link');
+            const copayDetailsDisplay = document.getElementById('copay-details-display');
+            const copayActionText = document.getElementById('copay-action-text');
+            const copayStatusBadge = document.getElementById('copay-status-badge');
+            const copayPaidAmountEl = document.getElementById('copay-paid-amount');
+            const copayStatusBadgePaid = document.getElementById('copay-status-badge-paid');
+            
+            if (isPaid) {
+                // Co-pay is paid - show details display, hide payment link
+                if (copayPayLink) {
+                    copayPayLink.classList.add('hidden');
+                }
+                if (copayDetailsDisplay) {
+                    copayDetailsDisplay.classList.remove('hidden');
+                }
+                if (copayPaidAmountEl) {
+                    copayPaidAmountEl.textContent = `UGX ${paidAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                }
+            } else {
+                // Co-pay not paid - show payment link, hide details display
+                if (copayPayLink) {
+                    copayPayLink.classList.remove('hidden');
+                }
+                if (copayDetailsDisplay) {
+                    copayDetailsDisplay.classList.add('hidden');
+                }
+                if (copayStatusBadge) {
+                    copayStatusBadge.textContent = 'Required';
+                    copayStatusBadge.className = 'px-3 py-1 text-xs font-medium rounded-full bg-blue-200 text-blue-800';
+                }
+            }
+        }
+        
+        checkCopayStatus();
+        @endif
+        
+        // Refresh co-pay status after payment
+        @if(session('success'))
+        @php
+            $successMessage = session('success');
+            $isCopayPayment = stripos($successMessage, 'copay') !== false || stripos($successMessage, 'co-pay') !== false;
+        @endphp
+        @if($isCopayPayment)
+        setTimeout(() => {
+            checkCopayStatus();
+        }, 500);
+        @endif
+        @endif
+        
+        // Check payment responsibility requirements
+        async function checkPaymentResponsibilityRequirements() {
+            @if($client->insurance_company_id && ($client->has_deductible || $client->copay_amount))
+            try {
+                // Get current deductible status
+                let deductibleRemaining = paymentResponsibility.deductibleRemaining;
+                let copayRequired = paymentResponsibility.copayAmount > 0;
+                
+                // Check deductible
+                if (paymentResponsibility.hasDeductible && deductibleRemaining > 0) {
+                    return {
+                        allowed: false,
+                        unpaidType: 'deductible',
+                        message: `
+                            <div class="text-left">
+                                <p class="mb-2">Deductible payment is required before placing orders.</p>
+                                <p class="text-sm text-gray-600 mb-3">
+                                    <strong>Remaining Deductible:</strong> UGX ${deductibleRemaining.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </p>
+                                <p class="text-sm text-gray-600">Please pay the deductible amount to continue.</p>
+                            </div>
+                        `
+                    };
+                }
+                
+                // Check co-pay (if collection is immediate)
+                @if($collectionTiming === 'immediate')
+                if (copayRequired) {
+                    // Check if co-pay has been paid for this visit
+                    try {
+                        const copayResponse = await fetch(`/api/v1/clients/{{ $client->id }}/copay-status`, {
+                            method: 'GET',
+                            headers: {
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                                'Accept': 'application/json',
+                            }
+                        });
+                        
+                        if (copayResponse.ok) {
+                            const copayData = await copayResponse.json();
+                            if (copayData.success && copayData.copay_required && !copayData.copay_paid) {
+                                return {
+                                    allowed: false,
+                                    unpaidType: 'copay',
+                                    message: `
+                                        <div class="text-left">
+                                            <p class="mb-2">Co-pay payment is required before placing orders.</p>
+                                            <p class="text-sm text-gray-600 mb-3">
+                                                <strong>Co-pay Amount:</strong> UGX ${copayData.copay_amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} per visit
+                                            </p>
+                                            <p class="text-sm text-gray-600">Please pay the co-pay amount to continue.</p>
+                                        </div>
+                                    `
+                                };
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error checking co-pay status:', error);
+                        // If check fails, still block order to be safe
+                        return {
+                            allowed: false,
+                            unpaidType: 'copay',
+                            message: `
+                                <div class="text-left">
+                                    <p class="mb-2">Co-pay payment verification failed.</p>
+                                    <p class="text-sm text-gray-600">Please ensure co-pay has been paid before placing orders.</p>
+                                </div>
+                            `
+                        };
+                    }
+                }
+                @endif
+                
+                return {
+                    allowed: true,
+                    message: 'All payment requirements met.'
+                };
+            } catch (error) {
+                console.error('Error checking payment requirements:', error);
+                // Allow order to proceed if check fails (fail open)
+                return {
+                    allowed: true,
+                    message: 'Payment check failed, proceeding anyway.'
+                };
+            }
+            @else
+            return {
+                allowed: true,
+                message: 'No payment requirements.'
+            };
+            @endif
+        }
+        @endif
+        
         // Credit information for credit clients
         @if($client->is_credit_eligible)
             @php
@@ -829,6 +1433,12 @@
         }
         
         function addToCart(itemId, itemName, itemPrice, quantity, itemType, displayName) {
+            // Update payment responsibility when cart changes
+            setTimeout(() => {
+                @if($client->insurance_company_id && ($client->has_deductible || $client->copay_amount || $client->coinsurance_percentage))
+                updatePaymentResponsibilitySummary();
+                @endif
+            }, 100);
             // Ensure proper number types
             const price = parseFloat(itemPrice) || 0;
             const qty = parseInt(quantity) || 0;
@@ -857,6 +1467,10 @@
         }
         
         function updateRequestOrderSummaryDisplay() {
+            // Update payment responsibility when cart display updates
+            @if($client->insurance_company_id && ($client->has_deductible || $client->copay_amount || $client->coinsurance_percentage))
+            updatePaymentResponsibilitySummary();
+            @endif
             const requestOrderSummaryContainer = document.getElementById('request-order-summary-items');
             const totalItemsSpan = document.getElementById('total-items');
             const totalQuantitySpan = document.getElementById('total-quantity');
@@ -953,6 +1567,12 @@
         function removeFromCart(index) {
             const removedItem = cart[index];
             cart.splice(index, 1);
+            // Update payment responsibility when cart changes
+            setTimeout(() => {
+                @if($client->insurance_company_id && ($client->has_deductible || $client->copay_amount || $client->coinsurance_percentage))
+                updatePaymentResponsibilitySummary();
+                @endif
+            }, 100);
             
             // Reset the corresponding quantity input to 0
             const quantityInput = document.querySelector(`input[data-item-id="${removedItem.id}"]`);
@@ -1303,6 +1923,31 @@
             if (!result.isConfirmed) {
                 return;
             }
+            
+            // Check payment responsibility requirements before proceeding
+            @if($client->insurance_company_id && $collectionTiming === 'immediate')
+            const paymentCheck = await checkPaymentResponsibilityRequirements();
+            if (!paymentCheck.allowed) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Payment Required',
+                    html: paymentCheck.message,
+                    confirmButtonText: 'Make Payment',
+                    showCancelButton: true,
+                    cancelButtonText: 'Cancel'
+                }).then((paymentResult) => {
+                    if (paymentResult.isConfirmed) {
+                        // Redirect to payment page for the first unpaid item
+                        if (paymentCheck.unpaidType === 'deductible') {
+                            window.location.href = '{{ route("payment-responsibility.pay", ["client" => $client->id, "type" => "deductible"]) }}';
+                        } else if (paymentCheck.unpaidType === 'copay') {
+                            window.location.href = '{{ route("payment-responsibility.pay", ["client" => $client->id, "type" => "copay"]) }}';
+                        }
+                    }
+                });
+                return;
+            }
+            @endif
             
             // Show loading state
             const button = event.target;

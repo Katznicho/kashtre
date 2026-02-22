@@ -748,4 +748,50 @@ class ThirdPartyApiService
             return null;
         }
     }
+
+    /**
+     * Create a payment responsibility payment in the third-party system
+     *
+     * @param array $paymentData
+     * @return array|null
+     */
+    public function createPaymentResponsibilityPayment(array $paymentData): ?array
+    {
+        try {
+            Log::info('ThirdPartyApiService: Creating payment responsibility payment', [
+                'payment_data' => $paymentData,
+            ]);
+
+            $response = Http::timeout($this->timeout)
+                ->post("{$this->baseUrl}/api/v1/payments/responsibility", $paymentData);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                Log::info('ThirdPartyApiService: Payment responsibility payment created successfully', [
+                    'payment_id' => $data['data']['id'] ?? null,
+                    'reference' => $paymentData['payment_reference'] ?? null,
+                ]);
+
+                return $data;
+            } else {
+                $error = $response->json();
+                Log::warning('ThirdPartyApiService: Failed to create payment responsibility payment', [
+                    'status' => $response->status(),
+                    'error' => $error,
+                    'payment_data' => $paymentData,
+                ]);
+
+                return null;
+            }
+        } catch (Exception $e) {
+            Log::error('ThirdPartyApiService: Exception while creating payment responsibility payment', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'payment_data' => $paymentData,
+            ]);
+
+            return null;
+        }
+    }
 }

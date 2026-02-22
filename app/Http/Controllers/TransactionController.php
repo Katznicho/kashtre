@@ -302,4 +302,362 @@ class TransactionController extends Controller
             'thirdPartyPayers'
         ));
     }
+
+    /**
+     * Show payment page for deductible or co-pay
+     */
+    public function showPaymentResponsibilityPayment(Client $client, Request $request)
+    {
+        $user = auth()->user();
+        if ($user->business_id !== 1 && $client->business_id !== $user->business_id) {
+            abort(403, 'Unauthorized access to client.');
+        }
+
+        $type = $request->query('type', 'deductible'); // 'deductible' or 'copay'
+        
+        if ($type === 'deductible' && (!$client->has_deductible || !$client->deductible_amount)) {
+            return redirect()->route('pos.item-selection', $client)
+                ->with('error', 'This client does not have a deductible requirement.');
+        }
+        
+        if ($type === 'copay' && !$client->copay_amount) {
+            return redirect()->route('pos.item-selection', $client)
+                ->with('error', 'This client does not have a co-pay requirement.');
+        }
+
+        // Get available payment methods from maturation periods
+        $availablePaymentMethods = \App\Models\MaturationPeriod::where('business_id', $client->business_id)
+            ->where('is_active', true)
+            ->get()
+            ->pluck('payment_method')
+            ->unique()
+            ->values()
+            ->toArray();
+
+        // Filter out insurance as a payment method for deductible/co-pay
+        $availablePaymentMethods = array_filter($availablePaymentMethods, function($method) {
+            return $method !== 'insurance';
+        });
+        
+        // Always include cash and mobile_money for payment responsibility payments
+        $defaultMethods = ['cash', 'mobile_money'];
+        $availablePaymentMethods = array_unique(array_merge($defaultMethods, $availablePaymentMethods));
+        
+        // Sort to put cash and mobile_money first
+        usort($availablePaymentMethods, function($a, $b) use ($defaultMethods) {
+            $aIndex = array_search($a, $defaultMethods);
+            $bIndex = array_search($b, $defaultMethods);
+            
+            if ($aIndex !== false && $bIndex !== false) {
+                return $aIndex <=> $bIndex;
+            }
+            if ($aIndex !== false) return -1;
+            if ($bIndex !== false) return 1;
+            return strcmp($a, $b);
+        });
+
+        // Calculate amounts
+        $amount = 0;
+        $remaining = 0;
+        $used = 0;
+        
+        if ($type === 'deductible') {
+            $amount = $client->deductible_amount;
+            
+            // Calculate actual deductible used from payments
+            try {
+                $apiController = new \App\Http\Controllers\API\ClientController();
+                $deductibleResponse = $apiController->getDeductibleUsed($client);
+                if ($deductibleResponse->getStatusCode() === 200) {
+                    $deductibleData = json_decode($deductibleResponse->getContent(), true);
+                    if (isset($deductibleData['deductible_used'])) {
+                        $used = $deductibleData['deductible_used'];
+                        $remaining = $deductibleData['deductible_remaining'];
+                    } else {
+                        $used = 0;
+                        $remaining = $amount;
+                    }
+                } else {
+                    $used = 0;
+                    $remaining = $amount;
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Error calculating deductible used in payment page', [
+                    'client_id' => $client->id,
+                    'error' => $e->getMessage(),
+                ]);
+                $used = 0;
+                $remaining = $amount;
+            }
+        } else {
+            $amount = $client->copay_amount;
+            $remaining = $amount;
+        }
+
+        return view('payment-responsibility.pay', compact(
+            'client',
+            'type',
+            'amount',
+            'remaining',
+            'used',
+            'availablePaymentMethods'
+        ));
+    }
+
+    /**
+     * Process payment for deductible or co-pay
+     */
+    public function processPaymentResponsibilityPayment(Client $client, Request $request)
+    {
+        $user = auth()->user();
+        if ($user->business_id !== 1 && $client->business_id !== $user->business_id) {
+            abort(403, 'Unauthorized access to client.');
+        }
+
+        $validated = $request->validate([
+            'type' => 'required|in:deductible,copay',
+            'amount' => 'required|numeric|min:0.01',
+            'payment_method' => 'required|string',
+            'payment_phone' => 'nullable|string|max:255',
+            'payment_reference' => 'nullable|string|max:255',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $type = $validated['type'];
+        $paymentAmount = $validated['amount'];
+
+        // Validate amount
+        if ($type === 'deductible') {
+            if (!$client->has_deductible || !$client->deductible_amount) {
+                return redirect()->back()->with('error', 'This client does not have a deductible requirement.');
+            }
+            // TODO: Check remaining deductible
+            if ($paymentAmount > $client->deductible_amount) {
+                return redirect()->back()->with('error', 'Payment amount cannot exceed deductible amount.');
+            }
+        } else {
+            if (!$client->copay_amount) {
+                return redirect()->back()->with('error', 'This client does not have a co-pay requirement.');
+            }
+            if ($paymentAmount > $client->copay_amount) {
+                return redirect()->back()->with('error', 'Payment amount cannot exceed co-pay amount.');
+            }
+        }
+
+        // Process payment
+        try {
+            \Illuminate\Support\Facades\DB::beginTransaction();
+            
+            $reference = $validated['payment_reference'] ?? 
+                ($type === 'deductible' ? 'DED-' : 'COP-') . $client->id . '-' . time();
+            
+            $transactionReference = null;
+            $paymentStatus = 'pending';
+            
+            // Process mobile money payment if applicable
+            if ($validated['payment_method'] === 'mobile_money' && !empty($validated['payment_phone'])) {
+                try {
+                    $yoApi = new \App\Payments\YoAPI(
+                        config('payments.yo_username'),
+                        config('payments.yo_password')
+                    );
+                    
+                    $yoApi->set_instant_notification_url(config('payments.webhook_url'));
+                    $yoApi->set_external_reference($reference);
+                    
+                    $phone = $validated['payment_phone'];
+                    // Format phone number: remove + if present, ensure 256XXXXXXXXX format
+                    if (str_starts_with($phone, '+')) {
+                        $phone = substr($phone, 1);
+                    } elseif (str_starts_with($phone, '0')) {
+                        $phone = '256' . substr($phone, 1);
+                    }
+                    
+                    $description = ucfirst($type) . ' payment for ' . $client->name;
+                    if (strlen($description) > 160) {
+                        $description = substr($description, 0, 157) . '...';
+                    }
+                    
+                    \Illuminate\Support\Facades\Log::info('Initiating mobile money payment for payment responsibility', [
+                        'client_id' => $client->id,
+                        'type' => $type,
+                        'phone' => $phone,
+                        'amount' => $paymentAmount,
+                        'reference' => $reference,
+                    ]);
+                    
+                    $yoResult = $yoApi->ac_deposit_funds($phone, $paymentAmount, $description);
+                    
+                    \Illuminate\Support\Facades\Log::info('YoAPI response for payment responsibility', [
+                        'result' => $yoResult,
+                    ]);
+                    
+                    if (isset($yoResult['Status']) && $yoResult['Status'] === 'OK' && isset($yoResult['TransactionReference'])) {
+                        $transactionReference = $yoResult['TransactionReference'];
+                        $paymentStatus = 'pending'; // Will be confirmed via webhook
+                        
+                        \Illuminate\Support\Facades\Log::info('Mobile money payment initiated successfully', [
+                            'transaction_reference' => $transactionReference,
+                            'reference' => $reference,
+                        ]);
+                    } else {
+                        $errorMessage = $yoResult['StatusMessage'] ?? 'Unknown error';
+                        \Illuminate\Support\Facades\Log::error('Mobile money payment failed', [
+                            'yo_result' => $yoResult,
+                            'error_message' => $errorMessage,
+                        ]);
+                        throw new \Exception('Mobile money payment failed: ' . $errorMessage);
+                    }
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Mobile money payment error', [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                    throw $e;
+                }
+            } else {
+                // For cash/bank transfer, mark as completed immediately
+                $paymentStatus = 'completed';
+                
+                \Illuminate\Support\Facades\Log::info('Cash payment processed immediately', [
+                    'payment_method' => $validated['payment_method'],
+                    'amount' => $paymentAmount,
+                    'reference' => $reference,
+                ]);
+            }
+            
+            // 1. Process payment in Kashtre (money tracking service)
+            $moneyTrackingService = app(\App\Services\MoneyTrackingService::class);
+            
+            $moneyTrackingService->processPaymentReceived(
+                $client,
+                $paymentAmount,
+                $reference,
+                $validated['payment_method'],
+                [
+                    'payment_responsibility_type' => $type,
+                    'payment_phone' => $validated['payment_phone'] ?? null,
+                    'notes' => $validated['notes'] ?? null,
+                    'transaction_reference' => $transactionReference,
+                    'visit_id' => $client->visit_id, // Track visit_id for co-pay per-visit tracking
+                ]
+            );
+            
+            // 2. Credit insurance company's account (ThirdPartyPayer) in Kashtre
+            if ($client->insurance_company_id) {
+                $insuranceCompany = $client->insuranceCompany;
+                if ($insuranceCompany && $insuranceCompany->third_party_business_id) {
+                    // Find or create ThirdPartyPayer for this insurance company
+                    $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('business_id', $client->business_id)
+                        ->where('insurance_company_id', $client->insurance_company_id)
+                        ->where('type', 'insurance_company')
+                        ->first();
+                    
+                    if ($thirdPartyPayer) {
+                        // Record credit to insurance company's account
+                        \App\Models\ThirdPartyPayerBalanceHistory::recordCredit(
+                            $thirdPartyPayer,
+                            $paymentAmount,
+                            ucfirst($type) . ' payment from ' . $client->name,
+                            $reference,
+                            $validated['notes'] ?? null,
+                            $validated['payment_method'],
+                            $client->id,
+                            null // No invoice for payment responsibility
+                        );
+                        
+                        \Illuminate\Support\Facades\Log::info('Insurance company account credited', [
+                            'third_party_payer_id' => $thirdPartyPayer->id,
+                            'amount' => $paymentAmount,
+                            'type' => $type,
+                        ]);
+                    }
+                }
+            }
+            
+            // 3. Create payment record in third-party system
+            if ($client->insurance_company_id) {
+                $insuranceCompany = $client->insuranceCompany;
+                if ($insuranceCompany && $insuranceCompany->third_party_business_id) {
+                    try {
+                        $apiService = app(\App\Services\ThirdPartyApiService::class);
+                        
+                        // Find client in third-party system by policy number
+                        $thirdPartyClientId = null;
+                        if ($client->policy_number) {
+                            // Try to find client by policy number in third-party system
+                            $verificationResult = $apiService->verifyPolicyNumber(
+                                (int)$insuranceCompany->third_party_business_id,
+                                $client->policy_number
+                            );
+                            
+                            if ($verificationResult && isset($verificationResult['data']['principal_member_id'])) {
+                                $thirdPartyClientId = $verificationResult['data']['principal_member_id'];
+                            } else {
+                                \Illuminate\Support\Facades\Log::warning('Could not find client in third-party system', [
+                                    'policy_number' => $client->policy_number,
+                                    'insurance_company_id' => $insuranceCompany->third_party_business_id,
+                                ]);
+                            }
+                        }
+                        
+                        // Create payment via API (even if client not found, we still create the payment)
+                        $paymentData = [
+                            'client_id' => $thirdPartyClientId,
+                            'insurance_company_id' => (int)$insuranceCompany->third_party_business_id,
+                            'payment_type' => $type === 'deductible' ? 'deductible_payment' : 'copay_payment',
+                            'amount' => $paymentAmount,
+                            'paid_amount' => $paymentAmount,
+                            'payment_method' => $validated['payment_method'],
+                            'mobile_money_number' => $validated['payment_phone'] ?? null,
+                            'transaction_id' => $transactionReference,
+                            'payment_reference' => $reference,
+                            'payment_date' => now()->toDateString(),
+                            'payment_notes' => ($validated['notes'] ?? '') . ' - ' . ucfirst($type) . ' payment from Kashtre',
+                            'status' => $paymentStatus,
+                        ];
+                        
+                        $paymentResponse = $apiService->createPaymentResponsibilityPayment($paymentData);
+                        
+                        if ($paymentResponse && isset($paymentResponse['success']) && $paymentResponse['success']) {
+                            \Illuminate\Support\Facades\Log::info('Payment created in third-party system', [
+                                'payment_id' => $paymentResponse['data']['payment']['id'] ?? null,
+                                'reference' => $reference,
+                                'transaction_id' => $paymentResponse['data']['transaction_id'] ?? null,
+                            ]);
+                        } else {
+                            \Illuminate\Support\Facades\Log::warning('Failed to create payment in third-party system', [
+                                'response' => $paymentResponse,
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::error('Error creating payment in third-party system', [
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString(),
+                        ]);
+                        // Don't fail the entire transaction if third-party API fails
+                    }
+                }
+            }
+            
+            \Illuminate\Support\Facades\DB::commit();
+
+            return redirect()->route('pos.item-selection', $client)
+                ->with('success', ucfirst($type) . ' payment of UGX ' . number_format($paymentAmount, 2) . ' processed successfully.');
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            
+            \Illuminate\Support\Facades\Log::error('Error processing payment responsibility payment', [
+                'client_id' => $client->id,
+                'type' => $type,
+                'amount' => $paymentAmount,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return redirect()->back()
+                ->with('error', 'Failed to process payment: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
 }

@@ -119,4 +119,38 @@ class ThirdPartyPayerBalanceHistory extends Model
             'payment_status' => 'pending_payment',
         ]);
     }
+
+    /**
+     * Record a credit transaction (payment received) for a third-party payer
+     */
+    public static function recordCredit($thirdPartyPayer, $amount, $description, $referenceNumber = null, $notes = null, $paymentMethod = null, $clientId = null, $invoiceId = null)
+    {
+        // Calculate previous balance from existing balance history records
+        $previousBalance = self::where('third_party_payer_id', $thirdPartyPayer->id)
+            ->orderBy('created_at', 'desc')
+            ->value('new_balance') ?? ($thirdPartyPayer->current_balance ?? 0);
+        
+        $newBalance = $previousBalance + $amount; // Credit to balance
+
+        // Update the third-party payer's current_balance
+        $thirdPartyPayer->update(['current_balance' => $newBalance]);
+
+        return self::create([
+            'third_party_payer_id' => $thirdPartyPayer->id,
+            'business_id' => $thirdPartyPayer->business_id,
+            'branch_id' => $thirdPartyPayer->business->branches()->first()?->id ?? null,
+            'invoice_id' => $invoiceId,
+            'client_id' => $clientId,
+            'user_id' => auth()->id() ?? 1,
+            'previous_balance' => $previousBalance,
+            'change_amount' => $amount, // Positive for credit
+            'new_balance' => $newBalance,
+            'transaction_type' => 'credit',
+            'description' => $description,
+            'reference_number' => $referenceNumber,
+            'notes' => $notes,
+            'payment_method' => $paymentMethod,
+            'payment_status' => 'paid',
+        ]);
+    }
 }

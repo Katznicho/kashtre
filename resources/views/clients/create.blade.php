@@ -1458,17 +1458,41 @@
                 policyVerificationResult.innerHTML = '<p class="text-sm text-blue-600">Verifying policy number...</p>';
 
                 try {
-                    // Collect name and DOB from form for tolerance-based verification
-                    const surnameInput = document.querySelector('input[name="surname"]');
-                    const firstNameInput = document.querySelector('input[name="first_name"]');
-                    const otherNamesInput = document.querySelector('input[name="other_names"]');
-                    const dobInput = document.querySelector('input[name="date_of_birth"]');
-                    
-                    const fullName = [surnameInput?.value, firstNameInput?.value, otherNamesInput?.value]
-                        .filter(v => v && v.trim())
-                        .join(' ')
-                        .trim();
-                    const dateOfBirth = dobInput?.value || null;
+                // Collect name and DOB from form for tolerance-based verification
+                const surnameInput = document.querySelector('input[name="surname"]');
+                const firstNameInput = document.querySelector('input[name="first_name"]');
+                const otherNamesInput = document.querySelector('input[name="other_names"]');
+                const dobInput = document.querySelector('input[name="date_of_birth"]');
+                
+                // Build full name - clean any consultation/extra text but keep legitimate names
+                const nameParts = [];
+                if (surnameInput?.value?.trim()) {
+                    let surname = surnameInput.value.trim();
+                    // Remove common consultation text patterns
+                    surname = surname.replace(/\s*(Consultation|Dr|KG|First|Post-op|review|\(0PU\)|\(.*?\))\s*/gi, '').trim();
+                    // Take first 2 words max (to handle cases like "JOHN DOE" but avoid extra text)
+                    const surnameWords = surname.split(/\s+/).slice(0, 2);
+                    nameParts.push(...surnameWords);
+                }
+                if (firstNameInput?.value?.trim()) {
+                    let firstName = firstNameInput.value.trim();
+                    // Remove common consultation text patterns
+                    firstName = firstName.replace(/\s*(Consultation|Dr|KG|First|Post-op|review|\(0PU\)|\(.*?\))\s*/gi, '').trim();
+                    // Take first 2 words max
+                    const firstNameWords = firstName.split(/\s+/).slice(0, 2);
+                    nameParts.push(...firstNameWords);
+                }
+                if (otherNamesInput?.value?.trim()) {
+                    let otherNames = otherNamesInput.value.trim();
+                    // Remove common consultation text patterns
+                    otherNames = otherNames.replace(/\s*(Consultation|Dr|KG|First|Post-op|review|\(0PU\)|\(.*?\))\s*/gi, '').trim();
+                    // Take first 2 words max
+                    const otherNamesWords = otherNames.split(/\s+/).slice(0, 2);
+                    nameParts.push(...otherNamesWords);
+                }
+                
+                const fullName = nameParts.filter(p => p && p.length > 0).join(' ').trim();
+                const dateOfBirth = dobInput?.value || null;
                     
                     // Build URL with query parameters if name or DOB are available
                     let url = `/api/policies/verify/${insuranceCompanyId}/${encodeURIComponent(policyNumber)}`;
@@ -1487,14 +1511,16 @@
                     const response = await fetch(url);
                     const data = await response.json();
 
-                    // Check if response was successful but verification was rejected
-                    if (response.status === 422 && data.success === false) {
+                    // Check if response indicates verification failure (policy found but rejected)
+                    if ((response.status === 422 || (data.success === false && data.exists === true && data.verification_status === 'rejected'))) {
                         // Verification rejected due to name/DOB mismatch
                         let errorDetails = '';
                         if (data.errors && Array.isArray(data.errors)) {
-                            errorDetails = '<ul class="list-disc list-inside mt-2 space-y-1">' + 
-                                data.errors.map(err => `<li class="text-xs text-red-600">${err}</li>`).join('') + 
-                                '</ul>';
+                            errorDetails = '<div class="mt-2 pt-2 border-t border-red-300"><p class="text-xs font-semibold text-red-800 mb-1">Details:</p><ul class="list-disc list-inside space-y-1">' + 
+                                data.errors.map(err => `<li class="text-xs text-red-700">${err}</li>`).join('') + 
+                                '</ul></div>';
+                        } else if (data.message) {
+                            errorDetails = `<div class="mt-2 pt-2 border-t border-red-300"><p class="text-xs text-red-700">${data.message}</p></div>`;
                         }
                         
                         policyVerificationResult.innerHTML = `
@@ -1505,16 +1531,20 @@
                                     </svg>
                                 </button>
                                 <p class="text-sm font-medium text-red-800">✗ Verification Failed</p>
-                                <p class="text-xs text-red-700 mt-1 font-semibold">${data.message || 'Policy number found, but verification failed.'}</p>
+                                <p class="text-xs text-red-700 mt-1 font-semibold">Policy number found, but verification failed.</p>
                                 ${errorDetails}
+                                <p class="text-xs text-red-600 mt-3 font-medium">Try alternative verification methods below:</p>
                             </div>
                         `;
                         policyNumberInput.classList.remove('border-green-300');
                         policyNumberInput.classList.add('border-red-300');
                         document.getElementById('policy_verified').value = '0';
-                        // Scroll to error message
-                        policyVerificationResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    } else if (data.success && data.exists) {
+                        
+                        // Show alternative verification options below the error
+                        setTimeout(() => {
+                            showAlternativeVerificationOptions(insuranceCompanyId, policyNumber);
+                        }, 100);
+                    } else if (data.success && data.exists && data.verification_status !== 'rejected') {
                         const method = data.verification_method || 'policy_number';
                         const methodLabel = method === 'policy_number' ? 'Policy Number' : method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
                         const verificationStatus = data.verification_status || 'verified';
@@ -1584,9 +1614,18 @@
                             policyNumberInput.classList.add('border-green-300');
                             document.getElementById('policy_verified').value = '1';
                         }
-                    } else {
-                        // Policy number not found
-                        let errorMessage = data.message || 'Policy number not found or inactive.';
+                    } else if ((response.status === 422 || response.status === 400) && data.success === false && data.exists === true) {
+                        // Policy found but verification rejected (name/DOB mismatch)
+                        let errorMessage = data.message || 'Policy number found, but verification failed.';
+                        let errorDetails = '';
+                        
+                        if (data.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+                            errorDetails = '<div class="mt-3 pt-3 border-t border-red-300"><p class="text-xs font-semibold text-red-800 mb-2">Verification Errors:</p><ul class="list-disc list-inside space-y-1">' + 
+                                data.errors.map(err => `<li class="text-xs text-red-700">${err}</li>`).join('') + 
+                                '</ul></div>';
+                        } else if (data.message && data.message !== errorMessage) {
+                            errorDetails = `<div class="mt-3 pt-3 border-t border-red-300"><p class="text-xs text-red-700">${data.message}</p></div>`;
+                        }
                         
                         policyVerificationResult.innerHTML = `
                             <div class="p-3 bg-red-50 border border-red-200 rounded-lg relative">
@@ -1595,16 +1634,26 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                     </svg>
                                 </button>
-                                <p class="text-sm font-medium text-red-800">✗ Policy Not Found</p>
-                                <p class="text-xs text-red-700 mt-1">${errorMessage}</p>
-                                <p class="text-xs text-red-600 mt-2">Please check the policy number and try again.</p>
+                                <p class="text-sm font-medium text-red-800">✗ Verification Failed</p>
+                                <p class="text-xs text-red-700 mt-1 font-semibold">Policy number found, but verification failed.</p>
+                                ${errorDetails}
+                                <p class="text-xs text-red-600 mt-3 font-medium">Try alternative verification methods below:</p>
                             </div>
                         `;
                         policyNumberInput.classList.remove('border-green-300');
                         policyNumberInput.classList.add('border-red-300');
                         document.getElementById('policy_verified').value = '0';
-                        // Scroll to error message
-                        policyVerificationResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        
+                        // Show alternative verification options below the error
+                        setTimeout(() => {
+                            showAlternativeVerificationOptions(insuranceCompanyId, policyNumber);
+                        }, 100);
+                    } else if (data.success === false && data.exists === false) {
+                        // Policy number not found - show alternative verification options
+                        let errorMessage = data.message || 'Policy number not found or inactive.';
+                        
+                        // Automatically show alternative verification options
+                        showAlternativeVerificationOptions(insuranceCompanyId, policyNumber);
                     }
                 } catch (error) {
                     console.error('Verification error:', error);
@@ -1769,87 +1818,61 @@
                 const phoneInput = document.querySelector('input[name="phone_number"]');
                 const emailInput = document.querySelector('input[name="email"]');
 
-                // Handle Phone and Email with OTP verification
-                if (method === 'phone') {
-                    // Always ask for phone number first
-                    const { value: phone } = await Swal.fire({
-                        icon: 'info',
-                        title: 'Enter Phone Number',
-                        html: `
-                            <p class="mb-4 text-sm text-gray-600">Please enter the phone number you registered with your insurance company to receive the OTP:</p>
-                        `,
-                        input: 'tel',
-                        inputLabel: 'Phone Number',
-                        inputPlaceholder: 'e.g., 0759983853 or +256759983853',
-                        showCancelButton: true,
-                        confirmButtonText: 'Send OTP',
-                        cancelButtonText: 'Cancel',
-                        confirmButtonColor: '#3b82f6',
-                        cancelButtonColor: '#6b7280',
-                        inputValidator: (value) => {
-                            if (!value) {
-                                return 'Please enter a phone number';
-                            }
-                            if (value.length < 9) {
-                                return 'Please enter a valid phone number';
-                            }
-                        }
-                    });
-                    
-                    if (phone) {
-                        await sendPhoneOtpForVerification(phone, insuranceCompanyId, policyNumber);
-                    }
-                    return;
-                }
-                
-                if (method === 'email') {
-                    // Always ask for email first
-                    const { value: email } = await Swal.fire({
-                        icon: 'info',
-                        title: 'Enter Email Address',
-                        html: `
-                            <p class="mb-4 text-sm text-gray-600">Please enter the email address you registered with your insurance company to receive the OTP:</p>
-                        `,
-                        input: 'email',
-                        inputLabel: 'Email Address',
-                        inputPlaceholder: 'e.g., client@example.com',
-                        showCancelButton: true,
-                        confirmButtonText: 'Send OTP',
-                        cancelButtonText: 'Cancel',
-                        confirmButtonColor: '#3b82f6',
-                        cancelButtonColor: '#6b7280',
-                        inputValidator: (value) => {
-                            if (!value) {
-                                return 'Please enter an email address';
-                            }
-                            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-                                return 'Please enter a valid email address';
-                            }
-                        }
-                    });
-                    
-                    if (email) {
-                        await sendEmailOtpForVerification(email, insuranceCompanyId, policyNumber);
-                    }
-                    return;
-                }
 
-                // For other methods (name_dob, id_passport), use direct verification
                 const alternativeData = {};
                 
-                // Build full name
+                // Build full name (required) - clean consultation text but keep legitimate names
                 const nameParts = [];
-                if (surnameInput?.value) nameParts.push(surnameInput.value.trim());
-                if (firstNameInput?.value) nameParts.push(firstNameInput.value.trim());
-                if (otherNamesInput?.value) nameParts.push(otherNamesInput.value.trim());
-                if (nameParts.length > 0) {
-                    alternativeData.name = nameParts.join(' ');
+                if (surnameInput?.value?.trim()) {
+                    let surname = surnameInput.value.trim();
+                    // Remove common consultation text patterns
+                    surname = surname.replace(/\s*(Consultation|Dr|KG|First|Post-op|review|\(0PU\)|\(.*?\))\s*/gi, '').trim();
+                    // Take first 2 words max
+                    const surnameWords = surname.split(/\s+/).slice(0, 2);
+                    nameParts.push(...surnameWords);
                 }
+                if (firstNameInput?.value?.trim()) {
+                    let firstName = firstNameInput.value.trim();
+                    // Remove common consultation text patterns
+                    firstName = firstName.replace(/\s*(Consultation|Dr|KG|First|Post-op|review|\(0PU\)|\(.*?\))\s*/gi, '').trim();
+                    // Take first 2 words max
+                    const firstNameWords = firstName.split(/\s+/).slice(0, 2);
+                    nameParts.push(...firstNameWords);
+                }
+                if (otherNamesInput?.value?.trim()) {
+                    let otherNames = otherNamesInput.value.trim();
+                    // Remove common consultation text patterns
+                    otherNames = otherNames.replace(/\s*(Consultation|Dr|KG|First|Post-op|review|\(0PU\)|\(.*?\))\s*/gi, '').trim();
+                    // Take first 2 words max
+                    const otherNamesWords = otherNames.split(/\s+/).slice(0, 2);
+                    nameParts.push(...otherNamesWords);
+                }
+                
+                const cleanNameParts = nameParts.filter(p => p && p.length > 0);
+                if (cleanNameParts.length === 0) {
+                    policyVerificationResult.innerHTML = `
+                        <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <p class="text-sm font-medium text-red-800">✗ Missing Information</p>
+                            <p class="text-xs text-red-700 mt-1">Please fill in at least Surname or First Name.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                alternativeData.name = cleanNameParts.join(' ');
 
-                if (dobInput?.value) alternativeData.date_of_birth = dobInput.value;
-                if (ninInput?.value) alternativeData.id_passport_no = ninInput.value;
-                if (phoneInput?.value) alternativeData.phone = phoneInput.value;
-                if (emailInput?.value) alternativeData.email = emailInput.value;
+                // Date of birth (required)
+                if (!dobInput?.value) {
+                    policyVerificationResult.innerHTML = `
+                        <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <p class="text-sm font-medium text-red-800">✗ Missing Information</p>
+                            <p class="text-xs text-red-700 mt-1">Please fill in Date of Birth.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                alternativeData.date_of_birth = dobInput.value;
                 if (policyNumber) alternativeData.policy_number = policyNumber;
 
                 // Show loading state
