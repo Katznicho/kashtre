@@ -430,18 +430,36 @@ class ThirdPartyApiService
      *
      * @param int $insuranceCompanyId
      * @param string $policyNumber
+     * @param string|null $name Optional: Full name for tolerance-based verification
+     * @param string|null $dateOfBirth Optional: Date of birth for tolerance-based verification
      * @return array|null Returns policy data if exists, null otherwise
      */
-    public function verifyPolicyNumber(int $insuranceCompanyId, string $policyNumber): ?array
+    public function verifyPolicyNumber(int $insuranceCompanyId, string $policyNumber, ?string $name = null, ?string $dateOfBirth = null): ?array
     {
         try {
             Log::info('ThirdPartyApiService: Verifying policy number', [
                 'insurance_company_id' => $insuranceCompanyId,
                 'policy_number' => $policyNumber,
+                'has_name' => !empty($name),
+                'has_dob' => !empty($dateOfBirth),
             ]);
 
+            // Build query parameters if name or DOB are provided
+            $queryParams = [];
+            if ($name) {
+                $queryParams['name'] = $name;
+            }
+            if ($dateOfBirth) {
+                $queryParams['date_of_birth'] = $dateOfBirth;
+            }
+
+            $url = "{$this->baseUrl}/api/v1/policies/verify/{$insuranceCompanyId}/{$policyNumber}";
+            if (!empty($queryParams)) {
+                $url .= '?' . http_build_query($queryParams);
+            }
+
             $response = Http::timeout($this->timeout)
-                ->get("{$this->baseUrl}/api/v1/policies/verify/{$insuranceCompanyId}/{$policyNumber}");
+                ->get($url);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -450,9 +468,12 @@ class ThirdPartyApiService
                     'insurance_company_id' => $insuranceCompanyId,
                     'policy_number' => $policyNumber,
                     'exists' => $data['exists'] ?? false,
+                    'verification_status' => $data['verification_status'] ?? null,
+                    'has_warnings' => !empty($data['warnings']),
                 ]);
 
-                return $data['data'] ?? null;
+                // Return full response data including warnings and verification status
+                return $data;
             } else {
                 $error = $response->json();
                 Log::warning('ThirdPartyApiService: Policy number not found', [
@@ -620,6 +641,56 @@ class ThirdPartyApiService
             }
         } catch (Exception $e) {
             Log::error('ThirdPartyApiService: Exception while fetching insurance company settings', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Create client account in third-party system
+     *
+     * @param int $clientId Client ID in third-party system
+     * @param int $insuranceCompanyId Insurance company ID
+     * @return array|null Returns account data if successful, null otherwise
+     */
+    public function createClientAccount(int $clientId, int $insuranceCompanyId): ?array
+    {
+        try {
+            Log::info('ThirdPartyApiService: Creating client account', [
+                'client_id' => $clientId,
+                'insurance_company_id' => $insuranceCompanyId,
+            ]);
+
+            $response = Http::timeout($this->timeout)
+                ->post("{$this->baseUrl}/api/v1/clients/{$clientId}/account", [
+                    'insurance_company_id' => $insuranceCompanyId,
+                ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                Log::info('ThirdPartyApiService: Client account created successfully', [
+                    'client_id' => $clientId,
+                    'account_number' => $data['data']['account']['account_number'] ?? null,
+                ]);
+
+                return $data['data'] ?? null;
+            } else {
+                $error = $response->json();
+                Log::warning('ThirdPartyApiService: Failed to create client account', [
+                    'client_id' => $clientId,
+                    'status' => $response->status(),
+                    'error' => $error,
+                ]);
+
+                return null;
+            }
+        } catch (Exception $e) {
+            Log::error('ThirdPartyApiService: Exception while creating client account', [
+                'client_id' => $clientId,
                 'insurance_company_id' => $insuranceCompanyId,
                 'message' => $e->getMessage(),
             ]);

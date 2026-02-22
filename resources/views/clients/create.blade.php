@@ -1446,25 +1446,69 @@
                 policyVerificationResult.innerHTML = '<p class="text-sm text-blue-600">Verifying policy number...</p>';
 
                 try {
+                    // Collect name and DOB from form for tolerance-based verification
+                    const surnameInput = document.querySelector('input[name="surname"]');
+                    const firstNameInput = document.querySelector('input[name="first_name"]');
+                    const otherNamesInput = document.querySelector('input[name="other_names"]');
+                    const dobInput = document.querySelector('input[name="date_of_birth"]');
+                    
+                    const fullName = [surnameInput?.value, firstNameInput?.value, otherNamesInput?.value]
+                        .filter(v => v && v.trim())
+                        .join(' ')
+                        .trim();
+                    const dateOfBirth = dobInput?.value || null;
+                    
+                    // Build URL with query parameters if name or DOB are available
+                    let url = `/api/policies/verify/${insuranceCompanyId}/${encodeURIComponent(policyNumber)}`;
+                    const params = new URLSearchParams();
+                    if (fullName) {
+                        params.append('name', fullName);
+                    }
+                    if (dateOfBirth) {
+                        params.append('date_of_birth', dateOfBirth);
+                    }
+                    if (params.toString()) {
+                        url += '?' + params.toString();
+                    }
+                    
                     // First try policy number verification
-                    const response = await fetch(`/api/policies/verify/${insuranceCompanyId}/${encodeURIComponent(policyNumber)}`);
+                    const response = await fetch(url);
                     const data = await response.json();
 
                     if (data.success && data.exists) {
                         const method = data.verification_method || 'policy_number';
                         const methodLabel = method === 'policy_number' ? 'Policy Number' : method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                        const verificationStatus = data.verification_status || 'verified';
+                        
+                        // Determine message color based on verification status
+                        let statusColor = 'green';
+                        let statusIcon = '✓';
+                        if (verificationStatus === 'flagged') {
+                            statusColor = 'yellow';
+                            statusIcon = '⚠';
+                        } else if (verificationStatus === 'rejected') {
+                            statusColor = 'red';
+                            statusIcon = '✗';
+                        }
                         
                         policyVerificationResult.innerHTML = `
-                            <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
-                                <p class="text-sm font-medium text-green-800">✓ Verified successfully (${methodLabel})</p>
-                                <p class="text-xs text-green-700 mt-1">Policy holder: ${data.data?.principal_member_name || 'N/A'}</p>
-                                <p class="text-xs text-green-700">Status: ${data.data?.status || 'N/A'}</p>
+                            <div class="p-3 bg-${statusColor}-50 border border-${statusColor}-200 rounded-lg">
+                                <p class="text-sm font-medium text-${statusColor}-800">${statusIcon} ${verificationStatus === 'rejected' ? 'Verification rejected' : verificationStatus === 'flagged' ? 'Verification flagged for review' : 'Verified successfully'} (${methodLabel})</p>
+                                <p class="text-xs text-${statusColor}-700 mt-1">Policy holder: ${data.data?.principal_member_name || 'N/A'}</p>
+                                <p class="text-xs text-${statusColor}-700">Status: ${data.data?.status || 'N/A'}</p>
                                 ${data.warnings && data.warnings.length > 0 ? `<p class="text-xs text-yellow-700 mt-1">⚠ ${data.warnings.join(', ')}</p>` : ''}
                             </div>
                         `;
-                        policyNumberInput.classList.remove('border-red-300');
-                        policyNumberInput.classList.add('border-green-300');
-                        document.getElementById('policy_verified').value = '1';
+                        
+                        if (verificationStatus === 'rejected') {
+                            policyNumberInput.classList.remove('border-green-300');
+                            policyNumberInput.classList.add('border-red-300');
+                            document.getElementById('policy_verified').value = '0';
+                        } else {
+                            policyNumberInput.classList.remove('border-red-300');
+                            policyNumberInput.classList.add('border-green-300');
+                            document.getElementById('policy_verified').value = '1';
+                        }
                     } else {
                         // Policy number failed, show alternative verification options
                         showAlternativeVerificationOptions(insuranceCompanyId, policyNumber);

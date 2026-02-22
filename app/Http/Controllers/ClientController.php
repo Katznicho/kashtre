@@ -450,9 +450,45 @@ class ClientController extends Controller
             
             // Try policy number verification first if provided
             if (!empty($validated['policy_number'])) {
-                $policyData = $apiService->verifyPolicyNumber((int)$thirdPartyBusinessId, $validated['policy_number']);
-                if ($policyData) {
-                    $verificationMethod = 'policy_number';
+                // Build full name from available fields for tolerance-based verification
+                $fullName = trim(($validated['surname'] ?? '') . ' ' . ($validated['first_name'] ?? '') . ' ' . ($validated['other_names'] ?? ''));
+                $dateOfBirth = $validated['date_of_birth'] ?? null;
+                
+                $verificationResult = $apiService->verifyPolicyNumber(
+                    (int)$thirdPartyBusinessId, 
+                    $validated['policy_number'],
+                    !empty($fullName) ? $fullName : null,
+                    $dateOfBirth
+                );
+                
+                if ($verificationResult && isset($verificationResult['success']) && $verificationResult['success']) {
+                    $policyData = $verificationResult['data'] ?? null;
+                    $verificationMethod = $verificationResult['verification_method'] ?? 'policy_number';
+                    $verificationWarnings = $verificationResult['warnings'] ?? [];
+                    
+                    // If verification is flagged for review, log it but allow creation
+                    if (isset($verificationResult['verification_status']) && $verificationResult['verification_status'] === 'flagged') {
+                        Log::warning('Client verification flagged for review', [
+                            'insurance_company_id' => $validated['insurance_company_id'],
+                            'third_party_business_id' => $thirdPartyBusinessId,
+                            'verification_method' => $verificationMethod,
+                            'warnings' => $verificationWarnings,
+                        ]);
+                    }
+                    
+                    // If verification is rejected, return error
+                    if (isset($verificationResult['verification_status']) && $verificationResult['verification_status'] === 'rejected') {
+                        $errorMessage = $verificationResult['message'] ?? 'Policy number found, but name and date of birth do not match the registered client.';
+                        if (!empty($verificationWarnings)) {
+                            $errorMessage .= ' ' . implode(' ', $verificationWarnings);
+                        }
+                        
+                        return redirect()->back()
+                            ->withInput()
+                            ->withErrors([
+                                'policy_number' => $errorMessage,
+                            ]);
+                    }
                 }
             }
             
@@ -1927,16 +1963,37 @@ class ClientController extends Controller
             
             // Try policy number verification first if provided
             if ($policyNumber) {
-                $policyData = $apiService->verifyPolicyNumber((int)$insuranceCompanyId, $policyNumber);
+                // Get name and DOB from request for tolerance-based verification
+                $name = $request->input('name');
+                $dateOfBirth = $request->input('date_of_birth');
                 
-                if ($policyData) {
+                $verificationResult = $apiService->verifyPolicyNumber(
+                    (int)$insuranceCompanyId, 
+                    $policyNumber,
+                    $name,
+                    $dateOfBirth
+                );
+                
+                if ($verificationResult && isset($verificationResult['success']) && $verificationResult['success']) {
                     return response()->json([
                         'success' => true,
-                        'message' => 'Policy number verified',
+                        'message' => $verificationResult['message'] ?? 'Policy number verified',
                         'exists' => true,
-                        'verification_method' => 'policy_number',
-                        'data' => $policyData,
+                        'verification_method' => $verificationResult['verification_method'] ?? 'policy_number',
+                        'verification_status' => $verificationResult['verification_status'] ?? 'verified',
+                        'data' => $verificationResult['data'] ?? null,
+                        'warnings' => $verificationResult['warnings'] ?? [],
                     ], 200);
+                } elseif ($verificationResult && isset($verificationResult['success']) && !$verificationResult['success']) {
+                    // Policy number found but verification rejected due to name/DOB mismatch
+                    return response()->json([
+                        'success' => false,
+                        'message' => $verificationResult['message'] ?? 'Policy number found, but name and date of birth do not match.',
+                        'exists' => $verificationResult['exists'] ?? true,
+                        'verification_status' => $verificationResult['verification_status'] ?? 'rejected',
+                        'mismatches' => $verificationResult['mismatches'] ?? [],
+                        'details' => $verificationResult['details'] ?? [],
+                    ], 422);
                 }
             }
             
