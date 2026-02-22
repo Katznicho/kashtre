@@ -1393,7 +1393,13 @@
                     policyNumberSection.style.display = 'none';
                     if (insuranceCompanySelect) insuranceCompanySelect.value = '';
                     if (policyNumberInput) policyNumberInput.value = '';
-                    if (policyVerificationResult) policyVerificationResult.innerHTML = '';
+                    // Only clear verification result if it's not showing an error
+                    if (policyVerificationResult) {
+                        const hasError = policyVerificationResult.querySelector('.bg-red-50, .bg-yellow-50');
+                        if (!hasError) {
+                            policyVerificationResult.innerHTML = '';
+                        }
+                    }
                     toggleFallbackWarning();
                 }
             }
@@ -1413,7 +1419,13 @@
                 } else {
                     policyNumberSection.style.display = 'none';
                     if (policyNumberInput) policyNumberInput.value = '';
-                    if (policyVerificationResult) policyVerificationResult.innerHTML = '';
+                    // Only clear verification result if it's not showing an error
+                    if (policyVerificationResult) {
+                        const hasError = policyVerificationResult.querySelector('.bg-red-50, .bg-yellow-50');
+                        if (!hasError) {
+                            policyVerificationResult.innerHTML = '';
+                        }
+                    }
                 }
             }
 
@@ -1475,7 +1487,34 @@
                     const response = await fetch(url);
                     const data = await response.json();
 
-                    if (data.success && data.exists) {
+                    // Check if response was successful but verification was rejected
+                    if (response.status === 422 && data.success === false) {
+                        // Verification rejected due to name/DOB mismatch
+                        let errorDetails = '';
+                        if (data.errors && Array.isArray(data.errors)) {
+                            errorDetails = '<ul class="list-disc list-inside mt-2 space-y-1">' + 
+                                data.errors.map(err => `<li class="text-xs text-red-600">${err}</li>`).join('') + 
+                                '</ul>';
+                        }
+                        
+                        policyVerificationResult.innerHTML = `
+                            <div class="p-3 bg-red-50 border border-red-200 rounded-lg relative">
+                                <button type="button" onclick="this.parentElement.remove()" class="absolute top-2 right-2 text-red-400 hover:text-red-600" title="Dismiss">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                                <p class="text-sm font-medium text-red-800">✗ Verification Failed</p>
+                                <p class="text-xs text-red-700 mt-1 font-semibold">${data.message || 'Policy number found, but verification failed.'}</p>
+                                ${errorDetails}
+                            </div>
+                        `;
+                        policyNumberInput.classList.remove('border-green-300');
+                        policyNumberInput.classList.add('border-red-300');
+                        document.getElementById('policy_verified').value = '0';
+                        // Scroll to error message
+                        policyVerificationResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    } else if (data.success && data.exists) {
                         const method = data.verification_method || 'policy_number';
                         const methodLabel = method === 'policy_number' ? 'Policy Number' : method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
                         const verificationStatus = data.verification_status || 'verified';
@@ -1491,12 +1530,48 @@
                             statusIcon = '✗';
                         }
                         
+                        // Build payment responsibility information display
+                        const paymentInfo = data.data?.payment_responsibility;
+                        let paymentInfoHtml = '';
+                        
+                        if (paymentInfo) {
+                            paymentInfoHtml = '<div class="mt-3 pt-3 border-t border-' + statusColor + '-300">';
+                            paymentInfoHtml += '<p class="text-xs font-semibold text-' + statusColor + '-800 mb-2">Payment Responsibility:</p>';
+                            
+                            // Deductible
+                            if (paymentInfo.has_deductible && paymentInfo.deductible_amount) {
+                                paymentInfoHtml += `<div class="mb-2">
+                                    <p class="text-xs font-medium text-${statusColor}-700">Deductible: UGX ${parseFloat(paymentInfo.deductible_amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                    <p class="text-xs text-gray-600 mt-0.5">Amount client must pay before insurance coverage begins</p>
+                                </div>`;
+                            }
+                            
+                            // Co-pay
+                            if (paymentInfo.copay_amount) {
+                                paymentInfoHtml += `<div class="mb-2">
+                                    <p class="text-xs font-medium text-${statusColor}-700">Co-pay: UGX ${parseFloat(paymentInfo.copay_amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} per visit</p>
+                                    <p class="text-xs text-gray-600 mt-0.5">Fixed amount payable at each visit</p>
+                                </div>`;
+                            }
+                            
+                            // Co-insurance
+                            if (paymentInfo.coinsurance_percentage) {
+                                paymentInfoHtml += `<div class="mb-2">
+                                    <p class="text-xs font-medium text-${statusColor}-700">Co-insurance: ${parseFloat(paymentInfo.coinsurance_percentage).toFixed(2)}%</p>
+                                    <p class="text-xs text-gray-600 mt-0.5">Percentage of invoice amount paid by client</p>
+                                </div>`;
+                            }
+                            
+                            paymentInfoHtml += '</div>';
+                        }
+                        
                         policyVerificationResult.innerHTML = `
                             <div class="p-3 bg-${statusColor}-50 border border-${statusColor}-200 rounded-lg">
                                 <p class="text-sm font-medium text-${statusColor}-800">${statusIcon} ${verificationStatus === 'rejected' ? 'Verification rejected' : verificationStatus === 'flagged' ? 'Verification flagged for review' : 'Verified successfully'} (${methodLabel})</p>
                                 <p class="text-xs text-${statusColor}-700 mt-1">Policy holder: ${data.data?.principal_member_name || 'N/A'}</p>
                                 <p class="text-xs text-${statusColor}-700">Status: ${data.data?.status || 'N/A'}</p>
                                 ${data.warnings && data.warnings.length > 0 ? `<p class="text-xs text-yellow-700 mt-1">⚠ ${data.warnings.join(', ')}</p>` : ''}
+                                ${paymentInfoHtml}
                             </div>
                         `;
                         
@@ -1510,17 +1585,55 @@
                             document.getElementById('policy_verified').value = '1';
                         }
                     } else {
-                        // Policy number failed, show alternative verification options
-                        showAlternativeVerificationOptions(insuranceCompanyId, policyNumber);
+                        // Policy number not found
+                        let errorMessage = data.message || 'Policy number not found or inactive.';
+                        
+                        policyVerificationResult.innerHTML = `
+                            <div class="p-3 bg-red-50 border border-red-200 rounded-lg relative">
+                                <button type="button" onclick="this.parentElement.remove()" class="absolute top-2 right-2 text-red-400 hover:text-red-600" title="Dismiss">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                                <p class="text-sm font-medium text-red-800">✗ Policy Not Found</p>
+                                <p class="text-xs text-red-700 mt-1">${errorMessage}</p>
+                                <p class="text-xs text-red-600 mt-2">Please check the policy number and try again.</p>
+                            </div>
+                        `;
+                        policyNumberInput.classList.remove('border-green-300');
+                        policyNumberInput.classList.add('border-red-300');
+                        document.getElementById('policy_verified').value = '0';
+                        // Scroll to error message
+                        policyVerificationResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     }
                 } catch (error) {
                     console.error('Verification error:', error);
+                    let errorMessage = 'Unable to verify. Please try again later.';
+                    if (error.message) {
+                        errorMessage = error.message;
+                    }
+                    
                     policyVerificationResult.innerHTML = `
-                        <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <p class="text-sm font-medium text-yellow-800">⚠ Verification failed</p>
-                            <p class="text-xs text-yellow-700 mt-1">Unable to verify. Please try again later.</p>
+                        <div class="p-3 bg-red-50 border border-red-200 rounded-lg relative">
+                            <button type="button" onclick="this.parentElement.remove()" class="absolute top-2 right-2 text-red-400 hover:text-red-600" title="Dismiss">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                            <p class="text-sm font-medium text-red-800">✗ Verification Error</p>
+                            <p class="text-xs text-red-700 mt-1 font-semibold">${errorMessage}</p>
+                            <p class="text-xs text-red-600 mt-2">Please check your connection and try again. If the problem persists, contact support.</p>
+                            <button type="button" onclick="showAlternativeVerificationOptions('${insuranceCompanyId}', '${policyNumber || ''}')" 
+                                    class="mt-3 text-xs text-blue-600 hover:text-blue-800 underline">
+                                Try alternative verification method
+                            </button>
                         </div>
                     `;
+                    policyNumberInput.classList.remove('border-green-300');
+                    policyNumberInput.classList.add('border-red-300');
+                    document.getElementById('policy_verified').value = '0';
+                    // Scroll to error message
+                    policyVerificationResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 } finally {
                     verifyPolicyBtn.disabled = false;
                     verifyPolicyBtn.textContent = 'Verify';
@@ -1762,6 +1875,42 @@
                     if (data.success && data.exists) {
                         const methodLabel = data.verification_method ? data.verification_method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
                         const statusLabel = data.verification_status === 'flagged' ? ' (Flagged for Review)' : '';
+                        const statusColor = data.verification_status === 'flagged' ? 'yellow' : 'green';
+                        
+                        // Build payment responsibility information display
+                        const paymentInfo = data.data?.payment_responsibility;
+                        let paymentInfoHtml = '';
+                        
+                        if (paymentInfo) {
+                            paymentInfoHtml = '<div class="mt-3 pt-3 border-t border-' + statusColor + '-300">';
+                            paymentInfoHtml += '<p class="text-xs font-semibold text-' + statusColor + '-800 mb-2">Payment Responsibility:</p>';
+                            
+                            // Deductible
+                            if (paymentInfo.has_deductible && paymentInfo.deductible_amount) {
+                                paymentInfoHtml += `<div class="mb-2">
+                                    <p class="text-xs font-medium text-${statusColor}-700">Deductible: UGX ${parseFloat(paymentInfo.deductible_amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                    <p class="text-xs text-gray-600 mt-0.5">Amount client must pay before insurance coverage begins</p>
+                                </div>`;
+                            }
+                            
+                            // Co-pay
+                            if (paymentInfo.copay_amount) {
+                                paymentInfoHtml += `<div class="mb-2">
+                                    <p class="text-xs font-medium text-${statusColor}-700">Co-pay: UGX ${parseFloat(paymentInfo.copay_amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} per visit</p>
+                                    <p class="text-xs text-gray-600 mt-0.5">Fixed amount payable at each visit</p>
+                                </div>`;
+                            }
+                            
+                            // Co-insurance
+                            if (paymentInfo.coinsurance_percentage) {
+                                paymentInfoHtml += `<div class="mb-2">
+                                    <p class="text-xs font-medium text-${statusColor}-700">Co-insurance: ${parseFloat(paymentInfo.coinsurance_percentage).toFixed(2)}%</p>
+                                    <p class="text-xs text-gray-600 mt-0.5">Percentage of invoice amount paid by client</p>
+                                </div>`;
+                            }
+                            
+                            paymentInfoHtml += '</div>';
+                        }
                         
                         policyVerificationResult.innerHTML = `
                             <div class="p-3 ${data.verification_status === 'flagged' ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'} border rounded-lg">
@@ -1772,37 +1921,83 @@
                                     Policy holder: ${data.data?.principal_member_name || 'N/A'}
                                 </p>
                                 ${data.warnings && data.warnings.length > 0 ? `<p class="text-xs text-yellow-700 mt-1">⚠ ${data.warnings.join(', ')}</p>` : ''}
+                                ${paymentInfoHtml}
                             </div>
                         `;
                         policyNumberInput.classList.remove('border-red-300');
                         policyNumberInput.classList.add(data.verification_status === 'flagged' ? 'border-yellow-300' : 'border-green-300');
                         document.getElementById('policy_verified').value = '1';
                     } else {
+                        // Verification failed - show detailed error
+                        let errorMessage = data.message || 'Unable to verify using provided information.';
+                        let errorDetails = '';
+                        
+                        if (data.mismatches && Array.isArray(data.mismatches)) {
+                            errorDetails = '<p class="text-xs text-red-600 mt-2 font-semibold">Mismatches detected:</p><ul class="list-disc list-inside mt-1 space-y-1">' + 
+                                data.mismatches.map(m => `<li class="text-xs text-red-600">${m}</li>`).join('') + 
+                                '</ul>';
+                        }
+                        
+                        if (data.details && Array.isArray(data.details)) {
+                            errorDetails += '<div class="mt-2"><p class="text-xs text-red-600 font-semibold">Details:</p><ul class="list-disc list-inside mt-1 space-y-1">' + 
+                                data.details.map(d => `<li class="text-xs text-red-600">${d}</li>`).join('') + 
+                                '</ul></div>';
+                        } else if (data.warnings && Array.isArray(data.warnings)) {
+                            errorDetails += '<div class="mt-2"><p class="text-xs text-yellow-700 font-semibold">Warnings:</p><ul class="list-disc list-inside mt-1 space-y-1">' + 
+                                data.warnings.map(w => `<li class="text-xs text-yellow-600">${w}</li>`).join('') + 
+                                '</ul></div>';
+                        }
+                        
                         policyVerificationResult.innerHTML = `
-                            <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
-                                <p class="text-sm font-medium text-red-800">✗ Verification failed</p>
-                                <p class="text-xs text-red-700 mt-1">${data.message || 'Unable to verify using provided information. Please check your details and try again.'}</p>
-                                <button type="button" data-show-alternatives="true" data-insurance-id="${insuranceCompanyId}" data-policy-number="${policyNumber || ''}" 
-                                        class="show-alternatives-btn mt-2 text-xs text-blue-600 hover:text-blue-800 underline">
+                            <div class="p-3 bg-red-50 border border-red-200 rounded-lg relative">
+                                <button type="button" onclick="this.parentElement.remove()" class="absolute top-2 right-2 text-red-400 hover:text-red-600" title="Dismiss">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                                <p class="text-sm font-medium text-red-800">✗ Verification Failed</p>
+                                <p class="text-xs text-red-700 mt-1 font-semibold">${errorMessage}</p>
+                                ${errorDetails}
+                                <button type="button" onclick="showAlternativeVerificationOptions('${insuranceCompanyId}', '${policyNumber || ''}')" 
+                                        class="mt-3 text-xs text-blue-600 hover:text-blue-800 underline">
                                     Try another method
                                 </button>
                             </div>
                         `;
                         policyNumberInput.classList.remove('border-green-300');
                         policyNumberInput.classList.add('border-red-300');
+                        document.getElementById('policy_verified').value = '0';
+                        // Scroll to error message
+                        policyVerificationResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     }
                 } catch (error) {
                     console.error('Alternative verification error:', error);
+                    let errorMessage = 'Unable to verify. Please try again later.';
+                    if (error.message) {
+                        errorMessage = error.message;
+                    }
+                    
                     policyVerificationResult.innerHTML = `
-                        <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <p class="text-sm font-medium text-yellow-800">⚠ Verification failed</p>
-                            <p class="text-xs text-yellow-700 mt-1">Unable to verify. Please try again later.</p>
-                            <button type="button" data-show-alternatives="true" data-insurance-id="${insuranceCompanyId}" data-policy-number="${policyNumber || ''}" 
-                                    class="show-alternatives-btn mt-2 text-xs text-blue-600 hover:text-blue-800 underline">
+                        <div class="p-3 bg-red-50 border border-red-200 rounded-lg relative">
+                            <button type="button" onclick="this.parentElement.remove()" class="absolute top-2 right-2 text-red-400 hover:text-red-600" title="Dismiss">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                            <p class="text-sm font-medium text-red-800">✗ Verification Error</p>
+                            <p class="text-xs text-red-700 mt-1 font-semibold">${errorMessage}</p>
+                            <p class="text-xs text-red-600 mt-2">Please check your connection and try again. If the problem persists, contact support.</p>
+                            <button type="button" onclick="showAlternativeVerificationOptions('${insuranceCompanyId}', '${policyNumber || ''}')" 
+                                    class="mt-3 text-xs text-blue-600 hover:text-blue-800 underline">
                                 Try another method
                             </button>
                         </div>
                     `;
+                    policyNumberInput.classList.remove('border-green-300');
+                    policyNumberInput.classList.add('border-red-300');
+                    document.getElementById('policy_verified').value = '0';
+                    // Scroll to error message
+                    policyVerificationResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             }
             

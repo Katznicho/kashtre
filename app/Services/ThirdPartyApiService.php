@@ -437,11 +437,13 @@ class ThirdPartyApiService
     public function verifyPolicyNumber(int $insuranceCompanyId, string $policyNumber, ?string $name = null, ?string $dateOfBirth = null): ?array
     {
         try {
-            Log::info('ThirdPartyApiService: Verifying policy number', [
+            Log::info('=== Kashtre: verifyPolicyNumber START ===', [
                 'insurance_company_id' => $insuranceCompanyId,
                 'policy_number' => $policyNumber,
                 'has_name' => !empty($name),
                 'has_dob' => !empty($dateOfBirth),
+                'name' => $name,
+                'date_of_birth' => $dateOfBirth,
             ]);
 
             // Build query parameters if name or DOB are provided
@@ -458,95 +460,143 @@ class ThirdPartyApiService
                 $url .= '?' . http_build_query($queryParams);
             }
 
+            Log::info('Kashtre: Sending API request', [
+                'url' => $url,
+                'method' => 'GET',
+                'query_params' => $queryParams,
+            ]);
+
             $response = Http::timeout($this->timeout)
                 ->get($url);
+
+            Log::info('Kashtre: Received API response', [
+                'status_code' => $response->status(),
+                'response_headers' => $response->headers(),
+            ]);
 
             if ($response->successful()) {
                 $data = $response->json();
                 
-                Log::info('ThirdPartyApiService: Policy number verified', [
+                Log::info('Kashtre: Policy number verified - SUCCESS', [
                     'insurance_company_id' => $insuranceCompanyId,
                     'policy_number' => $policyNumber,
+                    'response_status_code' => $response->status(),
+                    'response_data' => $data,
                     'exists' => $data['exists'] ?? false,
                     'verification_status' => $data['verification_status'] ?? null,
+                    'verification_method' => $data['verification_method'] ?? null,
                     'has_warnings' => !empty($data['warnings']),
+                    'warnings' => $data['warnings'] ?? [],
                 ]);
 
                 // Return full response data including warnings and verification status
                 return $data;
             } else {
                 $error = $response->json();
-                Log::warning('ThirdPartyApiService: Policy number not found', [
+                Log::warning('Kashtre: Policy number verification FAILED', [
                     'insurance_company_id' => $insuranceCompanyId,
                     'policy_number' => $policyNumber,
-                    'status' => $response->status(),
-                    'error' => $error,
+                    'response_status_code' => $response->status(),
+                    'response_body' => $response->body(),
+                    'response_data' => $error,
                 ]);
 
                 return null;
             }
         } catch (Exception $e) {
-            Log::error('ThirdPartyApiService: Exception while verifying policy number', [
+            Log::error('Kashtre: Exception while verifying policy number', [
                 'insurance_company_id' => $insuranceCompanyId,
                 'policy_number' => $policyNumber,
                 'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return null;
+        } finally {
+            Log::info('=== Kashtre: verifyPolicyNumber END ===');
         }
     }
 
     /**
-     * Verify client identity using alternative methods when policy number fails
+     * Verify client identity using name and date of birth (alternative verification)
      *
      * @param int $insuranceCompanyId
-     * @param array $verificationData Array containing: name, date_of_birth, id_passport_no, phone, email, visit_id
+     * @param array $verificationData Array containing: name, date_of_birth
      * @return array|null Returns verification result with policy data if verified, null otherwise
      */
     public function verifyAlternativeIdentity(int $insuranceCompanyId, array $verificationData): ?array
     {
         try {
-            Log::info('ThirdPartyApiService: Attempting alternative identity verification', [
+            // Only send name and date_of_birth (remove visit_id and other fields)
+            $data = [
+                'name' => $verificationData['name'] ?? null,
+                'date_of_birth' => $verificationData['date_of_birth'] ?? null,
+            ];
+            
+            // Remove null values
+            $data = array_filter($data, function($value) {
+                return $value !== null && $value !== '';
+            });
+            
+            Log::info('=== Kashtre: verifyAlternativeIdentity START ===', [
                 'insurance_company_id' => $insuranceCompanyId,
-                'has_name' => !empty($verificationData['name']),
-                'has_dob' => !empty($verificationData['date_of_birth']),
-                'has_id' => !empty($verificationData['id_passport_no']),
-                'has_phone' => !empty($verificationData['phone']),
-                'has_email' => !empty($verificationData['email']),
-                'has_visit_id' => !empty($verificationData['visit_id']),
+                'original_verification_data' => $verificationData,
+                'filtered_data' => $data,
+                'has_name' => !empty($data['name']),
+                'has_dob' => !empty($data['date_of_birth']),
+            ]);
+
+            $url = "{$this->baseUrl}/api/v1/policies/verify/{$insuranceCompanyId}";
+            
+            Log::info('Kashtre: Sending alternative verification API request', [
+                'url' => $url,
+                'method' => 'POST',
+                'payload' => $data,
             ]);
 
             $response = Http::timeout($this->timeout)
-                ->post("{$this->baseUrl}/api/v1/policies/verify/{$insuranceCompanyId}", $verificationData);
+                ->post($url, $data);
+            
+            Log::info('Kashtre: Received alternative verification API response', [
+                'status_code' => $response->status(),
+                'response_headers' => $response->headers(),
+            ]);
 
             if ($response->successful()) {
-                $data = $response->json();
+                $responseData = $response->json();
                 
-                Log::info('ThirdPartyApiService: Alternative verification successful', [
+                Log::info('Kashtre: Alternative verification SUCCESS', [
                     'insurance_company_id' => $insuranceCompanyId,
-                    'verification_method' => $data['verification_method'] ?? null,
-                    'verification_status' => $data['verification_status'] ?? null,
-                    'exists' => $data['exists'] ?? false,
+                    'response_status_code' => $response->status(),
+                    'response_data' => $responseData,
+                    'verification_method' => $responseData['verification_method'] ?? null,
+                    'verification_status' => $responseData['verification_status'] ?? null,
+                    'exists' => $responseData['exists'] ?? false,
+                    'warnings' => $responseData['warnings'] ?? [],
                 ]);
 
-                return $data;
+                return $responseData;
             } else {
                 $error = $response->json();
-                Log::warning('ThirdPartyApiService: Alternative verification failed', [
+                Log::warning('Kashtre: Alternative verification FAILED', [
                     'insurance_company_id' => $insuranceCompanyId,
-                    'status' => $response->status(),
-                    'error' => $error,
+                    'response_status_code' => $response->status(),
+                    'response_body' => $response->body(),
+                    'response_data' => $error,
                 ]);
 
                 return $error;
             }
         } catch (Exception $e) {
-            Log::error('ThirdPartyApiService: Exception while verifying alternative identity', [
+            Log::error('Kashtre: Exception while verifying alternative identity', [
                 'insurance_company_id' => $insuranceCompanyId,
                 'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return null;
+        } finally {
+            Log::info('=== Kashtre: verifyAlternativeIdentity END ===');
         }
     }
 

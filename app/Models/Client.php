@@ -56,6 +56,14 @@ class Client extends Model
         'excluded_items',
         'insurance_company_id',
         'policy_number',
+        // Payment responsibility fields
+        'has_deductible',
+        'deductible_amount',
+        'copay_amount',
+        'coinsurance_percentage',
+        'copay_max_limit',
+        'copay_contributes_to_deductible',
+        'coinsurance_contributes_to_deductible',
     ];
 
     protected $casts = [
@@ -66,6 +74,13 @@ class Client extends Model
         'is_credit_eligible' => 'boolean',
         'is_long_stay' => 'boolean',
         'excluded_items' => 'array',
+        'has_deductible' => 'boolean',
+        'deductible_amount' => 'decimal:2',
+        'copay_amount' => 'decimal:2',
+        'coinsurance_percentage' => 'decimal:2',
+        'copay_max_limit' => 'decimal:2',
+        'copay_contributes_to_deductible' => 'boolean',
+        'coinsurance_contributes_to_deductible' => 'boolean',
     ];
 
     protected static function booted()

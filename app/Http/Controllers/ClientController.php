@@ -421,6 +421,9 @@ class ClientController extends Controller
             'policy_number.required' => 'Please enter the client\'s policy number when insurance payment method is selected.',
         ]);
 
+        // Initialize payment responsibility variable (will be set if insurance is selected)
+        $paymentResponsibility = null;
+
         // If insurance is selected, verify the policy number exists
         if ($isInsuranceSelected && !empty($validated['insurance_company_id'])) {
             // Get the local insurance company to find the third-party business ID
@@ -447,6 +450,7 @@ class ClientController extends Controller
             $policyData = null;
             $verificationMethod = null;
             $verificationWarnings = [];
+            $verificationResult = null;
             
             // Try policy number verification first if provided
             if (!empty($validated['policy_number'])) {
@@ -465,6 +469,11 @@ class ClientController extends Controller
                     $policyData = $verificationResult['data'] ?? null;
                     $verificationMethod = $verificationResult['verification_method'] ?? 'policy_number';
                     $verificationWarnings = $verificationResult['warnings'] ?? [];
+                    
+                    // Extract payment responsibility information
+                    if (isset($verificationResult['data']['payment_responsibility'])) {
+                        $paymentResponsibility = $verificationResult['data']['payment_responsibility'];
+                    }
                     
                     // If verification is flagged for review, log it but allow creation
                     if (isset($verificationResult['verification_status']) && $verificationResult['verification_status'] === 'flagged') {
@@ -492,9 +501,9 @@ class ClientController extends Controller
                 }
             }
             
-            // If policy number verification failed, try alternative methods
+            // If policy number verification failed, try alternative methods (name + DOB only)
             if (!$policyData) {
-                // Prepare alternative verification data
+                // Prepare alternative verification data (only name and DOB)
                 $alternativeData = [];
                 
                 // Build full name from available fields
@@ -507,33 +516,8 @@ class ClientController extends Controller
                     $alternativeData['date_of_birth'] = $validated['date_of_birth'];
                 }
                 
-                if (!empty($validated['nin'])) {
-                    $alternativeData['id_passport_no'] = $validated['nin'];
-                }
-                
-                if (!empty($validated['phone_number'])) {
-                    $alternativeData['phone'] = $validated['phone_number'];
-                }
-                
-                if (!empty($validated['email'])) {
-                    $alternativeData['email'] = $validated['email'];
-                }
-                
-                // Generate visit_id if not already set (for visit-based verification)
-                if (empty($validated['visit_id'])) {
-                    $visitId = Client::generateVisitId(
-                        $business, 
-                        $currentBranch, 
-                        $validated['is_credit_eligible'] ?? false, 
-                        $validated['is_long_stay'] ?? false
-                    );
-                    $alternativeData['visit_id'] = $visitId;
-                } else {
-                    $alternativeData['visit_id'] = $validated['visit_id'];
-                }
-                
-                // Try alternative verification if we have at least one piece of data
-                if (!empty($alternativeData)) {
+                // Try alternative verification only if we have both name and DOB
+                if (!empty($alternativeData['name']) && !empty($alternativeData['date_of_birth'])) {
                     $verificationResult = $apiService->verifyAlternativeIdentity(
                         (int)$thirdPartyBusinessId, 
                         $alternativeData
@@ -543,6 +527,11 @@ class ClientController extends Controller
                         $policyData = $verificationResult['data'] ?? null;
                         $verificationMethod = $verificationResult['verification_method'] ?? 'alternative';
                         $verificationWarnings = $verificationResult['warnings'] ?? [];
+                        
+                        // Extract payment responsibility information
+                        if (isset($verificationResult['data']['payment_responsibility'])) {
+                            $paymentResponsibility = $verificationResult['data']['payment_responsibility'];
+                        }
                         
                         // If verification is flagged for review, log it but allow creation
                         if (isset($verificationResult['verification_status']) && $verificationResult['verification_status'] === 'flagged') {
@@ -601,8 +590,8 @@ class ClientController extends Controller
         // Generate full name by concatenating the name fields
         $fullName = trim($validated['surname'] . ' ' . $validated['first_name'] . ' ' . ($validated['other_names'] ?? ''));
         
-        // Create the client
-        $client = Client::create([
+        // Prepare client data
+        $clientData = [
             'uuid' => Str::uuid(),
             'business_id' => $business->id,
             'branch_id' => $currentBranch->id,
@@ -644,7 +633,21 @@ class ClientController extends Controller
             // Insurance information (if insurance payment method is selected)
             'insurance_company_id' => $isInsuranceSelected ? $validated['insurance_company_id'] : null,
             'policy_number' => $isInsuranceSelected ? $validated['policy_number'] : null,
-        ]);
+        ];
+        
+        // Add payment responsibility information if available
+        if ($paymentResponsibility) {
+            $clientData['has_deductible'] = $paymentResponsibility['has_deductible'] ?? null;
+            $clientData['deductible_amount'] = $paymentResponsibility['deductible_amount'] ?? null;
+            $clientData['copay_amount'] = $paymentResponsibility['copay_amount'] ?? null;
+            $clientData['coinsurance_percentage'] = $paymentResponsibility['coinsurance_percentage'] ?? null;
+            $clientData['copay_max_limit'] = $paymentResponsibility['copay_max_limit'] ?? null;
+            $clientData['copay_contributes_to_deductible'] = $paymentResponsibility['copay_contributes_to_deductible'] ?? null;
+            $clientData['coinsurance_contributes_to_deductible'] = $paymentResponsibility['coinsurance_contributes_to_deductible'] ?? null;
+        }
+        
+        // Create the client
+        $client = Client::create($clientData);
         
         return redirect()->route('pos.item-selection', $client)
             ->with('success', 'Client registered successfully! Client ID: ' . $clientId);
@@ -1956,16 +1959,37 @@ class ClientController extends Controller
     public function verifyPolicyNumber(Request $request, $insuranceCompanyId, $policyNumber = null)
     {
         try {
+            Log::info('=== Kashtre Controller: verifyPolicyNumber START ===', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'route_policy_number' => $policyNumber,
+                'request_method' => $request->method(),
+                'request_url' => $request->fullUrl(),
+                'request_all' => $request->all(),
+                'query_params' => $request->query(),
+            ]);
+            
             $apiService = new ThirdPartyApiService();
             
             // Get policy number from route parameter or request
             $policyNumber = $policyNumber ?? $request->input('policy_number');
+            
+            Log::info('Kashtre Controller: Policy number extracted', [
+                'policy_number' => $policyNumber,
+                'has_policy_number' => !empty($policyNumber),
+            ]);
             
             // Try policy number verification first if provided
             if ($policyNumber) {
                 // Get name and DOB from request for tolerance-based verification
                 $name = $request->input('name');
                 $dateOfBirth = $request->input('date_of_birth');
+                
+                Log::info('Kashtre Controller: Calling API service for policy verification', [
+                    'insurance_company_id' => $insuranceCompanyId,
+                    'policy_number' => $policyNumber,
+                    'name' => $name,
+                    'date_of_birth' => $dateOfBirth,
+                ]);
                 
                 $verificationResult = $apiService->verifyPolicyNumber(
                     (int)$insuranceCompanyId, 
@@ -1974,8 +1998,13 @@ class ClientController extends Controller
                     $dateOfBirth
                 );
                 
+                Log::info('Kashtre Controller: Received verification result from API service', [
+                    'has_result' => !empty($verificationResult),
+                    'result' => $verificationResult,
+                ]);
+                
                 if ($verificationResult && isset($verificationResult['success']) && $verificationResult['success']) {
-                    return response()->json([
+                    $responseData = [
                         'success' => true,
                         'message' => $verificationResult['message'] ?? 'Policy number verified',
                         'exists' => true,
@@ -1983,33 +2012,56 @@ class ClientController extends Controller
                         'verification_status' => $verificationResult['verification_status'] ?? 'verified',
                         'data' => $verificationResult['data'] ?? null,
                         'warnings' => $verificationResult['warnings'] ?? [],
-                    ], 200);
+                    ];
+                    
+                    Log::info('Kashtre Controller: Returning SUCCESS response', [
+                        'response_data' => $responseData,
+                    ]);
+                    
+                    return response()->json($responseData, 200);
                 } elseif ($verificationResult && isset($verificationResult['success']) && !$verificationResult['success']) {
                     // Policy number found but verification rejected due to name/DOB mismatch
-                    return response()->json([
+                    $errorResponse = [
                         'success' => false,
                         'message' => $verificationResult['message'] ?? 'Policy number found, but name and date of birth do not match.',
                         'exists' => $verificationResult['exists'] ?? true,
                         'verification_status' => $verificationResult['verification_status'] ?? 'rejected',
                         'mismatches' => $verificationResult['mismatches'] ?? [],
                         'details' => $verificationResult['details'] ?? [],
-                    ], 422);
+                    ];
+                    
+                    Log::warning('Kashtre Controller: Verification REJECTED', [
+                        'response_data' => $errorResponse,
+                    ]);
+                    
+                    return response()->json($errorResponse, 422);
                 }
             }
             
-            // If policy number verification failed, try alternative methods
+            // If policy number verification failed, try alternative methods (name + DOB only)
             $alternativeData = $request->only([
-                'name', 'date_of_birth', 'id_passport_no', 'phone', 'email', 'visit_id'
+                'name', 'date_of_birth'
             ]);
             
             // Remove empty values
             $alternativeData = array_filter($alternativeData);
             
-            if (!empty($alternativeData)) {
+            Log::info('Kashtre Controller: Attempting alternative verification', [
+                'has_alternative_data' => !empty($alternativeData),
+                'alternative_data' => $alternativeData,
+            ]);
+            
+            // Only try alternative verification if we have both name and DOB
+            if (!empty($alternativeData['name']) && !empty($alternativeData['date_of_birth'])) {
                 $verificationResult = $apiService->verifyAlternativeIdentity((int)$insuranceCompanyId, $alternativeData);
                 
+                Log::info('Kashtre Controller: Received alternative verification result', [
+                    'has_result' => !empty($verificationResult),
+                    'result' => $verificationResult,
+                ]);
+                
                 if ($verificationResult && isset($verificationResult['success']) && $verificationResult['success']) {
-                    return response()->json([
+                    $responseData = [
                         'success' => true,
                         'message' => $verificationResult['message'] ?? 'Client verified using alternative method',
                         'exists' => true,
@@ -2017,45 +2069,69 @@ class ClientController extends Controller
                         'verification_status' => $verificationResult['verification_status'] ?? 'verified',
                         'data' => $verificationResult['data'] ?? null,
                         'warnings' => $verificationResult['warnings'] ?? [],
-                    ], 200);
+                    ];
+                    
+                    Log::info('Kashtre Controller: Alternative verification SUCCESS', [
+                        'response_data' => $responseData,
+                    ]);
+                    
+                    return response()->json($responseData, 200);
                 } else {
                     // Alternative verification failed
                     $message = $verificationResult['message'] ?? 'Policy number not found and alternative verification failed';
                     $status = $verificationResult['verification_status'] ?? 'not_found';
                     
-                    return response()->json([
+                    $errorResponse = [
                         'success' => false,
                         'message' => $message,
                         'exists' => false,
                         'verification_status' => $status,
                         'mismatches' => $verificationResult['mismatches'] ?? [],
                         'requires_alternative_verification' => empty($policyNumber),
-                    ], 404);
+                    ];
+                    
+                    Log::warning('Kashtre Controller: Alternative verification FAILED', [
+                        'response_data' => $errorResponse,
+                    ]);
+                    
+                    return response()->json($errorResponse, 404);
                 }
             }
             
             // No alternative data provided
-            return response()->json([
+            $errorResponse = [
                 'success' => false,
                 'message' => $policyNumber 
                     ? 'Policy number not found or inactive. Please provide alternative verification information.'
                     : 'Please provide a policy number or alternative verification information.',
                 'exists' => false,
                 'requires_alternative_verification' => true,
-            ], 404);
+            ];
+            
+            Log::warning('Kashtre Controller: No verification data provided', [
+                'response_data' => $errorResponse,
+            ]);
+            
+            return response()->json($errorResponse, 404);
             
         } catch (\Exception $e) {
-            Log::error('Failed to verify policy number', [
-                'insurance_company_id' => $insuranceCompanyId,
-                'policy_number' => $policyNumber,
-                'error' => $e->getMessage(),
-            ]);
-
-            return response()->json([
+            $errorResponse = [
                 'success' => false,
                 'message' => 'An error occurred while verifying policy number.',
                 'error' => $e->getMessage(),
-            ], 500);
+            ];
+            
+            Log::error('Kashtre Controller: Exception in verifyPolicyNumber', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'policy_number' => $policyNumber,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'response_data' => $errorResponse,
+            ]);
+
+            return response()->json($errorResponse, 500);
+        } finally {
+            Log::info('=== Kashtre Controller: verifyPolicyNumber END ===');
         }
     }
 }
