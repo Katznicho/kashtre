@@ -206,7 +206,6 @@
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                                                 </svg>
                                                 <h4 class="text-sm font-semibold text-yellow-800">Deductible</h4>
-                                                <span id="deductible-action-text" class="text-xs text-yellow-600 ml-2">Click to pay →</span>
                                             </div>
                                             <p class="text-lg font-bold text-yellow-900 mb-1">UGX {{ number_format($client->deductible_amount, 2) }}</p>
                                             <p class="text-xs text-yellow-700">Amount client must pay before insurance coverage begins</p>
@@ -269,7 +268,6 @@
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
                                                 </svg>
                                                 <h4 class="text-sm font-semibold text-blue-800">Co-pay</h4>
-                                                <span id="copay-action-text" class="text-xs text-blue-600 ml-2">Click to pay →</span>
                                             </div>
                                             <p class="text-lg font-bold text-blue-900 mb-1">UGX {{ number_format($client->copay_amount, 2) }} per visit</p>
                                             <p class="text-xs text-blue-700">Fixed amount payable at each visit</p>
@@ -332,30 +330,6 @@
                             </div>
                             @endif
                             
-                            <!-- Payment Summary for Current Visit -->
-                            <div id="payment-responsibility-summary" class="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-4" style="display: none;">
-                                <h4 class="text-sm font-semibold text-gray-800 mb-3">Payment Required for This Visit</h4>
-                                <div class="space-y-2">
-                                    <div id="copay-payment-line" class="flex justify-between items-center text-sm" style="display: none;">
-                                        <span class="text-gray-600">Co-pay:</span>
-                                        <span class="font-semibold text-gray-900">UGX <span id="copay-amount-display">0.00</span></span>
-                                    </div>
-                                    <div id="deductible-payment-line" class="flex justify-between items-center text-sm" style="display: none;">
-                                        <span class="text-gray-600">Deductible (remaining):</span>
-                                        <span class="font-semibold text-gray-900">UGX <span id="deductible-payment-display">0.00</span></span>
-                                    </div>
-                                    <div id="coinsurance-payment-line" class="flex justify-between items-center text-sm" style="display: none;">
-                                        <span class="text-gray-600">Co-insurance:</span>
-                                        <span class="font-semibold text-gray-900">UGX <span id="coinsurance-amount-display">0.00</span></span>
-                                    </div>
-                                    <div class="pt-2 border-t border-gray-300 mt-2">
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-sm font-semibold text-gray-800">Total Client Payment:</span>
-                                            <span class="text-lg font-bold text-gray-900">UGX <span id="total-client-payment">0.00</span></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -815,6 +789,33 @@
                         <span id="invoice-final-total">UGX 0.00</span>
                     </div>
                 </div>
+                
+                <!-- Payment Responsibility Summary (for this proforma invoice) -->
+                @if($client->insurance_company_id && ($client->has_deductible || $client->copay_amount || $client->coinsurance_percentage))
+                <div id="payment-responsibility-summary" class="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-6 text-sm text-left" style="display: none;">
+                    <h4 class="text-sm font-semibold text-gray-800 mb-3">Payment Responsibility for This Visit</h4>
+                    <div class="space-y-2">
+                        <div id="copay-payment-line" class="flex justify-between items-center text-sm" style="display: none;">
+                            <span class="text-gray-600">Co-pay:</span>
+                            <span class="font-semibold text-gray-900">UGX <span id="copay-amount-display">0.00</span></span>
+                        </div>
+                        <div id="deductible-payment-line" class="flex justify-between items-center text-sm" style="display: none;">
+                            <span class="text-gray-600">Deductible (remaining):</span>
+                            <span class="font-semibold text-gray-900">UGX <span id="deductible-payment-display">0.00</span></span>
+                        </div>
+                        <div id="coinsurance-payment-line" class="flex justify-between items-center text-sm" style="display: none;">
+                            <span class="text-gray-600">Co-insurance:</span>
+                            <span class="font-semibold text-gray-900">UGX <span id="coinsurance-amount-display">0.00</span></span>
+                        </div>
+                        <div class="pt-2 border-t border-gray-300 mt-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-semibold text-gray-800">Total Client Payment:</span>
+                                <span class="text-lg font-bold text-gray-900">UGX <span id="total-client-payment">0.00</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endif
                 
                 <!-- Third-Party Payer Selection (for credit clients with insurance) -->
                 @if($client->is_credit_eligible)
