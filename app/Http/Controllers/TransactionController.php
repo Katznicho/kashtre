@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Client;
 use App\Models\Item;
 use App\Models\BranchItemPrice;
+use App\Models\BalanceHistory;
 
 class TransactionController extends Controller
 {
@@ -556,6 +557,31 @@ class TransactionController extends Controller
                     'visit_id' => $client->visit_id, // Track visit_id for co-pay per-visit tracking
                 ]
             );
+
+            // 1.b For deductible payments, immediately move money into client's wallet
+            // so that it appears on the balance statement and can be used as account balance.
+            if ($type === 'deductible') {
+                try {
+                    $moneyTrackingService->processDeductibleTopUp(
+                        $client,
+                        $paymentAmount,
+                        $reference,
+                        [
+                            'payment_method' => $validated['payment_method'],
+                            'payment_responsibility_type' => $type,
+                            'transaction_reference' => $transactionReference,
+                        ]
+                    );
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Error processing deductible top-up to client wallet', [
+                        'client_id' => $client->id,
+                        'amount' => $paymentAmount,
+                        'reference' => $reference,
+                        'error' => $e->getMessage(),
+                    ]);
+                    // Do not fail the whole transaction; payment_received and third-party sync already done.
+                }
+            }
             
             // 2. Credit insurance company's account (ThirdPartyPayer) in Kashtre
             if ($client->insurance_company_id) {

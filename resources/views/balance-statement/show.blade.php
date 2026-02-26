@@ -55,18 +55,19 @@
                                         ->sum('change_amount'));
                                     $availableBalance = $credits - $debits;
                                     
-                                    // For insurance clients, balance should be 0
-                                    if ($isInsuranceClient) {
-                                        $availableBalance = 0;
-                                    }
-                                    
                                     // Suspense Balance = credits - debits in suspense accounts (from MoneyAccount balances)
                                     // This represents money in suspense accounts that hasn't been moved to final accounts yet
                                     $suspenseBalance = $client->suspense_balance ?? 0;
                                     
                                     // Total Balance = Available Balance + Suspense Balance
-                                    // For insurance clients, total balance should be 0
-                                    $totalBalance = $isInsuranceClient ? 0 : ($availableBalance + $suspenseBalance);
+                                    // For pure insurance clients with no client-side responsibility, balance can be forced to 0.
+                                    if ($isInsuranceClient && !$client->has_deductible && !$client->copay_amount && !$client->coinsurance_percentage) {
+                                        $availableBalance = 0;
+                                        $suspenseBalance = 0;
+                                        $totalBalance = 0;
+                                    } else {
+                                        $totalBalance = $availableBalance + $suspenseBalance;
+                                    }
                                     
                                     // Credit Remaining calculation for credit clients
                                     $creditLimit = $client->max_credit ?? 0;

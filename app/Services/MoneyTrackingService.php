@@ -20,6 +20,7 @@ use App\Models\PaymentMethodAccount;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Models\BalanceHistory;
 use Exception;
 
 class MoneyTrackingService
@@ -378,6 +379,111 @@ class MoneyTrackingService
                 'client_id' => $client->id,
                 'invoice_id' => $invoice->id,
                 'amount' => $amount,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Process a deductible payment so that it becomes available in the client's wallet.
+     *
+     * Flow:
+     * - Money was already received into the client suspense account via processPaymentReceived.
+     * - Here we move that money from client suspense -> client account and create a balance history credit.
+     */
+    public function processDeductibleTopUp(Client $client, float $amount, string $reference, array $metadata = [])
+    {
+        if ($amount <= 0) {
+            Log::info('Skipping deductible top-up because amount is not greater than zero.', [
+                'client_id' => $client->id,
+                'amount' => $amount,
+                'reference' => $reference,
+            ]);
+            return null;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $clientAccount = $this->getOrCreateClientAccount($client);
+            $clientSuspenseAccount = $this->getOrCreateClientSuspenseAccount($client);
+
+            // Prefer moving funds from suspense to client account (they were received there earlier)
+            if ($clientSuspenseAccount->balance >= $amount) {
+                Log::info('Transferring deductible from client suspense to client account', [
+                    'client_id' => $client->id,
+                    'amount' => $amount,
+                    'client_suspense_balance' => $clientSuspenseAccount->balance,
+                    'reference' => $reference,
+                ]);
+
+                $transfer = $this->transferMoney(
+                    $clientSuspenseAccount,
+                    $clientAccount,
+                    $amount,
+                    'deductible_topup',
+                    null,
+                    null,
+                    'Deductible payment credited to client account'
+                );
+            } else {
+                Log::warning('Client suspense balance insufficient for deductible transfer, falling back to direct credit.', [
+                    'client_id' => $client->id,
+                    'amount' => $amount,
+                    'client_suspense_balance' => $clientSuspenseAccount->balance,
+                    'reference' => $reference,
+                ]);
+
+                $transfer = MoneyTransfer::create([
+                    'business_id' => $client->business_id,
+                    'from_account_id' => null,
+                    'to_account_id' => $clientAccount->id,
+                    'amount' => $amount,
+                    'currency' => 'UGX',
+                    'status' => 'completed',
+                    'type' => 'credit',
+                    'transfer_type' => 'deductible_topup',
+                    'invoice_id' => null,
+                    'client_id' => $client->id,
+                    'description' => "Deductible payment credited to client account",
+                    'metadata' => $metadata,
+                    'processed_at' => now(),
+                    'source' => $client->name,
+                    'destination' => $client->name . ' - ' . $clientAccount->name,
+                ]);
+
+                $clientAccount->credit($amount);
+            }
+
+            // Record in balance history so it appears on the client's balance statement
+            $balanceRecord = BalanceHistory::recordCredit(
+                $client,
+                $amount,
+                'Deductible Payment',
+                $reference,
+                'Deductible pre-payment captured',
+                $metadata['payment_method'] ?? null
+            );
+
+            DB::commit();
+
+            Log::info('Deductible top-up processed successfully.', [
+                'client_id' => $client->id,
+                'amount' => $amount,
+                'reference' => $reference,
+                'money_transfer_id' => $transfer->id ?? null,
+                'balance_history_id' => $balanceRecord->id ?? null,
+            ]);
+
+            return $transfer;
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to process deductible top-up.', [
+                'client_id' => $client->id,
+                'amount' => $amount,
+                'reference' => $reference,
                 'error' => $e->getMessage(),
             ]);
             throw $e;
