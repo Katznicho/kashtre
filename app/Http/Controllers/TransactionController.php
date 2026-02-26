@@ -454,66 +454,80 @@ class TransactionController extends Controller
             $transactionReference = null;
             $paymentStatus = 'pending';
             
-            // Process mobile money payment if applicable
+            // Locally: Yo doesn't work, so auto-complete mobile money payments. Online: use Yo.
+            $isLocal = app()->environment('local');
+            
+            // Process mobile money payment if applicable (skip Yo API on local)
             if ($validated['payment_method'] === 'mobile_money' && !empty($validated['payment_phone'])) {
-                try {
-                    $yoApi = new \App\Payments\YoAPI(
-                        config('payments.yo_username'),
-                        config('payments.yo_password')
-                    );
-                    
-                    $yoApi->set_instant_notification_url(config('payments.webhook_url'));
-                    $yoApi->set_external_reference($reference);
-                    
-                    $phone = $validated['payment_phone'];
-                    // Format phone number: remove + if present, ensure 256XXXXXXXXX format
-                    if (str_starts_with($phone, '+')) {
-                        $phone = substr($phone, 1);
-                    } elseif (str_starts_with($phone, '0')) {
-                        $phone = '256' . substr($phone, 1);
-                    }
-                    
-                    $description = ucfirst($type) . ' payment for ' . $client->name;
-                    if (strlen($description) > 160) {
-                        $description = substr($description, 0, 157) . '...';
-                    }
-                    
-                    \Illuminate\Support\Facades\Log::info('Initiating mobile money payment for payment responsibility', [
+                if ($isLocal) {
+                    $paymentStatus = 'completed';
+                    $transactionReference = 'LOCAL-' . time();
+                    \Illuminate\Support\Facades\Log::info('Local env: auto-completing payment responsibility (Yo not used)', [
                         'client_id' => $client->id,
                         'type' => $type,
-                        'phone' => $phone,
                         'amount' => $paymentAmount,
                         'reference' => $reference,
                     ]);
-                    
-                    $yoResult = $yoApi->ac_deposit_funds($phone, $paymentAmount, $description);
-                    
-                    \Illuminate\Support\Facades\Log::info('YoAPI response for payment responsibility', [
-                        'result' => $yoResult,
-                    ]);
-                    
-                    if (isset($yoResult['Status']) && $yoResult['Status'] === 'OK' && isset($yoResult['TransactionReference'])) {
-                        $transactionReference = $yoResult['TransactionReference'];
-                        $paymentStatus = 'pending'; // Will be confirmed via webhook
+                } else {
+                    try {
+                        $yoApi = new \App\Payments\YoAPI(
+                            config('payments.yo_username'),
+                            config('payments.yo_password')
+                        );
                         
-                        \Illuminate\Support\Facades\Log::info('Mobile money payment initiated successfully', [
-                            'transaction_reference' => $transactionReference,
+                        $yoApi->set_instant_notification_url(config('payments.webhook_url'));
+                        $yoApi->set_external_reference($reference);
+                        
+                        $phone = $validated['payment_phone'];
+                        // Format phone number: remove + if present, ensure 256XXXXXXXXX format
+                        if (str_starts_with($phone, '+')) {
+                            $phone = substr($phone, 1);
+                        } elseif (str_starts_with($phone, '0')) {
+                            $phone = '256' . substr($phone, 1);
+                        }
+                        
+                        $description = ucfirst($type) . ' payment for ' . $client->name;
+                        if (strlen($description) > 160) {
+                            $description = substr($description, 0, 157) . '...';
+                        }
+                        
+                        \Illuminate\Support\Facades\Log::info('Initiating mobile money payment for payment responsibility', [
+                            'client_id' => $client->id,
+                            'type' => $type,
+                            'phone' => $phone,
+                            'amount' => $paymentAmount,
                             'reference' => $reference,
                         ]);
-                    } else {
-                        $errorMessage = $yoResult['StatusMessage'] ?? 'Unknown error';
-                        \Illuminate\Support\Facades\Log::error('Mobile money payment failed', [
-                            'yo_result' => $yoResult,
-                            'error_message' => $errorMessage,
+                        
+                        $yoResult = $yoApi->ac_deposit_funds($phone, $paymentAmount, $description);
+                        
+                        \Illuminate\Support\Facades\Log::info('YoAPI response for payment responsibility', [
+                            'result' => $yoResult,
                         ]);
-                        throw new \Exception('Mobile money payment failed: ' . $errorMessage);
+                        
+                        if (isset($yoResult['Status']) && $yoResult['Status'] === 'OK' && isset($yoResult['TransactionReference'])) {
+                            $transactionReference = $yoResult['TransactionReference'];
+                            $paymentStatus = 'pending'; // Will be confirmed via webhook
+                            
+                            \Illuminate\Support\Facades\Log::info('Mobile money payment initiated successfully', [
+                                'transaction_reference' => $transactionReference,
+                                'reference' => $reference,
+                            ]);
+                        } else {
+                            $errorMessage = $yoResult['StatusMessage'] ?? 'Unknown error';
+                            \Illuminate\Support\Facades\Log::error('Mobile money payment failed', [
+                                'yo_result' => $yoResult,
+                                'error_message' => $errorMessage,
+                            ]);
+                            throw new \Exception('Mobile money payment failed: ' . $errorMessage);
+                        }
+                    } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::error('Mobile money payment error', [
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString(),
+                        ]);
+                        throw $e;
                     }
-                } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error('Mobile money payment error', [
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString(),
-                    ]);
-                    throw $e;
                 }
             } else {
                 // For cash/bank transfer, mark as completed immediately

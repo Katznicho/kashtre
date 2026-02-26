@@ -1167,12 +1167,12 @@
                         allowed: false,
                         unpaidType: 'deductible',
                         message: `
-                            <div class="text-left">
-                                <p class="mb-2">Deductible payment is required before placing orders.</p>
-                                <p class="text-sm text-gray-600 mb-3">
+                            <div class=\"text-left\">
+                                <p class=\"mb-2\">Deductible payment is required before placing orders.</p>
+                                <p class=\"text-sm text-gray-600 mb-3\">
                                     <strong>Remaining Deductible:</strong> UGX ${deductibleRemaining.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                 </p>
-                                <p class="text-sm text-gray-600">Please pay the deductible amount to continue.</p>
+                                <p class=\"text-sm text-gray-600\">Please pay the deductible amount to continue.</p>
                             </div>
                         `
                     };
@@ -1186,7 +1186,7 @@
                         const copayResponse = await fetch(`/api/v1/clients/{{ $client->id }}/copay-status`, {
                             method: 'GET',
                             headers: {
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                                'X-CSRF-TOKEN': document.querySelector('meta[name=\"csrf-token\"]').getAttribute('content'),
                                 'Accept': 'application/json',
                             }
                         });
@@ -1198,12 +1198,12 @@
                                     allowed: false,
                                     unpaidType: 'copay',
                                     message: `
-                                        <div class="text-left">
-                                            <p class="mb-2">Co-pay payment is required before placing orders.</p>
-                                            <p class="text-sm text-gray-600 mb-3">
+                                        <div class=\"text-left\">
+                                            <p class=\"mb-2\">Co-pay payment is required before placing orders.</p>
+                                            <p class=\"text-sm text-gray-600 mb-3\">
                                                 <strong>Co-pay Amount:</strong> UGX ${copayData.copay_amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} per visit
                                             </p>
-                                            <p class="text-sm text-gray-600">Please pay the co-pay amount to continue.</p>
+                                            <p class=\"text-sm text-gray-600\">Please pay the co-pay amount to continue.</p>
                                         </div>
                                     `
                                 };
@@ -1216,9 +1216,9 @@
                             allowed: false,
                             unpaidType: 'copay',
                             message: `
-                                <div class="text-left">
-                                    <p class="mb-2">Co-pay payment verification failed.</p>
-                                    <p class="text-sm text-gray-600">Please ensure co-pay has been paid before placing orders.</p>
+                                <div class=\"text-left\">
+                                    <p class=\"mb-2\">Co-pay payment verification failed.</p>
+                                    <p class=\"text-sm text-gray-600\">Please ensure co-pay has been paid before placing orders.</p>
                                 </div>
                             `
                         };
@@ -1238,12 +1238,12 @@
                     allowed: false,
                     unpaidType: 'verification_error',
                     message: `
-                        <div class="text-left">
-                            <p class="mb-2 text-red-600 font-semibold">⚠️ Payment Verification Unavailable</p>
-                            <p class="text-sm text-gray-600 mb-3">
+                        <div class=\"text-left\">
+                            <p class=\"mb-2 text-red-600 font-semibold\">⚠️ Payment Verification Unavailable</p>
+                            <p class=\"text-sm text-gray-600 mb-3\">
                                 Unable to verify payment status. Please ensure all required payments (deductible/co-pay) have been completed before placing orders.
                             </p>
-                            <p class="text-sm text-gray-500">
+                            <p class=\"text-sm text-gray-500\">
                                 If you have already made payments, please wait a moment and try again, or contact support.
                             </p>
                         </div>
@@ -1256,6 +1256,181 @@
                 message: 'No payment requirements.'
             };
             @endif
+        }
+        @endif
+        
+        // Inline payment flow for deductible + co-pay without leaving POS page
+        @if($client->insurance_company_id && ($client->has_deductible || $client->copay_amount))
+        async function payClientResponsibilitiesInline() {
+            try {
+                // Refresh latest deductible info
+                await calculateDeductibleUsed();
+                
+                let deductibleRemaining = paymentResponsibility.hasDeductible
+                    ? (paymentResponsibility.deductibleRemaining || 0)
+                    : 0;
+                
+                // Fetch latest co-pay status
+                let copayAmountDue = 0;
+                @if($collectionTiming === 'immediate' && $client->copay_amount)
+                try {
+                    const copayResponse = await fetch(`/api/v1/clients/{{ $client->id }}/copay-status`, {
+                        method: 'GET',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name=\"csrf-token\"]').getAttribute('content'),
+                            'Accept': 'application/json',
+                        }
+                    });
+                    
+                    if (copayResponse.ok) {
+                        const copayData = await copayResponse.json();
+                        if (copayData.success && copayData.copay_required && !copayData.copay_paid) {
+                            copayAmountDue = parseFloat(copayData.copay_amount) || 0;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching co-pay status for inline payment:', error);
+                }
+                @endif
+                
+                // If nothing is due, just show info and exit
+                if (deductibleRemaining <= 0 && copayAmountDue <= 0) {
+                    await Swal.fire({
+                        icon: 'info',
+                        title: 'No Payment Required',
+                        text: 'All deductible and co-pay requirements are already met for this visit.',
+                    });
+                    return;
+                }
+                
+                const totalClientPayment = (deductibleRemaining > 0 ? deductibleRemaining : 0) + (copayAmountDue > 0 ? copayAmountDue : 0);
+                
+                // Ask for payment method and (optional) mobile money phone
+                const { value: formValues } = await Swal.fire({
+                    title: 'Pay Client Responsibilities',
+                    html: `
+                        <div class=\"text-left space-y-3\">
+                            <div>
+                                <p class=\"text-sm font-semibold text-gray-800 mb-1\">Amounts to pay now</p>
+                                <ul class=\"text-sm text-gray-700 list-disc ml-5\">
+                                    ${deductibleRemaining > 0 ? `<li>Deductible (remaining): UGX ${deductibleRemaining.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</li>` : ''}
+                                    ${copayAmountDue > 0 ? `<li>Co-pay (this visit): UGX ${copayAmountDue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</li>` : ''}
+                                </ul>
+                                <p class=\"mt-2 text-sm font-bold text-gray-900\">
+                                    Total Client Payment Now: UGX ${totalClientPayment.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </p>
+                            </div>
+                            <div>
+                                <label class=\"block text-sm font-medium text-gray-700 mb-1\" for=\"pr-payment-method\">
+                                    Payment Method <span class=\"text-red-500\">*</span>
+                                </label>
+                                <select id=\"pr-payment-method\" class=\"swal2-input\" style=\"width: 100%; box-sizing: border-box;\">
+                                    <option value=\"cash\">Cash</option>
+                                    <option value=\"mobile_money\">Mobile Money</option>
+                                </select>
+                            </div>
+                            <div id=\"pr-payment-phone-wrapper\" style=\"display: none;\">
+                                <label class=\"block text-sm font-medium text-gray-700 mb-1\" for=\"pr-payment-phone\">
+                                    Payment Phone (Mobile Money)
+                                </label>
+                                <input id=\"pr-payment-phone\" class=\"swal2-input\" placeholder=\"e.g., +256701234567\" value=\"{{ $client->payment_phone_number ?? '' }}\" />
+                                <p class=\"mt-1 text-xs text-gray-500\">
+                                    Required when paying via mobile money.
+                                </p>
+                            </div>
+                        </div>
+                    `,
+                    focusConfirm: false,
+                    showCancelButton: true,
+                    confirmButtonText: 'Process Payment',
+                    cancelButtonText: 'Cancel',
+                    didOpen: () => {
+                        const methodSelect = Swal.getPopup().querySelector('#pr-payment-method');
+                        const phoneWrapper = Swal.getPopup().querySelector('#pr-payment-phone-wrapper');
+                        methodSelect.addEventListener('change', () => {
+                            if (methodSelect.value === 'mobile_money') {
+                                phoneWrapper.style.display = 'block';
+                            } else {
+                                phoneWrapper.style.display = 'none';
+                            }
+                        });
+                    },
+                    preConfirm: () => {
+                        const method = Swal.getPopup().querySelector('#pr-payment-method').value;
+                        const phone = Swal.getPopup().querySelector('#pr-payment-phone').value;
+                        
+                        if (!method) {
+                            Swal.showValidationMessage('Please select a payment method');
+                            return null;
+                        }
+                        if (method === 'mobile_money' && !phone) {
+                            Swal.showValidationMessage('Please enter a payment phone number for mobile money');
+                            return null;
+                        }
+                        
+                        return { method, phone };
+                    }
+                });
+                
+                if (!formValues) {
+                    // User cancelled
+                    return;
+                }
+                
+                const paymentMethod = formValues.method;
+                const paymentPhone = formValues.phone || '';
+                const csrfToken = document.querySelector('meta[name=\"csrf-token\"]').getAttribute('content');
+                const url = '{{ route("payment-responsibility.process", $client) }}';
+                
+                // Helper to send one payment
+                const sendPayment = async (type, amount) => {
+                    const formData = new FormData();
+                    formData.append('_token', csrfToken);
+                    formData.append('type', type);
+                    formData.append('amount', amount);
+                    formData.append('payment_method', paymentMethod);
+                    if (paymentPhone) {
+                        formData.append('payment_phone', paymentPhone);
+                    }
+                    
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        body: formData,
+                    });
+                    
+                    if (!response.ok) {
+                        const text = await response.text();
+                        throw new Error('Payment failed (' + type + '): ' + text);
+                    }
+                };
+                
+                // Process deductible and co-pay in one inline flow (two backend payments)
+                if (deductibleRemaining > 0) {
+                    await sendPayment('deductible', deductibleRemaining);
+                }
+                if (copayAmountDue > 0) {
+                    await sendPayment('copay', copayAmountDue);
+                }
+                
+                // Refresh UI status
+                await calculateDeductibleUsed();
+                @if($client->copay_amount)
+                await checkCopayStatus();
+                @endif
+                
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Payment Processed',
+                    text: 'Client payment responsibilities have been processed. You can now confirm and save the invoice.',
+                });
+            } catch (error) {
+                console.error('Error during inline payment responsibility flow:', error);
+                await Swal.fire({
+                    icon: 'error',
+                    title: 'Payment Failed',
+                    text: 'We were unable to process the payment responsibilities. Please try again or contact support.',
+                });
+            }
         }
         @endif
         
@@ -1947,23 +2122,8 @@
             @if($client->insurance_company_id && $collectionTiming === 'immediate')
             const paymentCheck = await checkPaymentResponsibilityRequirements();
             if (!paymentCheck.allowed) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Payment Required',
-                    html: paymentCheck.message,
-                    confirmButtonText: 'Make Payment',
-                    showCancelButton: true,
-                    cancelButtonText: 'Cancel'
-                }).then((paymentResult) => {
-                    if (paymentResult.isConfirmed) {
-                        // Redirect to payment page for the first unpaid item
-                        if (paymentCheck.unpaidType === 'deductible') {
-                            window.location.href = '{{ route("payment-responsibility.pay", ["client" => $client->id, "type" => "deductible"]) }}';
-                        } else if (paymentCheck.unpaidType === 'copay') {
-                            window.location.href = '{{ route("payment-responsibility.pay", ["client" => $client->id, "type" => "copay"]) }}';
-                        }
-                    }
-                });
+                // Open inline payment flow for deductible + co-pay without leaving this page
+                await payClientResponsibilitiesInline();
                 return;
             }
             @endif
