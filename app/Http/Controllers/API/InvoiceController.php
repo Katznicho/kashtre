@@ -57,6 +57,36 @@ class InvoiceController extends Controller
                 'count' => $thirdPartyPayers->count(),
             ]);
 
+            // Fallback: if no payer is linked directly to this Kashtre insurance_company_id,
+            // look for payers linked to ANY insurance company that shares the same third_party_business_id.
+            // This handles cases where the insurance company record was recreated but old payers still
+            // point to the previous record.
+            if ($thirdPartyPayers->isEmpty() && $kashtreInsuranceCompany->third_party_business_id) {
+                $matchingInsuranceCompanyIds = \App\Models\InsuranceCompany::where(
+                        'third_party_business_id',
+                        $kashtreInsuranceCompany->third_party_business_id
+                    )
+                    ->pluck('id');
+
+                if ($matchingInsuranceCompanyIds->isNotEmpty()) {
+                    $fallbackPayers = ThirdPartyPayer::whereIn('insurance_company_id', $matchingInsuranceCompanyIds)
+                        ->where('type', 'insurance_company')
+                        ->where('status', 'active')
+                        ->get();
+
+                    Log::info('API: Fallback third-party payers using third_party_business_id', [
+                        'kashtre_insurance_company_id' => $kashtreInsuranceCompany->id,
+                        'third_party_business_id' => $kashtreInsuranceCompany->third_party_business_id,
+                        'matching_insurance_company_ids' => $matchingInsuranceCompanyIds->toArray(),
+                        'fallback_payer_count' => $fallbackPayers->count(),
+                    ]);
+
+                    if ($fallbackPayers->isNotEmpty()) {
+                        $thirdPartyPayers = $fallbackPayers;
+                    }
+                }
+            }
+
             if ($thirdPartyPayers->isEmpty()) {
                 return response()->json([
                     'success' => true,
