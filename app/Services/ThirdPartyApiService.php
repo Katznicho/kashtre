@@ -794,4 +794,72 @@ class ThirdPartyApiService
             return null;
         }
     }
+
+    /**
+     * Request invoice authorization from third-party (insurance company).
+     * Returns client_total and insurance_total for the invoice.
+     *
+     * @param array $payload kashtre_invoice_id, invoice_number, insurance_company_id (third-party ID), policy_number, total_amount, deductible_remaining, items
+     * @return array|null { success, authorization_reference, client_total, insurance_total, breakdown } or null on failure
+     */
+    public function requestInvoiceAuthorization(array $payload): ?array
+    {
+        $url = "{$this->baseUrl}/api/v1/invoice-authorization/request";
+        try {
+            Log::info('[Kashtre->ThirdParty] Invoice authorization request', [
+                'url' => $url,
+                'kashtre_invoice_id' => $payload['kashtre_invoice_id'] ?? null,
+                'invoice_number' => $payload['invoice_number'] ?? null,
+                'insurance_company_id' => $payload['insurance_company_id'] ?? null,
+                'policy_number' => $payload['policy_number'] ?? null,
+                'total_amount' => $payload['total_amount'] ?? null,
+                'deductible_remaining' => $payload['deductible_remaining'] ?? null,
+                'items_count' => isset($payload['items']) && is_array($payload['items']) ? count($payload['items']) : 0,
+            ]);
+
+            $response = Http::timeout($this->timeout)
+                ->post($url, $payload);
+
+            Log::info('[Kashtre->ThirdParty] Invoice authorization response', [
+                'http_status' => $response->status(),
+                'body_preview' => strlen($response->body()) > 500 ? substr($response->body(), 0, 500) . '...' : $response->body(),
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                if (!empty($data['success']) && isset($data['client_total'], $data['insurance_total'])) {
+                    Log::info('[Kashtre->ThirdParty] Invoice authorization success', [
+                        'authorization_reference' => $data['authorization_reference'] ?? null,
+                        'confirmation_code' => $data['confirmation_code'] ?? null,
+                        'client_total' => $data['client_total'],
+                        'insurance_total' => $data['insurance_total'],
+                        'breakdown' => $data['breakdown'] ?? null,
+                    ]);
+                    return $data;
+                }
+                Log::warning('[Kashtre->ThirdParty] Invoice authorization response missing expected fields', [
+                    'success' => $data['success'] ?? null,
+                    'has_client_total' => isset($data['client_total']),
+                    'has_insurance_total' => isset($data['insurance_total']),
+                    'raw' => $data,
+                ]);
+                return null;
+            }
+
+            $error = $response->json();
+            Log::warning('[Kashtre->ThirdParty] Invoice authorization HTTP error', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'error' => $error,
+            ]);
+            return null;
+        } catch (Exception $e) {
+            Log::error('[Kashtre->ThirdParty] Invoice authorization exception', [
+                'message' => $e->getMessage(),
+                'url' => $url,
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return null;
+        }
+    }
 }

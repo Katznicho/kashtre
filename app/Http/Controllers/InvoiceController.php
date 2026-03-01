@@ -334,6 +334,7 @@ class InvoiceController extends Controller
                 'status' => 'required|in:draft,confirmed,printed,cancelled',
                 'notes' => 'nullable|string',
                 'third_party_payer_id' => 'nullable|exists:third_party_payers,id',
+                'deductible_remaining' => 'nullable|numeric|min:0',
             ]);
             
             // Get client
@@ -1986,13 +1987,96 @@ class InvoiceController extends Controller
                 'status' => $invoice->status,
                 'client_final_balance' => $isCreditTransaction ? (\App\Models\Client::find($client->id)->balance ?? 0) : null,
             ]);
-            
-            return response()->json([
+
+            // Insurance flow: send invoice to third-party for authorization; get client_total and insurance_total (sync, one round-trip)
+            $insuranceAuthorization = null;
+            if ($client->insurance_company_id && $client->policy_number) {
+                Log::info('[Kashtre] Insurance authorization: client is insurance', [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'client_id' => $client->id,
+                    'insurance_company_id' => $client->insurance_company_id,
+                    'policy_number' => $client->policy_number,
+                ]);
+                $insuranceCompany = \App\Models\InsuranceCompany::find($client->insurance_company_id);
+                $thirdPartyBusinessId = $insuranceCompany->third_party_business_id ?? null;
+                if ($thirdPartyBusinessId) {
+                    $deductibleRemaining = isset($validated['deductible_remaining']) ? (float) $validated['deductible_remaining'] : 0;
+                    $apiService = new \App\Services\ThirdPartyApiService();
+                    $authPayload = [
+                        'kashtre_invoice_id' => (string) $invoice->id,
+                        'invoice_number' => $invoice->invoice_number,
+                        'insurance_company_id' => (int) $thirdPartyBusinessId,
+                        'policy_number' => trim($client->policy_number),
+                        'total_amount' => (float) $invoice->total_amount,
+                        'deductible_remaining' => $deductibleRemaining,
+                        'items' => $invoice->items ?? [],
+                    ];
+                    Log::info('[Kashtre] Insurance authorization: calling third-party', [
+                        'invoice_id' => $invoice->id,
+                        'third_party_business_id' => $thirdPartyBusinessId,
+                        'total_amount' => $authPayload['total_amount'],
+                        'deductible_remaining' => $deductibleRemaining,
+                    ]);
+                    $insuranceAuthorization = $apiService->requestInvoiceAuthorization($authPayload);
+                    if ($insuranceAuthorization) {
+                        $invoice->update([
+                            'insurance_authorization_reference' => $insuranceAuthorization['authorization_reference'] ?? null,
+                            'insurance_client_total' => $insuranceAuthorization['client_total'] ?? null,
+                            'insurance_insurance_total' => $insuranceAuthorization['insurance_total'] ?? null,
+                            'insurance_confirmation_code' => $insuranceAuthorization['confirmation_code'] ?? null,
+                            'insurance_authorized_at' => now(),
+                        ]);
+                        Log::info('[Kashtre] Insurance authorization: invoice updated', [
+                            'invoice_id' => $invoice->id,
+                            'authorization_reference' => $insuranceAuthorization['authorization_reference'] ?? null,
+                            'confirmation_code' => $insuranceAuthorization['confirmation_code'] ?? null,
+                            'client_total' => $insuranceAuthorization['client_total'] ?? null,
+                            'insurance_total' => $insuranceAuthorization['insurance_total'] ?? null,
+                        ]);
+                    } else {
+                        Log::warning('[Kashtre] Insurance authorization: third-party returned no data or failed', [
+                            'invoice_id' => $invoice->id,
+                        ]);
+                    }
+                } else {
+                    Log::info('[Kashtre] Insurance authorization: skipped (no third_party_business_id)', [
+                        'invoice_id' => $invoice->id,
+                        'insurance_company_id' => $client->insurance_company_id,
+                    ]);
+                }
+            }
+
+            $responseData = [
                 'success' => true,
                 'message' => 'Invoice created successfully',
                 'invoice' => $invoice,
                 'next_invoice_number' => $nextInvoiceNumber,
-            ]);
+            ];
+            if ($insuranceAuthorization) {
+                // Pass through everything from the third-party API so the frontend displays it as-is
+                $responseData['requires_insurance_client_payment'] = ((float) ($insuranceAuthorization['client_total'] ?? 0)) > 0;
+                $responseData['insurance_authorization'] = $insuranceAuthorization;
+                $responseData['client_total'] = (float) ($insuranceAuthorization['client_total'] ?? 0);
+                $responseData['insurance_total'] = (float) ($insuranceAuthorization['insurance_total'] ?? 0);
+                $responseData['breakdown'] = $insuranceAuthorization['breakdown'] ?? null;
+                $responseData['insurance_authorization_reference'] = $insuranceAuthorization['authorization_reference'] ?? null;
+                $responseData['confirmation_code'] = $insuranceAuthorization['confirmation_code'] ?? null;
+                if (isset($insuranceAuthorization['amount_that_reduces_deductible'])) {
+                    $responseData['amount_that_reduces_deductible'] = (float) $insuranceAuthorization['amount_that_reduces_deductible'];
+                }
+                if (isset($insuranceAuthorization['copay_contributes_to_deductible'])) {
+                    $responseData['copay_contributes_to_deductible'] = (bool) $insuranceAuthorization['copay_contributes_to_deductible'];
+                }
+                if (isset($insuranceAuthorization['coinsurance_contributes_to_deductible'])) {
+                    $responseData['coinsurance_contributes_to_deductible'] = (bool) $insuranceAuthorization['coinsurance_contributes_to_deductible'];
+                }
+                if (isset($insuranceAuthorization['policy_options'])) {
+                    $responseData['policy_options'] = $insuranceAuthorization['policy_options'];
+                }
+            }
+
+            return response()->json($responseData);
             
         } catch (\Exception $e) {
             DB::rollBack();
