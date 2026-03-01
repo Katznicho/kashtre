@@ -2026,6 +2026,7 @@ class InvoiceController extends Controller
                             'insurance_insurance_total' => $insuranceAuthorization['insurance_total'] ?? null,
                             'insurance_confirmation_code' => $insuranceAuthorization['confirmation_code'] ?? null,
                             'insurance_authorized_at' => now(),
+                            'insurance_authorization_snapshot' => $insuranceAuthorization,
                         ]);
                         Log::info('[Kashtre] Insurance authorization: invoice updated', [
                             'invoice_id' => $invoice->id,
@@ -3343,7 +3344,36 @@ class InvoiceController extends Controller
         }
     }
 
-
+    /**
+     * Get insurance authorization details for an invoice (for Refresh on collect-client-portion modal).
+     */
+    public function getInsuranceAuthorization(Invoice $invoice)
+    {
+        $user = Auth::user();
+        if ($user->business_id !== 1 && $invoice->business_id !== $user->business_id) {
+            abort(403, 'Unauthorized access to invoice.');
+        }
+        $snapshot = $invoice->insurance_authorization_snapshot;
+        if (!$snapshot || !is_array($snapshot)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No insurance authorization data for this invoice.',
+            ], 404);
+        }
+        $clientTotal = (float) ($snapshot['client_total'] ?? 0);
+        return response()->json([
+            'success' => true,
+            'invoice' => ['id' => $invoice->id, 'total_amount' => $invoice->total_amount],
+            'requires_insurance_client_payment' => $clientTotal > 0,
+            'client_total' => $clientTotal,
+            'insurance_total' => (float) ($snapshot['insurance_total'] ?? 0),
+            'breakdown' => $snapshot['breakdown'] ?? null,
+            'policy_options' => $snapshot['policy_options'] ?? null,
+            'amount_that_reduces_deductible' => isset($snapshot['amount_that_reduces_deductible']) ? (float) $snapshot['amount_that_reduces_deductible'] : null,
+            'copay_contributes_to_deductible' => $snapshot['copay_contributes_to_deductible'] ?? null,
+            'coinsurance_contributes_to_deductible' => $snapshot['coinsurance_contributes_to_deductible'] ?? null,
+        ]);
+    }
 
     /**
      * Create package tracking records for package items

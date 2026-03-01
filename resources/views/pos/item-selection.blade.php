@@ -2216,94 +2216,9 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    // Insurance flow only: display exactly what the third-party API sent (policy_options, breakdown, client_total, etc.)
-                    const breakdown = data.breakdown || {};
-                    const policyOpts = data.policy_options || {};
-                    const fmt = (n) => (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     const clientTotalDue = data.requires_insurance_client_payment && data.client_total != null ? parseFloat(data.client_total) : 0;
                     if (clientTotalDue > 0 && paymentPhone) {
-                        // Policy options (what this client has to pay – same as third-party client page)
-                        const policyRows = [];
-                        if (policyOpts.has_deductible && policyOpts.deductible_amount != null && parseFloat(policyOpts.deductible_amount) > 0) {
-                            policyRows.push(`<div class="bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2"><span class="text-sm font-medium text-amber-800">Deductible</span><p class="text-sm text-amber-900">UGX ${fmt(policyOpts.deductible_amount)}</p></div>`);
-                        }
-                        if (policyOpts.copay_amount != null && parseFloat(policyOpts.copay_amount) > 0) {
-                            let copayHtml = `<div class="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-2"><span class="text-sm font-medium text-blue-800">Co-payment</span><p class="text-sm text-blue-900">UGX ${fmt(policyOpts.copay_amount)} per visit`;
-                            if (policyOpts.copay_max_limit != null && parseFloat(policyOpts.copay_max_limit) > 0) {
-                                copayHtml += `</p><p class="text-xs text-blue-700">Max Limit: UGX ${fmt(policyOpts.copay_max_limit)}</p>`;
-                            } else { copayHtml += '</p>'; }
-                            copayHtml += '</div>';
-                            policyRows.push(copayHtml);
-                        }
-                        if (policyOpts.coinsurance_percentage != null && parseFloat(policyOpts.coinsurance_percentage) > 0) {
-                            policyRows.push(`<div class="bg-indigo-50 border border-indigo-200 rounded-lg p-2 mb-2"><span class="text-sm font-medium text-indigo-800">Coinsurance</span><p class="text-sm text-indigo-900">${fmt(policyOpts.coinsurance_percentage)}%</p></div>`);
-                        }
-                        const policyOptionsHtml = policyRows.length
-                            ? `<div class="mb-3"><p class="text-xs font-semibold text-gray-600 mb-2">Policy options (what this client has to pay)</p><div class="grid grid-cols-1 gap-2">${policyRows.join('')}</div></div>`
-                            : '';
-                        const breakdownRows = [];
-                        if (breakdown.deductible != null && parseFloat(breakdown.deductible) > 0) {
-                            breakdownRows.push(`<tr><td class="text-left text-gray-600">Deductible (this visit)</td><td class="text-right">UGX ${fmt(breakdown.deductible)}</td></tr>`);
-                        }
-                        if (breakdown.copay != null && parseFloat(breakdown.copay) > 0) {
-                            breakdownRows.push(`<tr><td class="text-left text-gray-600">Co-pay (this visit)</td><td class="text-right">UGX ${fmt(breakdown.copay)}</td></tr>`);
-                        }
-                        if (breakdown.coinsurance != null && parseFloat(breakdown.coinsurance) > 0) {
-                            breakdownRows.push(`<tr><td class="text-left text-gray-600">Co-insurance (this visit)</td><td class="text-right">UGX ${fmt(breakdown.coinsurance)}</td></tr>`);
-                        }
-                        if (breakdown.excluded != null && parseFloat(breakdown.excluded) > 0) {
-                            breakdownRows.push(`<tr><td class="text-left text-gray-600">Excluded</td><td class="text-right">UGX ${fmt(breakdown.excluded)}</td></tr>`);
-                        }
-                        const breakdownTable = breakdownRows.length
-                            ? `<p class="text-xs font-semibold text-gray-600 mt-2 mb-1">This visit</p><table class="w-full text-sm border border-gray-200 rounded overflow-hidden my-1"><tbody>${breakdownRows.join('')}</tbody></table>`
-                            : '';
-                        const invoiceTotal = data.invoice && data.invoice.total_amount != null ? parseFloat(data.invoice.total_amount) : null;
-                        const reducesDeductible = data.amount_that_reduces_deductible != null ? fmt(data.amount_that_reduces_deductible) : null;
-                        const contribNote = (data.copay_contributes_to_deductible || data.coinsurance_contributes_to_deductible)
-                            ? `<p class="text-xs text-gray-500 mt-1">${data.copay_contributes_to_deductible ? 'Co-pay' : ''}${data.copay_contributes_to_deductible && data.coinsurance_contributes_to_deductible ? ' and ' : ''}${data.coinsurance_contributes_to_deductible ? 'Co-insurance' : ''} count toward deductible.${reducesDeductible ? ' Amount that reduces deductible: UGX ' + reducesDeductible + '.' : ''}</p>`
-                            : (reducesDeductible ? `<p class="text-xs text-gray-500 mt-1">Amount that reduces deductible: UGX ${reducesDeductible}.</p>` : '');
-                        Swal.fire({
-                            icon: 'info',
-                            title: 'Authorization received – collect client portion',
-                            html: `
-                                <div class="text-left">
-                                    <p class="mb-2">Insurer has approved. Collect the client's portion below (from insurer API).</p>
-                                    ${policyOptionsHtml}
-                                    ${breakdownTable}
-                                    ${invoiceTotal != null ? `<p class="text-xs text-gray-500 mt-2">Invoice total: UGX ${fmt(invoiceTotal)} &nbsp;|&nbsp; Insurance portion: UGX ${fmt(data.insurance_total || 0)}</p>` : ''}
-                                    ${contribNote}
-                                    <p class="text-lg font-bold text-blue-600 mt-3 mb-2">Amount to collect from client: UGX ${fmt(clientTotalDue)}</p>
-                                    <p class="text-sm text-gray-600">To: ${paymentPhone}</p>
-                                    <p class="text-sm text-gray-500 mt-1">Collect via mobile money to continue.</p>
-                                </div>
-                            `,
-                            showCancelButton: false,
-                            confirmButtonText: 'Collect payment (Mobile Money)',
-                            allowOutsideClick: false,
-                            allowEscapeKey: false
-                        }).then(async () => {
-                            Swal.fire({
-                                title: 'Processing...',
-                                text: 'Sending payment prompt to client.',
-                                allowOutsideClick: false,
-                                didOpen: () => { Swal.showLoading(); }
-                            });
-                            const payResult = await processMobileMoneyPayment(clientTotalDue, paymentPhone);
-                            if (payResult && payResult.success) {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Payment prompt sent',
-                                    text: 'Client should approve on their phone. You can complete below.'
-                                });
-                            } else {
-                                Swal.fire({
-                                    icon: 'warning',
-                                    title: 'Payment prompt failed',
-                                    text: payResult && payResult.message ? payResult.message : 'Could not send prompt. Please collect payment manually.'
-                                });
-                            }
-                            finishInvoiceSuccess(data, invoiceNumber, button, originalText);
-                        });
+                        showCollectClientModal(data, paymentPhone, data, invoiceNumber, button, originalText);
                     } else {
                         finishInvoiceSuccess(data, invoiceNumber, button, originalText);
                     }
@@ -2330,6 +2245,121 @@
             }
         }
         
+        function showCollectClientModal(displayData, paymentPhone, dataForSuccess, invoiceNumber, button, originalText) {
+            const data = displayData;
+            const breakdown = data.breakdown || {};
+            const policyOpts = data.policy_options || {};
+            const fmt = (n) => (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const clientTotalDue = data.requires_insurance_client_payment && data.client_total != null ? parseFloat(data.client_total) : 0;
+            const policyRows = [];
+            if (policyOpts.has_deductible && policyOpts.deductible_amount != null && parseFloat(policyOpts.deductible_amount) > 0) {
+                policyRows.push(`<div class="bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2"><span class="text-sm font-medium text-amber-800">Deductible</span><p class="text-sm text-amber-900">UGX ${fmt(policyOpts.deductible_amount)}</p></div>`);
+            }
+            if (policyOpts.copay_amount != null && parseFloat(policyOpts.copay_amount) > 0) {
+                let copayHtml = `<div class="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-2"><span class="text-sm font-medium text-blue-800">Co-payment</span><p class="text-sm text-blue-900">UGX ${fmt(policyOpts.copay_amount)} per visit`;
+                if (policyOpts.copay_max_limit != null && parseFloat(policyOpts.copay_max_limit) > 0) {
+                    copayHtml += `</p><p class="text-xs text-blue-700">Max Limit: UGX ${fmt(policyOpts.copay_max_limit)}</p>`;
+                } else { copayHtml += '</p>'; }
+                copayHtml += '</div>';
+                policyRows.push(copayHtml);
+            }
+            if (policyOpts.coinsurance_percentage != null && parseFloat(policyOpts.coinsurance_percentage) > 0) {
+                policyRows.push(`<div class="bg-indigo-50 border border-indigo-200 rounded-lg p-2 mb-2"><span class="text-sm font-medium text-indigo-800">Coinsurance</span><p class="text-sm text-indigo-900">${fmt(policyOpts.coinsurance_percentage)}%</p></div>`);
+            }
+            const policyOptionsHtml = policyRows.length
+                ? `<div class="mb-3"><p class="text-xs font-semibold text-gray-600 mb-2">Policy options (what this client has to pay)</p><div class="grid grid-cols-1 gap-2">${policyRows.join('')}</div></div>`
+                : '';
+            const breakdownRows = [];
+            if (breakdown.deductible != null && parseFloat(breakdown.deductible) > 0) {
+                breakdownRows.push(`<tr><td class="text-left text-gray-600">Deductible (this visit)</td><td class="text-right">UGX ${fmt(breakdown.deductible)}</td></tr>`);
+            }
+            if (breakdown.copay != null && parseFloat(breakdown.copay) > 0) {
+                breakdownRows.push(`<tr><td class="text-left text-gray-600">Co-pay (this visit)</td><td class="text-right">UGX ${fmt(breakdown.copay)}</td></tr>`);
+            }
+            if (breakdown.coinsurance != null && parseFloat(breakdown.coinsurance) > 0) {
+                breakdownRows.push(`<tr><td class="text-left text-gray-600">Co-insurance (this visit)</td><td class="text-right">UGX ${fmt(breakdown.coinsurance)}</td></tr>`);
+            }
+            if (breakdown.excluded != null && parseFloat(breakdown.excluded) > 0) {
+                breakdownRows.push(`<tr><td class="text-left text-gray-600">Excluded</td><td class="text-right">UGX ${fmt(breakdown.excluded)}</td></tr>`);
+            }
+            const breakdownTable = breakdownRows.length
+                ? `<p class="text-xs font-semibold text-gray-600 mt-2 mb-1">This visit</p><table class="w-full text-sm border border-gray-200 rounded overflow-hidden my-1"><tbody>${breakdownRows.join('')}</tbody></table>`
+                : '';
+            const invoiceTotal = data.invoice && data.invoice.total_amount != null ? parseFloat(data.invoice.total_amount) : null;
+            const reducesDeductible = data.amount_that_reduces_deductible != null ? fmt(data.amount_that_reduces_deductible) : null;
+            const contribNote = (data.copay_contributes_to_deductible || data.coinsurance_contributes_to_deductible)
+                ? `<p class="text-xs text-gray-500 mt-1">${data.copay_contributes_to_deductible ? 'Co-pay' : ''}${data.copay_contributes_to_deductible && data.coinsurance_contributes_to_deductible ? ' and ' : ''}${data.coinsurance_contributes_to_deductible ? 'Co-insurance' : ''} count toward deductible.${reducesDeductible ? ' Amount that reduces deductible: UGX ' + reducesDeductible + '.' : ''}</p>`
+                : (reducesDeductible ? `<p class="text-xs text-gray-500 mt-1">Amount that reduces deductible: UGX ${reducesDeductible}.</p>` : '');
+            Swal.fire({
+                icon: 'info',
+                title: 'Authorization received – collect client portion',
+                html: `
+                    <div class="text-left">
+                        <p class="mb-2">Insurer has approved. Collect the client's portion below (from insurer API).</p>
+                        ${policyOptionsHtml}
+                        ${breakdownTable}
+                        ${invoiceTotal != null ? `<p class="text-xs text-gray-500 mt-2">Invoice total: UGX ${fmt(invoiceTotal)} &nbsp;|&nbsp; Insurance portion: UGX ${fmt(data.insurance_total || 0)}</p>` : ''}
+                        ${contribNote}
+                        <p class="text-lg font-bold text-blue-600 mt-3 mb-2">Amount to collect from client: UGX ${fmt(clientTotalDue)}</p>
+                        <p class="text-sm text-gray-600">To: ${paymentPhone}</p>
+                        <p class="text-sm text-gray-500 mt-1">Collect via mobile money to continue.</p>
+                        <p class="text-xs text-gray-400 mt-2">Use Refresh to re-pull details without leaving this screen.</p>
+                    </div>
+                `,
+                showCancelButton: false,
+                showDenyButton: true,
+                confirmButtonText: 'Collect payment (Mobile Money)',
+                denyButtonText: 'Refresh',
+                allowOutsideClick: false,
+                allowEscapeKey: false
+            }).then(async (result) => {
+                if (result.isDenied) {
+                    Swal.fire({
+                        title: 'Re-pulling details...',
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
+                    try {
+                        const refRes = await fetch(`/invoices/${dataForSuccess.invoice.id}/insurance-authorization`, {
+                            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
+                        });
+                        const refData = await refRes.json();
+                        if (!refData.success) {
+                            Swal.fire({ icon: 'error', title: 'Could not refresh', text: refData.message || 'No authorization data.' });
+                            return;
+                        }
+                        const merged = { ...refData, invoice: refData.invoice || dataForSuccess.invoice };
+                        showCollectClientModal(merged, paymentPhone, dataForSuccess, invoiceNumber, button, originalText);
+                    } catch (err) {
+                        console.error(err);
+                        Swal.fire({ icon: 'error', title: 'Refresh failed', text: 'Could not re-pull details. Try again.' });
+                    }
+                    return;
+                }
+                Swal.fire({
+                    title: 'Processing...',
+                    text: 'Sending payment prompt to client.',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+                const payResult = await processMobileMoneyPayment(clientTotalDue, paymentPhone);
+                if (payResult && payResult.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Payment prompt sent',
+                        text: 'Client should approve on their phone. You can complete below.'
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Payment prompt failed',
+                        text: payResult && payResult.message ? payResult.message : 'Could not send prompt. Please collect payment manually.'
+                    });
+                }
+                finishInvoiceSuccess(dataForSuccess, invoiceNumber, button, originalText);
+            });
+        }
+
         function finishInvoiceSuccess(data, invoiceNumber, button, originalText) {
             if (button) {
                 button.textContent = originalText;
