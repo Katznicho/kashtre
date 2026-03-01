@@ -1708,8 +1708,8 @@
 
                 let optionsHtml = `
                     <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p class="text-sm font-medium text-yellow-800 mb-2">✗ Policy number not found</p>
-                        <p class="text-xs text-yellow-700 mb-3">Try another verification method:</p>
+                        <p class="text-sm font-medium text-yellow-800 mb-2">✗ Client not found please try other verification methods</p>
+                        <p class="text-xs text-yellow-700 mb-3">Choose an option below:</p>
                         <div class="space-y-2">
                 `;
 
