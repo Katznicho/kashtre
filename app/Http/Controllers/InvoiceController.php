@@ -2019,7 +2019,7 @@ class InvoiceController extends Controller
                         'deductible_remaining' => $deductibleRemaining,
                     ]);
                     $insuranceAuthorization = $apiService->requestInvoiceAuthorization($authPayload);
-                    if ($insuranceAuthorization) {
+                    if ($insuranceAuthorization && !empty($insuranceAuthorization['success'])) {
                         $invoice->update([
                             'insurance_authorization_reference' => $insuranceAuthorization['authorization_reference'] ?? null,
                             'insurance_client_total' => $insuranceAuthorization['client_total'] ?? null,
@@ -2038,6 +2038,8 @@ class InvoiceController extends Controller
                     } else {
                         Log::warning('[Kashtre] Insurance authorization: third-party returned no data or failed', [
                             'invoice_id' => $invoice->id,
+                            'has_response' => (bool) $insuranceAuthorization,
+                            'auth_message' => is_array($insuranceAuthorization) ? ($insuranceAuthorization['message'] ?? null) : null,
                         ]);
                     }
                 } else {
@@ -2054,7 +2056,7 @@ class InvoiceController extends Controller
                 'invoice' => $invoice,
                 'next_invoice_number' => $nextInvoiceNumber,
             ];
-            if ($insuranceAuthorization) {
+            if ($insuranceAuthorization && !empty($insuranceAuthorization['success'])) {
                 // Pass through everything from the third-party API so the frontend displays it as-is
                 $responseData['requires_insurance_client_payment'] = ((float) ($insuranceAuthorization['client_total'] ?? 0)) > 0;
                 $responseData['insurance_authorization'] = $insuranceAuthorization;
@@ -2075,6 +2077,10 @@ class InvoiceController extends Controller
                 if (isset($insuranceAuthorization['policy_options'])) {
                     $responseData['policy_options'] = $insuranceAuthorization['policy_options'];
                 }
+            } elseif ($insuranceAuthorization && empty($insuranceAuthorization['success']) && isset($insuranceAuthorization['message'])) {
+                // Surface authorization failure reason to the frontend (e.g. "Policy is not active.")
+                $responseData['insurance_authorization_failed'] = true;
+                $responseData['insurance_authorization_error'] = $insuranceAuthorization['message'];
             }
 
             return response()->json($responseData);

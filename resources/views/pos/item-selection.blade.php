@@ -1238,6 +1238,10 @@
             const creditLimit = 0;
             const currentCreditRemaining = 0;
         @endif
+        // Flag to indicate if this client is an insurance client.
+        // We use this to ensure no automatic payments are triggered
+        // before the invoice is saved for insurance clients.
+        const isInsuranceClient = {{ $client->insurance_company_id ? 'true' : 'false' }};
         
         // Add event listeners to quantity inputs
         document.addEventListener('DOMContentLoaded', function() {
@@ -2059,8 +2063,11 @@
                 let paymentResult = null;
                 let amountPaid = 0;
                 
-                // Only process mobile money payment if total amount > 0
-                if (paymentMethods.includes('mobile_money') && paymentPhone && totalAmount > 0) {
+                // Only process mobile money payment if total amount > 0.
+                // IMPORTANT: For insurance clients (those linked to an insurance company),
+                // we NEVER send a mobile money prompt at this stage. Their client portion
+                // is handled separately after invoice authorization.
+                if (!isInsuranceClient && paymentMethods.includes('mobile_money') && paymentPhone && totalAmount > 0) {
                     console.log('=== PROCESSING MOBILE MONEY PAYMENT ===');
                     console.log('Processing mobile money payment:', { 
                         totalAmount, 
@@ -2115,7 +2122,7 @@
                         });
                         return;
                     }
-                } else if (paymentMethods.includes('mobile_money') && totalAmount === 0) {
+                } else if (!isInsuranceClient && paymentMethods.includes('mobile_money') && totalAmount === 0) {
                     console.log('=== SKIPPING MOBILE MONEY PAYMENT - ZERO AMOUNT ===');
                     console.log('Mobile money payment skipped because total amount is 0:', {
                         totalAmount: totalAmount,
@@ -2215,9 +2222,43 @@
                 
                 const data = await response.json();
                 
+                console.log('=== POS INVOICE SAVE RESPONSE ===', data);
+                console.log('=== POS INVOICE AUTH FLAGS ===', {
+                    requires_insurance_client_payment: data.requires_insurance_client_payment ?? null,
+                    client_total: data.client_total ?? null,
+                    insurance_total: data.insurance_total ?? null,
+                    has_insurance_authorization: !!data.insurance_authorization,
+                    has_snapshot: !!(data.invoice && data.invoice.insurance_authorization_snapshot),
+                });
+                
                 if (data.success) {
-                    const clientTotalDue = data.requires_insurance_client_payment && data.client_total != null ? parseFloat(data.client_total) : 0;
-                    if (clientTotalDue > 0 && paymentPhone) {
+                    // If insurance authorization failed, show a clear error modal first.
+                    if (data.insurance_authorization_failed && data.insurance_authorization_error) {
+                        await Swal.fire({
+                            icon: 'error',
+                            title: 'Authorization failed',
+                            html: `
+                                <div class="text-left">
+                                    <p class="mb-2">The insurer could not authorize this invoice.</p>
+                                    <p class="text-sm text-gray-700"><strong>Reason:</strong> ${data.insurance_authorization_error}</p>
+                                    <p class="text-xs text-gray-500 mt-2">The proforma invoice has still been saved in Kashtre.</p>
+                                </div>
+                            `,
+                            confirmButtonText: 'OK',
+                            allowOutsideClick: false
+                        });
+                        // Then continue to the normal "Proforma Invoice Saved" flow.
+                        finishInvoiceSuccess(data, invoiceNumber, button, originalText);
+                        return;
+                    }
+                    // If insurer says there is a client portion to pay, always show
+                    // the authorization / collect-client-portion modal, even if
+                    // there is no payment phone captured. Staff will collect manually.
+                    const clientTotalDue = data.requires_insurance_client_payment && data.client_total != null
+                        ? parseFloat(data.client_total)
+                        : 0;
+                    
+                    if (clientTotalDue > 0) {
                         showCollectClientModal(data, paymentPhone, data, invoiceNumber, button, originalText);
                     } else {
                         finishInvoiceSuccess(data, invoiceNumber, button, originalText);
@@ -2301,7 +2342,7 @@
                         ${invoiceTotal != null ? `<p class="text-xs text-gray-500 mt-2">Invoice total: UGX ${fmt(invoiceTotal)} &nbsp;|&nbsp; Insurance portion: UGX ${fmt(data.insurance_total || 0)}</p>` : ''}
                         ${contribNote}
                         <p class="text-lg font-bold text-blue-600 mt-3 mb-2">Amount to collect from client: UGX ${fmt(clientTotalDue)}</p>
-                        <p class="text-sm text-gray-600">To: ${paymentPhone}</p>
+                        <p class="text-sm text-gray-600">To: ${paymentPhone || '—'}</p>
                         <p class="text-sm text-gray-500 mt-1">Collect via mobile money to continue.</p>
                         <p class="text-xs text-gray-400 mt-2">Use Refresh to re-pull details without leaving this screen.</p>
                     </div>
@@ -2336,6 +2377,8 @@
                     }
                     return;
                 }
+                // When user confirms, send a mobile money prompt for the client portion,
+                // then continue to the normal "Proforma Invoice Saved" flow.
                 Swal.fire({
                     title: 'Processing...',
                     text: 'Sending payment prompt to client.',

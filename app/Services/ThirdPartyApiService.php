@@ -843,7 +843,12 @@ class ThirdPartyApiService
                     'has_insurance_total' => isset($data['insurance_total']),
                     'raw' => $data,
                 ]);
-                return null;
+                // Return structured failure so caller can surface message
+                return [
+                    'success' => false,
+                    'message' => $data['message'] ?? 'Invoice authorization response missing expected fields.',
+                    'raw' => $data,
+                ];
             }
 
             $error = $response->json();
@@ -852,7 +857,12 @@ class ThirdPartyApiService
                 'body' => $response->body(),
                 'error' => $error,
             ]);
-            return null;
+            // Return structured failure instead of null so UI can show reason
+            return [
+                'success' => false,
+                'message' => $error['message'] ?? 'Invoice authorization failed.',
+                'http_status' => $response->status(),
+            ];
         } catch (Exception $e) {
             Log::error('[Kashtre->ThirdParty] Invoice authorization exception', [
                 'message' => $e->getMessage(),
