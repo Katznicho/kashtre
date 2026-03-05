@@ -17,6 +17,8 @@ class ContractorWithdrawalRequestController extends Controller
      */
     public function index(ContractorProfile $contractorProfile)
     {
+
+        // Check if user has access to this contractor
         $user = Auth::user();
         
         // Check if user has access to this contractor
@@ -24,10 +26,12 @@ class ContractorWithdrawalRequestController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
+        // Get withdrawal requests for this contractor
         $withdrawalRequests = ContractorWithdrawalRequest::where('contractor_profile_id', $contractorProfile->id)
             ->with('requestedBy')
             ->orderBy('created_at', 'desc')
             ->paginate(20);
+
 
         return view('contractor-withdrawal-requests.index', compact('contractorProfile', 'withdrawalRequests'));
     }
