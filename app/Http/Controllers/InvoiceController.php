@@ -1759,10 +1759,14 @@ class InvoiceController extends Controller
             ]);
             
             // Queue items for:
-            // 1. Credit clients OR insurance payments (both need service delivery)
+            // 1. Credit clients (they are approved to receive services on credit)
             // 2. Fully paid cash transactions (payment is complete, queue immediately)
+            //
+            // IMPORTANT: Insurance transactions are NO LONGER queued immediately at invoice save.
+            // For insurance, items are queued only after the client portion payment is confirmed
+            // (via the payment success flow / background payment status checks).
             $shouldQueueItems = (
-                ($isCreditTransaction || $isInsuranceTransaction || $isInsurancePaymentMethod) || 
+                $isCreditTransaction ||
                 ($isFullyPaid && $isCashPayment)
             ) && $nonDepositItems->isNotEmpty();
             

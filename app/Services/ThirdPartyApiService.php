@@ -872,4 +872,66 @@ class ThirdPartyApiService
             return null;
         }
     }
+
+    /**
+     * Record a client-portion payment in the third-party system.
+     * This is called after mobile money payment succeeds in Kashtre for an insurance invoice.
+     *
+     * @param array $payload Required: insurance_company_id (third-party ID), policy_number, amount, payment_reference.
+     *                       Optional: kashtre_invoice_id, authorization_reference, connected_business_id,
+     *                                 payment_method, mobile_money_number, payment_date.
+     * @return array{success: bool, message?: string}
+     */
+    public function recordClientPortionPayment(array $payload): array
+    {
+        $url = "{$this->baseUrl}/api/v1/payments/record-client-portion";
+
+        try {
+            Log::info('[Kashtre->ThirdParty] Recording client-portion payment', [
+                'url' => $url,
+                'insurance_company_id' => $payload['insurance_company_id'] ?? null,
+                'policy_number' => $payload['policy_number'] ?? null,
+                'amount' => $payload['amount'] ?? null,
+                'payment_reference' => $payload['payment_reference'] ?? null,
+                'kashtre_invoice_id' => $payload['kashtre_invoice_id'] ?? null,
+                'authorization_reference' => $payload['authorization_reference'] ?? null,
+            ]);
+
+            $response = Http::timeout($this->timeout)
+                ->acceptJson()
+                ->post($url, $payload);
+
+            if ($response->successful()) {
+                $body = $response->json();
+                Log::info('[Kashtre->ThirdParty] Client-portion payment recorded successfully', [
+                    'status' => $response->status(),
+                    'body' => $body,
+                ]);
+
+                return ['success' => true];
+            }
+
+            Log::warning('[Kashtre->ThirdParty] Failed to record client-portion payment', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            $error = $response->json();
+
+            return [
+                'success' => false,
+                'message' => $error['message'] ?? ('Third-party returned HTTP ' . $response->status()),
+            ];
+        } catch (Exception $e) {
+            Log::error('[Kashtre->ThirdParty] Exception while recording client-portion payment', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+            ];
+        }
+    }
 }

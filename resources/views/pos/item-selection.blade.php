@@ -2336,15 +2336,13 @@
                 title: 'Authorization received – collect client portion',
                 html: `
                     <div class="text-left">
-                        <p class="mb-2">Insurer has approved. Collect the client's portion below (from insurer API).</p>
+                        <p class="mb-2">Insurer has approved this invoice. Review the client and insurance portions below.</p>
                         ${policyOptionsHtml}
                         ${breakdownTable}
-                        ${invoiceTotal != null ? `<p class="text-xs text-gray-500 mt-2">Invoice total: UGX ${fmt(invoiceTotal)} &nbsp;|&nbsp; Insurance portion: UGX ${fmt(data.insurance_total || 0)}</p>` : ''}
+                        ${invoiceTotal != null ? `<p class="mt-2 text-sm text-gray-700">Invoice total: UGX ${fmt(invoiceTotal)} &nbsp;|&nbsp; Insurance portion: UGX ${fmt(data.insurance_total || 0)}</p>` : ''}
                         ${contribNote}
-                        <p class="text-lg font-bold text-blue-600 mt-3 mb-2">Amount to collect from client: UGX ${fmt(clientTotalDue)}</p>
-                        <p class="text-sm text-gray-600">To: ${paymentPhone || '—'}</p>
-                        <p class="text-sm text-gray-500 mt-1">Collect via mobile money to continue.</p>
-                        <p class="text-xs text-gray-400 mt-2">Use Refresh to re-pull details without leaving this screen.</p>
+                        <p class="text-lg font-bold text-blue-600 mt-3 mb-1">Amount to collect from client: UGX ${fmt(clientTotalDue)}</p>
+                        <p class="text-sm text-gray-700">Client phone: ${paymentPhone || 'Not provided'}</p>
                     </div>
                 `,
                 showCancelButton: false,
