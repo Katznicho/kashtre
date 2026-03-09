@@ -107,6 +107,29 @@
                                 </button>
                             </div>
                         </div>
+                        @if($client->insurance_company_id)
+                        <div class="bg-gray-50 p-4 rounded-lg border-2 border-dashed border-blue-200 hover:border-blue-300 transition-colors">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-sm text-gray-500 font-medium">Services Category</p>
+                                <span class="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">Editable</span>
+                            </div>
+                            <div class="space-y-2">
+                                <select id="services-category-edit"
+                                        class="w-full text-lg font-semibold text-gray-900 bg-white border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                                    <option value="dental" {{ ($client->services_category ?? '') === 'dental' ? 'selected' : '' }}>Dental</option>
+                                    <option value="optical" {{ ($client->services_category ?? '') === 'optical' ? 'selected' : '' }}>Optical</option>
+                                    <option value="outpatient" {{ ($client->services_category ?? '') === 'outpatient' ? 'selected' : '' }}>Outpatient</option>
+                                    <option value="inpatient" {{ ($client->services_category ?? '') === 'inpatient' ? 'selected' : '' }}>Inpatient</option>
+                                    <option value="maternity" {{ ($client->services_category ?? '') === 'maternity' ? 'selected' : '' }}>Maternity</option>
+                                    <option value="funeral" {{ ($client->services_category ?? '') === 'funeral' ? 'selected' : '' }}>Funeral</option>
+                                </select>
+                                <button type="button" onclick="saveServicesCategory()"
+                                        class="w-full bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium">
+                                    Save Services Category
+                                </button>
+                            </div>
+                        </div>
+                        @endif
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Contact Phone Number</p>
                             <p class="text-lg font-semibold text-gray-900">{{ $client->phone_number }}</p>
@@ -1903,13 +1926,52 @@
             });
         }
         
+        function saveServicesCategory() {
+            const select = document.getElementById('services-category-edit');
+            const category = select.value;
+            const button = event.target;
+            const originalText = button.textContent;
+
+            button.textContent = 'Saving...';
+            button.disabled = true;
+
+            fetch(`/clients/{{ $client->id }}/update-services-category`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ services_category: category })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Updated',
+                        text: data.message,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'Failed to update services category' });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to update services category' });
+            })
+            .finally(() => {
+                button.textContent = originalText;
+                button.disabled = false;
+            });
+        }
+
         // Generate unique package tracking numbers
         function generatePackageTrackingNumber(itemId, itemName) {
-            // Create a timestamp-based tracking number
             const timestamp = Date.now();
             const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-            
-            // Format: PKG-YYYYMMDD-HHMMSS-RRR (Package-YearMonthDay-HourMinuteSecond-Random)
             const date = new Date(timestamp);
             const year = date.getFullYear();
             const month = (date.getMonth() + 1).toString().padStart(2, '0');

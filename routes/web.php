@@ -199,7 +199,7 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     
     // Settings (includes Insurance Companies)
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
-    
+
     // Insurance Companies routes (redirect index to settings)
     Route::get('/insurance-companies', function() {
         return redirect()->route('settings.index', ['tab' => 'insurance-companies']);
@@ -296,6 +296,7 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::resource("clients", ClientController::class);
     Route::post('/clients/{client}/update-payment-methods', [ClientController::class, 'updatePaymentMethods'])->name('clients.update-payment-methods');
     Route::post('/clients/{client}/update-payment-phone', [ClientController::class, 'updatePaymentPhone'])->name('clients.update-payment-phone');
+    Route::post('/clients/{client}/update-services-category', [ClientController::class, 'updateServicesCategory'])->name('clients.update-services-category');
     Route::post('/clients/{client}/update-excluded-items', [ClientController::class, 'updateExcludedItems'])->name('clients.update-excluded-items');
     Route::post('/clients/{client}/admit', [ClientController::class, 'admit'])->name('clients.admit');
     Route::post('/clients/{client}/discharge', [ClientController::class, 'discharge'])->name('clients.discharge');

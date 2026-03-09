@@ -2012,6 +2012,7 @@ class InvoiceController extends Controller
                         'invoice_number' => $invoice->invoice_number,
                         'insurance_company_id' => (int) $thirdPartyBusinessId,
                         'policy_number' => trim($client->policy_number),
+                        'services_category' => $client->services_category ?? null,
                         'total_amount' => (float) $invoice->total_amount,
                         'deductible_remaining' => $deductibleRemaining,
                         'items' => $invoice->items ?? [],
@@ -2038,6 +2039,7 @@ class InvoiceController extends Controller
                             'confirmation_code' => $insuranceAuthorization['confirmation_code'] ?? null,
                             'client_total' => $insuranceAuthorization['client_total'] ?? null,
                             'insurance_total' => $insuranceAuthorization['insurance_total'] ?? null,
+                            'authorization_status' => $insuranceAuthorization['authorization_status'] ?? null,
                         ]);
                     } else {
                         Log::warning('[Kashtre] Insurance authorization: third-party returned no data or failed', [
@@ -2061,7 +2063,9 @@ class InvoiceController extends Controller
                 'next_invoice_number' => $nextInvoiceNumber,
             ];
             if ($insuranceAuthorization && !empty($insuranceAuthorization['success'])) {
-                // Pass through everything from the third-party API so the frontend displays it as-is
+                $authStatus = $insuranceAuthorization['authorization_status'] ?? 'auto_approved';
+
+                $responseData['authorization_status'] = $authStatus;
                 $responseData['requires_insurance_client_payment'] = ((float) ($insuranceAuthorization['client_total'] ?? 0)) > 0;
                 $responseData['insurance_authorization'] = $insuranceAuthorization;
                 $responseData['client_total'] = (float) ($insuranceAuthorization['client_total'] ?? 0);
@@ -2069,6 +2073,10 @@ class InvoiceController extends Controller
                 $responseData['breakdown'] = $insuranceAuthorization['breakdown'] ?? null;
                 $responseData['insurance_authorization_reference'] = $insuranceAuthorization['authorization_reference'] ?? null;
                 $responseData['confirmation_code'] = $insuranceAuthorization['confirmation_code'] ?? null;
+                $responseData['warnings'] = $insuranceAuthorization['warnings'] ?? [];
+                if (isset($insuranceAuthorization['service_category'])) {
+                    $responseData['service_category'] = $insuranceAuthorization['service_category'];
+                }
                 if (isset($insuranceAuthorization['amount_that_reduces_deductible'])) {
                     $responseData['amount_that_reduces_deductible'] = (float) $insuranceAuthorization['amount_that_reduces_deductible'];
                 }

@@ -131,6 +131,29 @@
                                 </button>
                             </div>
                         </div>
+                        @if($client->insurance_company_id)
+                        <div class="bg-gray-50 p-4 rounded-lg border-2 border-dashed border-blue-200 hover:border-blue-300 transition-colors">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-sm text-gray-500 font-medium">Services Category</p>
+                                <span class="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">Editable</span>
+                            </div>
+                            <div class="space-y-2">
+                                <select id="services-category-edit"
+                                        class="w-full text-lg font-semibold text-gray-900 bg-white border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                                    <option value="dental" {{ ($client->services_category ?? '') === 'dental' ? 'selected' : '' }}>Dental</option>
+                                    <option value="optical" {{ ($client->services_category ?? '') === 'optical' ? 'selected' : '' }}>Optical</option>
+                                    <option value="outpatient" {{ ($client->services_category ?? '') === 'outpatient' ? 'selected' : '' }}>Outpatient</option>
+                                    <option value="inpatient" {{ ($client->services_category ?? '') === 'inpatient' ? 'selected' : '' }}>Inpatient</option>
+                                    <option value="maternity" {{ ($client->services_category ?? '') === 'maternity' ? 'selected' : '' }}>Maternity</option>
+                                    <option value="funeral" {{ ($client->services_category ?? '') === 'funeral' ? 'selected' : '' }}>Funeral</option>
+                                </select>
+                                <button type="button" onclick="saveServicesCategory()"
+                                        class="w-full bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium">
+                                    Save Services Category
+                                </button>
+                            </div>
+                        </div>
+                        @endif
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <p class="text-sm text-gray-500 mb-1">Contact Phone Number</p>
                             <p class="text-lg font-semibold text-gray-900">{{ $client->phone_number }}</p>
@@ -640,7 +663,9 @@
         let serviceCharge = 0;
         let packageAdjustment = 0;
         let balanceAdjustment = 0;
-        
+        const posClientName = @json($client->name ?? '');
+        const posInsuranceName = @json(optional($client->insuranceCompany)->name ?? '');
+
         // Payment responsibility information
         @if($client->insurance_company_id && ($client->has_deductible || $client->copay_amount || $client->coinsurance_percentage))
         const paymentResponsibility = {
@@ -2232,7 +2257,7 @@
                 });
                 
                 if (data.success) {
-                    // If insurance authorization failed, show a clear error modal first.
+                    // If insurance authorization failed (HTTP error from third-party)
                     if (data.insurance_authorization_failed && data.insurance_authorization_error) {
                         await Swal.fire({
                             icon: 'error',
@@ -2247,17 +2272,88 @@
                             confirmButtonText: 'OK',
                             allowOutsideClick: false
                         });
-                        // Then continue to the normal "Proforma Invoice Saved" flow.
                         finishInvoiceSuccess(data, invoiceNumber, button, originalText);
                         return;
                     }
-                    // If insurer says there is a client portion to pay, always show
-                    // the authorization / collect-client-portion modal, even if
-                    // there is no payment phone captured. Staff will collect manually.
+
+                    const authStatus = data.authorization_status || 'auto_approved';
+
+                    // Auto-rejected by insurer thresholds
+                    if (authStatus === 'auto_rejected') {
+                        await Swal.fire({
+                            icon: 'error',
+                            title: 'Authorization rejected',
+                            html: `
+                                <div class="text-left">
+                                    <p class="mb-2">The insurer has <strong>rejected</strong> this authorization.</p>
+                                    <p class="text-sm text-gray-700">The full invoice amount is payable by the client.</p>
+                                    <p class="text-xs text-gray-500 mt-2">Invoice saved.</p>
+                                </div>
+                            `,
+                            confirmButtonText: 'OK',
+                            allowOutsideClick: false
+                        });
+                        finishInvoiceSuccess(data, invoiceNumber, button, originalText);
+                        return;
+                    }
+
+                    // Pending manual review
+                    if (authStatus === 'pending_review') {
+                        const fmt = (n) => (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        const breakdown = data.breakdown || {};
+                        const invoiceTotal = data.invoice && data.invoice.total_amount != null ? parseFloat(data.invoice.total_amount) : null;
+                        const warningsHtml = (data.warnings && data.warnings.length)
+                            ? '<div class="bg-amber-50 border border-amber-200 rounded p-2 mt-2"><p class="text-xs text-amber-800">' + data.warnings.join('</p><p class="text-xs text-amber-800">') + '</p></div>'
+                            : '';
+
+                        const breakdownRows = [];
+                        if (breakdown.deductible != null && parseFloat(breakdown.deductible) > 0)
+                            breakdownRows.push('<tr><td class="text-left text-gray-600">Deductible</td><td class="text-right">UGX ' + fmt(breakdown.deductible) + '</td></tr>');
+                        if (breakdown.copay != null && parseFloat(breakdown.copay) > 0)
+                            breakdownRows.push('<tr><td class="text-left text-gray-600">Co-pay</td><td class="text-right">UGX ' + fmt(breakdown.copay) + '</td></tr>');
+                        if (breakdown.coinsurance != null && parseFloat(breakdown.coinsurance) > 0)
+                            breakdownRows.push('<tr><td class="text-left text-gray-600">Co-insurance</td><td class="text-right">UGX ' + fmt(breakdown.coinsurance) + '</td></tr>');
+                        const breakdownHtml = breakdownRows.length ? '<table class="w-full text-sm my-2 border-t border-b border-slate-200"><tbody>' + breakdownRows.join('') + '</tbody></table>' : '';
+
+                        await Swal.fire({
+                            icon: 'warning',
+                            title: 'Pending approval',
+                            html: `
+                                <div class="text-left text-sm">
+                                    <div class="bg-orange-50 border border-orange-300 rounded-lg p-3 mb-3">
+                                        <p class="font-semibold text-orange-800 mb-1">Awaiting insurer approval</p>
+                                        <p class="text-orange-700 text-xs">Insurance portion of UGX ${fmt(data.insurance_total)} needs manual approval.</p>
+                                    </div>
+                                    ${breakdownHtml}
+                                    <div class="space-y-1 mt-2">
+                                        ${invoiceTotal != null ? '<p class="flex justify-between text-slate-700"><span>Invoice total</span><span>UGX ' + fmt(invoiceTotal) + '</span></p>' : ''}
+                                        <p class="flex justify-between text-slate-700"><span>Insurance portion</span><span class="text-orange-600 font-medium">UGX ${fmt(data.insurance_total)} <span class="text-xs">(pending)</span></span></p>
+                                        <p class="flex justify-between text-slate-700"><span>Client portion</span><span>UGX ${fmt(data.client_total)}</span></p>
+                                    </div>
+                                    ${warningsHtml}
+                                    <p class="text-xs text-gray-500 mt-3">Invoice saved. You can collect the client portion while approval is pending.</p>
+                                </div>
+                            `,
+                            showCancelButton: true,
+                            confirmButtonText: 'Collect client portion now',
+                            cancelButtonText: 'OK, wait for review',
+                            confirmButtonColor: '#2563eb',
+                            allowOutsideClick: false
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                showCollectClientModal(data, paymentPhone, data, invoiceNumber, button, originalText);
+                            } else {
+                                finishInvoiceSuccess(data, invoiceNumber, button, originalText);
+                            }
+                        });
+                        return;
+                    }
+
+                    // Auto-approved — normal flow
                     const clientTotalDue = data.requires_insurance_client_payment && data.client_total != null
                         ? parseFloat(data.client_total)
                         : 0;
-                    
+
                     if (clientTotalDue > 0) {
                         showCollectClientModal(data, paymentPhone, data, invoiceNumber, button, originalText);
                     } else {
@@ -2312,71 +2408,96 @@
                 : '';
             const breakdownRows = [];
             if (breakdown.deductible != null && parseFloat(breakdown.deductible) > 0) {
-                breakdownRows.push(`<tr><td class="text-left text-gray-600">Deductible (this visit)</td><td class="text-right">UGX ${fmt(breakdown.deductible)}</td></tr>`);
+                breakdownRows.push(`<tr><td class="text-left text-gray-600">Deductible</td><td class="text-right">UGX ${fmt(breakdown.deductible)}</td></tr>`);
             }
             if (breakdown.copay != null && parseFloat(breakdown.copay) > 0) {
-                breakdownRows.push(`<tr><td class="text-left text-gray-600">Co-pay (this visit)</td><td class="text-right">UGX ${fmt(breakdown.copay)}</td></tr>`);
+                breakdownRows.push(`<tr><td class="text-left text-gray-600">Co-pay</td><td class="text-right">UGX ${fmt(breakdown.copay)}</td></tr>`);
             }
             if (breakdown.coinsurance != null && parseFloat(breakdown.coinsurance) > 0) {
-                breakdownRows.push(`<tr><td class="text-left text-gray-600">Co-insurance (this visit)</td><td class="text-right">UGX ${fmt(breakdown.coinsurance)}</td></tr>`);
+                breakdownRows.push(`<tr><td class="text-left text-gray-600">Co-insurance</td><td class="text-right">UGX ${fmt(breakdown.coinsurance)}</td></tr>`);
             }
             if (breakdown.excluded != null && parseFloat(breakdown.excluded) > 0) {
                 breakdownRows.push(`<tr><td class="text-left text-gray-600">Excluded</td><td class="text-right">UGX ${fmt(breakdown.excluded)}</td></tr>`);
             }
-            const breakdownTable = breakdownRows.length
-                ? `<p class="text-xs font-semibold text-gray-600 mt-2 mb-1">This visit</p><table class="w-full text-sm border border-gray-200 rounded overflow-hidden my-1"><tbody>${breakdownRows.join('')}</tbody></table>`
-                : '';
             const invoiceTotal = data.invoice && data.invoice.total_amount != null ? parseFloat(data.invoice.total_amount) : null;
-            const reducesDeductible = data.amount_that_reduces_deductible != null ? fmt(data.amount_that_reduces_deductible) : null;
-            const contribNote = (data.copay_contributes_to_deductible || data.coinsurance_contributes_to_deductible)
-                ? `<p class="text-xs text-gray-500 mt-1">${data.copay_contributes_to_deductible ? 'Co-pay' : ''}${data.copay_contributes_to_deductible && data.coinsurance_contributes_to_deductible ? ' and ' : ''}${data.coinsurance_contributes_to_deductible ? 'Co-insurance' : ''} count toward deductible.${reducesDeductible ? ' Amount that reduces deductible: UGX ' + reducesDeductible + '.' : ''}</p>`
-                : (reducesDeductible ? `<p class="text-xs text-gray-500 mt-1">Amount that reduces deductible: UGX ${reducesDeductible}.</p>` : '');
+            const insurancePortion = parseFloat(data.insurance_total || 0) || 0;
+            const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+            const receiptBreakdownRows = breakdownRows.length ? breakdownRows.join('') : '<tr><td class="text-left text-gray-600">Client portion</td><td class="text-right">UGX ' + fmt(clientTotalDue) + '</td></tr>';
+            const receiptHtml = '<div id="insurance-client-portion-receipt" class="receipt-box text-center text-sm" style="max-width:320px;margin:0 auto;font-family:ui-sans-serif,sans-serif;">' +
+                '<div class="border-b border-slate-200 pb-2 mb-3"><p class="font-semibold text-slate-800 text-base tracking-wide">Client portion receipt</p><p class="text-slate-500 text-xs mt-1">Amount due from client</p></div>' +
+                '<div class="text-left space-y-0.5 text-slate-600 text-xs mb-2">' + (posClientName ? '<p>Client <strong class="text-slate-800">' + (posClientName.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</strong></p>' : '') + (posInsuranceName ? '<p>Insurance <strong class="text-slate-800">' + (posInsuranceName.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</strong></p>' : '') + '<p>Invoice <strong class="text-slate-800">' + invoiceNumber + '</strong></p><p>Date ' + todayStr + '</p></div>' +
+                '<table class="w-full text-sm my-3 border-t border-b border-slate-200"><tbody>' + receiptBreakdownRows + '</tbody></table>' +
+                '<div class="text-left space-y-1 mt-2 text-sm">' +
+                (invoiceTotal != null ? '<p class="flex justify-between text-slate-700"><span>Invoice total</span><span>UGX ' + fmt(invoiceTotal) + '</span></p>' : '') +
+                (insurancePortion > 0 ? '<p class="flex justify-between text-slate-700"><span>Insurance portion</span><span>UGX ' + fmt(insurancePortion) + '</span></p>' : '') +
+                '<p class="flex justify-between font-semibold text-slate-900 mt-2 pt-2 border-t border-slate-100"><span>Amount to collect</span><span>UGX ' + fmt(clientTotalDue) + '</span></p>' +
+                '<p class="text-slate-500 text-xs mt-2">Phone ' + (paymentPhone || '—') + '</p></div></div>';
+            const printReceipt = function() {
+                const printWin = window.open('', '_blank', 'width=400,height=600');
+                if (!printWin) return;
+                const printContent = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Client portion – ' + invoiceNumber + '</title>' +
+                    '<style>body{font-family:ui-sans-serif,sans-serif;font-size:14px;padding:24px;max-width:320px;margin:0 auto;color:#334155}.receipt-title{font-weight:600;font-size:1rem;border-bottom:1px solid #e2e8f0;padding-bottom:8px;margin-bottom:8px}.sub{font-size:12px;color:#64748b;margin-bottom:12px}table{width:100%;border-collapse:collapse;margin:12px 0}td{padding:4px 0}td:last-child{text-align:right}.total{font-weight:600;margin-top:12px;padding-top:8px;border-top:1px solid #f1f5f9}@media print{body{padding:0}}</style></head><body>' +
+                    '<div class="receipt-title">Client portion receipt</div><p class="sub">Amount due from client</p>' + (posClientName ? '<p>Client <strong>' + (posClientName.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</strong></p>' : '') + (posInsuranceName ? '<p>Insurance <strong>' + (posInsuranceName.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</strong></p>' : '') + '<p>Invoice <strong>' + invoiceNumber + '</strong></p><p>Date ' + todayStr + '</p>' +
+                    '<table><tbody>' + receiptBreakdownRows + '</tbody></table>' +
+                    '<p class="total">Amount to collect: UGX ' + fmt(clientTotalDue) + '</p><p style="font-size:12px;color:#64748b">Phone ' + (paymentPhone || '—') + '</p></body></html>';
+                printWin.document.write(printContent);
+                printWin.document.close();
+                printWin.focus();
+                setTimeout(function() { printWin.print(); printWin.close(); }, 250);
+            };
             Swal.fire({
                 icon: 'info',
-                title: 'Authorization received – collect client portion',
-                html: `
-                    <div class="text-left">
-                        <p class="mb-2">Insurer has approved this invoice. Review the client and insurance portions below.</p>
-                        ${policyOptionsHtml}
-                        ${breakdownTable}
-                        ${invoiceTotal != null ? `<p class="mt-2 text-sm text-gray-700">Invoice total: UGX ${fmt(invoiceTotal)} &nbsp;|&nbsp; Insurance portion: UGX ${fmt(data.insurance_total || 0)}</p>` : ''}
-                        ${contribNote}
-                        <p class="text-lg font-bold text-blue-600 mt-3 mb-1">Amount to collect from client: UGX ${fmt(clientTotalDue)}</p>
-                        <p class="text-sm text-gray-700">Client phone: ${paymentPhone || 'Not provided'}</p>
-                    </div>
-                `,
-                showCancelButton: false,
+                title: 'Client portion',
+                html: receiptHtml,
+                showCancelButton: true,
                 showDenyButton: true,
                 confirmButtonText: 'Collect payment (Mobile Money)',
                 denyButtonText: 'Refresh',
+                cancelButtonText: 'Cancel',
                 allowOutsideClick: false,
-                allowEscapeKey: false
+                allowEscapeKey: true,
+                didOpen: function() {
+                    const actions = document.querySelector('.swal2-actions');
+                    if (actions && !document.getElementById('btn-print-receipt')) {
+                        const printBtn = document.createElement('button');
+                        printBtn.type = 'button';
+                        printBtn.id = 'btn-print-receipt';
+                        printBtn.className = 'swal2-styled swal2-default-outline';
+                        printBtn.textContent = 'Print';
+                        printBtn.style.marginRight = '8px';
+                        printBtn.onclick = printReceipt;
+                        actions.insertBefore(printBtn, actions.firstChild);
+                    }
+                }
             }).then(async (result) => {
+                if (result.isDismissed) {
+                    if (button) { button.textContent = originalText; button.disabled = false; }
+                    return;
+                }
                 if (result.isDenied) {
                     Swal.fire({
-                        title: 'Re-pulling details...',
+                        title: 'Please wait',
+                        text: 'Updating...',
                         allowOutsideClick: false,
                         didOpen: () => { Swal.showLoading(); }
                     });
                     try {
-                        const refRes = await fetch(`/invoices/${dataForSuccess.invoice.id}/insurance-authorization`, {
+                        const refRes = await fetch('/invoices/' + dataForSuccess.invoice.id + '/insurance-authorization', {
                             headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
                         });
                         const refData = await refRes.json();
                         if (!refData.success) {
-                            Swal.fire({ icon: 'error', title: 'Could not refresh', text: refData.message || 'No authorization data.' });
+                            Swal.fire({ icon: 'error', title: 'Update failed', text: refData.message || 'Could not load the latest details.' });
                             return;
                         }
                         const merged = { ...refData, invoice: refData.invoice || dataForSuccess.invoice };
                         showCollectClientModal(merged, paymentPhone, dataForSuccess, invoiceNumber, button, originalText);
                     } catch (err) {
                         console.error(err);
-                        Swal.fire({ icon: 'error', title: 'Refresh failed', text: 'Could not re-pull details. Try again.' });
+                        Swal.fire({ icon: 'error', title: 'Something went wrong', text: 'Please try again.' });
                     }
                     return;
                 }
-                // When user confirms, send a mobile money prompt for the client portion,
-                // then continue to the normal "Proforma Invoice Saved" flow.
                 Swal.fire({
                     title: 'Processing...',
                     text: 'Sending payment prompt to client.',
@@ -2809,6 +2930,48 @@
             });
         }
         
+        function saveServicesCategory() {
+            const select = document.getElementById('services-category-edit');
+            const category = select.value;
+            const button = event.target;
+            const originalText = button.textContent;
+
+            button.textContent = 'Saving...';
+            button.disabled = true;
+
+            fetch(`/clients/{{ $client->id }}/update-services-category`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ services_category: category })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Updated',
+                        text: data.message,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'Failed to update services category' });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to update services category' });
+            })
+            .finally(() => {
+                button.textContent = originalText;
+                button.disabled = false;
+            });
+        }
+
         // Generate unique package tracking numbers
         function generatePackageTrackingNumber(itemId, itemName) {
             // Create a timestamp-based tracking number

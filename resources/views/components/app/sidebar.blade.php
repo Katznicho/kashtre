@@ -274,7 +274,7 @@
                                 </a>
                             </li>
                             @endif
-                            
+
                             <!-- Credit Limit Requests - Available for all businesses with permission -->
                             @if(in_array('Manage Credit Limits', (array) $permissions))
                             @php

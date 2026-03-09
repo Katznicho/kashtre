@@ -36,7 +36,7 @@ class Business extends Model
         'discharge_remove_credit',
         'discharge_remove_long_stay',
         'credit_excluded_items',
-        'third_party_excluded_items'
+        'third_party_excluded_items',
     ];
 
     protected $casts = [
@@ -139,4 +139,5 @@ class Business extends Model
     {
         return $this->hasMany(CreditLimitApprovalApprover::class);
     }
+
 }

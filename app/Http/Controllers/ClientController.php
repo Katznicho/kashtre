@@ -1193,6 +1193,33 @@ class ClientController extends Controller
         ]);
     }
 
+    public function updateServicesCategory(Request $request, Client $client)
+    {
+        $user = Auth::user();
+        $business = $user->business;
+
+        if ($user->business_id !== 1 && $client->business_id !== $business->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access to client.'
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'services_category' => 'required|in:dental,optical,outpatient,inpatient,maternity,funeral'
+        ]);
+
+        $client->update([
+            'services_category' => $validated['services_category']
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Services category updated to ' . ucfirst($validated['services_category']) . '.',
+            'services_category' => $client->services_category
+        ]);
+    }
+
     /**
      * Update excluded items for a credit client.
      */

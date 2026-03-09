@@ -12,13 +12,12 @@ class SettingsController extends Controller
      */
     public function index(Request $request)
     {
-        // Check if user has permission
         if (!in_array('View Insurance Companies', Auth::user()->permissions ?? [])) {
             return redirect()->route('dashboard')->with('error', 'You do not have permission to view settings.');
         }
 
         $activeTab = $request->get('tab', 'insurance-companies');
-        
+
         $insuranceCompanies = \App\Models\InsuranceCompany::with('business')
             ->latest()
             ->paginate(15);

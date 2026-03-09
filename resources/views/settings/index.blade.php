@@ -126,31 +126,22 @@
 
     <script>
         function switchTab(tabName) {
-            // Hide all tab contents
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.add('hidden');
             });
-
-            // Remove active class from all tabs
             document.querySelectorAll('.tab-button').forEach(button => {
                 button.classList.remove('border-blue-500', 'text-blue-600');
                 button.classList.add('border-transparent', 'text-gray-500');
             });
-
-            // Show selected tab content
             const content = document.getElementById('content-' + tabName);
             if (content) {
                 content.classList.remove('hidden');
             }
-
-            // Add active class to selected tab
             const button = document.getElementById('tab-' + tabName);
             if (button) {
                 button.classList.remove('border-transparent', 'text-gray-500');
                 button.classList.add('border-blue-500', 'text-blue-600');
             }
-
-            // Update URL without reload
             const url = new URL(window.location);
             url.searchParams.set('tab', tabName);
             window.history.pushState({}, '', url);

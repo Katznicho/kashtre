@@ -7,6 +7,9 @@ use App\Models\Invoice;
 use App\Models\Client;
 use App\Models\Item;
 use App\Models\InsuranceCompany;
+use App\Models\ThirdPartyPayer;
+use App\Models\ThirdPartyPayerBalanceHistory;
+use App\Models\PaymentMethodAccount;
 use App\Payments\YoAPI;
 use App\Services\MoneyTrackingService;
 use App\Services\ThirdPartyApiService;
@@ -252,95 +255,85 @@ class CheckPaymentStatus extends Command
                                         'invoice_id' => $invoice->id,
                                         'invoice_number' => $invoice->invoice_number
                                     ]);
-                                    
-                                    // First, process payment received to move money to suspense account
-                                    Log::info("Processing payment received to move money to suspense account", [
-                                        'invoice_id' => $invoice->id,
-                                        'amount_paid' => $invoice->amount_paid,
-                                        'client_id' => $invoice->client_id
-                                    ]);
-                                    
-                                    $moneyTrackingService = new MoneyTrackingService();
-                                    $client = $invoice->client;
-                                    
-                                    // Move money to suspense account
-                                    $moneyTrackingService->processPaymentReceived(
-                                        $client,
-                                        $invoice->amount_paid,
-                                        $invoice->invoice_number,
-                                        'mobile_money',
-                                        [
-                                            'invoice_id' => $invoice->id,
-                                            'transaction_id' => $transaction->id,
-                                            'payment_methods' => $invoice->payment_methods ?? ['mobile_money']
-                                        ]
-                                    );
-                                    
-                                    // Then create balance statements after payment completion
-                                    Log::info("Creating balance statements after payment completion", [
-                                        'invoice_id' => $invoice->id,
-                                        'items_count' => count($invoice->items ?? [])
-                                    ]);
-                                    
-                                    $balanceStatements = $moneyTrackingService->processPaymentCompleted($invoice, $invoice->items);
-                                    
-                                    Log::info("Balance statements created after payment completion", [
-                                        'invoice_id' => $invoice->id,
-                                        'balance_statements_count' => count($balanceStatements)
-                                    ]);
-                                    
-                                    // Create package tracking records FIRST so they exist when processing suspense movements
-                                    Log::info("Creating package tracking records", [
-                                        'invoice_id' => $invoice->id,
-                                        'items_count' => count($invoice->items ?? [])
-                                    ]);
-                                    
-                                    $this->createPackageTrackingRecords($invoice, $invoice->items);
-                                    
-                                    Log::info("Package tracking records created", [
-                                        'invoice_id' => $invoice->id
-                                    ]);
-                                    
-                                    // Move money from client suspense to appropriate suspense accounts after payment completion
-                                    Log::info("🔄 PROCESSING SUSPENSE ACCOUNT MONEY MOVEMENT AFTER PAYMENT COMPLETION", [
-                                        'invoice_id' => $invoice->id,
-                                        'invoice_number' => $invoice->invoice_number,
-                                        'items_count' => count($invoice->items ?? []),
-                                        'items_data' => $invoice->items
-                                    ]);
-                                    
-                                    try {
-                                        $suspenseMovements = $moneyTrackingService->processSuspenseAccountMovements($invoice, $invoice->items);
-                                        
-                                        Log::info("✅ SUSPENSE ACCOUNT MOVEMENTS COMPLETED", [
-                                            'invoice_id' => $invoice->id,
-                                            'suspense_movements_count' => count($suspenseMovements),
-                                            'suspense_movements' => $suspenseMovements
-                                        ]);
-                                    } catch (\Exception $e) {
-                                        Log::error("❌ SUSPENSE ACCOUNT MOVEMENTS FAILED", [
-                                            'invoice_id' => $invoice->id,
-                                            'error' => $e->getMessage(),
-                                            'trace' => $e->getTraceAsString()
-                                        ]);
-                                    }
-                                    
-                                    // Queue items at service points only after payment is completed
-                                    Log::info("Starting to queue items at service points", [
-                                        'invoice_id' => $invoice->id,
-                                        'items_count' => count($invoice->items ?? [])
-                                    ]);
-                                    
-                                    $queuedItems = $this->queueItemsAtServicePoints($invoice, $invoice->items);
-                                    
-                                    Log::info("Items queued at service points completed", [
-                                        'invoice_id' => $invoice->id,
-                                        'queued_items_count' => $queuedItems
-                                    ]);
 
-                                    // Notify third-party (insurance system) of successful client-portion payment,
-                                    // so it can update /clients/{id}/account-statement and /payments.
-                                    $this->notifyThirdPartyOfInsuranceClientPortion($invoice, $transaction);
+                                    $client = $invoice->client;
+                                    $snapshot = is_array($invoice->insurance_authorization_snapshot ?? null) ? $invoice->insurance_authorization_snapshot : [];
+                                    $clientPortionAmount = isset($snapshot['client_total']) ? (float) $snapshot['client_total'] : (float) ($invoice->insurance_client_total ?? 0);
+                                    $isInsuranceClientPortion = $client && $client->insurance_company_id && $clientPortionAmount > 0 && $transaction->amount >= $clientPortionAmount * 0.99;
+
+                                    if ($isInsuranceClientPortion) {
+                                        // Client paid on behalf of insurer: credit insurance company internal account, not client account
+                                        $thirdPartyPayer = ThirdPartyPayer::where('insurance_company_id', $client->insurance_company_id)
+                                            ->where('business_id', $invoice->business_id)
+                                            ->where('type', 'insurance_company')
+                                            ->whereNull('client_id')
+                                            ->first();
+                                        if (!$thirdPartyPayer) {
+                                            $thirdPartyPayer = ThirdPartyPayer::where('client_id', $client->id)
+                                                ->where('business_id', $invoice->business_id)
+                                                ->where('type', 'insurance_company')
+                                                ->first();
+                                        }
+                                        if ($thirdPartyPayer) {
+                                            $ref = 'CP-' . $transaction->created_at->format('Ymd') . '-' . $transaction->id;
+                                            $paymentMethodAccount = PaymentMethodAccount::forBusiness($invoice->business_id)
+                                                ->forPaymentMethod('mobile_money')
+                                                ->active()
+                                                ->first();
+                                            if ($paymentMethodAccount) {
+                                                $paymentMethodAccount->debit(
+                                                    $transaction->amount,
+                                                    $ref,
+                                                    'Client portion – ' . $invoice->invoice_number,
+                                                    $client->id,
+                                                    $invoice->id,
+                                                    ['transaction_id' => $transaction->id]
+                                                );
+                                            }
+                                            ThirdPartyPayerBalanceHistory::recordCredit(
+                                                $thirdPartyPayer,
+                                                $transaction->amount,
+                                                'Client portion received',
+                                                $ref,
+                                                null,
+                                                'mobile_money',
+                                                $client->id,
+                                                $invoice->id
+                                            );
+                                            Log::info("Insurance client-portion: credited insurer internal account", [
+                                                'invoice_id' => $invoice->id,
+                                                'third_party_payer_id' => $thirdPartyPayer->id,
+                                                'amount' => $transaction->amount,
+                                                'reference' => $ref
+                                            ]);
+                                        }
+                                        $this->createPackageTrackingRecords($invoice, $invoice->items);
+                                        $queuedItems = $this->queueItemsAtServicePoints($invoice, $invoice->items);
+                                        $this->notifyThirdPartyOfInsuranceClientPortion($invoice, $transaction);
+                                    } else {
+                                        // Normal payment: credit client suspense then client account
+                                        $moneyTrackingService = new MoneyTrackingService();
+                                        $moneyTrackingService->processPaymentReceived(
+                                            $client,
+                                            $invoice->amount_paid,
+                                            $invoice->invoice_number,
+                                            'mobile_money',
+                                            [
+                                                'invoice_id' => $invoice->id,
+                                                'transaction_id' => $transaction->id,
+                                                'payment_methods' => $invoice->payment_methods ?? ['mobile_money']
+                                            ]
+                                        );
+                                        $balanceStatements = $moneyTrackingService->processPaymentCompleted($invoice, $invoice->items);
+                                        $this->createPackageTrackingRecords($invoice, $invoice->items);
+                                        try {
+                                            $moneyTrackingService->processSuspenseAccountMovements($invoice, $invoice->items);
+                                        } catch (\Exception $e) {
+                                            Log::error("Suspense account movements failed", ['invoice_id' => $invoice->id, 'error' => $e->getMessage()]);
+                                        }
+                                        $queuedItems = $this->queueItemsAtServicePoints($invoice, $invoice->items);
+                                        $this->notifyThirdPartyOfInsuranceClientPortion($invoice, $transaction);
+                                    }
                                 } else {
                                     Log::warning("Invoice not found for transaction", [
                                         'transaction_id' => $transaction->id,
@@ -1159,9 +1152,7 @@ class CheckPaymentStatus extends Command
                 return;
             }
 
-            $paymentReference = $transaction->external_reference
-                ? (string) $transaction->external_reference
-                : 'KASHTRE-TXN-' . $transaction->id;
+            $paymentReference = 'CP-' . $transaction->created_at->format('Ymd') . '-' . $transaction->id;
 
             $authorizationReference = $invoice->insurance_authorization_reference
                 ?? ($snapshot['authorization_reference'] ?? null);
