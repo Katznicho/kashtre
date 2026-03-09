@@ -271,6 +271,63 @@
                 $clientModel = $invoice->client;
             @endphp
 
+            {{-- Insurance Authorization Status --}}
+            @if($invoice->insurance_authorization_snapshot)
+                @php
+                    $authSnap = $invoice->insurance_authorization_snapshot;
+                    $authStatus = $authSnap['authorization_status'] ?? 'unknown';
+                    $isApproved = in_array($authStatus, ['auto_approved', 'approved']);
+                    $isRejected = in_array($authStatus, ['auto_rejected', 'rejected']);
+                    $isPending = $authStatus === 'pending_review';
+                    $fmtNum = fn($v) => number_format((float) ($v ?? 0), 0);
+                @endphp
+                <div class="mb-6 rounded-lg border {{ $isApproved ? 'bg-green-50 border-green-200' : ($isRejected ? 'bg-red-50 border-red-200' : 'bg-orange-50 border-orange-200') }} p-5">
+                    <div class="flex items-center gap-2 mb-3">
+                        @if($isApproved)
+                            <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <h3 class="text-lg font-semibold text-green-800">Insurance Authorization — Approved</h3>
+                        @elseif($isRejected)
+                            <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <h3 class="text-lg font-semibold text-red-800">Insurance Authorization — Rejected</h3>
+                        @else
+                            <svg class="h-6 w-6 text-orange-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <h3 class="text-lg font-semibold text-orange-800">Insurance Authorization — Pending Review</h3>
+                        @endif
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                        <div>
+                            <p class="text-gray-500">Insurance portion</p>
+                            <p class="font-bold {{ $isApproved ? 'text-green-800' : ($isPending ? 'text-orange-800' : 'text-red-800') }}">UGX {{ $fmtNum($authSnap['insurance_total'] ?? $invoice->insurance_insurance_total) }}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">Client portion</p>
+                            <p class="font-bold text-gray-900">UGX {{ $fmtNum($authSnap['client_total'] ?? $invoice->insurance_client_total) }}</p>
+                        </div>
+                        @if($invoice->insurance_authorization_reference)
+                            <div>
+                                <p class="text-gray-500">Auth reference</p>
+                                <p class="font-medium text-gray-900">{{ $invoice->insurance_authorization_reference }}</p>
+                            </div>
+                        @endif
+                        @if($invoice->insurance_confirmation_code)
+                            <div>
+                                <p class="text-gray-500">Confirmation code</p>
+                                <p class="font-medium text-gray-900">{{ $invoice->insurance_confirmation_code }}</p>
+                            </div>
+                        @endif
+                    </div>
+
+                    @if($isRejected && !empty($authSnap['rejection_reason']))
+                        <p class="mt-3 text-sm text-red-700"><strong>Reason:</strong> {{ $authSnap['rejection_reason'] }}</p>
+                    @endif
+
+                    @if($isPending)
+                        <p class="mt-3 text-xs text-orange-700">The insurer is reviewing this authorization. You can collect the client portion in the meantime. This page will show updated status once the insurer decides.</p>
+                    @endif
+                </div>
+            @endif
+
             @if($clientModel && $clientModel->insurance_company_id && ($clientModel->has_deductible || $clientModel->copay_amount || $clientModel->coinsurance_percentage))
             <!-- Payment Responsibility (Insurance) -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6" x-data="{ expanded: true }">

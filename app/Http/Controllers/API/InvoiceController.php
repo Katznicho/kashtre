@@ -401,4 +401,87 @@ class InvoiceController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Receive an authorization decision callback from the third-party insurer.
+     * Called after the insurer approves or rejects a pending_review authorization.
+     */
+    public function receiveAuthorizationDecision(Request $request)
+    {
+        Log::info('[Kashtre API] Authorization decision callback received', $request->all());
+
+        $validated = $request->validate([
+            'kashtre_invoice_id' => 'required',
+            'decision' => 'required|string|in:approved,rejected',
+            'approved_amount' => 'nullable|numeric|min:0',
+            'insurance_total' => 'nullable|numeric|min:0',
+            'client_total' => 'nullable|numeric|min:0',
+            'breakdown' => 'nullable|array',
+            'authorization_reference' => 'nullable|string',
+            'confirmation_code' => 'nullable|string',
+            'external_invoice_number' => 'nullable|string',
+            'rejection_reason' => 'nullable|string',
+            'decided_at' => 'nullable|string',
+        ]);
+
+        $invoice = \App\Models\Invoice::find($validated['kashtre_invoice_id']);
+        if (!$invoice) {
+            Log::warning('[Kashtre API] Authorization decision: invoice not found', [
+                'kashtre_invoice_id' => $validated['kashtre_invoice_id'],
+            ]);
+            return response()->json(['success' => false, 'message' => 'Invoice not found.'], 404);
+        }
+
+        $decision = $validated['decision'];
+
+        if ($decision === 'approved') {
+            $snapshot = $invoice->insurance_authorization_snapshot ?? [];
+            $snapshot['authorization_status'] = 'approved';
+            $snapshot['decided_at'] = $validated['decided_at'] ?? now()->toIso8601String();
+
+            if (isset($validated['insurance_total'])) {
+                $snapshot['insurance_total'] = (float) $validated['insurance_total'];
+            }
+            if (isset($validated['client_total'])) {
+                $snapshot['client_total'] = (float) $validated['client_total'];
+            }
+            if (isset($validated['breakdown'])) {
+                $snapshot['breakdown'] = $validated['breakdown'];
+            }
+
+            $invoice->update([
+                'insurance_authorization_reference' => $validated['authorization_reference'] ?? $invoice->insurance_authorization_reference,
+                'insurance_confirmation_code' => $validated['confirmation_code'] ?? $invoice->insurance_confirmation_code,
+                'insurance_client_total' => $validated['client_total'] ?? $invoice->insurance_client_total,
+                'insurance_insurance_total' => $validated['insurance_total'] ?? $invoice->insurance_insurance_total,
+                'insurance_authorized_at' => now(),
+                'insurance_authorization_snapshot' => $snapshot,
+            ]);
+
+            Log::info('[Kashtre API] Authorization APPROVED — invoice updated', [
+                'invoice_id' => $invoice->id,
+                'insurance_total' => $validated['insurance_total'] ?? null,
+                'client_total' => $validated['client_total'] ?? null,
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'Authorization approved. Invoice updated.']);
+        }
+
+        // Rejected
+        $snapshot = $invoice->insurance_authorization_snapshot ?? [];
+        $snapshot['authorization_status'] = 'rejected';
+        $snapshot['rejection_reason'] = $validated['rejection_reason'] ?? 'Rejected by insurer';
+        $snapshot['decided_at'] = $validated['decided_at'] ?? now()->toIso8601String();
+
+        $invoice->update([
+            'insurance_authorization_snapshot' => $snapshot,
+        ]);
+
+        Log::info('[Kashtre API] Authorization REJECTED — invoice updated', [
+            'invoice_id' => $invoice->id,
+            'rejection_reason' => $validated['rejection_reason'] ?? null,
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Authorization rejected. Invoice updated.']);
+    }
 }

@@ -19,4 +19,7 @@ Route::prefix('v1')->group(function () {
     
     // Client co-pay status tracking
     Route::get('/clients/{client}/copay-status', [\App\Http\Controllers\API\ClientController::class, 'getCopayPaidStatus']);
+
+    // Callback from third-party insurer after authorization decision (approve/reject)
+    Route::post('/insurance/authorization-decision', [\App\Http\Controllers\API\InvoiceController::class, 'receiveAuthorizationDecision']);
 });
