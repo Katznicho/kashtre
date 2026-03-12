@@ -351,9 +351,10 @@ class InvoiceController extends Controller
                 // Get business-level exclusions
                 $businessExcludedItems = $business->third_party_excluded_items ?? [];
                 
-                // Get individual third-party payer exclusions if client has one
-                $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('client_id', $client->id)
-                    ->where('business_id', $business->id)
+                // Get individual third-party payer exclusions for this insurer+business
+                $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('business_id', $business->id)
+                    ->where('insurance_company_id', $client->insurance_company_id)
+                    ->where('type', 'insurance_company')
                     ->where('status', 'active')
                     ->first();
                 
@@ -1991,7 +1992,7 @@ class InvoiceController extends Controller
                 $thirdPartyBusinessId = $insuranceCompany->third_party_business_id ?? null;
                 if ($thirdPartyBusinessId) {
                     $deductibleRemaining = isset($validated['deductible_remaining']) ? (float) $validated['deductible_remaining'] : 0;
-                    // Prepare items payload for authorization, including item codes for exclusion checks
+                    // Prepare items payload for authorization, including item codes and Kashtre exclusion flags
                     $itemsForAuthorization = collect($invoice->items ?? [])->map(function (array $item) {
                         $itemId = $item['id'] ?? $item['item_id'] ?? null;
                         $itemModel = $itemId ? \App\Models\Item::find($itemId) : null;
@@ -2007,6 +2008,7 @@ class InvoiceController extends Controller
                             'total_amount' => $total,
                             'code' => $itemModel?->code,
                             'type' => $itemModel?->type,
+                            'kashtre_excluded' => !empty($item['kashtre_excluded']),
                         ];
                     })->values()->all();
                     $apiService = new \App\Services\ThirdPartyApiService();
