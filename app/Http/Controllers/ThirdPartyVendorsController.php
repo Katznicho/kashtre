@@ -118,6 +118,8 @@ class ThirdPartyVendorsController extends Controller
             $currentBalance = 0;
 
             $invoices = collect();
+            $excludedItemsForPayer = collect();
+            $items = collect();
             
             if ($thirdPartyPayer) {
                 // Get recent balance history (last 10 for summary on details page)
@@ -137,6 +139,20 @@ class ThirdPartyVendorsController extends Controller
                     ->sum('change_amount'));
 
                 $currentBalance = $thirdPartyPayer->current_balance ?? 0;
+
+                // Resolve excluded items for this third-party payer (service exclusions on Kashtre side)
+                $excludedItemIds = (array) ($thirdPartyPayer->excluded_items ?? []);
+                if (!empty($excludedItemIds)) {
+                    $excludedItemsForPayer = \App\Models\Item::where('business_id', $business->id)
+                        ->whereIn('id', $excludedItemIds)
+                        ->orderBy('name')
+                        ->get(['id', 'name', 'code', 'type']);
+                }
+
+                // Load all items for this business so exclusions can be managed from this page
+                $items = \App\Models\Item::where('business_id', $business->id)
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'code', 'type']);
 
                 // Get invoices from balance history (debit entries with invoices)
                 $invoiceEntries = \App\Models\ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $thirdPartyPayer->id)
@@ -203,7 +219,9 @@ class ThirdPartyVendorsController extends Controller
                 'totalCredits',
                 'totalDebits',
                 'currentBalance',
-                'invoices'
+                'invoices',
+                'excludedItemsForPayer',
+                'items'
             ));
         } catch (\Exception $e) {
             Log::error('Exception while fetching vendor details', [

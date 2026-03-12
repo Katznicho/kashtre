@@ -457,12 +457,14 @@ class ClientController extends Controller
                 // Build full name from available fields for tolerance-based verification
                 $fullName = trim(($validated['surname'] ?? '') . ' ' . ($validated['first_name'] ?? '') . ' ' . ($validated['other_names'] ?? ''));
                 $dateOfBirth = $validated['date_of_birth'] ?? null;
+                $servicesCategory = $validated['services_category'] ?? null;
                 
                 $verificationResult = $apiService->verifyPolicyNumber(
                     (int)$thirdPartyBusinessId, 
                     $validated['policy_number'],
                     !empty($fullName) ? $fullName : null,
-                    $dateOfBirth
+                    $dateOfBirth,
+                    $servicesCategory
                 );
                 
                 if ($verificationResult && isset($verificationResult['success']) && $verificationResult['success']) {
@@ -1999,6 +2001,7 @@ class ClientController extends Controller
             
             // Get policy number from route parameter or request
             $policyNumber = $policyNumber ?? $request->input('policy_number');
+            $servicesCategory = $request->input('services_category');
             
             Log::info('Kashtre Controller: Policy number extracted', [
                 'policy_number' => $policyNumber,
@@ -2016,13 +2019,15 @@ class ClientController extends Controller
                     'policy_number' => $policyNumber,
                     'name' => $name,
                     'date_of_birth' => $dateOfBirth,
+                    'services_category' => $servicesCategory,
                 ]);
                 
                 $verificationResult = $apiService->verifyPolicyNumber(
                     (int)$insuranceCompanyId, 
                     $policyNumber,
                     $name,
-                    $dateOfBirth
+                    $dateOfBirth,
+                    $servicesCategory
                 );
                 
                 Log::info('Kashtre Controller: Received verification result from API service', [
@@ -2065,9 +2070,9 @@ class ClientController extends Controller
                 }
             }
             
-            // If policy number verification failed, try alternative methods (name + DOB only)
+            // If policy number verification failed, try alternative methods (name + DOB only, with optional services_category)
             $alternativeData = $request->only([
-                'name', 'date_of_birth'
+                'name', 'date_of_birth', 'services_category'
             ]);
             
             // Remove empty values

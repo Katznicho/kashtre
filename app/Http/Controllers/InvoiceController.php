@@ -358,38 +358,23 @@ class InvoiceController extends Controller
                     ->first();
                 
                 $payerExcludedItems = $thirdPartyPayer ? ($thirdPartyPayer->excluded_items ?? []) : [];
-                
+
                 // Merge business and individual exclusions
                 $excludedItems = array_unique(array_merge($businessExcludedItems, $payerExcludedItems));
-                
+
+                // Instead of blocking the invoice, mark these items as non-insurable so the
+                // third-party authorization treats them as client-only (excluded) amounts.
                 if (!empty($excludedItems)) {
                     $itemsArray = $validated['items'];
-                    $excludedItemIds = [];
-                    
-                    foreach ($itemsArray as $item) {
+
+                    foreach ($itemsArray as $index => $item) {
                         $itemId = $item['id'] ?? $item['item_id'] ?? null;
                         if ($itemId && in_array($itemId, $excludedItems)) {
-                            $excludedItemIds[] = $itemId;
+                            $itemsArray[$index]['kashtre_excluded'] = true;
                         }
                     }
-                    
-                    if (!empty($excludedItemIds)) {
-                        $excludedItemNames = \App\Models\Item::whereIn('id', $excludedItemIds)
-                            ->pluck('name')
-                            ->toArray();
-                        
-                        return response()->json([
-                            'success' => false,
-                            'message' => "The following items are excluded from third-party payer terms: " . implode(', ', $excludedItemNames) . ". Please remove these items or use a different payment method.",
-                            'errors' => [
-                                'excluded_items' => [
-                                    "The following items cannot be offered to third-party payers: " . implode(', ', $excludedItemNames) . ". Please remove these items from the invoice or use a different payment method."
-                                ]
-                            ],
-                            'excluded_items' => $excludedItemNames,
-                            'excluded_item_ids' => $excludedItemIds,
-                        ], 422);
-                    }
+
+                    $validated['items'] = $itemsArray;
                 }
             }
 
@@ -2006,6 +1991,24 @@ class InvoiceController extends Controller
                 $thirdPartyBusinessId = $insuranceCompany->third_party_business_id ?? null;
                 if ($thirdPartyBusinessId) {
                     $deductibleRemaining = isset($validated['deductible_remaining']) ? (float) $validated['deductible_remaining'] : 0;
+                    // Prepare items payload for authorization, including item codes for exclusion checks
+                    $itemsForAuthorization = collect($invoice->items ?? [])->map(function (array $item) {
+                        $itemId = $item['id'] ?? $item['item_id'] ?? null;
+                        $itemModel = $itemId ? \App\Models\Item::find($itemId) : null;
+                        $quantity = (float) ($item['quantity'] ?? 1);
+                        $price = (float) ($item['price'] ?? 0);
+                        $total = (float) ($item['total_amount'] ?? ($price * $quantity));
+
+                        return [
+                            'id' => $itemId,
+                            'name' => $item['name'] ?? $item['displayName'] ?? null,
+                            'quantity' => $quantity,
+                            'price' => $price,
+                            'total_amount' => $total,
+                            'code' => $itemModel?->code,
+                            'type' => $itemModel?->type,
+                        ];
+                    })->values()->all();
                     $apiService = new \App\Services\ThirdPartyApiService();
                     $authPayload = [
                         'kashtre_invoice_id' => (string) $invoice->id,
@@ -2015,7 +2018,8 @@ class InvoiceController extends Controller
                         'services_category' => $client->services_category ?? null,
                         'total_amount' => (float) $invoice->total_amount,
                         'deductible_remaining' => $deductibleRemaining,
-                        'items' => $invoice->items ?? [],
+                        'items' => $itemsForAuthorization,
+                        'connected_business_id' => $business->id,
                     ];
                     Log::info('[Kashtre] Insurance authorization: calling third-party', [
                         'invoice_id' => $invoice->id,
@@ -2065,6 +2069,43 @@ class InvoiceController extends Controller
             if ($insuranceAuthorization && !empty($insuranceAuthorization['success'])) {
                 $authStatus = $insuranceAuthorization['authorization_status'] ?? 'auto_approved';
 
+                // If insurer rejected, treat full amount as client-pay and drop insurance as a payer
+                if ($authStatus === 'auto_rejected') {
+                    $fullAmount = (float) $invoice->total_amount;
+
+                    // Update authorization snapshot to reflect client paying everything
+                    $snapshot = $insuranceAuthorization;
+                    $snapshot['client_total'] = $fullAmount;
+                    $snapshot['insurance_total'] = 0.0;
+                    $snapshot['breakdown'] = $snapshot['breakdown'] ?? [];
+                    $snapshot['breakdown']['deductible'] = 0.0;
+                    $snapshot['breakdown']['copay'] = 0.0;
+                    $snapshot['breakdown']['coinsurance'] = 0.0;
+
+                    // Update invoice fields
+                    $invoice->update([
+                        'insurance_client_total' => $fullAmount,
+                        'insurance_insurance_total' => 0.0,
+                        'insurance_authorization_snapshot' => $snapshot,
+                    ]);
+
+                    // Remove insurance from payment methods and fall back to client methods
+                    $paymentMethods = $invoice->payment_methods ?? [];
+                    if (is_array($paymentMethods)) {
+                        $paymentMethods = array_values(array_filter($paymentMethods, function ($m) {
+                            return $m !== 'insurance';
+                        }));
+                    } else {
+                        $paymentMethods = [];
+                    }
+                    if (empty($paymentMethods)) {
+                        $paymentMethods = ['cash'];
+                    }
+                    $invoice->update(['payment_methods' => $paymentMethods]);
+
+                    $insuranceAuthorization = $snapshot;
+                }
+
                 $responseData['authorization_status'] = $authStatus;
                 $responseData['requires_insurance_client_payment'] = ((float) ($insuranceAuthorization['client_total'] ?? 0)) > 0;
                 $responseData['insurance_authorization'] = $insuranceAuthorization;
@@ -2074,6 +2115,7 @@ class InvoiceController extends Controller
                 $responseData['insurance_authorization_reference'] = $insuranceAuthorization['authorization_reference'] ?? null;
                 $responseData['confirmation_code'] = $insuranceAuthorization['confirmation_code'] ?? null;
                 $responseData['warnings'] = $insuranceAuthorization['warnings'] ?? [];
+                $responseData['payment_methods'] = $invoice->payment_methods;
                 if (isset($insuranceAuthorization['service_category'])) {
                     $responseData['service_category'] = $insuranceAuthorization['service_category'];
                 }

@@ -12,7 +12,7 @@
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <!-- Vendor Information Card -->
+            <!-- Vendor Information & Financial Summary -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -115,11 +115,14 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mt-6">
                 <div class="border-b border-gray-200">
                     <nav class="-mb-px flex" aria-label="Tabs">
-                        <button onclick="showTab('transactions')" id="tab-transactions" class="tab-button active w-1/2 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors">
+                        <button onclick="showTab('transactions')" id="tab-transactions" class="tab-button active w-1/3 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors">
                             <span class="border-b-2 border-blue-500 pb-4 px-1 text-blue-600">Transactions</span>
                         </button>
-                        <button onclick="showTab('invoices')" id="tab-invoices" class="tab-button w-1/2 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors">
+                        <button onclick="showTab('invoices')" id="tab-invoices" class="tab-button w-1/3 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors">
                             <span class="border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">Invoices</span>
+                        </button>
+                        <button onclick="showTab('exclusions')" id="tab-exclusions" class="tab-button w-1/3 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors">
+                            <span class="border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">Service Exclusions</span>
                         </button>
                     </nav>
                 </div>
@@ -312,6 +315,100 @@
                     </div>
                     @endif
                 </div>
+
+                <!-- Service Exclusions Tab Content -->
+                <div id="content-exclusions" class="tab-content p-6 hidden">
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900">Service Exclusions for this Third Party</h3>
+                            <p class="text-sm text-gray-500">
+                                These exclusions apply to <span class="font-semibold">{{ $vendor['name'] }}</span> for all invoices paid by this third party.
+                            </p>
+                        </div>
+                        <a href="{{ route('third-party-payers.show', $thirdPartyPayer) }}"
+                           class="hidden md:inline-flex items-center text-xs font-medium text-blue-600 hover:text-blue-800">
+                            Open third party payer page
+                            <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M9 5l7 7-7 7" />
+                            </svg>
+                        </a>
+                    </div>
+
+                    @if(in_array('Edit Third Party Payers', (array) (auth()->user()->permissions ?? [])))
+                        <div class="max-w-4xl">
+                            <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-4">
+                                <p class="text-xs text-blue-800">
+                                    Select items from your price list that should be excluded from this third party's terms.
+                                    Invoices containing excluded items will not be saved when payment method is insurance / third party.
+                                    Business-level defaults from Business Settings still apply on top of these.
+                                </p>
+                            </div>
+
+                            <form action="{{ route('third-party-payers.update-excluded-items', $thirdPartyPayer) }}" method="POST" class="space-y-4">
+                            @csrf
+                            @method('POST')
+                            <input type="hidden" name="from_vendor_page" value="1">
+
+                            <div class="mb-4">
+                                <label for="excluded_items_vendor" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Excluded Items
+                                </label>
+
+                                <!-- Quick Filter Buttons (same UX as Third Party Payers page) -->
+                                <div class="mb-3 flex flex-wrap gap-2">
+                                    <button type="button" class="filter-btn-tpp px-3 py-1 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 active" data-filter="all">
+                                        All Items
+                                    </button>
+                                    <button type="button" class="filter-btn-tpp px-3 py-1 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50" data-filter="service">
+                                        Services
+                                    </button>
+                                    <button type="button" class="filter-btn-tpp px-3 py-1 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50" data-filter="good">
+                                        Goods
+                                    </button>
+                                    <button type="button" class="filter-btn-tpp px-3 py-1 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50" data-filter="package">
+                                        Packages
+                                    </button>
+                                    <button type="button" class="filter-btn-tpp px-3 py-1 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50" data-filter="bulk">
+                                        Bulk Items
+                                    </button>
+                                </div>
+
+                                <select
+                                    name="excluded_items[]"
+                                    id="excluded_items_vendor"
+                                    multiple
+                                    style="width: 100%;"
+                                >
+                                    @foreach($items as $item)
+                                        <option
+                                            value="{{ $item->id }}"
+                                            data-type="{{ $item->type }}"
+                                            {{ in_array($item->id, old('excluded_items', (array) ($thirdPartyPayer->excluded_items ?? []))) ? 'selected' : '' }}
+                                        >
+                                            {{ $item->name }}@if($item->code) ({{ $item->code }})@endif
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <p class="mt-2 text-xs text-gray-500">
+                                    Tip: Use quick filters to narrow down items by type, then search and select multiple items.
+                                </p>
+                            </div>
+
+                            <div class="flex justify-end">
+                                <button type="submit"
+                                        class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700">
+                                    Update Exclusions
+                                </button>
+                            </div>
+                            </form>
+                        </div>
+                    @else
+                        <p class="text-sm text-gray-500">
+                            You do not have permission to edit third party payer exclusions. Contact an administrator if you need this changed.
+                        </p>
+                    @endif
+                </div>
             </div>
             @else
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mt-6">
@@ -322,6 +419,14 @@
                 </div>
             </div>
             @endif
+
+{{-- Select2 CSS for exclusions tab --}}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/css/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
+{{-- jQuery + Select2 JS (only used for the exclusions tab) --}}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
 function showTab(tabName) {
@@ -346,6 +451,45 @@ function showTab(tabName) {
     activeSpan.classList.remove('border-transparent', 'text-gray-500');
     activeSpan.classList.add('border-blue-500', 'text-blue-600');
 }
+
+// Select2 + filter behaviour for exclusions tab (mirrors Third Party Payer page)
+$(document).ready(function () {
+    const $select = $('#excluded_items_vendor');
+    if (!$select.length) return;
+
+    $select.select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Select items to exclude from third-party payer terms',
+        allowClear: true,
+        width: '100%'
+    });
+
+    $('.filter-btn-tpp').on('click', function() {
+        const filter = $(this).data('filter');
+
+        // Update active button
+        $('.filter-btn-tpp').removeClass('active bg-blue-600 text-white').addClass('bg-white text-gray-700');
+        $(this).removeClass('bg-white text-gray-700').addClass('active bg-blue-600 text-white');
+
+        // Filter options
+        if (filter === 'all') {
+            $select.find('option').prop('disabled', false);
+        } else {
+            $select.find('option').each(function() {
+                const $option = $(this);
+                if ($option.data('type') === filter) {
+                    $option.prop('disabled', false);
+                } else {
+                    $option.prop('disabled', true);
+                }
+            });
+        }
+
+        // Refresh Select2 and open dropdown to show filtered results
+        $select.trigger('change.select2');
+        $select.select2('open');
+    });
+});
 </script>
 
 <style>
@@ -358,6 +502,38 @@ function showTab(tabName) {
 .tab-button.active span {
     border-bottom-color: #3b82f6;
     color: #3b82f6;
+}
+
+/* Select2 styling for exclusions tab */
+.select2-container--bootstrap-5 .select2-selection--multiple {
+    min-height: 3rem;
+    border-radius: 0.5rem;
+    border-color: #e5e7eb;
+    padding: 0.25rem 0.5rem;
+}
+
+.select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice {
+    background-color: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1e3a8a;
+    border-radius: 9999px;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+.select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice__remove {
+    color: #1d4ed8;
+    margin-right: 0.25rem;
+}
+
+.select2-container--bootstrap-5 .select2-results__option {
+    font-size: 0.85rem;
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+}
+
+.select2-container--bootstrap-5 .select2-results__options {
+    max-height: 260px;
 }
 </style>
         </div>

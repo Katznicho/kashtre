@@ -418,7 +418,6 @@ class InvoiceController extends Controller
             'client_total' => 'nullable|numeric|min:0',
             'breakdown' => 'nullable|array',
             'authorization_reference' => 'nullable|string',
-            'confirmation_code' => 'nullable|string',
             'external_invoice_number' => 'nullable|string',
             'rejection_reason' => 'nullable|string',
             'decided_at' => 'nullable|string',
@@ -451,7 +450,6 @@ class InvoiceController extends Controller
 
             $invoice->update([
                 'insurance_authorization_reference' => $validated['authorization_reference'] ?? $invoice->insurance_authorization_reference,
-                'insurance_confirmation_code' => $validated['confirmation_code'] ?? $invoice->insurance_confirmation_code,
                 'insurance_client_total' => $validated['client_total'] ?? $invoice->insurance_client_total,
                 'insurance_insurance_total' => $validated['insurance_total'] ?? $invoice->insurance_insurance_total,
                 'insurance_authorized_at' => now(),

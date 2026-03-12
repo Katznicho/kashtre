@@ -2280,6 +2280,16 @@
 
                     // Auto-rejected by insurer thresholds
                     if (authStatus === 'auto_rejected') {
+                        const reasons = [];
+                        if (data.insurance_authorization && data.insurance_authorization.message) {
+                            reasons.push(data.insurance_authorization.message);
+                        }
+                        if (Array.isArray(data.warnings) && data.warnings.length) {
+                            reasons.push(...data.warnings);
+                        }
+                        const reasonsHtml = reasons.length
+                            ? '<p class="text-xs text-gray-500 mt-2"><strong>Details:</strong><br>' + reasons.map(r => r).join('<br>') + '</p>'
+                            : '';
                         await Swal.fire({
                             icon: 'error',
                             title: 'Authorization rejected',
@@ -2287,7 +2297,8 @@
                                 <div class="text-left">
                                     <p class="mb-2">The insurer has <strong>rejected</strong> this authorization.</p>
                                     <p class="text-sm text-gray-700">The full invoice amount is payable by the client.</p>
-                                    <p class="text-xs text-gray-500 mt-2">Invoice saved.</p>
+                                    <p class="text-xs text-gray-500 mt-2">Invoice saved. Insurance has been removed as a payment method for this invoice.</p>
+                                    ${reasonsHtml}
                                 </div>
                             `,
                             confirmButtonText: 'OK',
@@ -2417,7 +2428,7 @@
                 breakdownRows.push(`<tr><td class="text-left text-gray-600">Co-insurance</td><td class="text-right">UGX ${fmt(breakdown.coinsurance)}</td></tr>`);
             }
             if (breakdown.excluded != null && parseFloat(breakdown.excluded) > 0) {
-                breakdownRows.push(`<tr><td class="text-left text-gray-600">Excluded</td><td class="text-right">UGX ${fmt(breakdown.excluded)}</td></tr>`);
+                breakdownRows.push(`<tr><td class="text-left text-gray-600">Excluded (not covered by insurance)</td><td class="text-right">UGX ${fmt(breakdown.excluded)}</td></tr>`);
             }
             const invoiceTotal = data.invoice && data.invoice.total_amount != null ? parseFloat(data.invoice.total_amount) : null;
             const insurancePortion = parseFloat(data.insurance_total || 0) || 0;
@@ -2427,6 +2438,16 @@
                 '<div class="border-b border-slate-200 pb-2 mb-3"><p class="font-semibold text-slate-800 text-base tracking-wide">Client portion receipt</p><p class="text-slate-500 text-xs mt-1">Amount due from client</p></div>' +
                 '<div class="text-left space-y-0.5 text-slate-600 text-xs mb-2">' + (posClientName ? '<p>Client <strong class="text-slate-800">' + (posClientName.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</strong></p>' : '') + (posInsuranceName ? '<p>Insurance <strong class="text-slate-800">' + (posInsuranceName.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</strong></p>' : '') + '<p>Invoice <strong class="text-slate-800">' + invoiceNumber + '</strong></p><p>Date ' + todayStr + '</p></div>' +
                 '<table class="w-full text-sm my-3 border-t border-b border-slate-200"><tbody>' + receiptBreakdownRows + '</tbody></table>' +
+                (Array.isArray(breakdown.excluded_items) && breakdown.excluded_items.length
+                    ? '<div class="text-left text-xs text-slate-600 mb-2"><p class="font-semibold mb-1">Not covered by insurance:</p><ul class="list-disc list-inside space-y-0.5">' +
+                        breakdown.excluded_items.map(function (ex) {
+                            const label = ex.name || ex.code || 'Excluded item';
+                            const amount = ex.amount != null ? ' – UGX ' + fmt(ex.amount) : '';
+                            return '<li>' + label.replace(/</g, '&lt;').replace(/>/g, '&gt;') + amount + '</li>';
+                        }).join('') +
+                      '</ul></div>'
+                    : ''
+                ) +
                 '<div class="text-left space-y-1 mt-2 text-sm">' +
                 (invoiceTotal != null ? '<p class="flex justify-between text-slate-700"><span>Invoice total</span><span>UGX ' + fmt(invoiceTotal) + '</span></p>' : '') +
                 (insurancePortion > 0 ? '<p class="flex justify-between text-slate-700"><span>Insurance portion</span><span>UGX ' + fmt(insurancePortion) + '</span></p>' : '') +

@@ -173,6 +173,13 @@ class ThirdPartyPayerController extends Controller
             'excluded_items' => $validated['excluded_items'] ?? [],
         ]);
 
+        // If the update came from the vendor detail page, redirect back there
+        if ($request->boolean('from_vendor_page')) {
+            return redirect()
+                ->route('third-party-vendors.show', $thirdPartyPayer->insurance_company_id)
+                ->with('success', 'Excluded items updated successfully.');
+        }
+
         return redirect()->route('third-party-payers.show', $thirdPartyPayer)
             ->with('success', 'Excluded items updated successfully.');
     }

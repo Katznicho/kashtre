@@ -306,14 +306,8 @@
                         </div>
                         @if($invoice->insurance_authorization_reference)
                             <div>
-                                <p class="text-gray-500">Auth reference</p>
+                                <p class="text-gray-500">Authorization reference</p>
                                 <p class="font-medium text-gray-900">{{ $invoice->insurance_authorization_reference }}</p>
-                            </div>
-                        @endif
-                        @if($invoice->insurance_confirmation_code)
-                            <div>
-                                <p class="text-gray-500">Confirmation code</p>
-                                <p class="font-medium text-gray-900">{{ $invoice->insurance_confirmation_code }}</p>
                             </div>
                         @endif
                     </div>

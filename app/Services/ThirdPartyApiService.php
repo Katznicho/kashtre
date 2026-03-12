@@ -434,7 +434,7 @@ class ThirdPartyApiService
      * @param string|null $dateOfBirth Optional: Date of birth for tolerance-based verification
      * @return array|null Returns policy data if exists, null otherwise
      */
-    public function verifyPolicyNumber(int $insuranceCompanyId, string $policyNumber, ?string $name = null, ?string $dateOfBirth = null): ?array
+    public function verifyPolicyNumber(int $insuranceCompanyId, string $policyNumber, ?string $name = null, ?string $dateOfBirth = null, ?string $servicesCategory = null): ?array
     {
         try {
             Log::info('=== Kashtre: verifyPolicyNumber START ===', [
@@ -444,6 +444,7 @@ class ThirdPartyApiService
                 'has_dob' => !empty($dateOfBirth),
                 'name' => $name,
                 'date_of_birth' => $dateOfBirth,
+                'services_category' => $servicesCategory,
             ]);
 
             // Build query parameters if name or DOB are provided
@@ -453,6 +454,9 @@ class ThirdPartyApiService
             }
             if ($dateOfBirth) {
                 $queryParams['date_of_birth'] = $dateOfBirth;
+            }
+            if ($servicesCategory) {
+                $queryParams['services_category'] = $servicesCategory;
             }
 
             $url = "{$this->baseUrl}/api/v1/policies/verify/{$insuranceCompanyId}/{$policyNumber}";
@@ -519,6 +523,7 @@ class ThirdPartyApiService
 
     /**
      * Verify client identity using name and date of birth (alternative verification)
+     * Optionally includes services_category so coverage checks can be applied earlier.
      *
      * @param int $insuranceCompanyId
      * @param array $verificationData Array containing: name, date_of_birth
@@ -527,11 +532,14 @@ class ThirdPartyApiService
     public function verifyAlternativeIdentity(int $insuranceCompanyId, array $verificationData): ?array
     {
         try {
-            // Only send name and date_of_birth (remove visit_id and other fields)
+            // Only send name, date_of_birth, and optional services_category (remove visit_id and other fields)
             $data = [
                 'name' => $verificationData['name'] ?? null,
                 'date_of_birth' => $verificationData['date_of_birth'] ?? null,
             ];
+            if (!empty($verificationData['services_category'])) {
+                $data['services_category'] = $verificationData['services_category'];
+            }
             
             // Remove null values
             $data = array_filter($data, function($value) {
@@ -830,7 +838,6 @@ class ThirdPartyApiService
                 if (!empty($data['success']) && isset($data['client_total'], $data['insurance_total'])) {
                     Log::info('[Kashtre->ThirdParty] Invoice authorization success', [
                         'authorization_reference' => $data['authorization_reference'] ?? null,
-                        'confirmation_code' => $data['confirmation_code'] ?? null,
                         'client_total' => $data['client_total'],
                         'insurance_total' => $data['insurance_total'],
                         'breakdown' => $data['breakdown'] ?? null,

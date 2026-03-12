@@ -1494,7 +1494,7 @@
                 const fullName = nameParts.filter(p => p && p.length > 0).join(' ').trim();
                 const dateOfBirth = dobInput?.value || null;
                     
-                    // Build URL with query parameters if name or DOB are available
+                    // Build URL with query parameters if name, DOB, or services category are available
                     let url = `/api/policies/verify/${insuranceCompanyId}/${encodeURIComponent(policyNumber)}`;
                     const params = new URLSearchParams();
                     if (fullName) {
@@ -1502,6 +1502,11 @@
                     }
                     if (dateOfBirth) {
                         params.append('date_of_birth', dateOfBirth);
+                    }
+                    const servicesCategorySelect = document.getElementById('services_category');
+                    const servicesCategory = servicesCategorySelect?.value || null;
+                    if (servicesCategory) {
+                        params.append('services_category', servicesCategory);
                     }
                     if (params.toString()) {
                         url += '?' + params.toString();
@@ -1817,6 +1822,7 @@
                 const ninInput = document.querySelector('input[name="nin"]');
                 const phoneInput = document.querySelector('input[name="phone_number"]');
                 const emailInput = document.querySelector('input[name="email"]');
+                const servicesCategorySelect = document.getElementById('services_category');
 
 
                 const alternativeData = {};
@@ -1874,6 +1880,9 @@
                 
                 alternativeData.date_of_birth = dobInput.value;
                 if (policyNumber) alternativeData.policy_number = policyNumber;
+                if (servicesCategorySelect?.value) {
+                    alternativeData.services_category = servicesCategorySelect.value;
+                }
 
                 // Show loading state
                 policyVerificationResult.innerHTML = `
