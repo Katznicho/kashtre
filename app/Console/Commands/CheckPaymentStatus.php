@@ -9,8 +9,6 @@ use App\Models\Invoice;
 use App\Models\Client;
 use App\Models\Item;
 use App\Models\InsuranceCompany;
-use App\Models\ThirdPartyPayer;
-use App\Models\ThirdPartyPayerBalanceHistory;
 use App\Models\PaymentMethodAccount;
 use App\Payments\YoAPI;
 use App\Services\MoneyTrackingService;
