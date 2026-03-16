@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\Transaction;
+use App\Models\ThirdPartyPayer;
+use App\Models\ThirdPartyPayerBalanceHistory;
 use App\Models\Invoice;
 use App\Models\Client;
 use App\Models\Item;
@@ -280,7 +282,7 @@ class CheckPaymentStatus extends Command
                                                 ->forPaymentMethod('mobile_money')
                                                 ->active()
                                                 ->first();
-                                            if ($paymentMethodAccount) {
+                                        if ($paymentMethodAccount) {
                                                 $paymentMethodAccount->debit(
                                                     $transaction->amount,
                                                     $ref,
@@ -306,6 +308,38 @@ class CheckPaymentStatus extends Command
                                                 'amount' => $transaction->amount,
                                                 'reference' => $ref
                                             ]);
+                                            // After client portion is received, post the insurer's guarantee
+                                            // as a debit to the third-party payer (conditional guarantee).
+                                            $snapshot = is_array($invoice->insurance_authorization_snapshot ?? null)
+                                                ? $invoice->insurance_authorization_snapshot
+                                                : [];
+                                            $insurancePortion = isset($snapshot['insurance_total'])
+                                                ? (float) $snapshot['insurance_total']
+                                                : (float) ($invoice->insurance_insurance_total ?? 0);
+                                            if ($insurancePortion > 0) {
+                                                // Avoid duplicate debit entries for this invoice
+                                                $existingDebit = ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $thirdPartyPayer->id)
+                                                    ->where('invoice_id', $invoice->id)
+                                                    ->where('transaction_type', 'debit')
+                                                    ->first();
+                                                if (!$existingDebit) {
+                                                    ThirdPartyPayerBalanceHistory::recordDebit(
+                                                        $thirdPartyPayer,
+                                                        $insurancePortion,
+                                                        'Insurance guarantee for invoice ' . $invoice->invoice_number,
+                                                        $invoice->invoice_number,
+                                                        'Posted after client portion payment confirmation',
+                                                        'insurance',
+                                                        $invoice->id,
+                                                        $client->id
+                                                    );
+                                                    Log::info('Insurance guarantee debit created after client portion payment', [
+                                                        'invoice_id' => $invoice->id,
+                                                        'third_party_payer_id' => $thirdPartyPayer->id,
+                                                        'amount' => $insurancePortion,
+                                                    ]);
+                                                }
+                                            }
                                         }
                                         $this->createPackageTrackingRecords($invoice, $invoice->items);
                                         $queuedItems = $this->queueItemsAtServicePoints($invoice, $invoice->items);

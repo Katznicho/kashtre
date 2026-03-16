@@ -65,46 +65,50 @@
                         </div>
                         <div>
                             <h3 class="text-lg font-medium text-gray-900 mb-4">Financial Summary</h3>
-                            <dl class="space-y-3">
-                                @if($thirdPartyPayer)
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Current Balance</dt>
-                                    <dd class="mt-1 text-lg font-semibold {{ $currentBalance < 0 ? 'text-red-600' : ($currentBalance > 0 ? 'text-green-600' : 'text-gray-900') }}">
-                                        UGX {{ number_format(abs($currentBalance), 2) }}
-                                        @if($currentBalance < 0)
-                                            <span class="text-xs text-red-500">(Amount Owed)</span>
-                                        @elseif($currentBalance > 0)
-                                            <span class="text-xs text-green-500">(Credit Available)</span>
+                            @if($thirdPartyPayer)
+                                <dl class="space-y-3 mb-4">
+                                    <div>
+                                        <dt class="text-sm font-medium text-gray-500">Current Balance</dt>
+                                        <dd class="mt-1 text-lg font-semibold {{ $currentBalance < 0 ? 'text-red-600' : ($currentBalance > 0 ? 'text-green-600' : 'text-gray-900') }}">
+                                            UGX {{ number_format(abs($currentBalance), 2) }}
+                                            @if($currentBalance < 0)
+                                                <span class="text-xs text-red-500">(Amount Owed)</span>
+                                            @elseif($currentBalance > 0)
+                                                <span class="text-xs text-green-500">(Credit Available)</span>
+                                            @endif
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt class="text-sm font-medium text-gray-500">Credit Limit</dt>
+                                        <dd class="mt-1 text-lg font-semibold text-gray-900">
+                                            UGX {{ number_format($thirdPartyPayer->credit_limit ?? ($business->max_third_party_credit_limit ?? 0), 2) }}
+                                        </dd>
+                                        @if(in_array('Manage Credit Limits', (array) (auth()->user()->permissions ?? [])))
+                                            <a
+                                                href="{{ route('credit-limit-requests.create', ['entity_type' => 'third_party_payer', 'entity_id' => $thirdPartyPayer->id]) }}"
+                                                class="mt-2 inline-flex items-center px-3 py-1.5 border border-blue-600 text-xs font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100"
+                                            >
+                                                Request credit limit change
+                                            </a>
                                         @endif
-                                    </dd>
+                                    </div>
+                                </dl>
+                                <div class="mt-2">
+                                    <a href="{{ route('third-party-vendors.balance-statement', $vendor['id']) }}"
+                                       class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                        Open financial summary
+                                    </a>
                                 </div>
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Total Credits</dt>
-                                    <dd class="mt-1 text-lg font-semibold text-green-600">
-                                        UGX {{ number_format($totalCredits, 2) }}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Total Debits</dt>
-                                    <dd class="mt-1 text-lg font-semibold text-red-600">
-                                        UGX {{ number_format($totalDebits, 2) }}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Credit Limit</dt>
-                                    <dd class="mt-1 text-lg font-semibold text-gray-900">
-                                        UGX {{ number_format($thirdPartyPayer->credit_limit ?? 0, 2) }}
-                                    </dd>
-                                </div>
-                                @else
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Status</dt>
-                                    <dd class="mt-1 text-sm text-gray-500">
-                                        No third-party payer account found for this vendor. Balance history will appear here once invoices are created with this vendor.
-                                    </dd>
-                                </div>
-                                @endif
-                            </dl>
+                            @else
+                                <dl class="space-y-3">
+                                    <div>
+                                        <dt class="text-sm font-medium text-gray-500">Status</dt>
+                                        <dd class="mt-1 text-sm text-gray-500">
+                                            No third-party payer account found for this vendor. Balance history will appear here once invoices are created with this vendor.
+                                        </dd>
+                                    </div>
+                                </dl>
+                            @endif
                         </div>
                     </div>
                 </div>
