@@ -81,6 +81,7 @@
                     <form id="client-registration-form-individual" action="{{ route('clients.store') }}" method="POST" class="space-y-8">
                         @csrf
                         <input type="hidden" name="client_type" value="individual">
+                        <input type="hidden" name="existing_client_id" id="existing_client_id" value="">
                         
                         <!-- Personal Information Card -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -1228,7 +1229,10 @@
                                         <p><strong>Client ID:</strong> ${data.client.client_id}</p>
                                         <p><strong>Name:</strong> ${surnameInput.value} ${firstNameInput.value}</p>
                                     </div>
-                                    <p class="text-gray-600">Would you like to auto-fill the form with their previous details and proceed to ordering?</p>
+                                    <p class="text-gray-600">
+                                        Would you like to auto-fill the form with their previous details?
+                                        You will stay on this page so you can review and adjust details before continuing.
+                                    </p>
                                 `,
                                 icon: 'info',
                                 showCancelButton: true,
@@ -1238,8 +1242,19 @@
                                 cancelButtonText: 'No, Continue Manually'
                             }).then((result) => {
                                 if (result.isConfirmed) {
-                                    // Redirect directly to POS with existing client (no new record needed)
-                                    window.location.href = `/pos/item-selection/${data.client.id}`;
+                                    isAutoFilling = true;
+                                    autoFillForm(data.client);
+                                    const existingIdInput = document.getElementById('existing_client_id');
+                                    if (existingIdInput) {
+                                        existingIdInput.value = data.client.id;
+                                    }
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Form auto-filled',
+                                        text: 'Please review and edit any details, then submit to continue.',
+                                        timer: 2000,
+                                        showConfirmButton: false,
+                                    });
                                 }
                             });
                         }

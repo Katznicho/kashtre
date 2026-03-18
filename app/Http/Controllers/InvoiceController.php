@@ -1957,6 +1957,51 @@ class InvoiceController extends Controller
             if ($insuranceAuthorization && !empty($insuranceAuthorization['success'])) {
                 $authStatus = $insuranceAuthorization['authorization_status'] ?? 'auto_approved';
 
+                // ── Third-party payer credit limit gate (conditional guarantee) ──
+                // We only know the true insurer share after authorization returns insurance_total,
+                // so we enforce Prudential's (third-party payer) limit here.
+                try {
+                    $insurancePortion = (float) ($insuranceAuthorization['insurance_total'] ?? 0);
+                    if ($authStatus !== 'auto_rejected' && $insurancePortion > 0) {
+                        $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('insurance_company_id', $client->insurance_company_id)
+                            ->where('business_id', $business->id)
+                            ->where('type', 'insurance_company')
+                            ->whereNull('client_id')
+                            ->where('status', 'active')
+                            ->first();
+
+                        if ($thirdPartyPayer) {
+                            $payerLimit = (float) ($thirdPartyPayer->credit_limit ?? 0);
+                            $businessLimit = (float) ($business->max_third_party_credit_limit ?? 0);
+                            $effectiveLimit = $payerLimit > 0 ? $payerLimit : $businessLimit;
+
+                            if ($effectiveLimit > 0) {
+                                $currentOutstanding = (float) \App\Models\AccountsReceivable::where('third_party_payer_id', $thirdPartyPayer->id)
+                                    ->where('status', '!=', 'paid')
+                                    ->sum('balance');
+
+                                $newExposure = $currentOutstanding + $insurancePortion;
+
+                                if ($newExposure > $effectiveLimit) {
+                                    $authStatus = 'auto_rejected';
+
+                                    $warning = "Insurance credit limit exceeded. Outstanding {$currentOutstanding}, requested guarantee {$insurancePortion}, limit {$effectiveLimit}.";
+                                    $insuranceAuthorization['warnings'] = array_values(array_unique(array_merge(
+                                        (array) ($insuranceAuthorization['warnings'] ?? []),
+                                        [$warning]
+                                    )));
+                                    $insuranceAuthorization['authorization_status'] = 'auto_rejected';
+                                }
+                            }
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('[Kashtre] Insurance credit-limit gate failed (skipping)', [
+                        'invoice_id' => $invoice->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+
                 // If insurer rejected, treat full amount as client-pay and drop insurance as a payer
                 if ($authStatus === 'auto_rejected') {
                     $fullAmount = (float) $invoice->total_amount;
@@ -1976,6 +2021,27 @@ class InvoiceController extends Controller
                         'insurance_insurance_total' => 0.0,
                         'insurance_authorization_snapshot' => $snapshot,
                     ]);
+
+                    // Remove insurer Accounts Receivable entry for this invoice (since insurer won't pay)
+                    try {
+                        $thirdPartyPayerForAr = \App\Models\ThirdPartyPayer::where('insurance_company_id', $client->insurance_company_id)
+                            ->where('business_id', $business->id)
+                            ->where('type', 'insurance_company')
+                            ->whereNull('client_id')
+                            ->where('status', 'active')
+                            ->first();
+
+                        if ($thirdPartyPayerForAr) {
+                            \App\Models\AccountsReceivable::where('invoice_id', $invoice->id)
+                                ->where('third_party_payer_id', $thirdPartyPayerForAr->id)
+                                ->delete();
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning('[Kashtre] Failed to remove insurer AR after rejection', [
+                            'invoice_id' => $invoice->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
 
                     // Remove insurance from payment methods and fall back to client methods
                     $paymentMethods = $invoice->payment_methods ?? [];

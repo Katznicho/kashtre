@@ -293,6 +293,27 @@ class ClientController extends Controller
      */
     private function storeIndividual(Request $request, $business, $currentBranch)
     {
+        // If the user chose to auto-fill an existing client, update their details and start a fresh visit.
+        $existingClientId = $request->input('existing_client_id');
+        if ($existingClientId) {
+            $existingClient = Client::where('business_id', $business->id)
+                ->where('branch_id', $currentBranch->id)
+                ->where('id', (int) $existingClientId)
+                ->first();
+
+            if ($existingClient) {
+                // Update the client with submitted values (so edits on the page are saved)
+                $existingClient->fill($request->except(['_token', '_method', 'client_type', 'existing_client_id']));
+                $existingClient->save();
+
+                // Always issue a new visit id for this fresh session
+                $existingClient->issueNewVisitId();
+
+                return redirect()->route('pos.item-selection', $existingClient)
+                    ->with('success', 'Client details updated. New visit started. Client ID: ' . $existingClient->client_id);
+            }
+        }
+
         // Check if client already exists with same surname, first_name, and date_of_birth
         $existingClient = Client::where('business_id', $business->id)
             ->where('branch_id', $currentBranch->id)
