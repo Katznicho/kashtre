@@ -406,17 +406,17 @@
                             </svg>
                         </button>
                         <ul x-show="openGroup === 'clients'" x-collapse class="mt-1 space-y-1 pl-10">
-                            @if(in_array('View Clients', $permissions))
-                            <li><a href="{{ route('clients.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Registered Clients</a></li>
+                            @if(in_array('View Visits', $permissions))
+                            <li><a href="{{ route('daily-visits.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Visits</a></li>
                             @endif
                             @if(in_array('View Clients', $permissions))
                             <li><a href="{{ route('clients.completed') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Completed Items</a></li>
                             @endif
-                            @if(in_array('View Visits', $permissions))
-                            <li><a href="{{ route('daily-visits.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Visits</a></li>
-                            @endif
                             @if(in_array('Add Clients', $permissions))
                             <li><a href="{{ route('clients.create') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Add New Client</a></li>
+                            @endif
+                            @if(in_array('View Clients', $permissions))
+                            <li><a href="{{ route('clients.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Registered Clients</a></li>
                             @endif
                         </ul>
                     </li>
