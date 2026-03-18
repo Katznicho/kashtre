@@ -81,7 +81,9 @@
                                     <div>
                                         <dt class="text-sm font-medium text-gray-500">Credit Limit</dt>
                                         <dd class="mt-1 text-lg font-semibold text-gray-900">
-                                            UGX {{ number_format($thirdPartyPayer->credit_limit ?? ($business->max_third_party_credit_limit ?? 0), 2) }}
+                                            UGX {{ number_format((($thirdPartyPayer->credit_limit ?? 0) > 0
+                                                ? (float) $thirdPartyPayer->credit_limit
+                                                : (float) ($business->max_third_party_credit_limit ?? 0)), 2) }}
                                         </dd>
                                         @if(in_array('Manage Credit Limits', (array) (auth()->user()->permissions ?? [])))
                                             <a

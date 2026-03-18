@@ -38,7 +38,9 @@
                                 <div>
                                     <p class="text-sm text-gray-500">Credit Limit</p>
                                     <p class="text-lg font-semibold text-gray-700">
-                                        UGX {{ number_format($thirdPartyPayer->credit_limit, 2) }}
+                                        UGX {{ number_format((($thirdPartyPayer->credit_limit ?? 0) > 0
+                                            ? (float) $thirdPartyPayer->credit_limit
+                                            : (float) ($thirdPartyPayer->business->max_third_party_credit_limit ?? 0)), 2) }}
                                     </p>
                                 </div>
                             </div>

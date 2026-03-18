@@ -185,7 +185,9 @@ class CreditLimitChangeRequestController extends Controller
             $currentCreditLimit = $entity->max_credit ?? 0;
         } elseif ($entityType === 'third_party_payer' && $entityId) {
             $entity = ThirdPartyPayer::where('business_id', $user->business_id)->findOrFail($entityId);
-            $currentCreditLimit = $entity->credit_limit ?? 0;
+            $businessDefault = (float) ($user->business->max_third_party_credit_limit ?? 0);
+            $payerCredit = (float) ($entity->credit_limit ?? 0);
+            $currentCreditLimit = $payerCredit > 0 ? $payerCredit : $businessDefault;
         }
 
         return view('credit-limit-requests.create', compact('entity', 'entityType', 'entityId', 'currentCreditLimit'));
@@ -238,7 +240,9 @@ class CreditLimitChangeRequestController extends Controller
             $currentLimit = $entity->max_credit ?? 0;
         } else {
             $entity = ThirdPartyPayer::where('business_id', $user->business_id)->findOrFail($validated['entity_id']);
-            $currentLimit = $entity->credit_limit ?? 0;
+            $businessDefault = (float) ($user->business->max_third_party_credit_limit ?? 0);
+            $payerCredit = (float) ($entity->credit_limit ?? 0);
+            $currentLimit = $payerCredit > 0 ? $payerCredit : $businessDefault;
         }
 
         // Verify current limit matches
