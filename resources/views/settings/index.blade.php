@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Settings') }}
+                {{ __('Settings - Third Party Vendors') }}
             </h2>
         </div>
     </x-slot>
@@ -10,23 +10,7 @@
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
-                <!-- Tabs Navigation -->
-                <div class="border-b border-gray-200 dark:border-gray-700">
-                    <nav class="flex -mb-px" aria-label="Tabs">
-                        <button onclick="switchTab('insurance-companies')" 
-                                id="tab-insurance-companies" 
-                                class="tab-button {{ $activeTab === 'insurance-companies' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }} flex-1 py-4 px-6 text-center text-sm font-medium border-b-2 transition-colors">
-                            <svg class="w-5 h-5 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                            </svg>
-                            Third Party Vendors
-                        </button>
-                    </nav>
-                </div>
-
-                <!-- Tab Content -->
                 <div class="p-6">
-                    <div id="content-insurance-companies" class="tab-content {{ $activeTab === 'insurance-companies' ? '' : 'hidden' }}">
                         @if(session('success'))
                             <div class="mb-4 bg-green-50 border-l-4 border-green-400 p-4 rounded">
                                 <div class="flex">
@@ -118,33 +102,8 @@
                                 </div>
                             </div>
                         @endif
-                    </div>
                 </div>
             </div>
         </div>
     </div>
-
-    <script>
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.add('hidden');
-            });
-            document.querySelectorAll('.tab-button').forEach(button => {
-                button.classList.remove('border-blue-500', 'text-blue-600');
-                button.classList.add('border-transparent', 'text-gray-500');
-            });
-            const content = document.getElementById('content-' + tabName);
-            if (content) {
-                content.classList.remove('hidden');
-            }
-            const button = document.getElementById('tab-' + tabName);
-            if (button) {
-                button.classList.remove('border-transparent', 'text-gray-500');
-                button.classList.add('border-blue-500', 'text-blue-600');
-            }
-            const url = new URL(window.location);
-            url.searchParams.set('tab', tabName);
-            window.history.pushState({}, '', url);
-        }
-    </script>
 </x-app-layout>

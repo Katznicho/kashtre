@@ -18,6 +18,53 @@
             <form action="{{ route('business-settings.update') }}" method="POST" class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
                 @csrf
                 @method('PUT')
+
+                <!-- Location & Currency -->
+                <div class="mb-6 border-t border-gray-200 dark:border-gray-700 pt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Location & Currency</h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="country_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Country
+                            </label>
+                            <select
+                                name="country_id"
+                                id="country_id"
+                                class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                <option value="">No country selected</option>
+                                @foreach($countries as $country)
+                                    <option
+                                        value="{{ $country->id }}"
+                                        data-currency="{{ strtoupper($country->currency_code ?? ($country->currency?->code ?? 'UGX')) }}"
+                                        {{ (string) old('country_id', $business->country_id) === (string) $country->id ? 'selected' : '' }}
+                                    >
+                                        {{ $country->name }} ({{ strtoupper($country->currency_code ?? ($country->currency?->code ?? 'UGX')) }})
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="currency_code" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Currency Code
+                            </label>
+                            <input
+                                type="text"
+                                name="currency_code"
+                                id="currency_code"
+                                value="{{ old('currency_code', strtoupper($business->currency_code ?? 'UGX')) }}"
+                                maxlength="10"
+                                class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="UGX"
+                            >
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                Defaults to UGX when not set.
+                            </p>
+                        </div>
+                    </div>
+                </div>
                 
                 <!-- Credit Limits -->
                 <div class="mb-6 border-t border-gray-200 dark:border-gray-700 pt-6">
@@ -402,6 +449,20 @@
     <script>
         // Initialize Select2 for credit excluded items
         $(document).ready(function() {
+            const countrySelect = document.getElementById('country_id');
+            const currencyInput = document.getElementById('currency_code');
+            if (countrySelect && currencyInput) {
+                countrySelect.addEventListener('change', function() {
+                    const selected = countrySelect.options[countrySelect.selectedIndex];
+                    const selectedCurrency = selected?.getAttribute('data-currency');
+                    if (selectedCurrency) {
+                        currencyInput.value = selectedCurrency;
+                    } else if (!currencyInput.value) {
+                        currencyInput.value = 'UGX';
+                    }
+                });
+            }
+
             const $select = $('#credit_excluded_items');
             
             $select.select2({

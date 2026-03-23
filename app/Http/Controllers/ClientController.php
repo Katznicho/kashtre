@@ -295,6 +295,53 @@ class ClientController extends Controller
     {
         // If the user chose to auto-fill an existing client, update their details and start a fresh visit.
         $existingClientId = $request->input('existing_client_id');
+
+        // Re-verification enforcement:
+        // If insurance is selected, never allow redirect/update of an existing client
+        // without the user verifying the policy number (and physical ID if required).
+        $isInsuranceSelected = in_array('insurance', $request->input('payment_methods', []));
+        if ($isInsuranceSelected) {
+            $insuranceCompanyId = (int) $request->input('insurance_company_id');
+
+            // Default to requiring physical ID unless the insurance settings say otherwise.
+            $requirePhysicalId = true;
+            if ($insuranceCompanyId > 0) {
+                try {
+                    $apiService = new ThirdPartyApiService();
+                    $settingsResponse = $apiService->getInsuranceCompanySettings($insuranceCompanyId);
+                    if (
+                        $settingsResponse
+                        && isset($settingsResponse['verification_settings']['require_physical_id'])
+                    ) {
+                        $requirePhysicalId = (bool) $settingsResponse['verification_settings']['require_physical_id'];
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('Failed to fetch insurance settings (reverification enforcement), defaulting require_physical_id', [
+                        'insurance_company_id' => $insuranceCompanyId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            $rules = [
+                'insurance_company_id' => 'required|integer|exists:insurance_companies,id',
+                'policy_number' => 'required|string|max:255',
+                'policy_verified' => 'required|accepted',
+            ];
+
+            $rules['physical_id_verified'] = $requirePhysicalId
+                ? 'required|accepted'
+                : 'nullable|accepted';
+
+            $request->validate($rules, [
+                'insurance_company_id.required' => 'Please select an insurance company when insurance payment method is selected.',
+                'policy_number.required' => 'Please enter the client\'s policy number when insurance payment method is selected.',
+                'policy_verified.required' => 'Please verify the policy number again before submitting.',
+                'policy_verified.accepted' => 'Please verify the policy number again before submitting.',
+                'physical_id_verified.accepted' => 'Physical National ID verification is required by this insurance company.',
+            ]);
+        }
+
         if ($existingClientId) {
             $existingClient = Client::where('business_id', $business->id)
                 ->where('branch_id', $currentBranch->id)

@@ -43,6 +43,7 @@ class Invoice extends Model
         'is_service_charge_processed',
         'service_charge_processed_at',
         'service_charge_processed_by_user_id',
+        'currency',
     ];
 
     protected $casts = [
@@ -186,12 +187,12 @@ class Invoice extends Model
 
     public function getFormattedTotalAmountAttribute()
     {
-        return 'UGX ' . number_format($this->total_amount, 2);
+        return ($this->currency ?? 'UGX') . ' ' . number_format($this->total_amount, 2);
     }
 
     public function getFormattedBalanceDueAttribute()
     {
-        return 'UGX ' . number_format($this->balance_due, 2);
+        return ($this->currency ?? 'UGX') . ' ' . number_format($this->balance_due, 2);
     }
 
     public function getStatusBadgeAttribute()

@@ -119,6 +119,29 @@
                                     @enderror
                                 </div>
 
+                                <!-- Country -->
+                                <div>
+                                    <label for="country_id" class="block text-sm font-medium text-gray-700 mb-1">
+                                        Country <span class="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        name="country_id"
+                                        id="country_id"
+                                        required
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm @error('country_id') border-red-300 @enderror"
+                                    >
+                                        <option value="">Select country</option>
+                                        @foreach($countries as $country)
+                                            <option value="{{ $country->id }}" {{ old('country_id') == $country->id ? 'selected' : '' }}>
+                                                {{ $country->name }} ({{ $country->currency_code ?? ($country->currency?->code ?? 'UGX') }})
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('country_id')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                </div>
+
                                 <!-- TIN (Tax Identification Number) -->
                                 <div>
                                     <label for="tin" class="block text-sm font-medium text-gray-700 mb-1">

@@ -28,7 +28,7 @@ class ListDailyVisits extends Component implements HasForms, HasTable
 
         $query = Client::query()
             ->with(['business', 'branch'])
-            ->latest();
+            ->latest('updated_at');
 
         // Restrict by business
         if (Auth::check() && Auth::user()->business_id !== 1) {
@@ -47,15 +47,15 @@ class ListDailyVisits extends Component implements HasForms, HasTable
         return $table
             ->query($query)
             ->columns([
-                Tables\Columns\TextColumn::make('created_at_date')
+                Tables\Columns\TextColumn::make('updated_at_date')
                     ->label('Date')
-                    ->getStateUsing(fn (Client $record) => $record->created_at)
+                    ->getStateUsing(fn (Client $record) => $record->updated_at)
                     ->dateTime('M d, Y')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('created_at_time')
+                Tables\Columns\TextColumn::make('updated_at_time')
                     ->label('Time')
-                    ->getStateUsing(fn (Client $record) => $record->created_at)
+                    ->getStateUsing(fn (Client $record) => $record->updated_at)
                     ->dateTime('H:i:s')
                     ->sortable(),
 
@@ -125,14 +125,14 @@ class ListDailyVisits extends Component implements HasForms, HasTable
                     ->query(function ($query, array $data) {
                         // Default to today if no preset selected (but don't show as active filter badge)
                         if (empty($data['preset'])) {
-                            return $query->whereDate('created_at', now()->toDateString());
+                            return $query->whereDate('updated_at', now()->toDateString());
                         }
                         return match ($data['preset']) {
-                            'yesterday' => $query->whereDate('created_at', now()->subDay()->toDateString()),
-                            'this_week' => $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]),
-                            'this_month' => $query->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()]),
-                            'today' => $query->whereDate('created_at', now()->toDateString()),
-                            default => $query->whereDate('created_at', now()->toDateString()), // Default to today
+                            'yesterday' => $query->whereDate('updated_at', now()->subDay()->toDateString()),
+                            'this_week' => $query->whereBetween('updated_at', [now()->startOfWeek(), now()->endOfWeek()]),
+                            'this_month' => $query->whereBetween('updated_at', [now()->startOfMonth(), now()->endOfMonth()]),
+                            'today' => $query->whereDate('updated_at', now()->toDateString()),
+                            default => $query->whereDate('updated_at', now()->toDateString()), // Default to today
                         };
                     })
                     ->indicateUsing(function (array $data): ?string {
@@ -156,7 +156,7 @@ class ListDailyVisits extends Component implements HasForms, HasTable
                     ])
                     ->query(function ($query, array $data) {
                         if (!empty($data['created_at'])) {
-                            $query->whereDate('created_at', $data['created_at']);
+                            $query->whereDate('updated_at', $data['created_at']);
                         }
                     })
                     ->indicateUsing(function (array $data): ?string {
@@ -181,11 +181,11 @@ class ListDailyVisits extends Component implements HasForms, HasTable
                         $from = $data['from'] ?? null;
                         $to = $data['to'] ?? null;
                         if ($from && $to) {
-                            $query->whereBetween('created_at', [\Carbon\Carbon::parse($from)->startOfDay(), \Carbon\Carbon::parse($to)->endOfDay()]);
+                            $query->whereBetween('updated_at', [\Carbon\Carbon::parse($from)->startOfDay(), \Carbon\Carbon::parse($to)->endOfDay()]);
                         } elseif ($from) {
-                            $query->where('created_at', '>=', \Carbon\Carbon::parse($from)->startOfDay());
+                            $query->where('updated_at', '>=', \Carbon\Carbon::parse($from)->startOfDay());
                         } elseif ($to) {
-                            $query->where('created_at', '<=', \Carbon\Carbon::parse($to)->endOfDay());
+                            $query->where('updated_at', '<=', \Carbon\Carbon::parse($to)->endOfDay());
                         }
                     })
                     ->indicateUsing(function (array $data): ?string {
@@ -213,7 +213,7 @@ class ListDailyVisits extends Component implements HasForms, HasTable
                     ->url(fn (Client $record): string => route('clients.show', $record))
                     ->color('primary'),
             ])
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('updated_at', 'desc')
             ->emptyStateHeading('No visits found')
             ->emptyStateDescription('No client visits recorded for the selected date.')
             ->emptyStateIcon('heroicon-o-calendar');

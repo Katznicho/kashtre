@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\InsuranceCompany;
+use App\Models\Country;
 use App\Services\ThirdPartyApiService;
 use App\Constants\Constants;
 use Illuminate\Http\Request;
@@ -25,7 +26,8 @@ class InsuranceCompanyController extends Controller
      */
     public function create()
     {
-        return view('insurance-company.create');
+        $countries = Country::with('currency')->orderBy('name')->get();
+        return view('insurance-company.create', compact('countries'));
     }
 
     /**
@@ -39,6 +41,7 @@ class InsuranceCompanyController extends Controller
             'code' => 'nullable|string|max:20',
             'email' => 'required|email|max:255',
             'phone' => 'nullable|string|max:20',
+            'country_id' => 'required|exists:countries,id',
             'tin' => 'nullable|string|max:50',
             'address' => 'nullable|string|max:500',
             'head_office_address' => 'nullable|string|max:500',
@@ -92,6 +95,9 @@ class InsuranceCompanyController extends Controller
             } while (true);
             
             $validated['code'] = $code;
+
+            $country = Country::with('currency')->findOrFail($validated['country_id']);
+            $currencyCode = $country->currency_code ?? $country->currency?->code ?? 'UGX';
             
             Log::info('Auto-generated third party vendor code', [
                 'code' => $code,
@@ -122,6 +128,8 @@ class InsuranceCompanyController extends Controller
                 'code' => $validated['code'],
                 'email' => $validated['email'],
                 'phone' => $validated['phone'] ?? null,
+                'country_id' => $country->id,
+                'currency_code' => $currencyCode,
                 'tin' => $validated['tin'] ?? null,
                 'address' => $validated['address'] ?? null,
                 'head_office_address' => $validated['head_office_address'] ?? $validated['address'] ?? null,
@@ -136,6 +144,10 @@ class InsuranceCompanyController extends Controller
                 'code' => $insuranceCompany->code,
                 'email' => $insuranceCompany->email,
                 'phone' => $insuranceCompany->phone,
+                'country_id' => $country->id,
+                'country_name' => $country->name,
+                'country_iso_code' => $country->iso_code,
+                'currency_code' => $currencyCode,
                 'tin' => $insuranceCompany->tin,
                 'address' => $insuranceCompany->address,
                 'head_office_address' => $insuranceCompany->head_office_address,

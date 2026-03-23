@@ -1312,6 +1312,8 @@
                         const checkbox = document.getElementById('payment_' + method);
                         if (checkbox) {
                             checkbox.checked = true;
+                            // Trigger listeners so insurance verification reset runs correctly.
+                            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
                         }
                     });
                     // Trigger toggle for mobile money if needed
@@ -1369,6 +1371,29 @@
             const policyNumberInput = document.getElementById('policy_number');
             const verifyPolicyBtn = document.getElementById('verify_policy_btn');
             const policyVerificationResult = document.getElementById('policy_verification_result');
+            const physicalIdVerifiedCheckbox = document.getElementById('physical_id_verified');
+            const policyVerifiedInput = document.getElementById('policy_verified');
+
+            function resetInsuranceVerificationUI() {
+                // Force the user to re-verify whenever insurance details change.
+                if (physicalIdVerifiedCheckbox) {
+                    physicalIdVerifiedCheckbox.checked = false;
+                }
+                if (policyVerifiedInput) {
+                    policyVerifiedInput.value = '0';
+                }
+                if (policyVerificationResult) {
+                    policyVerificationResult.innerHTML = '';
+                }
+                if (policyNumberInput) {
+                    policyNumberInput.classList.remove('border-green-300');
+                    policyNumberInput.classList.remove('border-red-300');
+                }
+                if (verifyPolicyBtn) {
+                    verifyPolicyBtn.disabled = false;
+                    verifyPolicyBtn.textContent = 'Verify';
+                }
+            }
 
             // Function to check if insurance payment method is selected
             function isInsuranceSelected() {
@@ -1402,19 +1427,14 @@
             function toggleInsuranceSection() {
                 if (isInsuranceSelected()) {
                     insuranceCompanySection.style.display = 'block';
+                    resetInsuranceVerificationUI();
                     toggleFallbackWarning();
                 } else {
                     insuranceCompanySection.style.display = 'none';
                     policyNumberSection.style.display = 'none';
                     if (insuranceCompanySelect) insuranceCompanySelect.value = '';
                     if (policyNumberInput) policyNumberInput.value = '';
-                    // Only clear verification result if it's not showing an error
-                    if (policyVerificationResult) {
-                        const hasError = policyVerificationResult.querySelector('.bg-red-50, .bg-yellow-50');
-                        if (!hasError) {
-                            policyVerificationResult.innerHTML = '';
-                        }
-                    }
+                    resetInsuranceVerificationUI();
                     toggleFallbackWarning();
                 }
             }
@@ -1431,16 +1451,11 @@
             function togglePolicyNumberSection() {
                 if (insuranceCompanySelect && insuranceCompanySelect.value) {
                     policyNumberSection.style.display = 'block';
+                    resetInsuranceVerificationUI();
                 } else {
                     policyNumberSection.style.display = 'none';
                     if (policyNumberInput) policyNumberInput.value = '';
-                    // Only clear verification result if it's not showing an error
-                    if (policyVerificationResult) {
-                        const hasError = policyVerificationResult.querySelector('.bg-red-50, .bg-yellow-50');
-                        if (!hasError) {
-                            policyVerificationResult.innerHTML = '';
-                        }
-                    }
+                    resetInsuranceVerificationUI();
                 }
             }
 
@@ -2682,6 +2697,12 @@
 
             // Also verify on policy number input blur
             if (policyNumberInput) {
+                policyNumberInput.addEventListener('input', function() {
+                    // Any edit invalidates previous verification.
+                    if (policyVerifiedInput) policyVerifiedInput.value = '0';
+                    if (policyVerificationResult) policyVerificationResult.innerHTML = '';
+                });
+
                 policyNumberInput.addEventListener('blur', function() {
                     if (policyNumberInput.value.trim() && insuranceCompanySelect?.value) {
                         verifyPolicyNumber();

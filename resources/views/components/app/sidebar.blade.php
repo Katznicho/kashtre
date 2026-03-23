@@ -408,6 +408,8 @@
                         <ul x-show="openGroup === 'clients'" x-collapse class="mt-1 space-y-1 pl-10">
                             @if(in_array('View Visits', $permissions))
                             <li><a href="{{ route('daily-visits.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Visits</a></li>
+                            <li><a href="{{ route('visit-archives.index', ['recordType' => 'snapshot']) }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Daily Visit Record</a></li>
+                            <li><a href="{{ route('visit-archives.index', ['recordType' => 'previous']) }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Previous Visits</a></li>
                             @endif
                             @if(in_array('View Clients', $permissions))
                             <li><a href="{{ route('clients.completed') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Completed Items</a></li>
@@ -586,6 +588,15 @@
 
                             @if(in_array('View Insurance Companies', $permissions))
                             <li><a href="{{ route('settings.index', ['tab' => 'insurance-companies']) }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Third Party Vendors</a></li>
+                            @endif
+
+                            @if(in_array('Manage System Settings', (array) $permissions) || in_array('Manage Settings', (array) $permissions))
+                            <li>
+                                <a href="{{ route('settings.countries.index') }}"
+                                   class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Manage Countries & Currencies
+                                </a>
+                            </li>
                             @endif
 
                             @if(in_array('View Sub Groups', $permissions))

@@ -577,6 +577,7 @@ class InvoiceController extends Controller
                 'business_id' => $validated['business_id'],
                 'branch_id' => $validated['branch_id'],
                 'created_by' => $validated['created_by'],
+                'currency' => $business->currency_code ?? 'UGX',
                 'client_name' => $validated['client_name'],
                 'client_phone' => $validated['client_phone'],
                 'payment_phone' => $validated['payment_phone'],

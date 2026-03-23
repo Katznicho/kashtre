@@ -6,6 +6,7 @@ use App\Models\Business;
 use App\Models\User;
 use App\Models\CreditLimitApprovalApprover;
 use App\Models\Item;
+use App\Models\Country;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +36,9 @@ class BusinessSettingsController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'code', 'type']);
 
-        return view('business-settings.edit', compact('business', 'users', 'items'));
+        $countries = Country::with('currency')->orderBy('name')->get();
+
+        return view('business-settings.edit', compact('business', 'users', 'items', 'countries'));
     }
 
     /**
@@ -53,6 +56,8 @@ class BusinessSettingsController extends Controller
         $validated = $request->validate([
             'max_third_party_credit_limit' => 'nullable|numeric|min:0',
             'max_first_party_credit_limit' => 'nullable|numeric|min:0',
+            'country_id' => 'nullable|exists:countries,id',
+            'currency_code' => 'nullable|string|max:10',
             'admit_button_label' => 'nullable|string|max:255',
             'discharge_button_label' => 'nullable|string|max:255',
             'default_payment_terms_days' => 'nullable|integer|min:1|max:365',
@@ -72,9 +77,20 @@ class BusinessSettingsController extends Controller
             'third_party_excluded_items.*' => 'integer|exists:items,id',
         ]);
 
+        $countryId = $validated['country_id'] ?? null;
+        $currencyCode = strtoupper((string) ($validated['currency_code'] ?? ''));
+        if ($countryId) {
+            $country = Country::with('currency')->find($countryId);
+            $currencyCode = strtoupper((string) ($country?->currency_code ?? $country?->currency?->code ?? 'UGX'));
+        } elseif ($currencyCode === '') {
+            $currencyCode = strtoupper((string) ($business->currency_code ?? 'UGX'));
+        }
+
         $business->update([
             'max_third_party_credit_limit' => $validated['max_third_party_credit_limit'] ?? null,
             'max_first_party_credit_limit' => $validated['max_first_party_credit_limit'] ?? null,
+            'country_id' => $countryId,
+            'currency_code' => $currencyCode,
             'admit_button_label' => $validated['admit_button_label'] ?? 'Admit Patient',
             'discharge_button_label' => $validated['discharge_button_label'] ?? 'Discharge Patient',
             'default_payment_terms_days' => $validated['default_payment_terms_days'] ?? 30,

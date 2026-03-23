@@ -55,6 +55,10 @@
                     </button>
                 </div>
 
+                @php
+                    $countries = \App\Models\Country::with('currency')->orderBy('name')->get();
+                @endphp
+
                 <form action="{{ route('businesses.store') }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -90,6 +94,26 @@
                             <input type="text" name="address" id="address" required placeholder="Enter business address"
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                             @error('address')
+                                <span class="text-red-500 text-sm">{{ $message }}</span>
+                            @enderror
+                        </div>
+
+                        <div>
+                            <label for="country_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Country <span class="text-red-500">*</span></label>
+                            <select
+                                name="country_id"
+                                id="country_id"
+                                required
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                            >
+                                <option value="">Select country</option>
+                                @foreach($countries as $country)
+                                    <option value="{{ $country->id }}">
+                                        {{ $country->name }} ({{ $country->currency_code ?? ($country->currency?->code ?? 'UGX') }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('country_id')
                                 <span class="text-red-500 text-sm">{{ $message }}</span>
                             @enderror
                         </div>

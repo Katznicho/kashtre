@@ -33,6 +33,7 @@ use App\Http\Controllers\BulkUploadController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\CompletedClientsController;
 use App\Http\Controllers\DailyVisitsController;
+use App\Http\Controllers\VisitArchivesController;
 use App\Http\Controllers\ServiceChargeController;
 use App\Http\Controllers\ContractorServiceChargeController;
 use App\Http\Controllers\InvoiceController;
@@ -199,6 +200,12 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     
     // Settings (includes Insurance Companies)
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+    Route::get('/settings/countries-exchange-rates', [SettingsController::class, 'countriesIndex'])->name('settings.countries.index');
+
+    // Superadmin currency & country management (settings tabs)
+    Route::post('/settings/countries', [SettingsController::class, 'storeCountry'])->name('settings.countries.store');
+    Route::put('/settings/countries/{country}', [SettingsController::class, 'updateCountry'])->name('settings.countries.update');
+    Route::delete('/settings/countries/{country}', [SettingsController::class, 'destroyCountry'])->name('settings.countries.destroy');
 
     // Insurance Companies routes (redirect index to settings)
     Route::get('/insurance-companies', function() {
@@ -303,6 +310,7 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     
     // Visits
     Route::get('/daily-visits', [DailyVisitsController::class, 'index'])->name('daily-visits.index');
+    Route::get('/visit-archives/{recordType}', [VisitArchivesController::class, 'index'])->name('visit-archives.index');
     Route::view('/test-livewire', 'test-livewire')->name('test-livewire');
 
 // Invoice routes

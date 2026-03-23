@@ -34,6 +34,10 @@ class ThirdPartyApiService
                 'code' => $businessData['code'] ?? null,
                 'email' => $businessData['email'] ?? '',
                 'phone' => $businessData['phone'] ?? null,
+                'country_id' => $businessData['country_id'] ?? null,
+                'country_name' => $businessData['country_name'] ?? null,
+                'country_iso_code' => $businessData['country_iso_code'] ?? null,
+                'currency_code' => $businessData['currency_code'] ?? null,
                 'address' => $businessData['address'] ?? null,
                 'head_office_address' => $businessData['head_office_address'] ?? $businessData['address'] ?? null,
                 'postal_address' => $businessData['postal_address'] ?? null,
@@ -55,6 +59,8 @@ class ThirdPartyApiService
             Log::info('ThirdPartyApiService: Registering business and user', [
                 'business_name' => $payload['name'],
                 'user_email' => $payload['user_email'],
+                'country_name' => $payload['country_name'],
+                'currency_code' => $payload['currency_code'],
             ]);
 
             $response = Http::timeout($this->timeout)

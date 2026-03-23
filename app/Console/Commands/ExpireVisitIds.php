@@ -7,6 +7,7 @@ use App\Models\ServiceDeliveryQueue;
 use App\Services\CreditNoteService;
 use App\Services\MoneyTrackingService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -32,6 +33,7 @@ class ExpireVisitIds extends Command
     public function handle()
     {
         $now = now();
+        $midnight = $now->copy()->startOfDay();
         $extensionDeadline = $now->copy()->subDay();
 
         Log::info('=== CRON JOB STARTED: ExpireVisitIds ===', [
@@ -50,6 +52,59 @@ class ExpireVisitIds extends Command
         $clientsExtended = collect();
         $clientsMaintained = collect();
         $clearedCount = 0;
+
+        // DVR snapshot (Folder 4): store intact BEFORE any extension/clearing at midnight.
+        // Snapshot definition: clients that currently have either a visit_id or visit_expires_at.
+        $this->info('Archiving daily visit snapshot at midnight...');
+
+        $snapshotUniqueBy = ['record_type', 'archived_at', 'client_id'];
+        $archiveSnapshotUpdateColumns = [
+            'business_id',
+            'branch_id',
+            'client_name',
+            'client_age',
+            'visit_id',
+            'visit_end_at',
+            'updated_at',
+        ];
+
+        Client::query()
+            ->where(function ($query) {
+                $query->whereNotNull('visit_id')
+                    ->orWhereNotNull('visit_expires_at');
+            })
+            ->chunkById(500, function ($clients) use ($midnight, $now, $snapshotUniqueBy, $archiveSnapshotUpdateColumns) {
+                $rows = [];
+
+                foreach ($clients as $client) {
+                    $ageAtMidnight = null;
+                    if (!empty($client->date_of_birth)) {
+                        $ageAtMidnight = \Carbon\Carbon::parse($client->date_of_birth)->diffInYears($midnight);
+                    }
+
+                    $rows[] = [
+                        'record_type' => 'snapshot',
+                        'business_id' => (int) ($client->business_id ?? 0),
+                        'branch_id' => (int) ($client->branch_id ?? 0),
+                        'client_id' => (int) $client->id,
+                        'client_name' => $client->full_name,
+                        'client_age' => $ageAtMidnight,
+                        'visit_id' => $client->visit_id,
+                        'archived_at' => $midnight,
+                        'visit_end_at' => null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+
+                if (!empty($rows)) {
+                    DB::table('visit_archives')->upsert(
+                        $rows,
+                        $snapshotUniqueBy,
+                        $archiveSnapshotUpdateColumns
+                    );
+                }
+            });
 
         // Step 1: Grant a 24-hour extension to new pending / in-progress items
         $itemsNeedingExtension = ServiceDeliveryQueue::with(['client'])
@@ -213,7 +268,8 @@ class ExpireVisitIds extends Command
             ->when($clientsToMaintain->isNotEmpty(), function ($query) use ($clientsToMaintain) {
                 $query->whereNotIn('id', $clientsToMaintain);
             })
-            ->chunkById(100, function ($clients) use (&$clearedCount) {
+            ->chunkById(100, function ($clients) use (&$clearedCount, $midnight, $now) {
+                $previousRows = [];
                 foreach ($clients as $client) {
                     // Only clear visit IDs that don't have suffixes
                     // Visit IDs with /C, /M, or /C/M should not be expired (these are for admitted clients)
@@ -222,6 +278,25 @@ class ExpireVisitIds extends Command
                     if (!$hasSuffix) {
                         // Clear visit ID and expiry for clients without suffixes
                         $oldVisitId = $client->visit_id;
+
+                        $ageAtMidnight = null;
+                        if (!empty($client->date_of_birth)) {
+                            $ageAtMidnight = \Carbon\Carbon::parse($client->date_of_birth)->diffInYears($midnight);
+                        }
+
+                        $previousRows[] = [
+                            'record_type' => 'previous',
+                            'business_id' => (int) ($client->business_id ?? 0),
+                            'branch_id' => (int) ($client->branch_id ?? 0),
+                            'client_id' => (int) $client->id,
+                            'client_name' => $client->full_name,
+                            'client_age' => $ageAtMidnight,
+                            'visit_id' => $oldVisitId,
+                            'archived_at' => $midnight,
+                            'visit_end_at' => $midnight,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
                         $client->visit_id = null;
                         $client->visit_expires_at = null;
                         $client->save();
@@ -238,6 +313,22 @@ class ExpireVisitIds extends Command
                             'preserved_visit_id' => $client->visit_id,
                         ]);
                     }
+                }
+
+                if (!empty($previousRows)) {
+                    DB::table('visit_archives')->upsert(
+                        $previousRows,
+                        ['record_type', 'archived_at', 'client_id'],
+                        [
+                            'business_id',
+                            'branch_id',
+                            'client_name',
+                            'client_age',
+                            'visit_id',
+                            'visit_end_at',
+                            'updated_at',
+                        ]
+                    );
                 }
             });
 

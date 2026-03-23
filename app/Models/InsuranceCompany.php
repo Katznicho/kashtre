@@ -19,6 +19,8 @@ class InsuranceCompany extends Model
         'code',
         'email',
         'phone',
+        'country_id',
+        'currency_code',
         'tin',
         'address',
         'head_office_address',
@@ -47,5 +49,10 @@ class InsuranceCompany extends Model
     public function branch()
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function country()
+    {
+        return $this->belongsTo(Country::class);
     }
 }

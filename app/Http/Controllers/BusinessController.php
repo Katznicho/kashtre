@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Business;
+use App\Models\Country;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -42,10 +43,16 @@ class BusinessController extends Controller
             'phone' => 'required|string|max:20',
             'address' => 'required|string|max:255',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'country_id' => 'required|exists:countries,id',
 
         ]);
 
         try {
+            // Country is required: derive currency from selected country.
+            $country = Country::with('currency')->findOrFail($validated['country_id']);
+            $validated['currency_code'] = $country->currency_code ?? $country->currency?->code ?? 'UGX';
+            $validated['country_id'] = $country->id;
+
             // Handle logo upload
             if ($request->hasFile('logo')) {
                 $logoPath = $request->file('logo')->store('logos', 'public');

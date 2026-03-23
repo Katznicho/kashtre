@@ -18,6 +18,8 @@ class Business extends Model
         'phone',
         'address',
         'logo',
+        'country_id',
+        'currency_code',
         'percentage_charge',
         'minimum_amount',
         'type',
@@ -83,6 +85,16 @@ class Business extends Model
     public function withdrawalSettings()
     {
         return $this->hasMany(BusinessWithdrawalSetting::class);
+    }
+
+    public function country()
+    {
+        return $this->belongsTo(Country::class);
+    }
+
+    public function currency()
+    {
+        return $this->belongsTo(Currency::class, 'currency_code', 'code');
     }
 
     public function branches()

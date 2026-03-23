@@ -95,7 +95,13 @@ trait AccessTrait
     public static $adminAccess = [
         "Admin Users" => ['View Admin Users', 'Edit Admin Users', 'Add Admin Users', 'Assign Roles', 'Bulk Admin Upload'],
         "Audit Logs" => ['View Audit Logs'],
-        "System Settings" => ['View System Settings', 'Edit System Settings'],
+        "System Settings" => [
+            'View System Settings',
+            'Edit System Settings',
+            'Manage System Settings',
+            'Manage Settings',
+            'Manage Countries & Currencies',
+        ],
     ];
 
     public static $businessAccess = [
