@@ -2280,6 +2280,39 @@
 
                     // Auto-rejected by insurer thresholds
                     if (authStatus === 'auto_rejected') {
+                        const escapeHtml = (value) => String(value ?? '')
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/"/g, '&quot;')
+                            .replace(/'/g, '&#039;');
+
+                        const toReasonItems = (value) => {
+                            if (!value) return [];
+                            return String(value)
+                                .split(/\r?\n/)
+                                .flatMap(line => line.split(/(?<=\.)\s+/))
+                                .map(part => part.trim())
+                                .filter(Boolean);
+                        };
+
+                        const summarizeReason = (reason) => {
+                            const lower = String(reason || '').toLowerCase();
+                            if (lower.includes('exceeds remaining') || lower.includes('remaining') && lower.includes('benefit')) {
+                                return 'Policy benefit limit reached for this visit.';
+                            }
+                            if (lower.includes('credit limit exceeded')) {
+                                return 'Insurer credit limit exceeded.';
+                            }
+                            if (lower.includes('grace period') || lower.includes('grace ends')) {
+                                return 'Policy is currently in grace period.';
+                            }
+                            if (lower.includes('insurance portion capped')) {
+                                return 'Insurance portion capped by remaining benefit.';
+                            }
+                            return String(reason || '').trim();
+                        };
+
                         const reasons = [];
                         if (data.insurance_authorization && data.insurance_authorization.message) {
                             reasons.push(data.insurance_authorization.message);
@@ -2287,24 +2320,49 @@
                         if (Array.isArray(data.warnings) && data.warnings.length) {
                             reasons.push(...data.warnings);
                         }
-                        const reasonsHtml = reasons.length
-                            ? '<p class="text-xs text-gray-500 mt-2"><strong>Details:</strong><br>' + reasons.map(r => r).join('<br>') + '</p>'
+                        const reasonItems = reasons.flatMap(toReasonItems);
+                        const uniqueReasonItems = [...new Set(reasonItems)];
+                        const summaryItems = [...new Set(uniqueReasonItems.map(summarizeReason))].slice(0, 4);
+                        const reasonsHtml = uniqueReasonItems.length
+                            ? `
+                                <div class="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+                                    <p class="text-xs font-semibold tracking-wide text-slate-700 uppercase">Why this was rejected</p>
+                                    <ul class="mt-2 space-y-1 text-sm text-slate-700 list-disc pl-5">
+                                        ${summaryItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+                                    </ul>
+                                    <details class="mt-2">
+                                        <summary class="text-xs text-slate-500 cursor-pointer">View full insurer response</summary>
+                                        <ul class="mt-1 space-y-1 text-xs text-slate-500 list-disc pl-5">
+                                            ${uniqueReasonItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+                                        </ul>
+                                    </details>
+                                </div>
+                            `
                             : '';
                         await Swal.fire({
                             icon: 'error',
                             title: 'Authorization rejected',
                             html: `
-                                <div class="text-left">
-                                    <p class="mb-2">The insurer has <strong>rejected</strong> this authorization.</p>
-                                    <p class="text-sm text-gray-700">The full invoice amount is payable by the client.</p>
-                                    <p class="text-xs text-gray-500 mt-2">Invoice saved. Insurance has been removed as a payment method for this invoice.</p>
+                                <div class="text-left text-sm">
+                                    <p class="mb-2 text-slate-800">The insurer has <strong>rejected</strong> this authorization request.</p>
+                                    <p class="text-slate-700">Invoice saved successfully. Insurance has been removed as a payment method for this invoice.</p>
+                                    <p class="mt-2 text-slate-700"><strong>Next step:</strong> collect payment from the client using the button below.</p>
+                                    <p class="mt-1 text-xs text-slate-500">No client payment has been collected yet.</p>
                                     ${reasonsHtml}
                                 </div>
                             `,
-                            confirmButtonText: 'OK',
+                            showCancelButton: true,
+                            confirmButtonText: 'Collect client payment',
+                            cancelButtonText: 'Close',
+                            confirmButtonColor: '#2563eb',
                             allowOutsideClick: false
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                showCollectClientModal(data, paymentPhone, data, invoiceNumber, button, originalText);
+                            } else {
+                                finishInvoiceSuccess(data, invoiceNumber, button, originalText);
+                            }
                         });
-                        finishInvoiceSuccess(data, invoiceNumber, button, originalText);
                         return;
                     }
 

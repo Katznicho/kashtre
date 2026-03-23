@@ -832,6 +832,7 @@ class ThirdPartyApiService
             ]);
 
             $response = Http::timeout($this->timeout)
+                ->acceptJson()
                 ->post($url, $payload);
 
             Log::info('[Kashtre->ThirdParty] Invoice authorization response', [
@@ -865,15 +866,21 @@ class ThirdPartyApiService
             }
 
             $error = $response->json();
+            $body = $response->body();
+            $fallbackMessage = 'Invoice authorization failed.';
+            if (is_string($body) && $body !== '') {
+                $trimmed = trim($body);
+                $fallbackMessage = strlen($trimmed) > 180 ? substr($trimmed, 0, 180) . '...' : $trimmed;
+            }
             Log::warning('[Kashtre->ThirdParty] Invoice authorization HTTP error', [
                 'status' => $response->status(),
-                'body' => $response->body(),
+                'body' => $body,
                 'error' => $error,
             ]);
             // Return structured failure instead of null so UI can show reason
             return [
                 'success' => false,
-                'message' => $error['message'] ?? 'Invoice authorization failed.',
+                'message' => $error['message'] ?? $fallbackMessage,
                 'http_status' => $response->status(),
             ];
         } catch (Exception $e) {
