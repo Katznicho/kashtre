@@ -2310,6 +2310,9 @@
                             if (lower.includes('insurance portion capped')) {
                                 return 'Insurance portion capped by remaining benefit.';
                             }
+                            if (lower.includes('client pays additional')) {
+                                return '';
+                            }
                             return String(reason || '').trim();
                         };
 
@@ -2322,7 +2325,11 @@
                         }
                         const reasonItems = reasons.flatMap(toReasonItems);
                         const uniqueReasonItems = [...new Set(reasonItems)];
-                        const summaryItems = [...new Set(uniqueReasonItems.map(summarizeReason))].slice(0, 4);
+                        const summaryItems = [...new Set(uniqueReasonItems.map(summarizeReason).filter(Boolean))].slice(0, 4);
+                        const fmt = (n) => (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        const invoiceTotal = data.invoice && data.invoice.total_amount != null ? parseFloat(data.invoice.total_amount) : 0;
+                        const insurerAmount = data.insurance_total != null ? parseFloat(data.insurance_total) : 0;
+                        const clientDue = data.client_total != null ? parseFloat(data.client_total) : invoiceTotal;
                         const reasonsHtml = uniqueReasonItems.length
                             ? `
                                 <div class="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
@@ -2348,6 +2355,14 @@
                                     <p class="text-slate-700">Invoice saved successfully. Insurance has been removed as a payment method for this invoice.</p>
                                     <p class="mt-2 text-slate-700"><strong>Next step:</strong> collect payment from the client using the button below.</p>
                                     <p class="mt-1 text-xs text-slate-500">No client payment has been collected yet.</p>
+                                    <div class="mt-3 rounded-md border border-slate-200 bg-white p-3 text-sm">
+                                        <p class="text-xs font-semibold tracking-wide text-slate-700 uppercase">Final billing outcome</p>
+                                        <div class="mt-2 space-y-1">
+                                            <p class="flex justify-between text-slate-700"><span>Invoice total</span><span>UGX ${fmt(invoiceTotal)}</span></p>
+                                            <p class="flex justify-between text-slate-700"><span>Insurer pays</span><span>UGX ${fmt(insurerAmount)}</span></p>
+                                            <p class="flex justify-between font-semibold text-slate-900 border-t border-slate-100 pt-2 mt-2"><span>Client pays now</span><span>UGX ${fmt(clientDue)}</span></p>
+                                        </div>
+                                    </div>
                                     ${reasonsHtml}
                                 </div>
                             `,

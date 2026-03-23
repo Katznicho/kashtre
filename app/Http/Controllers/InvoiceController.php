@@ -1963,7 +1963,8 @@ class InvoiceController extends Controller
                 // so we enforce Prudential's (third-party payer) limit here.
                 try {
                     $insurancePortion = (float) ($insuranceAuthorization['insurance_total'] ?? 0);
-                    if ($authStatus !== 'auto_rejected' && $insurancePortion > 0) {
+                        $isGracePeriod = (bool) ($insuranceAuthorization['grace_period']['active'] ?? false);
+                        if (!$isGracePeriod && $authStatus !== 'auto_rejected' && $insurancePortion > 0) {
                         $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('insurance_company_id', $client->insurance_company_id)
                             ->where('business_id', $business->id)
                             ->where('type', 'insurance_company')
