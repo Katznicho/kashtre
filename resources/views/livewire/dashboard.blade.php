@@ -28,13 +28,13 @@
             @if(in_array('Add Clients', auth()->user()->permissions ?? []))
             <a href="{{ route('clients.create') }}" class="bg-[#011478] text-white px-6 py-3 rounded-lg hover:bg-[#011478]/90 transition-colors flex items-center">
                 <i class="fas fa-user-plus mr-2"></i>
-                Add New Client
+                Register Visit
             </a>
             @endif
             @if(in_array('View Clients', auth()->user()->permissions ?? []))
             <a href="{{ route('clients.index') }}" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center">
                 <i class="fas fa-users mr-2"></i>
-                Registered Clients
+                All Clients
             </a>
             @endif
             

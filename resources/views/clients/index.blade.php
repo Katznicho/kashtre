@@ -16,7 +16,7 @@
                     <div class="text-right">
                         @if(in_array('Add Clients', auth()->user()->permissions ?? []))
                         <a href="{{ route('clients.create') }}" class="bg-[#011478] text-white px-6 py-3 rounded-lg hover:bg-[#011478]/90 transition-colors">
-                            <i class="fas fa-plus mr-2"></i>Add New Client
+                            <i class="fas fa-plus mr-2"></i>Register Visit
                         </a>
                         <div class="text-xs text-gray-500 mt-1">New clients will be registered at: <strong>{{ $currentBranch->name }}</strong></div>
                         @endif
@@ -77,7 +77,7 @@
                 <!-- Filament Table Component -->
                 <div class="bg-white rounded-lg shadow overflow-hidden">
                     <div class="px-6 py-4 border-b border-gray-200">
-                        <h2 class="text-xl font-semibold text-gray-900">Registered Clients</h2>
+                        <h2 class="text-xl font-semibold text-gray-900">All Clients</h2>
                     </div>
                     
                     <div class="p-6">

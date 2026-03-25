@@ -187,12 +187,12 @@ class Invoice extends Model
 
     public function getFormattedTotalAmountAttribute()
     {
-        return ($this->currency ?? 'UGX') . ' ' . number_format($this->total_amount, 2);
+        return ($this->currency ?? 'USD') . ' ' . number_format($this->total_amount, 2);
     }
 
     public function getFormattedBalanceDueAttribute()
     {
-        return ($this->currency ?? 'UGX') . ' ' . number_format($this->balance_due, 2);
+        return ($this->currency ?? 'USD') . ' ' . number_format($this->balance_due, 2);
     }
 
     public function getStatusBadgeAttribute()

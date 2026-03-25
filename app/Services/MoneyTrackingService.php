@@ -29,7 +29,7 @@ class MoneyTrackingService
      */
     public function initializeBusinessAccounts(Business $business)
     {
-        $currencyCode = $business->currency_code ?? 'UGX';
+        $currencyCode = $business->currency_code ?? 'USD';
         $accounts = [
             [
                 'name' => 'Package Suspense Account',
@@ -82,7 +82,7 @@ class MoneyTrackingService
      */
     public function getOrCreateClientAccount(Client $client)
     {
-        $currencyCode = $client->business->currency_code ?? 'UGX';
+        $currencyCode = $client->business->currency_code ?? 'USD';
         return MoneyAccount::firstOrCreate([
             'business_id' => $client->business_id,
             'client_id' => $client->id,
@@ -101,7 +101,7 @@ class MoneyTrackingService
      */
     public function getOrCreateClientSuspenseAccount(Client $client)
     {
-        $currencyCode = $client->business->currency_code ?? 'UGX';
+        $currencyCode = $client->business->currency_code ?? 'USD';
         Log::info("Creating or getting client suspense account", [
             'client_id' => $client->id,
             'client_name' => $client->name,
@@ -136,7 +136,7 @@ class MoneyTrackingService
     public function getOrCreateContractorAccount(ContractorProfile $contractor)
     {
         $business = $contractor->business ?? Business::find($contractor->business_id);
-        $currencyCode = $business?->currency_code ?? 'UGX';
+        $currencyCode = $business?->currency_code ?? 'USD';
         return MoneyAccount::firstOrCreate([
             'business_id' => $contractor->business_id,
             'contractor_profile_id' => $contractor->id,
@@ -222,7 +222,7 @@ class MoneyTrackingService
                 'from_account_id' => $mobileMoneyAccount->id, // Mobile Money account
                 'to_account_id' => $clientSuspenseAccount->id,
                 'amount' => $amount,
-                'currency' => $client->business->currency_code ?? 'UGX',
+                'currency' => $client->business->currency_code ?? 'USD',
                 'status' => 'completed',
                 'transfer_type' => 'payment_received',
                 'client_id' => $client->id,
@@ -324,7 +324,7 @@ class MoneyTrackingService
                     'from_account_id' => null,
                     'to_account_id' => $clientAccount->id,
                     'amount' => $amount,
-                    'currency' => $client->business->currency_code ?? 'UGX',
+                    'currency' => $client->business->currency_code ?? 'USD',
                     'status' => 'completed',
                     'type' => 'credit',
                     'transfer_type' => 'client_deposit',
@@ -444,7 +444,7 @@ class MoneyTrackingService
                     'from_account_id' => null,
                     'to_account_id' => $clientAccount->id,
                     'amount' => $amount,
-                    'currency' => $client->business->currency_code ?? 'UGX',
+                    'currency' => $client->business->currency_code ?? 'USD',
                     'status' => 'completed',
                     'type' => 'credit',
                     'transfer_type' => 'deductible_topup',
@@ -1157,7 +1157,7 @@ class MoneyTrackingService
                     ? $this->getOrCreateKashtreAccount()
                     : $this->getOrCreateKashtreSuspenseAccount($business, $client->id);
 
-                $transferDescription = "Service Fee - {$invoice->service_charge} " . ($business->currency_code ?? 'UGX');
+                $transferDescription = "Service Fee - {$invoice->service_charge} " . ($business->currency_code ?? 'USD');
                 $routingReason = "Service fee from invoice service_charge field";
 
                 Log::info("✅ SERVICE FEE ROUTED", [
@@ -1761,7 +1761,7 @@ class MoneyTrackingService
             'from_account_id' => $fromAccount ? $fromAccount->id : null,
             'to_account_id' => $toAccount->id,
             'amount' => $amount,
-            'currency' => $fromAccount->currency ?? $toAccount->currency ?? 'UGX',
+            'currency' => $fromAccount->currency ?? $toAccount->currency ?? 'USD',
             'status' => 'completed',
             'type' => $type,
             'transfer_type' => $transferType,
@@ -2438,7 +2438,7 @@ class MoneyTrackingService
             'name' => "Business Account - {$business->name}",
             'description' => "Business account for {$business->name}",
             'balance' => 0,
-            'currency' => $business->currency_code ?? 'UGX',
+            'currency' => $business->currency_code ?? 'USD',
             'is_active' => true
         ]);
     }
@@ -2448,7 +2448,7 @@ class MoneyTrackingService
      */
     public function getOrCreateKashtreAccount()
     {
-        $kashtreCurrencyCode = Business::find(1)?->currency_code ?? 'UGX';
+        $kashtreCurrencyCode = Business::find(1)?->currency_code ?? 'USD';
         return MoneyAccount::firstOrCreate([
             'business_id' => 1, // Kashtre business_id
             'type' => 'kashtre_account'
@@ -2474,7 +2474,7 @@ class MoneyTrackingService
             'name' => "Mobile Money Account - {$business->name}",
             'description' => "Mobile money payment account for {$business->name}",
             'balance' => 0,
-            'currency' => $business->currency_code ?? 'UGX',
+            'currency' => $business->currency_code ?? 'USD',
             'is_active' => true
         ]);
     }
@@ -2492,7 +2492,7 @@ class MoneyTrackingService
             'name' => "General Suspense Account - {$business->name}" . ($clientId ? " - Client {$clientId}" : ""),
             'description' => "General suspense account for {$business->name}" . ($clientId ? " - Client {$clientId}" : ""),
             'balance' => 0,
-            'currency' => $business->currency_code ?? 'UGX',
+            'currency' => $business->currency_code ?? 'USD',
             'is_active' => true
         ]);
     }
@@ -2510,7 +2510,7 @@ class MoneyTrackingService
             'name' => "Kashtre Suspense Account - {$business->name}" . ($clientId ? " - Client {$clientId}" : ""),
             'description' => "Kashtre suspense account for {$business->name}" . ($clientId ? " - Client {$clientId}" : ""),
             'balance' => 0,
-            'currency' => $business->currency_code ?? 'UGX',
+            'currency' => $business->currency_code ?? 'USD',
             'is_active' => true
         ]);
     }
@@ -2528,7 +2528,7 @@ class MoneyTrackingService
             'name' => "Package Suspense Account - {$business->name}" . ($clientId ? " - Client {$clientId}" : ""),
             'description' => "Package suspense account for {$business->name}" . ($clientId ? " - Client {$clientId}" : ""),
             'balance' => 0,
-            'currency' => $business->currency_code ?? 'UGX',
+            'currency' => $business->currency_code ?? 'USD',
             'is_active' => true
         ]);
     }
@@ -2545,7 +2545,7 @@ class MoneyTrackingService
             'name' => "Withdrawal Suspense Account - {$business->name}",
             'description' => "Holds funds for pending withdrawal requests for {$business->name}",
             'balance' => 0,
-            'currency' => $business->currency_code ?? 'UGX',
+            'currency' => $business->currency_code ?? 'USD',
             'is_active' => true
         ]);
     }

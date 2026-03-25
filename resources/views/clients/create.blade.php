@@ -576,7 +576,7 @@
                                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                                 </svg>
-                                Register Client
+                                Register Visit
                             </button>
                         </div>
                     </form>
@@ -1307,21 +1307,26 @@
 
                 // Fill payment methods checkboxes
                 if (client.payment_methods && Array.isArray(client.payment_methods)) {
-                    client.payment_methods.forEach(method => {
-                        // Checkbox IDs are formatted as 'payment_' + method (e.g., 'payment_mobile_money')
-                        const checkbox = document.getElementById('payment_' + method);
-                        if (checkbox) {
-                            checkbox.checked = true;
-                            // Trigger listeners so insurance verification reset runs correctly.
-                            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                    // Prevent resetInsuranceVerificationUI from clearing physical ID — change handlers
+                    // call toggleInsuranceSection() which otherwise unchecks physical_id_verified.
+                    window.__kashtreAutoFillClient = true;
+                    try {
+                        client.payment_methods.forEach(method => {
+                            // Checkbox IDs are formatted as 'payment_' + method (e.g., 'payment_mobile_money')
+                            const checkbox = document.getElementById('payment_' + method);
+                            if (checkbox) {
+                                checkbox.checked = true;
+                                checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        });
+                        if (client.payment_methods.includes('mobile_money')) {
+                            const mobileMoneyCheckbox = document.getElementById('payment_mobile_money');
+                            if (mobileMoneyCheckbox) {
+                                mobileMoneyCheckbox.dispatchEvent(new Event('change'));
+                            }
                         }
-                    });
-                    // Trigger toggle for mobile money if needed
-                    if (client.payment_methods.includes('mobile_money')) {
-                        const mobileMoneyCheckbox = document.getElementById('payment_mobile_money');
-                        if (mobileMoneyCheckbox) {
-                            mobileMoneyCheckbox.dispatchEvent(new Event('change'));
-                        }
+                    } finally {
+                        window.__kashtreAutoFillClient = false;
                     }
                 }
 
@@ -1376,7 +1381,8 @@
 
             function resetInsuranceVerificationUI() {
                 // Force the user to re-verify whenever insurance details change.
-                if (physicalIdVerifiedCheckbox) {
+                // Do not clear physical ID during existing-client auto-fill (payment checkboxes dispatch change).
+                if (!window.__kashtreAutoFillClient && physicalIdVerifiedCheckbox) {
                     physicalIdVerifiedCheckbox.checked = false;
                 }
                 if (policyVerifiedInput) {

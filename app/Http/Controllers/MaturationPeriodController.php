@@ -86,7 +86,7 @@ class MaturationPeriodController extends Controller
                     'account_number' => $account->account_number,
                     'account_holder_name' => $account->account_holder_name,
                     'balance' => number_format($account->balance, 2),
-                    'currency' => $account->currency ?? 'UGX',
+                    'currency' => $account->currency ?? 'USD',
                 ]
             ]);
         }

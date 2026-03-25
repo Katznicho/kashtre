@@ -36,7 +36,7 @@ class BusinessSettingsController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'code', 'type']);
 
-        $countries = Country::with('currency')->orderBy('name')->get();
+        $countries = Country::with('currency')->orderedDefaultUsFirst()->get();
 
         return view('business-settings.edit', compact('business', 'users', 'items', 'countries'));
     }

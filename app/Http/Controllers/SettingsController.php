@@ -146,7 +146,7 @@ class SettingsController extends Controller
             ->map(fn ($code) => strtoupper((string) $code))
             ->toArray();
 
-        $defaults = ['UGX', 'USD', 'KES', 'TZS', 'RWF'];
+        $defaults = ['USD', 'UGX', 'KES', 'TZS', 'RWF'];
 
         return array_values(array_unique(array_merge($savedCodes, $defaults)));
     }
@@ -154,12 +154,12 @@ class SettingsController extends Controller
     private function countryOptions(): array
     {
         return [
+            ['name' => 'United States', 'iso_code' => 'US', 'currency_code' => 'USD'],
             ['name' => 'Uganda', 'iso_code' => 'UG', 'currency_code' => 'UGX'],
             ['name' => 'Kenya', 'iso_code' => 'KE', 'currency_code' => 'KES'],
             ['name' => 'Tanzania', 'iso_code' => 'TZ', 'currency_code' => 'TZS'],
             ['name' => 'Rwanda', 'iso_code' => 'RW', 'currency_code' => 'RWF'],
             ['name' => 'South Sudan', 'iso_code' => 'SS', 'currency_code' => 'SSP'],
-            ['name' => 'United States', 'iso_code' => 'US', 'currency_code' => 'USD'],
         ];
     }
 }

@@ -26,7 +26,7 @@ class InsuranceCompanyController extends Controller
      */
     public function create()
     {
-        $countries = Country::with('currency')->orderBy('name')->get();
+        $countries = Country::with('currency')->orderedDefaultUsFirst()->get();
         return view('insurance-company.create', compact('countries'));
     }
 
@@ -97,7 +97,7 @@ class InsuranceCompanyController extends Controller
             $validated['code'] = $code;
 
             $country = Country::with('currency')->findOrFail($validated['country_id']);
-            $currencyCode = $country->currency_code ?? $country->currency?->code ?? 'UGX';
+            $currencyCode = $country->currency_code ?? $country->currency?->code ?? 'USD';
             
             Log::info('Auto-generated third party vendor code', [
                 'code' => $code,

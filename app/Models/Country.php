@@ -30,5 +30,13 @@ class Country extends Model
     {
         return $this->hasMany(Business::class);
     }
+
+    /**
+     * United States first, then alphabetical (for country/currency selects).
+     */
+    public function scopeOrderedDefaultUsFirst($query)
+    {
+        return $query->orderByRaw("CASE WHEN iso_code = 'US' THEN 0 ELSE 1 END")->orderBy('name');
+    }
 }
 

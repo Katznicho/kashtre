@@ -56,7 +56,7 @@
                 </div>
 
                 @php
-                    $countries = \App\Models\Country::with('currency')->orderBy('name')->get();
+                    $countries = \App\Models\Country::with('currency')->orderedDefaultUsFirst()->get();
                 @endphp
 
                 <form action="{{ route('businesses.store') }}" method="POST" enctype="multipart/form-data">
@@ -109,7 +109,7 @@
                                 <option value="">Select country</option>
                                 @foreach($countries as $country)
                                     <option value="{{ $country->id }}">
-                                        {{ $country->name }} ({{ $country->currency_code ?? ($country->currency?->code ?? 'UGX') }})
+                                        {{ $country->name }} ({{ $country->currency_code ?? ($country->currency?->code ?? 'USD') }})
                                     </option>
                                 @endforeach
                             </select>

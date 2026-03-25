@@ -50,7 +50,7 @@ class BusinessController extends Controller
         try {
             // Country is required: derive currency from selected country.
             $country = Country::with('currency')->findOrFail($validated['country_id']);
-            $validated['currency_code'] = $country->currency_code ?? $country->currency?->code ?? 'UGX';
+            $validated['currency_code'] = $country->currency_code ?? $country->currency?->code ?? 'USD';
             $validated['country_id'] = $country->id;
 
             // Handle logo upload
