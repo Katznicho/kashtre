@@ -17,13 +17,20 @@ return new class extends Migration
         
         // Check if old columns exist and drop them safely
         $this->dropOldColumnsIfExist();
-        
+
+        // Dropping included_item_id can leave duplicate (invoice_id, package_item_id, client_id) rows.
+        $this->deduplicatePackageTrackingBeforeUnique();
+
+        if ($this->packageTrackingHasUniqueIndex('unique_package_tracking_per_invoice_new')) {
+            return;
+        }
+
         // Add new unique constraint for the new structure
         Schema::table('package_tracking', function (Blueprint $table) {
             $table->unique([
-                'invoice_id', 
-                'package_item_id', 
-                'client_id'
+                'invoice_id',
+                'package_item_id',
+                'client_id',
             ], 'unique_package_tracking_per_invoice_new');
         });
     }
@@ -105,6 +112,105 @@ return new class extends Migration
             }
         } catch (\Exception $e) {
             // Columns don't exist or already dropped, continue
+        }
+    }
+
+    private function packageTrackingHasUniqueIndex(string $indexName): bool
+    {
+        $rows = DB::select(
+            'SELECT 1 FROM information_schema.STATISTICS
+             WHERE TABLE_SCHEMA = DATABASE()
+             AND TABLE_NAME = ?
+             AND INDEX_NAME = ?
+             LIMIT 1',
+            ['package_tracking', $indexName]
+        );
+
+        return ! empty($rows);
+    }
+
+    /**
+     * Collapse duplicate package_tracking rows so (invoice_id, package_item_id, client_id) is unique.
+     * Keeps the lowest id per group, merges quantities and child rows, then deletes extras.
+     */
+    private function deduplicatePackageTrackingBeforeUnique(): void
+    {
+        $groups = DB::select(
+            'SELECT invoice_id, package_item_id, client_id, MIN(id) AS keep_id, COUNT(*) AS cnt
+             FROM package_tracking
+             GROUP BY invoice_id, package_item_id, client_id
+             HAVING cnt > 1'
+        );
+
+        foreach ($groups as $g) {
+            $keepId = (int) $g->keep_id;
+            $ids = DB::table('package_tracking')
+                ->where('invoice_id', $g->invoice_id)
+                ->where('package_item_id', $g->package_item_id)
+                ->where('client_id', $g->client_id)
+                ->orderBy('id')
+                ->pluck('id')
+                ->all();
+
+            $duplicateIds = array_values(array_filter($ids, fn ($id) => (int) $id !== $keepId));
+
+            $totals = DB::table('package_tracking')
+                ->whereIn('id', $ids)
+                ->selectRaw('COALESCE(SUM(total_quantity), 0) AS total_quantity, COALESCE(SUM(used_quantity), 0) AS used_quantity, COALESCE(SUM(remaining_quantity), 0) AS remaining_quantity')
+                ->first();
+
+            DB::table('package_tracking')->where('id', $keepId)->update([
+                'total_quantity' => (int) $totals->total_quantity,
+                'used_quantity' => (int) $totals->used_quantity,
+                'remaining_quantity' => (int) $totals->remaining_quantity,
+                'updated_at' => now(),
+            ]);
+
+            foreach ($duplicateIds as $dupId) {
+                $this->reassignPackageTrackingItems((int) $dupId, $keepId);
+
+                if (Schema::hasTable('package_sales')) {
+                    DB::table('package_sales')
+                        ->where('package_tracking_id', $dupId)
+                        ->update(['package_tracking_id' => $keepId]);
+                }
+
+                DB::table('package_tracking')->where('id', $dupId)->delete();
+            }
+        }
+    }
+
+    private function reassignPackageTrackingItems(int $fromId, int $toId): void
+    {
+        if (! Schema::hasTable('package_tracking_items')) {
+            return;
+        }
+
+        $items = DB::table('package_tracking_items')
+            ->where('package_tracking_id', $fromId)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($items as $item) {
+            $existing = DB::table('package_tracking_items')
+                ->where('package_tracking_id', $toId)
+                ->where('included_item_id', $item->included_item_id)
+                ->first();
+
+            if ($existing) {
+                DB::table('package_tracking_items')->where('id', $existing->id)->update([
+                    'total_quantity' => (int) $existing->total_quantity + (int) $item->total_quantity,
+                    'used_quantity' => (int) $existing->used_quantity + (int) $item->used_quantity,
+                    'remaining_quantity' => (int) $existing->remaining_quantity + (int) $item->remaining_quantity,
+                    'updated_at' => now(),
+                ]);
+                DB::table('package_tracking_items')->where('id', $item->id)->delete();
+            } else {
+                DB::table('package_tracking_items')->where('id', $item->id)->update([
+                    'package_tracking_id' => $toId,
+                    'updated_at' => now(),
+                ]);
+            }
         }
     }
 };
