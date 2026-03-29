@@ -44,4 +44,9 @@ return [
         'timeout' => env('THIRD_PARTY_API_TIMEOUT', 30),
     ],
 
+    'calling_service' => [
+        'url'         => env('CALLING_SERVICE_URL', 'http://127.0.0.1:8001'),
+        'sync_secret' => env('CALLING_SERVICE_SYNC_SECRET', ''),
+    ],
+
 ];

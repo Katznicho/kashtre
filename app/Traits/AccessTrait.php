@@ -34,7 +34,7 @@ trait AccessTrait
         "Contractor" => ["View Contractor"],
     ];
 
-   
+
 
     public static $sales = [
         "Sales" => ['View Sales', 'Edit Sales', 'Add Sales'],
@@ -90,6 +90,11 @@ trait AccessTrait
         "Withdrawal Settings" => ['View Withdrawal Settings', 'Edit Withdrawal Settings', 'Add Withdrawal Settings'],
         "Business Withdraw Charges" => ['View Business Withdrawal Charges', 'Edit Business Withdrawal Charges', 'Add Business Withdrawal Charges'],
         "Refund Workflows" => ['View Credit Note Workflows', 'Edit Credit Note Workflows', 'Add Credit Note Workflows'],
+        "Calling Module" => ['View Calling Module', 'Add Calling Module', 'Edit Calling Module', 'Manage Calling Module', 'Delete Calling Module'],
+    ];
+
+    public static $callers = [
+        "Callers" => ['View Callers', 'Add Callers', 'Edit Callers', 'Manage Callers', 'Broadcast Announcements'],
     ];
 
     public static $adminAccess = [
@@ -177,6 +182,7 @@ trait AccessTrait
                 static::$modules,
                 static::$stock,
                 static::$masters,
+                static::$callers,
                 static::$adminAccess,
                 static::$businessAccess,
                 static::$clientAccess,
@@ -210,6 +216,7 @@ trait AccessTrait
         "Modules" => self::$modules,
         "Stock" => self::$stock,
         "Masters" => self::$masters,
+        "Callers" => self::$callers,
         "Admin" => self::$adminAccess,
         "Business" => self::$businessAccess,
         "Client" => self::$clientAccess,

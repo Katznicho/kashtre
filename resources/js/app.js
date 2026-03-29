@@ -1,12 +1,13 @@
 import { Livewire } from '../../vendor/livewire/livewire/dist/livewire.esm';
- 
-Livewire.start()
 
 import './bootstrap';
 
-
 // Import Chart.js
 import { Chart } from 'chart.js';
+
+// Import Calling System (WebRTC/Alpine)
+import callingSystem from './calling';
+window.callingSystem = callingSystem;
 
 // Import flatpickr
 import flatpickr from 'flatpickr';
@@ -129,4 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
   dashboardCard11();
 });
 
-
+if (!window.__kashtreLivewireStarted) {
+  window.__kashtreLivewireStarted = true;
+  Livewire.start();
+}
