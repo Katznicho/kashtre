@@ -126,9 +126,8 @@ class Invoice extends Model
         $year = date('Y');
         $month = date('m');
         
-        // Get the last invoice number for this business and month with the same prefix
-        $lastInvoice = self::where('business_id', $businessId)
-            ->where('invoice_number', 'like', "{$prefix}{$year}{$month}%")
+        // Get the last invoice number globally for this month with the same prefix
+        $lastInvoice = self::where('invoice_number', 'like', "{$prefix}{$year}{$month}%")
             ->orderBy('invoice_number', 'desc')
             ->first();
         

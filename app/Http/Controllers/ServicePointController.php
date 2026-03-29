@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Caller;
+use App\Models\CallingModuleConfig;
+use App\Models\EmergencyAlert;
 use App\Models\ServicePoint;
 use Illuminate\Http\Request;
 
@@ -141,7 +144,19 @@ class ServicePointController extends Controller
             return $a['earliest_queue_time'] <=> $b['earliest_queue_time'];
         });
 
-        return view('service-points.show', compact('servicePoint', 'clientsWithItems'));
+        // Load global call settings (shared across all callers for this business).
+        $callerSettings = Caller::where('business_id', $servicePoint->business_id)
+            ->first(['announcement_message', 'speech_rate', 'speech_volume']);
+
+        $activeEmergency = EmergencyAlert::where('business_id', $servicePoint->business_id)
+            ->where('is_active', true)
+            ->latest('triggered_at')
+            ->first();
+
+        $callingModuleConfig = CallingModuleConfig::where('business_id', $servicePoint->business_id)->first();
+        $defaultEmergencyMessage = $callingModuleConfig?->default_emergency_message;
+
+        return view('service-points.show', compact('servicePoint', 'clientsWithItems', 'callerSettings', 'activeEmergency', 'defaultEmergencyMessage'));
     }
 
     /**

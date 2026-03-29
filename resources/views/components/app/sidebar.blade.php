@@ -70,6 +70,75 @@
                     </li>
                     @endif
 
+                    <!-- Callers dropdown: for business admins with calling module enabled -->
+                    @php
+                        $callerPerms = ['View Callers', 'Add Callers', 'Edit Callers', 'Manage Callers'];
+                        $canBroadcastAnnouncements = in_array('Broadcast Announcements', (array) $permissions);
+                        $hasAnyCallerPerm = count(array_intersect($callerPerms, (array) $permissions)) > 0 || $canBroadcastAnnouncements;
+                    @endphp
+                    @if(Auth::user()->business_id != 1 && isset($callingModuleEnabled) && $callingModuleEnabled && $hasAnyCallerPerm)
+                    <li>
+                        <button @click="openGroup === 'callers' ? openGroup = '' : openGroup = 'callers'"
+                                :class="openGroup === 'callers' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'"
+                                class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M11 5.882A2 2 0 009.117 4H6a2 2 0 00-2 2v6a2 2 0 002 2h3.117M11 5.882l6.553 3.894a1 1 0 010 1.724L11 15.118M17 9a4 4 0 010 6"/>
+                                </svg>
+                                <span class="ml-3 text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">Callers</span>
+                            </span>
+                            <svg class="w-4 h-4 transform transition-transform duration-200 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100" :class="{ 'rotate-180': openGroup === 'callers' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <ul x-show="openGroup === 'callers'" x-collapse class="mt-1 space-y-1 pl-10">
+                            <li>
+                                <a href="{{ route('service-point-callers.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Manage Callers
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('pa-sections.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Public Announcements
+                                </a>
+                            </li>
+                            @if($canBroadcastAnnouncements)
+                            <li>
+                                <a href="{{ route('pa.console') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    PA Console
+                                </a>
+                            </li>
+                            @endif
+                            <li>
+                                <a href="{{ route('service-point-callers.p2p-settings') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    P2P Call Settings
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('service-point-callers.call-settings-index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Call Settings
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('service-point-callers.emergency-settings-index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Emergency Settings
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('callers.log') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Called List
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('emergency.log') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Emergency Log
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    @endif
+
+
                     @if(Auth::user()->business_id == 1 && in_array('View Sales', $permissions))
                     <li>
                         <a href="{{ route('sales.index') }}" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md {{ request()->routeIs('sales.index') ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700' }}">
@@ -526,7 +595,7 @@
                                 </a>
                             </li>
                             @endif
-                            
+
                             <!-- Settings only for business_id == 1 (Kashtre) -->
                             @if(Auth::user()->business_id == 1)
                             @if(in_array('View Service Points', $permissions))
@@ -551,6 +620,10 @@
 
                             @if(in_array('View Maturation Periods', $permissions))
                             <li><a href="{{ route('maturation-periods.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Payment Methods and Maturation Periods</a></li>
+                            @endif
+
+                            @if(in_array('View Calling Module', $permissions))
+                            <li><a href="{{ route('calling-module-configs.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Calling</a></li>
                             @endif
 
                             @if(in_array('View Credit Note Workflows', $permissions))
