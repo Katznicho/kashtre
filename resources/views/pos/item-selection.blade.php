@@ -805,28 +805,34 @@
             let copayPayment = 0;
             let deductiblePayment = 0;
             let coinsurancePayment = 0;
-            
-            // Co-pay is always required per visit
+            const copayContributes = paymentResponsibility.copayContributesToDeductible === true;
+
+            // Co-pay is required per visit when configured
             if (paymentResponsibility.copayAmount > 0) {
                 copayPayment = paymentResponsibility.copayAmount;
                 if (paymentResponsibility.copayMaxLimit > 0 && copayPayment > paymentResponsibility.copayMaxLimit) {
                     copayPayment = paymentResponsibility.copayMaxLimit;
                 }
             }
-            
-            // Deductible: if not met, client must pay remaining deductible first
+
+            // Deductible: remaining annual deductible applied to this cart
             if (paymentResponsibility.hasDeductible && paymentResponsibility.deductibleRemaining > 0) {
-                // Client needs to pay remaining deductible before insurance covers
-                deductiblePayment = Math.min(paymentResponsibility.deductibleRemaining, cartTotal);
+                if (copayContributes) {
+                    // Co-pay counts toward meeting the deductible — only the remainder is additional deductible on this visit.
+                    const deductibleRemainingAfterCopay = Math.max(0, paymentResponsibility.deductibleRemaining - copayPayment);
+                    deductiblePayment = Math.min(deductibleRemainingAfterCopay, cartTotal);
+                } else {
+                    // Co-pay and deductible are separate — stack both toward client responsibility.
+                    deductiblePayment = Math.min(paymentResponsibility.deductibleRemaining, cartTotal);
+                }
             }
-            
-            // Co-insurance: percentage of invoice amount after deductible
+
+            // Co-insurance: percentage of allowed amount after deductible (POS estimate)
             if (paymentResponsibility.coinsurancePercentage > 0 && cartTotal > 0) {
-                // Calculate amount after deductible
                 const amountAfterDeductible = Math.max(0, cartTotal - deductiblePayment);
                 coinsurancePayment = (amountAfterDeductible * paymentResponsibility.coinsurancePercentage) / 100;
             }
-            
+
             return {
                 copay: copayPayment,
                 deductible: deductiblePayment,
@@ -2412,7 +2418,7 @@
                                     <div class="space-y-1 mt-2">
                                         ${invoiceTotal != null ? '<p class="flex justify-between text-slate-700"><span>Invoice total</span><span>UGX ' + fmt(invoiceTotal) + '</span></p>' : ''}
                                         <p class="flex justify-between text-slate-700"><span>Insurance portion</span><span class="text-orange-600 font-medium">UGX ${fmt(data.insurance_total)} <span class="text-xs">(pending)</span></span></p>
-                                        <p class="flex justify-between text-slate-700"><span>Client portion</span><span>UGX ${fmt(data.client_total)}</span></p>
+                                        <p class="flex justify-between text-slate-700"><span>Client portion</span><span>UGX ${fmt(computeInsuranceClientAmountDue(data))}</span></p>
                                     </div>
                                     ${warningsHtml}
                                     <p class="text-xs text-gray-500 mt-3">Invoice saved. You can collect the client portion while approval is pending.</p>
@@ -2433,10 +2439,8 @@
                         return;
                     }
 
-                    // Auto-approved — normal flow
-                    const clientTotalDue = data.requires_insurance_client_payment && data.client_total != null
-                        ? parseFloat(data.client_total)
-                        : 0;
+                    // Auto-approved — normal flow (amount to collect = invoice_total − insurance_total)
+                    const clientTotalDue = computeInsuranceClientAmountDue(data);
 
                     if (clientTotalDue > 0) {
                         showCollectClientModal(data, paymentPhone, data, invoiceNumber, button, originalText);
@@ -2466,12 +2470,39 @@
             }
         }
         
+        /**
+         * Client amount to collect after insurance authorization.
+         * Uses invoice_total - insurance_total when both exist (matches vendor ledger and backend normalization).
+         */
+        function computeInsuranceClientAmountDue(data) {
+            const inv = data.invoice && data.invoice.total_amount != null ? parseFloat(data.invoice.total_amount) : NaN;
+            const ins = data.insurance_total != null ? parseFloat(data.insurance_total) : NaN;
+            const api = data.client_total != null ? parseFloat(data.client_total) : NaN;
+            if (!isNaN(inv) && !isNaN(ins)) {
+                const fromSplit = Math.max(0, Math.round((inv - ins) * 100) / 100);
+                if (!isNaN(api) && Math.abs(api - fromSplit) > 0.02) {
+                    console.warn('[Kashtre] client_total differs from invoice - insurance_total; using split', {
+                        client_total: api, invoice_total: inv, insurance_total: ins, fromSplit
+                    });
+                }
+                return fromSplit;
+            }
+            if (!isNaN(api) && api >= 0) return Math.round(api * 100) / 100;
+            const b = data.breakdown || {};
+            let sum = 0;
+            ['deductible', 'copay', 'coinsurance', 'excluded'].forEach((k) => {
+                const v = parseFloat(b[k]);
+                if (!isNaN(v) && v > 0) sum += v;
+            });
+            return Math.round(sum * 100) / 100;
+        }
+
         function showCollectClientModal(displayData, paymentPhone, dataForSuccess, invoiceNumber, button, originalText) {
             const data = displayData;
             const breakdown = data.breakdown || {};
             const policyOpts = data.policy_options || {};
             const fmt = (n) => (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            const clientTotalDue = data.requires_insurance_client_payment && data.client_total != null ? parseFloat(data.client_total) : 0;
+            const clientTotalDue = computeInsuranceClientAmountDue(data);
             const policyRows = [];
             if (policyOpts.has_deductible && policyOpts.deductible_amount != null && parseFloat(policyOpts.deductible_amount) > 0) {
                 policyRows.push(`<div class="bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2"><span class="text-sm font-medium text-amber-800">Deductible</span><p class="text-sm text-amber-900">UGX ${fmt(policyOpts.deductible_amount)}</p></div>`);

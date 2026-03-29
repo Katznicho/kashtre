@@ -38,6 +38,7 @@ class ThirdPartyApiService
                 'country_name' => $businessData['country_name'] ?? null,
                 'country_iso_code' => $businessData['country_iso_code'] ?? null,
                 'currency_code' => $businessData['currency_code'] ?? null,
+                'exchange_rate_to_usd' => $businessData['exchange_rate_to_usd'] ?? null,
                 'address' => $businessData['address'] ?? null,
                 'head_office_address' => $businessData['head_office_address'] ?? $businessData['address'] ?? null,
                 'postal_address' => $businessData['postal_address'] ?? null,
@@ -813,7 +814,7 @@ class ThirdPartyApiService
      * Request invoice authorization from third-party (insurance company).
      * Returns client_total and insurance_total for the invoice.
      *
-     * @param array $payload kashtre_invoice_id, invoice_number, insurance_company_id (third-party ID), policy_number, total_amount, deductible_remaining, items
+     * @param array $payload kashtre_invoice_id, invoice_number, insurance_company_id (third-party ID), policy_number, total_amount, deductible_remaining, copay_contributes_to_deductible, coinsurance_contributes_to_deductible, items
      * @return array|null { success, authorization_reference, client_total, insurance_total, breakdown } or null on failure
      */
     public function requestInvoiceAuthorization(array $payload): ?array

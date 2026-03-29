@@ -44,32 +44,64 @@ class ClientController extends Controller
             foreach ($deductiblePayments as $transfer) {
                 $deductibleUsed += $transfer->amount ?? 0;
             }
+
+            // When co-pay counts toward the annual deductible, include completed co-pay payments.
+            if ($client->copay_contributes_to_deductible) {
+                $copayTowardDeductible = \App\Models\MoneyTransfer::where('client_id', $client->id)
+                    ->where('status', 'completed')
+                    ->where('transfer_type', 'payment_received')
+                    ->get()
+                    ->filter(function ($transfer) {
+                        $metadata = $transfer->metadata ?? [];
+
+                        return isset($metadata['payment_responsibility_type'])
+                            && $metadata['payment_responsibility_type'] === 'copay';
+                    });
+                foreach ($copayTowardDeductible as $transfer) {
+                    $deductibleUsed += (float) ($transfer->amount ?? 0);
+                }
+            }
+
+            // When co-insurance counts toward deductible, include those payments if tagged in metadata.
+            if ($client->coinsurance_contributes_to_deductible) {
+                $coinsuranceTowardDeductible = \App\Models\MoneyTransfer::where('client_id', $client->id)
+                    ->where('status', 'completed')
+                    ->where('transfer_type', 'payment_received')
+                    ->get()
+                    ->filter(function ($transfer) {
+                        $metadata = $transfer->metadata ?? [];
+
+                        return isset($metadata['payment_responsibility_type'])
+                            && $metadata['payment_responsibility_type'] === 'coinsurance';
+                    });
+                foreach ($coinsuranceTowardDeductible as $transfer) {
+                    $deductibleUsed += (float) ($transfer->amount ?? 0);
+                }
+            }
             
             Log::info('Deductible payments found', [
                 'client_id' => $client->id,
                 'count' => $deductiblePayments->count(),
                 'total_amount' => $deductiblePayments->sum('amount'),
+                'copay_contributes_to_deductible' => (bool) $client->copay_contributes_to_deductible,
+                'coinsurance_contributes_to_deductible' => (bool) $client->coinsurance_contributes_to_deductible,
             ]);
             
-            // 2. Also check from invoices where client paid (for backward compatibility)
-            // This is a simplified calculation - in a real system, you'd track deductible payments separately
-            $invoices = Invoice::where('client_id', $client->id)
-                ->whereIn('payment_status', ['paid', 'partial'])
-                ->get();
+            // 2. Heuristic from invoices (legacy). When co-pay contributes to deductible, co-pay amounts are
+            // already counted via MoneyTransfer above — do not also attribute invoice client payments or we double-count.
+            if (! $client->copay_contributes_to_deductible) {
+                $invoices = Invoice::where('client_id', $client->id)
+                    ->whereIn('payment_status', ['paid', 'partial'])
+                    ->get();
 
-            // For each invoice, check if client paid any amount (this would be deductible if deductible not met)
-            // This is a simplified approach - ideally, you'd have a dedicated deductible_payments table
-            foreach ($invoices as $invoice) {
-                // If invoice has client payment (not fully covered by insurance), it might count towards deductible
-                // Only count if we haven't already met the deductible from direct payments
-                if ($deductibleUsed < $client->deductible_amount) {
-                    $clientPaidAmount = $invoice->amount_paid ?? 0;
-                    
-                    // Only count if this was likely a deductible payment (client paid before insurance coverage)
-                    // This is simplified - in production, you'd track this explicitly
-                    if ($clientPaidAmount > 0) {
-                        $remainingDeductible = $client->deductible_amount - $deductibleUsed;
-                        $deductibleUsed += min($clientPaidAmount, $remainingDeductible);
+                foreach ($invoices as $invoice) {
+                    if ($deductibleUsed < $client->deductible_amount) {
+                        $clientPaidAmount = $invoice->amount_paid ?? 0;
+
+                        if ($clientPaidAmount > 0) {
+                            $remainingDeductible = $client->deductible_amount - $deductibleUsed;
+                            $deductibleUsed += min($clientPaidAmount, $remainingDeductible);
+                        }
                     }
                 }
             }

@@ -108,7 +108,7 @@
                             >
                                 <option value="">Select country</option>
                                 @foreach($countries as $country)
-                                    <option value="{{ $country->id }}">
+                                    <option value="{{ $country->id }}" {{ $country->iso_code === 'US' ? 'selected' : '' }}>
                                         {{ $country->name }} ({{ $country->currency_code ?? ($country->currency?->code ?? 'USD') }})
                                     </option>
                                 @endforeach

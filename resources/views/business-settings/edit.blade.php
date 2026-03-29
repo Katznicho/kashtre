@@ -37,10 +37,10 @@
                                 @foreach($countries as $country)
                                     <option
                                         value="{{ $country->id }}"
-                                        data-currency="{{ strtoupper($country->currency_code ?? ($country->currency?->code ?? 'UGX')) }}"
+                                        data-currency="{{ strtoupper($country->currency_code ?? ($country->currency?->code ?? 'USD')) }}"
                                         {{ (string) old('country_id', $business->country_id) === (string) $country->id ? 'selected' : '' }}
                                     >
-                                        {{ $country->name }} ({{ strtoupper($country->currency_code ?? ($country->currency?->code ?? 'UGX')) }})
+                                        {{ $country->name }} ({{ strtoupper($country->currency_code ?? ($country->currency?->code ?? 'USD')) }})
                                     </option>
                                 @endforeach
                             </select>
@@ -54,15 +54,45 @@
                                 type="text"
                                 name="currency_code"
                                 id="currency_code"
-                                value="{{ old('currency_code', strtoupper($business->currency_code ?? 'UGX')) }}"
+                                value="{{ old('currency_code', strtoupper($business->currency_code ?? 'USD')) }}"
                                 maxlength="10"
                                 class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="UGX"
+                                placeholder="USD"
                             >
                             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                Defaults to UGX when not set.
+                                Defaults to USD when not set.
                             </p>
                         </div>
+                    </div>
+
+                    @php
+                        $countryDefaultRate = $business->country?->exchange_rate_to_usd;
+                        $effectiveRate = $business->effectiveExchangeRateToUsd();
+                    @endphp
+                    <div class="mt-4">
+                        <label for="exchange_rate_to_usd" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Exchange rate to USD (optional override)
+                        </label>
+                        <input
+                            type="number"
+                            name="exchange_rate_to_usd"
+                            id="exchange_rate_to_usd"
+                            step="0.000001"
+                            min="0.000001"
+                            value="{{ old('exchange_rate_to_usd', $business->exchange_rate_to_usd) }}"
+                            class="w-full max-w-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="{{ $countryDefaultRate !== null ? number_format((float) $countryDefaultRate, 6) : 'e.g. 0.000270' }}"
+                        >
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            Same meaning as platform country settings: <strong>1 {{ strtoupper($business->currency_code ?? 'USD') }} = X USD</strong>.
+                            Leave blank to use your selected country’s default
+                            @if($countryDefaultRate !== null)
+                                (currently {{ number_format((float) $countryDefaultRate, 6) }}).
+                            @else
+                                (or 1.0 if the country has no rate).
+                            @endif
+                            Your effective rate used in calculations: <strong>{{ number_format($effectiveRate, 6) }}</strong> USD per 1 {{ strtoupper($business->currency_code ?? 'USD') }}.
+                        </p>
                     </div>
                 </div>
                 
@@ -73,7 +103,7 @@
                     <!-- Maximum Third Party Credit Limit -->
                     <div class="mb-4">
                         <label for="max_third_party_credit_limit" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Maximum Third Party Credit Limit (UGX)
+                            Maximum Third Party Credit Limit ({{ strtoupper($business->currency_code ?? 'USD') }})
                         </label>
                         <input 
                             type="number" 
@@ -93,7 +123,7 @@
                     <!-- Maximum First Party Credit Limit -->
                     <div class="mb-4">
                         <label for="max_first_party_credit_limit" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Maximum First Party Credit Limit (UGX)
+                            Maximum First Party Credit Limit ({{ strtoupper($business->currency_code ?? 'USD') }})
                         </label>
                         <input 
                             type="number" 
@@ -458,7 +488,7 @@
                     if (selectedCurrency) {
                         currencyInput.value = selectedCurrency;
                     } else if (!currencyInput.value) {
-                        currencyInput.value = 'UGX';
+                        currencyInput.value = 'USD';
                     }
                 });
             }

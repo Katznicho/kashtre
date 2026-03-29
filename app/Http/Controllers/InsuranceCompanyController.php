@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\InsuranceCompany;
+use App\Models\Business;
 use App\Models\Country;
 use App\Services\ThirdPartyApiService;
 use App\Constants\Constants;
@@ -138,7 +139,9 @@ class InsuranceCompanyController extends Controller
                 'description' => $validated['description'] ?? null,
             ]);
 
-            // Register with third-party API
+            // Register with third-party API (include operating business exchange rate)
+            $kashtreBusiness = Business::with('country')->find(Auth::user()->business_id);
+
             $businessData = [
                 'name' => $insuranceCompany->name,
                 'code' => $insuranceCompany->code,
@@ -148,6 +151,7 @@ class InsuranceCompanyController extends Controller
                 'country_name' => $country->name,
                 'country_iso_code' => $country->iso_code,
                 'currency_code' => $currencyCode,
+                'exchange_rate_to_usd' => $kashtreBusiness?->effectiveExchangeRateToUsd(),
                 'tin' => $insuranceCompany->tin,
                 'address' => $insuranceCompany->address,
                 'head_office_address' => $insuranceCompany->head_office_address,

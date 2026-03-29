@@ -280,6 +280,8 @@
                     $isRejected = in_array($authStatus, ['auto_rejected', 'rejected']);
                     $isPending = $authStatus === 'pending_review';
                     $fmtNum = fn($v) => number_format((float) ($v ?? 0), 0);
+                    $insurancePortionAmt = (float) ($authSnap['insurance_total'] ?? $invoice->insurance_insurance_total ?? 0);
+                    $clientPortionDisplay = round(max(0, (float) $invoice->total_amount - $insurancePortionAmt), 2);
                 @endphp
                 <div class="mb-6 rounded-lg border {{ $isApproved ? 'bg-green-50 border-green-200' : ($isRejected ? 'bg-red-50 border-red-200' : 'bg-orange-50 border-orange-200') }} p-5">
                     <div class="flex items-center gap-2 mb-3">
@@ -298,11 +300,11 @@
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                         <div>
                             <p class="text-gray-500">Insurance portion</p>
-                            <p class="font-bold {{ $isApproved ? 'text-green-800' : ($isPending ? 'text-orange-800' : 'text-red-800') }}">UGX {{ $fmtNum($authSnap['insurance_total'] ?? $invoice->insurance_insurance_total) }}</p>
+                            <p class="font-bold {{ $isApproved ? 'text-green-800' : ($isPending ? 'text-orange-800' : 'text-red-800') }}">UGX {{ $fmtNum($insurancePortionAmt) }}</p>
                         </div>
                         <div>
                             <p class="text-gray-500">Client portion</p>
-                            <p class="font-bold text-gray-900">UGX {{ $fmtNum($authSnap['client_total'] ?? $invoice->insurance_client_total) }}</p>
+                            <p class="font-bold text-gray-900">UGX {{ $fmtNum($clientPortionDisplay) }}</p>
                         </div>
                         @if($invoice->insurance_authorization_reference)
                             <div>

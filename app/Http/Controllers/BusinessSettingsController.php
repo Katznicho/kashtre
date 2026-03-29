@@ -23,7 +23,7 @@ class BusinessSettingsController extends Controller
             return redirect()->route('dashboard')->with('error', 'You do not have permission to view business settings.');
         }
 
-        $business = Business::findOrFail(Auth::user()->business_id);
+        $business = Business::with('country')->findOrFail(Auth::user()->business_id);
         
         // Get users for the business
         $users = User::where('business_id', $business->id)
@@ -53,11 +53,16 @@ class BusinessSettingsController extends Controller
 
         $business = Business::findOrFail(Auth::user()->business_id);
 
+        if ($request->input('exchange_rate_to_usd') === '' || $request->input('exchange_rate_to_usd') === null) {
+            $request->merge(['exchange_rate_to_usd' => null]);
+        }
+
         $validated = $request->validate([
             'max_third_party_credit_limit' => 'nullable|numeric|min:0',
             'max_first_party_credit_limit' => 'nullable|numeric|min:0',
             'country_id' => 'nullable|exists:countries,id',
             'currency_code' => 'nullable|string|max:10',
+            'exchange_rate_to_usd' => 'nullable|numeric|min:0.000001',
             'admit_button_label' => 'nullable|string|max:255',
             'discharge_button_label' => 'nullable|string|max:255',
             'default_payment_terms_days' => 'nullable|integer|min:1|max:365',
@@ -81,16 +86,21 @@ class BusinessSettingsController extends Controller
         $currencyCode = strtoupper((string) ($validated['currency_code'] ?? ''));
         if ($countryId) {
             $country = Country::with('currency')->find($countryId);
-            $currencyCode = strtoupper((string) ($country?->currency_code ?? $country?->currency?->code ?? 'UGX'));
+            $currencyCode = strtoupper((string) ($country?->currency_code ?? $country?->currency?->code ?? 'USD'));
         } elseif ($currencyCode === '') {
-            $currencyCode = strtoupper((string) ($business->currency_code ?? 'UGX'));
+            $currencyCode = strtoupper((string) ($business->currency_code ?? 'USD'));
         }
+
+        $exchangeRate = array_key_exists('exchange_rate_to_usd', $validated) && $validated['exchange_rate_to_usd'] !== null && $validated['exchange_rate_to_usd'] !== ''
+            ? (float) $validated['exchange_rate_to_usd']
+            : null;
 
         $business->update([
             'max_third_party_credit_limit' => $validated['max_third_party_credit_limit'] ?? null,
             'max_first_party_credit_limit' => $validated['max_first_party_credit_limit'] ?? null,
             'country_id' => $countryId,
             'currency_code' => $currencyCode,
+            'exchange_rate_to_usd' => $exchangeRate,
             'admit_button_label' => $validated['admit_button_label'] ?? 'Admit Patient',
             'discharge_button_label' => $validated['discharge_button_label'] ?? 'Discharge Patient',
             'default_payment_terms_days' => $validated['default_payment_terms_days'] ?? 30,

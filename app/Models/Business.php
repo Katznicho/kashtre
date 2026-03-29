@@ -20,6 +20,7 @@ class Business extends Model
         'logo',
         'country_id',
         'currency_code',
+        'exchange_rate_to_usd',
         'percentage_charge',
         'minimum_amount',
         'type',
@@ -46,6 +47,7 @@ class Business extends Model
         'date' => 'date',
         'max_third_party_credit_limit' => 'decimal:2',
         'max_first_party_credit_limit' => 'decimal:2',
+        'exchange_rate_to_usd' => 'decimal:6',
         'admit_enable_credit' => 'boolean',
         'admit_enable_long_stay' => 'boolean',
         'discharge_remove_credit' => 'boolean',
@@ -95,6 +97,24 @@ class Business extends Model
     public function currency()
     {
         return $this->belongsTo(Currency::class, 'currency_code', 'code');
+    }
+
+    /**
+     * USD value of one unit of this business’s operating currency (same semantics as countries.exchange_rate_to_usd).
+     * Uses business override when set; otherwise the linked country’s rate; otherwise 1.
+     */
+    public function effectiveExchangeRateToUsd(): float
+    {
+        if ($this->exchange_rate_to_usd !== null && (float) $this->exchange_rate_to_usd > 0) {
+            return round((float) $this->exchange_rate_to_usd, 6);
+        }
+
+        $countryRate = $this->country?->exchange_rate_to_usd;
+        if ($countryRate !== null && (float) $countryRate > 0) {
+            return round((float) $countryRate, 6);
+        }
+
+        return 1.0;
     }
 
     public function branches()

@@ -342,6 +342,7 @@ class InvoiceController extends Controller
             
             // Get business
             $business = \App\Models\Business::find($validated['business_id']);
+            $invoiceCurrency = strtoupper($business->currency_code ?? 'USD');
 
             // Check for third-party payer exclusions (when payment method is insurance)
             $paymentMethods = $validated['payment_methods'] ?? [];
@@ -577,7 +578,7 @@ class InvoiceController extends Controller
                 'business_id' => $validated['business_id'],
                 'branch_id' => $validated['branch_id'],
                 'created_by' => $validated['created_by'],
-                'currency' => $business->currency_code ?? 'USD',
+                'currency' => $invoiceCurrency,
                 'client_name' => $validated['client_name'],
                 'client_phone' => $validated['client_phone'],
                 'payment_phone' => $validated['payment_phone'],
@@ -1093,7 +1094,7 @@ class InvoiceController extends Controller
                         'provider' => $primaryMethod === 'mobile_money' ? 'yo' : 'cash',
                         'service' => 'credit_invoice',
                         'date' => now(),
-                        'currency' => 'UGX',
+                        'currency' => $invoiceCurrency,
                         'names' => $validated['client_name'],
                         'email' => null,
                         'ip_address' => request()->ip(),
@@ -1533,7 +1534,7 @@ class InvoiceController extends Controller
                             'provider' => 'cash',
                             'service' => 'invoice_payment',
                             'date' => now(),
-                            'currency' => 'UGX',
+                            'currency' => $invoiceCurrency,
                             'names' => $validated['client_name'],
                             'email' => null,
                             'ip_address' => request()->ip(),
@@ -1776,7 +1777,7 @@ class InvoiceController extends Controller
                     'provider' => 'yo', // Use 'yo' as default provider for zero-amount transactions
                     'service' => 'invoice_payment',
                     'date' => now(),
-                    'currency' => 'UGX',
+                    'currency' => $invoiceCurrency,
                     'names' => $validated['client_name'],
                     'email' => null,
                     'ip_address' => request()->ip(),
@@ -1907,6 +1908,8 @@ class InvoiceController extends Controller
                         'services_category' => $client->services_category ?? null,
                         'total_amount' => (float) $invoice->total_amount,
                         'deductible_remaining' => $deductibleRemaining,
+                        'copay_contributes_to_deductible' => (bool) $client->copay_contributes_to_deductible,
+                        'coinsurance_contributes_to_deductible' => (bool) $client->coinsurance_contributes_to_deductible,
                         'items' => $itemsForAuthorization,
                         'connected_business_id' => $business->id,
                     ];
@@ -1915,9 +1918,16 @@ class InvoiceController extends Controller
                         'third_party_business_id' => $thirdPartyBusinessId,
                         'total_amount' => $authPayload['total_amount'],
                         'deductible_remaining' => $deductibleRemaining,
+                        'copay_contributes_to_deductible' => $authPayload['copay_contributes_to_deductible'],
+                        'coinsurance_contributes_to_deductible' => $authPayload['coinsurance_contributes_to_deductible'],
                     ]);
                     $insuranceAuthorization = $apiService->requestInvoiceAuthorization($authPayload);
                     if ($insuranceAuthorization && !empty($insuranceAuthorization['success'])) {
+                        // Client portion must match invoice split: invoice_total = insurance_total + client_total (vendor ledger).
+                        $insuranceAuthorization = $this->normalizeInsuranceAuthorizationClientTotals($invoice, $insuranceAuthorization);
+                        // Persist policy flags on snapshot when insurer omits them (used by UI / refresh).
+                        $insuranceAuthorization['copay_contributes_to_deductible'] = $insuranceAuthorization['copay_contributes_to_deductible'] ?? (bool) $client->copay_contributes_to_deductible;
+                        $insuranceAuthorization['coinsurance_contributes_to_deductible'] = $insuranceAuthorization['coinsurance_contributes_to_deductible'] ?? (bool) $client->coinsurance_contributes_to_deductible;
                         $invoice->update([
                             'insurance_authorization_reference' => $insuranceAuthorization['authorization_reference'] ?? null,
                             'insurance_client_total' => $insuranceAuthorization['client_total'] ?? null,
@@ -2527,7 +2537,7 @@ class InvoiceController extends Controller
                     'provider' => 'yo',
                     'service' => 'mobile_money_payment',
                     'date' => now(),
-                    'currency' => 'UGX',
+                    'currency' => strtoupper($business->currency_code ?? 'USD'),
                     'names' => $client->name,
                     'email' => null,
                     'ip_address' => request()->ip(),
@@ -3376,7 +3386,7 @@ class InvoiceController extends Controller
                 'message' => 'No insurance authorization data for this invoice.',
             ], 404);
         }
-        $clientTotal = (float) ($snapshot['client_total'] ?? 0);
+        $clientTotal = $this->normalizedInsuranceClientTotalFromSnapshot($invoice, $snapshot);
         return response()->json([
             'success' => true,
             'invoice' => ['id' => $invoice->id, 'total_amount' => $invoice->total_amount],
@@ -4036,5 +4046,37 @@ class InvoiceController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * After third-party authorization, client portion must match the invoice split:
+     * invoice_total = insurance_total + client_total (same rule as vendor authorization ledger).
+     */
+    private function normalizeInsuranceAuthorizationClientTotals(Invoice $invoice, array $authorization): array
+    {
+        $invoiceTotal = (float) $invoice->total_amount;
+        $insuranceTotal = (float) ($authorization['insurance_total'] ?? 0);
+        $derived = round(max(0, $invoiceTotal - $insuranceTotal), 2);
+        $apiClient = isset($authorization['client_total']) ? (float) $authorization['client_total'] : null;
+        if ($apiClient !== null && abs($apiClient - $derived) > 0.02) {
+            Log::info('[Kashtre] Insurance authorization: client_total aligned to invoice_total - insurance_total', [
+                'invoice_id' => $invoice->id,
+                'invoice_total' => $invoiceTotal,
+                'insurance_total' => $insuranceTotal,
+                'client_total_from_api' => $apiClient,
+                'client_total_normalized' => $derived,
+            ]);
+        }
+        $authorization['client_total'] = $derived;
+
+        return $authorization;
+    }
+
+    private function normalizedInsuranceClientTotalFromSnapshot(Invoice $invoice, array $snapshot): float
+    {
+        $invoiceTotal = (float) $invoice->total_amount;
+        $insuranceTotal = (float) ($snapshot['insurance_total'] ?? 0);
+
+        return round(max(0, $invoiceTotal - $insuranceTotal), 2);
     }
 }
