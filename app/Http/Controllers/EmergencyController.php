@@ -13,6 +13,16 @@ use Illuminate\Http\Request;
 
 class EmergencyController extends Controller
 {
+    private function resolveRoomContext(?ServicePoint $servicePoint = null): array
+    {
+        $roomId = session('room_id') ?: $servicePoint?->room_id;
+        $room = $roomId ? Room::find($roomId) : null;
+
+        return [
+            'room_name' => $room?->name,
+        ];
+    }
+
     private function requireEmergencyPerm(): void
     {
         // No permission check — all users can trigger/resolve emergencies
@@ -91,6 +101,7 @@ class EmergencyController extends Controller
         $displayMessage = $config->emergency_display_message
             ? $this->resolvePlaceholders($config->emergency_display_message, $servicePoint)
             : null;
+        $roomContext = $this->resolveRoomContext($servicePoint);
 
         // Determine color from the button that was pressed
         $buttonIndex = (int) $request->input('button_index', 1);
@@ -126,6 +137,7 @@ class EmergencyController extends Controller
                 'business_id'           => $user->business_id,
                 'service_point_id'      => $servicePoint->id,
                 'service_point_name'    => $servicePoint->name,
+                'room_name'             => $roomContext['room_name'],
                 'message'               => $message,
                 'display_message'       => $displayMessage,
                 'color'                 => $color,
@@ -142,6 +154,7 @@ class EmergencyController extends Controller
                 'business_id'           => $user->business_id,
                 'service_point_id'      => $servicePoint->id,
                 'service_point_name'    => $servicePoint->name,
+                'room_name'             => $roomContext['room_name'],
                 'message'               => $message,
                 'display_message'       => $displayMessage,
                 'color'                 => $color,
@@ -208,14 +221,10 @@ class EmergencyController extends Controller
         }
 
         $displayMessage = trim($request->input('display_message', '')) ?: null;
+        $roomContext = $this->resolveRoomContext();
 
         // Resolve {destination} placeholder using session room if available
-        $destination = null;
-        $roomId = session('room_id');
-        if ($roomId) {
-            $room        = Room::find($roomId);
-            $destination = $room?->name;
-        }
+        $destination = $roomContext['room_name'];
         $message = str_replace('{destination}', $destination ?? '', $message);
         if ($displayMessage) {
             $displayMessage = str_replace('{destination}', $destination ?? '', $displayMessage);
@@ -252,6 +261,7 @@ class EmergencyController extends Controller
                 'business_id'           => $user->business_id,
                 'service_point_id'      => null,
                 'service_point_name'    => null,
+                'room_name'             => $roomContext['room_name'],
                 'message'               => $message,
                 'display_message'       => $displayMessage,
                 'color'                 => $color,
@@ -267,6 +277,7 @@ class EmergencyController extends Controller
                 'business_id'           => $user->business_id,
                 'service_point_id'      => null,
                 'service_point_name'    => null,
+                'room_name'             => $roomContext['room_name'],
                 'message'               => $message,
                 'display_message'       => $displayMessage,
                 'color'                 => $color,

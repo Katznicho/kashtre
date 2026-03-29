@@ -10,6 +10,7 @@ class EmergencyAlert extends Model
         'business_id',
         'service_point_id',
         'service_point_name',
+        'room_name',
         'message',
         'display_message',
         'color',
