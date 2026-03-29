@@ -43,15 +43,14 @@
                                         }
                                     }
                                     
-                                    // Available Balance = credits - debits (from balance history)
-                                    // Exclude insurance entries from balance calculation (they have change_amount=0 anyway)
+                                    // Available Balance = credits − debits; insurance line items are informational only
                                     $credits = $client->balanceHistories()
                                         ->where('transaction_type', 'credit')
-                                        ->where('payment_method', '!=', 'insurance')
+                                        ->affectingClientBalance()
                                         ->sum('change_amount');
                                     $debits = abs($client->balanceHistories()
                                         ->where('transaction_type', 'debit')
-                                        ->where('payment_method', '!=', 'insurance')
+                                        ->affectingClientBalance()
                                         ->sum('change_amount'));
                                     $availableBalance = $credits - $debits;
                                     
@@ -178,7 +177,9 @@
                                 if ($client->is_credit_eligible && $calculatedBalance < 0) {
                                     $invoicesWithDeliveredServices = \App\Models\BalanceHistory::where('client_id', $client->id)
                                         ->where('transaction_type', 'debit')
+                                        ->affectingClientBalance()
                                         ->whereNotNull('invoice_id')
+                                        ->where('change_amount', '!=', 0)
                                         ->with(['invoice'])
                                         ->get()
                                         ->filter(function ($entry) {

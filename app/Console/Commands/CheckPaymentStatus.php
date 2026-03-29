@@ -8,11 +8,10 @@ use App\Models\ThirdPartyPayerBalanceHistory;
 use App\Models\Invoice;
 use App\Models\Client;
 use App\Models\Item;
-use App\Models\InsuranceCompany;
 use App\Models\PaymentMethodAccount;
 use App\Payments\YoAPI;
 use App\Services\MoneyTrackingService;
-use App\Services\ThirdPartyApiService;
+use App\Services\InsuranceClientPortionThirdPartyNotifier;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -341,7 +340,7 @@ class CheckPaymentStatus extends Command
                                         }
                                         $this->createPackageTrackingRecords($invoice, $invoice->items);
                                         $queuedItems = $this->queueItemsAtServicePoints($invoice, $invoice->items);
-                                        $this->notifyThirdPartyOfInsuranceClientPortion($invoice, $transaction);
+                                        InsuranceClientPortionThirdPartyNotifier::notifyIfApplicable($invoice, $transaction);
                                     } else {
                                         // Normal payment: credit client suspense then client account
                                         $moneyTrackingService = new MoneyTrackingService();
@@ -364,7 +363,7 @@ class CheckPaymentStatus extends Command
                                             Log::error("Suspense account movements failed", ['invoice_id' => $invoice->id, 'error' => $e->getMessage()]);
                                         }
                                         $queuedItems = $this->queueItemsAtServicePoints($invoice, $invoice->items);
-                                        $this->notifyThirdPartyOfInsuranceClientPortion($invoice, $transaction);
+                                        InsuranceClientPortionThirdPartyNotifier::notifyIfApplicable($invoice, $transaction);
                                     }
                                 } else {
                                     Log::warning("Invoice not found for transaction", [
@@ -1144,80 +1143,6 @@ class CheckPaymentStatus extends Command
                 'client_notes' => "Package purchased for future use",
                 'business_description' => "Package purchase from invoice {$invoice->invoice_number}"
             ];
-        }
-    }
-
-    /**
-     * Notify third-party system when an insurance client's mobile money payment succeeds.
-     * This updates the third-party client's account statement and payments list.
-     */
-    private function notifyThirdPartyOfInsuranceClientPortion(Invoice $invoice, Transaction $transaction): void
-    {
-        try {
-            $client = $invoice->client;
-            if (!$client || !$client->insurance_company_id) {
-                return;
-            }
-
-            // Only notify if this invoice has an insurance authorization snapshot (i.e. true insurance flow)
-            $snapshot = $invoice->insurance_authorization_snapshot;
-            if (!is_array($snapshot) || empty($snapshot)) {
-                return;
-            }
-
-            $localInsurance = InsuranceCompany::find($client->insurance_company_id);
-            if (!$localInsurance || !$localInsurance->third_party_business_id) {
-                return;
-            }
-
-            $policyNumber = trim((string) ($client->policy_number ?? ''));
-            if ($policyNumber === '') {
-                return;
-            }
-
-            // Determine client portion amount from snapshot; fall back to invoice totals if needed
-            $clientPortion = isset($snapshot['client_total'])
-                ? (float) $snapshot['client_total']
-                : (float) ($invoice->insurance_client_total ?? $invoice->total_amount);
-
-            if ($clientPortion <= 0) {
-                return;
-            }
-
-            $paymentReference = 'CP-' . $transaction->created_at->format('Ymd') . '-' . $transaction->id;
-
-            $authorizationReference = $invoice->insurance_authorization_reference
-                ?? ($snapshot['authorization_reference'] ?? null);
-
-            $payload = [
-                'insurance_company_id' => (int) $localInsurance->third_party_business_id,
-                'policy_number' => $policyNumber,
-                'amount' => $clientPortion,
-                'payment_reference' => $paymentReference,
-                'kashtre_invoice_id' => (string) $invoice->id,
-                'authorization_reference' => $authorizationReference,
-                'connected_business_id' => $invoice->business_id,
-                'payment_method' => 'mobile_money',
-                'mobile_money_number' => $transaction->phone_number ?? null,
-                'payment_date' => now()->format('Y-m-d'),
-            ];
-
-            $service = new ThirdPartyApiService();
-            $result = $service->recordClientPortionPayment($payload);
-
-            Log::info('CheckPaymentStatus: Third-party client-portion notification result', [
-                'invoice_id' => $invoice->id,
-                'transaction_id' => $transaction->id,
-                'payload' => $payload,
-                'success' => $result['success'] ?? false,
-                'message' => $result['message'] ?? null,
-            ]);
-        } catch (\Throwable $e) {
-            Log::error('CheckPaymentStatus: Failed to notify third-party of client-portion payment', [
-                'invoice_id' => $invoice->id ?? null,
-                'transaction_id' => $transaction->id ?? null,
-                'error' => $e->getMessage(),
-            ]);
         }
     }
 

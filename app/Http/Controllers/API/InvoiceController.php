@@ -334,6 +334,10 @@ class InvoiceController extends Controller
                 ->orderBy('created_at', 'asc')
                 ->get();
 
+            $snapshot = $invoice->insurance_authorization_snapshot ?? [];
+            $clientTotalAuth = (float) ($invoice->insurance_client_total ?? ($snapshot['client_total'] ?? 0));
+            $insuranceTotalAuth = (float) ($invoice->insurance_insurance_total ?? ($snapshot['insurance_total'] ?? 0));
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -352,6 +356,15 @@ class InvoiceController extends Controller
                         'payment_status' => $invoice->payment_status,
                         'status' => $invoice->status,
                         'created_at' => $invoice->created_at->toDateTimeString(),
+                        'insurance_authorization_reference' => $invoice->insurance_authorization_reference,
+                        'insurance_client_total' => $clientTotalAuth,
+                        'insurance_insurance_total' => $insuranceTotalAuth,
+                        'insurance_split' => [
+                            'client_total' => $clientTotalAuth,
+                            'insurance_total' => $insuranceTotalAuth,
+                            'authorization_reference' => $invoice->insurance_authorization_reference,
+                            'authorization_status' => $snapshot['authorization_status'] ?? null,
+                        ],
                         'client' => $invoice->client ? [
                             'id' => $invoice->client->id,
                             'client_id' => $invoice->client->client_id,

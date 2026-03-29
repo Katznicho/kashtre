@@ -8,6 +8,7 @@ namespace App\Http\Controllers;
 use App\Models\Invoice;
 use App\Models\ServiceCharge;
 use App\Models\Client;
+use App\Services\InsuranceClientPortionThirdPartyNotifier;
 use App\Services\MoneyTrackingService;
 use App\Support\YoExternalReference;
 use Carbon\Carbon;
@@ -1519,7 +1520,7 @@ class InvoiceController extends Controller
                         // Build description with purchased items, client, and business information
                         $itemsDescription = $this->buildItemsDescription($validated['items'], $client, $business, $invoiceNumber);
                         
-                        \App\Models\Transaction::create([
+                        $cashTransaction = \App\Models\Transaction::create([
                             'business_id' => $validated['business_id'],
                             'branch_id' => $validated['branch_id'],
                             'client_id' => $validated['client_id'],
@@ -1543,6 +1544,7 @@ class InvoiceController extends Controller
                             'method' => $primaryMethod,
                             'transaction_for' => 'main',
                         ]);
+                        InsuranceClientPortionThirdPartyNotifier::notifyIfApplicable($invoice, $cashTransaction);
                     } else {
                         // Update existing transaction with invoice_id if it doesn't have one
                         if (!$existingTransaction->invoice_id) {

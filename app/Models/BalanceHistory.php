@@ -83,6 +83,18 @@ class BalanceHistory extends Model
         return $query->where('created_at', '>=', now()->subDays($days));
     }
 
+    /**
+     * Insurance invoice line items are stored as statement rows (payment_method=insurance, often change_amount=0)
+     * so the client can see what the insurer covered; they must not move the client's running balance.
+     */
+    public function scopeAffectingClientBalance($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('payment_method')
+                ->orWhere('payment_method', '!=', 'insurance');
+        });
+    }
+
     // Helper methods
     public function isCredit()
     {

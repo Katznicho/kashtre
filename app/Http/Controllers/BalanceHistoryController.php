@@ -35,16 +35,15 @@ class BalanceHistoryController extends Controller
         // Refresh client to ensure we have the latest balance
         $client->refresh();
         
-        // Calculate balance from balance history: credits - debits
-        // This is the source of truth for account balance
-        // Note: Insurance payment tracking entries have change_amount=0, so they appear on the statement
-        // for follow-up purposes but don't affect balance calculations (insurance company pays, not client)
+        // Credits − debits, excluding insurance informational rows (same rule as balance-statement view).
         $credits = BalanceHistory::where('client_id', $clientId)
             ->where('transaction_type', 'credit')
+            ->affectingClientBalance()
             ->sum('change_amount');
-        
+
         $debits = abs(BalanceHistory::where('client_id', $clientId)
             ->where('transaction_type', 'debit')
+            ->affectingClientBalance()
             ->sum('change_amount'));
         
         $calculatedBalance = $credits - $debits;
@@ -93,9 +92,12 @@ class BalanceHistoryController extends Controller
         
         // Get PP entries (service charges first, then oldest to newest)
         // Only include entries where services have been delivered (money moved from suspense to final accounts)
+        // Exclude insurance informational debits and zero-change rows
         $ppEntries = BalanceHistory::where('client_id', $clientId)
             ->where('transaction_type', 'debit')
+            ->affectingClientBalance()
             ->whereNotNull('invoice_id')
+            ->where('change_amount', '!=', 0)
             ->with(['invoice'])
             ->get()
             ->filter(function ($entry) use ($client) {
@@ -235,7 +237,9 @@ class BalanceHistoryController extends Controller
         // BUT only include entries where money has moved from suspense to final accounts (services delivered)
         $ppEntries = BalanceHistory::where('client_id', $clientId)
             ->where('transaction_type', 'debit')
+            ->affectingClientBalance()
             ->whereNotNull('invoice_id')
+            ->where('change_amount', '!=', 0)
             ->with(['invoice'])
             ->get()
             ->filter(function ($entry) {
