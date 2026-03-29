@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BalanceHistory;
 use App\Models\Client;
+use App\Support\YoExternalReference;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -434,7 +435,7 @@ class BalanceHistoryController extends Controller
             if ($isLocal) {
                 // Local environment: Create transaction record without calling YoAPI
                 // The simulation command will handle completing the payment
-                $externalReference = 'PP-LOCAL-' . $paymentInvoiceNumber . '-' . time() . '-' . uniqid();
+                $externalReference = YoExternalReference::make('PPL');
                 
                 \Log::info('Creating local transaction record for pay-back (YoAPI skipped)', [
                     'phone' => $paymentPhone,
@@ -505,7 +506,7 @@ class BalanceHistoryController extends Controller
             // Initialize YoAPI
             $yoPayments = new \App\Payments\YoAPI(config('payments.yo_username'), config('payments.yo_password'));
             $yoPayments->set_instant_notification_url(config('payments.webhook_url', 'https://webhook.site/396126eb-cc9b-4c57-a7a9-58f43d2b7935'));
-            $externalReference = 'PP-' . $paymentInvoiceNumber . '-' . time() . '-' . uniqid();
+            $externalReference = YoExternalReference::make('PP');
             $yoPayments->set_external_reference($externalReference);
 
             \Log::info('Initiating mobile money payment for pay-back', [

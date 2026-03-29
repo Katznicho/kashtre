@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Item;
 use App\Models\BranchItemPrice;
 use App\Models\BalanceHistory;
+use App\Support\YoExternalReference;
 
 class TransactionController extends Controller
 {
@@ -449,8 +450,7 @@ class TransactionController extends Controller
         try {
             \Illuminate\Support\Facades\DB::beginTransaction();
             
-            $reference = $validated['payment_reference'] ?? 
-                ($type === 'deductible' ? 'DED-' : 'COP-') . $client->id . '-' . time();
+            $reference = $validated['payment_reference'] ?? YoExternalReference::make($type === 'deductible' ? 'DED' : 'COP');
             
             $transactionReference = null;
             $paymentStatus = 'pending';

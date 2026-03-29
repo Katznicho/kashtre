@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\ServiceCharge;
 use App\Models\Client;
 use App\Services\MoneyTrackingService;
+use App\Support\YoExternalReference;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -2467,7 +2468,7 @@ class InvoiceController extends Controller
             // Initialize YoAPI for mobile money payment
             $yoPayments = new \App\Payments\YoAPI(config('payments.yo_username'), config('payments.yo_password'));
             $yoPayments->set_instant_notification_url('https://webhook.site/396126eb-cc9b-4c57-a7a9-58f43d2b7935');
-            $yoPayments->set_external_reference(uniqid());
+            $yoPayments->set_external_reference(YoExternalReference::make('MM'));
             
             // Log payment attempt details
             Log::info('Mobile money payment attempt', [
@@ -2716,7 +2717,7 @@ class InvoiceController extends Controller
             
             // Generate a new unique external reference for the retry
             // This prevents YoAPI duplicate transaction errors
-            $newExternalReference = 'RETRY_' . $transaction->reference . '_' . time() . '_' . uniqid();
+            $newExternalReference = YoExternalReference::make('RTRY');
             
             // Initialize YoAPI for mobile money payment
             $yoPayments = new \App\Payments\YoAPI(config('payments.yo_username'), config('payments.yo_password'));
@@ -2924,7 +2925,7 @@ class InvoiceController extends Controller
                     // Initialize YoAPI for mobile money payment
                     $yoPayments = new \App\Payments\YoAPI(config('payments.yo_username'), config('payments.yo_password'));
                     $yoPayments->set_instant_notification_url('https://webhook.site/396126eb-cc9b-4c57-a7a9-58f43d2b7935');
-                    $yoPayments->set_external_reference(uniqid());
+                    $yoPayments->set_external_reference(YoExternalReference::make('MM'));
                     
                     // Process payment through YoAPI
                     $result = $yoPayments->ac_deposit_funds($phone, $transaction->amount, $transaction->description);
