@@ -103,9 +103,10 @@ class EmergencyController extends Controller
             : null;
         $roomContext = $this->resolveRoomContext($servicePoint);
 
-        // Determine color from the button that was pressed
+        // Determine button metadata from the button that was pressed
         $buttonIndex = (int) $request->input('button_index', 1);
         $color       = ($buttonIndex === 2 ? $config->emergency_button_2_color : $config->emergency_button_1_color) ?? 'red';
+        $buttonName  = ($buttonIndex === 2 ? $config->emergency_button_2_name : $config->emergency_button_1_name) ?: 'Emergency';
 
         // Check for any pending or active alert (not yet resolved)
         $latest = EmergencyAlert::where('business_id', $user->business_id)
@@ -138,6 +139,7 @@ class EmergencyController extends Controller
                 'service_point_id'      => $servicePoint->id,
                 'service_point_name'    => $servicePoint->name,
                 'room_name'             => $roomContext['room_name'],
+                'button_name'           => $buttonName,
                 'message'               => $message,
                 'display_message'       => $displayMessage,
                 'color'                 => $color,
@@ -155,6 +157,7 @@ class EmergencyController extends Controller
                 'service_point_id'      => $servicePoint->id,
                 'service_point_name'    => $servicePoint->name,
                 'room_name'             => $roomContext['room_name'],
+                'button_name'           => $buttonName,
                 'message'               => $message,
                 'display_message'       => $displayMessage,
                 'color'                 => $color,
@@ -232,6 +235,7 @@ class EmergencyController extends Controller
 
         $buttonIndex = (int) $request->input('button_index', 1);
         $color       = ($buttonIndex === 2 ? $config->emergency_button_2_color : $config->emergency_button_1_color) ?? 'red';
+        $buttonName  = ($buttonIndex === 2 ? $config->emergency_button_2_name : $config->emergency_button_1_name) ?: 'Emergency';
 
         $latest = EmergencyAlert::where('business_id', $user->business_id)
             ->whereNull('resolved_at')
@@ -262,6 +266,7 @@ class EmergencyController extends Controller
                 'service_point_id'      => null,
                 'service_point_name'    => null,
                 'room_name'             => $roomContext['room_name'],
+                'button_name'           => $buttonName,
                 'message'               => $message,
                 'display_message'       => $displayMessage,
                 'color'                 => $color,
@@ -278,6 +283,7 @@ class EmergencyController extends Controller
                 'service_point_id'      => null,
                 'service_point_name'    => null,
                 'room_name'             => $roomContext['room_name'],
+                'button_name'           => $buttonName,
                 'message'               => $message,
                 'display_message'       => $displayMessage,
                 'color'                 => $color,
