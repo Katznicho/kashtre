@@ -62,7 +62,7 @@ class BroadcastAuthController extends Controller
             );
         }
 
-        if (preg_match('/^presence-business\.(\d+)$/', $channelName, $matches)) {
+        if (preg_match('/^(?:presence-)?presence-business\.(\d+)$/', $channelName, $matches)) {
             if ((int) ($user->business_id ?? 0) !== (int) $matches[1]) {
                 throw new AccessDeniedHttpException;
             }
