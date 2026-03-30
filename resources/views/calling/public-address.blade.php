@@ -209,6 +209,8 @@ function paConsole() {
         _stream: null,
         _streamMeter: null,
         _streamMeterTimer: null,
+        _recorder: null,
+        _chunkIndex: 0,
         _pollTimer: null,
         _stopInFlight: false,
         _sessionId: null,
@@ -365,6 +367,7 @@ function paConsole() {
             try {
                 this._stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 this.startLocalMicMeter();
+                this.startChunkBroadcast();
             } catch (_) {
                 await fetch(PA_STOP_URL, {
                     method: 'POST',
@@ -554,6 +557,14 @@ function paConsole() {
         },
 
         stopStream() {
+            if (this._recorder && this._recorder.state !== 'inactive') {
+                try {
+                    this._recorder.stop();
+                } catch (_) {}
+            }
+            this._recorder = null;
+            this._chunkIndex = 0;
+
             if (this._streamMeterTimer) {
                 clearInterval(this._streamMeterTimer);
                 this._streamMeterTimer = null;
@@ -572,6 +583,54 @@ function paConsole() {
 
             this._stream.getTracks().forEach((track) => track.stop());
             this._stream = null;
+        },
+
+        startChunkBroadcast() {
+            if (!this._stream || !window.MediaRecorder) {
+                return;
+            }
+
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus'
+                : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
+
+            this._chunkIndex = 0;
+            this._recorder = new MediaRecorder(this._stream, mimeType ? { mimeType } : {});
+
+            this._recorder.addEventListener('dataavailable', async (event) => {
+                if (!event.data || event.data.size === 0 || !this._sessionId) {
+                    return;
+                }
+
+                const isInit = this._chunkIndex === 0;
+                this._chunkIndex++;
+
+                try {
+                    const buffer = await event.data.arrayBuffer();
+                    const bytes = new Uint8Array(buffer);
+                    let binary = '';
+                    const chunkSize = 0x8000;
+
+                    for (let i = 0; i < bytes.length; i += chunkSize) {
+                        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+                    }
+
+                    await fetch('{{ route('pa.chunk') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': CSRF,
+                        },
+                        body: JSON.stringify({
+                            section_id: this.selectedSectionId,
+                            chunk: btoa(binary),
+                            is_init: isInit,
+                        }),
+                    }).catch(() => {});
+                } catch (_) {}
+            });
+
+            this._recorder.start(600);
         },
 
         startLocalMicMeter() {
