@@ -44,6 +44,7 @@ return [
             ],
             'client_options' => [
                 // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
+                'verify' => filter_var(env('REVERB_VERIFY_TLS', true), FILTER_VALIDATE_BOOL),
             ],
         ],
 

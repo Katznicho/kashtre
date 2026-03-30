@@ -11,9 +11,31 @@ use App\Models\P2PCall;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class P2PCallController extends Controller
 {
+    private function dispatchRealtime(object $event, string $context, array $meta = []): void
+    {
+        try {
+            event($event);
+
+            Log::info('P2P realtime event dispatched.', array_merge([
+                'context' => $context,
+                'event' => class_basename($event),
+            ], $meta));
+        } catch (Throwable $e) {
+            Log::error('P2P realtime event dispatch failed.', array_merge([
+                'context' => $context,
+                'event' => class_basename($event),
+                'error' => $e->getMessage(),
+            ], $meta));
+
+            throw $e;
+        }
+    }
+
     /**
      * Initiate a call to another user
      */
@@ -59,7 +81,11 @@ class P2PCallController extends Controller
         $call->load(['caller', 'callee']);
 
         // Broadcast to callee
-        broadcast(new IncomingCall($call));
+        $this->dispatchRealtime(new IncomingCall($call), 'initiate', [
+            'call_uuid' => $call->uuid,
+            'caller_id' => $caller->id,
+            'callee_id' => $callee->id,
+        ]);
 
         return response()->json([
             'call_id' => $call->uuid,
@@ -90,7 +116,11 @@ class P2PCallController extends Controller
         $call->load(['caller', 'callee']);
 
         // Notify the caller
-        broadcast(new CallAccepted($call));
+        $this->dispatchRealtime(new CallAccepted($call), 'accept', [
+            'call_uuid' => $call->uuid,
+            'caller_id' => $call->caller_id,
+            'callee_id' => $call->callee_id,
+        ]);
 
         return response()->json(['status' => 'accepted']);
     }
@@ -112,7 +142,11 @@ class P2PCallController extends Controller
         ]);
 
         // Notify the caller
-        broadcast(new CallRejected($call));
+        $this->dispatchRealtime(new CallRejected($call), 'reject', [
+            'call_uuid' => $call->uuid,
+            'caller_id' => $call->caller_id,
+            'callee_id' => $call->callee_id,
+        ]);
 
         return response()->json(['status' => 'rejected']);
     }
@@ -134,7 +168,12 @@ class P2PCallController extends Controller
         ]);
 
         // Notify the callee
-        broadcast(new CallEnded($call, $call->callee_id));
+        $this->dispatchRealtime(new CallEnded($call, $call->callee_id), 'cancel', [
+            'call_uuid' => $call->uuid,
+            'caller_id' => $call->caller_id,
+            'callee_id' => $call->callee_id,
+            'target_user_id' => $call->callee_id,
+        ]);
 
         return response()->json(['status' => 'cancelled']);
     }
@@ -164,7 +203,12 @@ class P2PCallController extends Controller
 
         // Notify the other participant
         $otherUserId = $call->caller_id === $user->id ? $call->callee_id : $call->caller_id;
-        broadcast(new CallEnded($call, $otherUserId));
+        $this->dispatchRealtime(new CallEnded($call, $otherUserId), 'end', [
+            'call_uuid' => $call->uuid,
+            'caller_id' => $call->caller_id,
+            'callee_id' => $call->callee_id,
+            'target_user_id' => $otherUserId,
+        ]);
 
         return response()->json([
             'status'   => 'ended',
@@ -195,12 +239,18 @@ class P2PCallController extends Controller
         // Send signal to the other participant
         $targetUserId = $call->caller_id === $user->id ? $call->callee_id : $call->caller_id;
 
-        broadcast(new WebRTCSignal(
+        $this->dispatchRealtime(new WebRTCSignal(
             $call->uuid,
             $targetUserId,
             $request->type,
             $request->data,
-        ));
+        ), 'signal', [
+            'call_uuid' => $call->uuid,
+            'caller_id' => $call->caller_id,
+            'callee_id' => $call->callee_id,
+            'target_user_id' => $targetUserId,
+            'signal_type' => $request->type,
+        ]);
 
         return response()->json(['status' => 'sent']);
     }
