@@ -210,6 +210,7 @@ function paConsole() {
         _streamMeter: null,
         _streamMeterTimer: null,
         _recorder: null,
+        _recorderStopTimer: null,
         _chunkIndex: 0,
         _pollTimer: null,
         _stopInFlight: false,
@@ -563,6 +564,10 @@ function paConsole() {
                 } catch (_) {}
             }
             this._recorder = null;
+            if (this._recorderStopTimer) {
+                clearTimeout(this._recorderStopTimer);
+                this._recorderStopTimer = null;
+            }
             this._chunkIndex = 0;
 
             if (this._streamMeterTimer) {
@@ -595,42 +600,74 @@ function paConsole() {
                 : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
 
             this._chunkIndex = 0;
-            this._recorder = new MediaRecorder(this._stream, mimeType ? { mimeType } : {});
+            const segmentDurationMs = 1000;
 
-            this._recorder.addEventListener('dataavailable', async (event) => {
-                if (!event.data || event.data.size === 0 || !this._sessionId) {
+            const startSegment = () => {
+                if (!this._stream || !this._sessionId || this.paState !== 'broadcasting') {
                     return;
                 }
 
-                const isInit = this._chunkIndex === 0;
-                this._chunkIndex++;
+                const recorder = new MediaRecorder(this._stream, mimeType ? { mimeType } : {});
+                const parts = [];
+                this._recorder = recorder;
 
-                try {
-                    const buffer = await event.data.arrayBuffer();
-                    const bytes = new Uint8Array(buffer);
-                    let binary = '';
-                    const chunkSize = 0x8000;
+                recorder.addEventListener('dataavailable', (event) => {
+                    if (event.data && event.data.size > 0) {
+                        parts.push(event.data);
+                    }
+                });
 
-                    for (let i = 0; i < bytes.length; i += chunkSize) {
-                        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+                recorder.addEventListener('stop', async () => {
+                    if (parts.length && this._sessionId) {
+                        const isInit = this._chunkIndex === 0;
+                        this._chunkIndex++;
+
+                        try {
+                            const blob = new Blob(parts, { type: recorder.mimeType || mimeType || 'audio/webm' });
+                            const buffer = await blob.arrayBuffer();
+                            const bytes = new Uint8Array(buffer);
+                            let binary = '';
+                            const chunkSize = 0x8000;
+
+                            for (let i = 0; i < bytes.length; i += chunkSize) {
+                                binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+                            }
+
+                            await fetch('{{ route('pa.chunk') }}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': CSRF,
+                                },
+                                body: JSON.stringify({
+                                    section_id: this.selectedSectionId,
+                                    chunk: btoa(binary),
+                                    is_init: isInit,
+                                }),
+                            }).catch(() => {});
+                        } catch (_) {}
                     }
 
-                    await fetch('{{ route('pa.chunk') }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': CSRF,
-                        },
-                        body: JSON.stringify({
-                            section_id: this.selectedSectionId,
-                            chunk: btoa(binary),
-                            is_init: isInit,
-                        }),
-                    }).catch(() => {});
-                } catch (_) {}
-            });
+                    if (this._recorder === recorder) {
+                        this._recorder = null;
+                    }
 
-            this._recorder.start(600);
+                    if (this.paState === 'broadcasting' && this._stream && this._sessionId) {
+                        startSegment();
+                    }
+                });
+
+                recorder.start();
+                this._recorderStopTimer = setTimeout(() => {
+                    if (recorder.state !== 'inactive') {
+                        try {
+                            recorder.stop();
+                        } catch (_) {}
+                    }
+                }, segmentDurationMs);
+            };
+
+            startSegment();
         },
 
         startLocalMicMeter() {
