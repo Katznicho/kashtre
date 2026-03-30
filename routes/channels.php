@@ -2,18 +2,6 @@
 
 use Illuminate\Support\Facades\Broadcast;
 
-function sanitizeBroadcastString($value): ?string
-{
-    if ($value === null) {
-        return null;
-    }
-
-    $value = (string) $value;
-    $sanitized = @iconv('UTF-8', 'UTF-8//IGNORE', $value);
-
-    return $sanitized === false ? $value : $sanitized;
-}
-
 /*
 |--------------------------------------------------------------------------
 | Broadcast Channels
@@ -43,10 +31,21 @@ Broadcast::channel('user.{id}', function ($user, $id) {
 Broadcast::channel('presence-business.{businessId}', function ($user, $businessId) {
     if ((int) $user->business_id !== (int) $businessId) return false;
 
+    $sanitize = static function ($value): ?string {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = (string) $value;
+        $sanitized = @iconv('UTF-8', 'UTF-8//IGNORE', $value);
+
+        return $sanitized === false ? $value : $sanitized;
+    };
+
     return [
         'id'    => (int) $user->id,
-        'uuid'  => sanitizeBroadcastString($user->uuid),
-        'name'  => sanitizeBroadcastString($user->name),
-        'photo' => sanitizeBroadcastString($user->profile_photo_url),
+        'uuid'  => $sanitize($user->uuid),
+        'name'  => $sanitize($user->name),
+        'photo' => $sanitize($user->profile_photo_url),
     ];
 });
