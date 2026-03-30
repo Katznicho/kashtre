@@ -238,6 +238,7 @@ class CallingServiceClient
             $this->client()->post('/api/v1/sync/emergency', [
                 'business_id'        => $alert->business_id,
                 'service_point_name' => $alert->service_point_name,
+                'room_name'          => $alert->room_name,
                 'message'            => $alert->message,
                 'display_message'    => $alert->display_message ?? null,
                 'color'              => $alert->color ?? 'red',
