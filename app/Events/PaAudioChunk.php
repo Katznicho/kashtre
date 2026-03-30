@@ -17,6 +17,7 @@ class PaAudioChunk implements ShouldBroadcastNow
         public int    $sectionId,
         public string $chunk,   // base64-encoded audio data
         public bool   $isInit,  // true for the first chunk (stream header)
+        public string $mimeType = 'audio/webm',
     ) {}
 
     public function broadcastOn(): array
@@ -30,6 +31,7 @@ class PaAudioChunk implements ShouldBroadcastNow
             'section_id' => $this->sectionId,
             'chunk'      => $this->chunk,
             'is_init'    => $this->isInit,
+            'mime_type'  => $this->mimeType,
         ];
     }
 }

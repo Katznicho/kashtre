@@ -643,6 +643,7 @@ function paConsole() {
                                     section_id: this.selectedSectionId,
                                     chunk: btoa(binary),
                                     is_init: isInit,
+                                    mime_type: recorder.mimeType || mimeType || 'audio/webm',
                                 }),
                             }).catch(() => {});
                         } catch (_) {}

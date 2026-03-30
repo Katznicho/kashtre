@@ -308,6 +308,7 @@ class PaAnnouncementController extends Controller
         $request->validate([
             'chunk' => 'required|string',
             'is_init' => 'required|boolean',
+            'mime_type' => 'nullable|string|max:100',
         ]);
 
         $user = auth()->user();
@@ -355,6 +356,7 @@ class PaAnnouncementController extends Controller
             'id' => $nextId,
             'chunk' => $request->chunk,
             'is_init' => (bool) $request->is_init,
+            'mime_type' => $request->input('mime_type') ?: 'audio/webm',
         ];
 
         if (count($items) > 60) {
@@ -373,6 +375,7 @@ class PaAnnouncementController extends Controller
                 (int) $active['section_id'],
                 $request->chunk,
                 (bool) $request->is_init,
+                $request->input('mime_type') ?: 'audio/webm',
             ));
         } catch (\Throwable $e) {
             Log::error('PA chunk broadcast failed', [
