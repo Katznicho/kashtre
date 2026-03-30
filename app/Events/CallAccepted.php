@@ -25,6 +25,11 @@ class CallAccepted implements ShouldBroadcastNow
         ];
     }
 
+    public function broadcastAs(): string
+    {
+        return 'CallAccepted';
+    }
+
     public function broadcastWith(): array
     {
         return [

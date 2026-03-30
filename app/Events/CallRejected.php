@@ -25,6 +25,11 @@ class CallRejected implements ShouldBroadcastNow
         ];
     }
 
+    public function broadcastAs(): string
+    {
+        return 'CallRejected';
+    }
+
     public function broadcastWith(): array
     {
         return [

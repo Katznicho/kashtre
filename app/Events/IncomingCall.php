@@ -25,6 +25,11 @@ class IncomingCall implements ShouldBroadcastNow
         ];
     }
 
+    public function broadcastAs(): string
+    {
+        return 'IncomingCall';
+    }
+
     public function broadcastWith(): array
     {
         return [

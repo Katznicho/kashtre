@@ -27,6 +27,11 @@ class CallEnded implements ShouldBroadcastNow
         ];
     }
 
+    public function broadcastAs(): string
+    {
+        return 'CallEnded';
+    }
+
     public function broadcastWith(): array
     {
         return [

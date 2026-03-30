@@ -38,7 +38,7 @@ export default function callingSystem() {
             if (userId && window.Echo) {
                 // Private channel for direct call events
                 window.Echo.private(`user.${userId}`)
-                    .listen('IncomingCall', (e) => {
+                    .listen('.IncomingCall', (e) => {
                         console.log('Incoming call:', e);
                         if (this.callState !== 'idle') {
                             this.rejectCall(e.call_id, true);
@@ -48,28 +48,28 @@ export default function callingSystem() {
                         this.remoteUser = e.caller;
                         this.changeState('incoming');
                     })
-                    .listen('CallAccepted', (e) => {
+                    .listen('.CallAccepted', (e) => {
                         console.log('Call accepted by callee:', e);
                         if (this.callId === e.call_id) {
                             this.changeState('connected');
                             this.initiateWebRTC();
                         }
                     })
-                    .listen('CallRejected', (e) => {
+                    .listen('.CallRejected', (e) => {
                         console.log('Call rejected:', e);
                         if (this.callId === e.call_id) {
                             this.changeState('ended');
                             setTimeout(() => this.resetCall(), 2000);
                         }
                     })
-                    .listen('CallEnded', (e) => {
+                    .listen('.CallEnded', (e) => {
                         console.log('Call ended:', e);
                         if (this.callId === e.call_id) {
                             this.changeState('ended');
                             setTimeout(() => this.resetCall(), 2000);
                         }
                     })
-                    .listen('WebRTCSignal', async (e) => {
+                    .listen('.WebRTCSignal', async (e) => {
                         if (this.callId !== e.call_id) return;
 
                         if (!this.peerConnection) {

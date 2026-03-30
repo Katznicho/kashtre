@@ -28,6 +28,11 @@ class WebRTCSignal implements ShouldBroadcastNow
         ];
     }
 
+    public function broadcastAs(): string
+    {
+        return 'WebRTCSignal';
+    }
+
     public function broadcastWith(): array
     {
         return [
