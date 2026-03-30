@@ -37,9 +37,12 @@ Broadcast::channel('presence-business.{businessId}', function ($user, $businessI
         }
 
         $value = (string) $value;
-        $sanitized = @iconv('UTF-8', 'UTF-8//IGNORE', $value);
 
-        return $sanitized === false ? $value : $sanitized;
+        if (function_exists('mb_check_encoding') && ! mb_check_encoding($value, 'UTF-8')) {
+            return mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+        }
+
+        return $value;
     };
 
     return [

@@ -12,6 +12,11 @@ use Throwable;
 
 class BroadcastAuthController extends Controller
 {
+    protected function shouldExposeError(Request $request): bool
+    {
+        return str_starts_with($request->getHost(), 'staging.');
+    }
+
     public function __invoke(Request $request): JsonResponse|SymfonyResponse
     {
         try {
@@ -35,9 +40,15 @@ class BroadcastAuthController extends Controller
                 'socket_id' => $request->input('socket_id'),
             ]);
 
-            return response()->json([
+            $payload = [
                 'message' => 'Broadcast authorization returned an empty response.',
-            ], 500);
+            ];
+
+            if ($this->shouldExposeError($request)) {
+                $payload['error'] = 'Empty authorization payload returned by Broadcast::auth().';
+            }
+
+            return response()->json($payload, 500);
         } catch (AccessDeniedHttpException $e) {
             return response()->json([
                 'message' => 'You are not authorized to join this channel.',
@@ -50,9 +61,16 @@ class BroadcastAuthController extends Controller
                 'socket_id' => $request->input('socket_id'),
             ]);
 
-            return response()->json([
+            $payload = [
                 'message' => 'Broadcast authorization failed.',
-            ], 500);
+            ];
+
+            if ($this->shouldExposeError($request)) {
+                $payload['error'] = $e->getMessage();
+                $payload['exception'] = class_basename($e);
+            }
+
+            return response()->json($payload, 500);
         }
     }
 }
