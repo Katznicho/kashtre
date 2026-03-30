@@ -524,7 +524,9 @@ class PaAnnouncementController extends Controller
             'business_id' => $caller->business_id,
             'section_ids' => $sectionIds,
             'reverb_host' => $reverbHost,
-            'reverb_port' => config('reverb.servers.reverb.port', 8080),
+            'reverb_port' => config('broadcasting.connections.reverb.options.port', 443),
+            'reverb_scheme' => config('broadcasting.connections.reverb.options.scheme', 'https'),
+            'reverb_use_tls' => (bool) config('broadcasting.connections.reverb.options.useTLS', true),
             'reverb_key' => config('broadcasting.connections.reverb.key'),
         ])->withHeaders(['Access-Control-Allow-Origin' => '*']);
     }
