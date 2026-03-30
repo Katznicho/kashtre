@@ -21,6 +21,7 @@ import Pusher from 'pusher-js';
 window.Pusher = Pusher;
 
 const configuredReverbHost = import.meta.env.VITE_REVERB_HOST;
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 const localReverbHosts = ['localhost', '127.0.0.1', '0.0.0.0'];
 const reverbHost = !configuredReverbHost
     ? window.location.hostname
@@ -33,10 +34,19 @@ if (reverbAppKey) {
     window.Echo = new Echo({
         broadcaster: 'reverb',
         key: reverbAppKey,
+        authEndpoint: '/broadcasting/auth',
+        auth: {
+            headers: {
+                'X-CSRF-TOKEN': csrfToken ?? '',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+        },
         wsHost: reverbHost,
         wsPort: import.meta.env.VITE_REVERB_PORT ?? 80,
         wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
         forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
+        withCredentials: true,
         enabledTransports: ['ws', 'wss'],
     });
 } else {
