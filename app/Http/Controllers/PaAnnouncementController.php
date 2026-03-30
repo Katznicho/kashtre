@@ -12,6 +12,7 @@ use App\Models\CallingModuleConfig;
 use App\Models\PaSection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
@@ -198,6 +199,16 @@ class PaAnnouncementController extends Controller
             now()->addSeconds(75)
         );
 
+        Cache::put(
+            $this->streamKey($businessId, $section->id),
+            [
+                'session_id' => $sessionId,
+                'next_id' => 1,
+                'items' => [],
+            ],
+            now()->addMinutes(5)
+        );
+
         try {
             broadcast(new PaAnnouncementStarted(
                 $businessId,
@@ -271,6 +282,7 @@ class PaAnnouncementController extends Controller
             }
 
             Cache::forget($lockKey);
+            Cache::forget($this->streamKey($businessId, (int) $active['section_id']));
 
             broadcast(new PaAnnouncementStopped($businessId, $active['section_id']));
         } catch (\Throwable $e) {
@@ -321,6 +333,39 @@ class PaAnnouncementController extends Controller
             ),
             now()->addSeconds(75)
         );
+
+        $streamKey = $this->streamKey($businessId, (int) $active['section_id']);
+        $streamState = Cache::get($streamKey, [
+            'session_id' => $active['session_id'],
+            'next_id' => 1,
+            'items' => [],
+        ]);
+
+        if (($streamState['session_id'] ?? null) !== $active['session_id']) {
+            $streamState = [
+                'session_id' => $active['session_id'],
+                'next_id' => 1,
+                'items' => [],
+            ];
+        }
+
+        $nextId = (int) ($streamState['next_id'] ?? 1);
+        $items = (array) ($streamState['items'] ?? []);
+        $items[] = [
+            'id' => $nextId,
+            'chunk' => $request->chunk,
+            'is_init' => (bool) $request->is_init,
+        ];
+
+        if (count($items) > 60) {
+            $items = array_slice($items, -60);
+        }
+
+        Cache::put($streamKey, [
+            'session_id' => $active['session_id'],
+            'next_id' => $nextId + 1,
+            'items' => $items,
+        ], now()->addMinutes(5));
 
         try {
             broadcast(new PaAudioChunk(
@@ -498,6 +543,75 @@ class PaAnnouncementController extends Controller
         ]);
     }
 
+    public function displayPaStream(Request $request)
+    {
+        $token = $request->query('token');
+        if (!$token) {
+            return response()->json(['error' => 'Token required'], 401)->withHeaders([
+                'Access-Control-Allow-Origin' => '*',
+                'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+                'Access-Control-Allow-Headers' => 'Content-Type',
+            ]);
+        }
+
+        $caller = Caller::where('display_token', $token)
+            ->where('status', 'active')
+            ->first();
+
+        if (!$caller) {
+            return response()->json(['error' => 'Invalid token'], 401)->withHeaders([
+                'Access-Control-Allow-Origin' => '*',
+                'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+                'Access-Control-Allow-Headers' => 'Content-Type',
+            ]);
+        }
+
+        $sectionIds = DB::table('pa_section_callers')
+            ->join('pa_sections', 'pa_sections.id', '=', 'pa_section_callers.pa_section_id')
+            ->where('pa_section_callers.caller_id', $caller->id)
+            ->where('pa_sections.business_id', $caller->business_id)
+            ->pluck('pa_sections.id')
+            ->map(fn ($id) => (int) $id)
+            ->toArray();
+
+        $active = Cache::get($this->lockKey($caller->business_id));
+
+        if (!$active || !in_array((int) ($active['section_id'] ?? 0), $sectionIds, true)) {
+            return response()->json([
+                'active' => false,
+                'session_id' => null,
+                'items' => [],
+            ])->withHeaders([
+                'Access-Control-Allow-Origin' => '*',
+                'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+                'Access-Control-Allow-Headers' => 'Content-Type',
+            ]);
+        }
+
+        $stream = Cache::get($this->streamKey($caller->business_id, (int) $active['section_id']), [
+            'session_id' => $active['session_id'],
+            'next_id' => 1,
+            'items' => [],
+        ]);
+
+        $after = max(0, (int) $request->query('after', 0));
+        $items = array_values(array_filter(
+            (array) ($stream['items'] ?? []),
+            fn (array $item) => (int) ($item['id'] ?? 0) > $after
+        ));
+
+        return response()->json([
+            'active' => true,
+            'session_id' => $stream['session_id'] ?? $active['session_id'],
+            'section_id' => (int) $active['section_id'],
+            'items' => $items,
+        ])->withHeaders([
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]);
+    }
+
     public function displayPaConfig(Request $request)
     {
         $token = $request->query('token');
@@ -565,6 +679,11 @@ class PaAnnouncementController extends Controller
     private function lockKey(int $businessId): string
     {
         return "pa_active_{$businessId}";
+    }
+
+    private function streamKey(int $businessId, int $sectionId): string
+    {
+        return "pa_stream_{$businessId}_{$sectionId}";
     }
 
     private function publicReverbHost(Request $request): string

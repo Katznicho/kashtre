@@ -35,8 +35,14 @@ Route::options('/display/announcement-audio', fn () => response()->noContent()->
 
 // Public token-authenticated endpoint for the display board to get PA config (sections + Reverb details)
 Route::get('/display/pa-config', [\App\Http\Controllers\PaAnnouncementController::class, 'displayPaConfig']);
+Route::get('/display/pa-stream', [\App\Http\Controllers\PaAnnouncementController::class, 'displayPaStream']);
 Route::post('/display/pa-signal', [\App\Http\Controllers\PaAnnouncementController::class, 'displaySignal']);
 Route::options('/display/pa-config', fn () => response()->noContent()->withHeaders([
+    'Access-Control-Allow-Origin' => '*',
+    'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+    'Access-Control-Allow-Headers' => 'Content-Type',
+]));
+Route::options('/display/pa-stream', fn () => response()->noContent()->withHeaders([
     'Access-Control-Allow-Origin' => '*',
     'Access-Control-Allow-Methods' => 'GET, OPTIONS',
     'Access-Control-Allow-Headers' => 'Content-Type',
