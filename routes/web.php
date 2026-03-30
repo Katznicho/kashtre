@@ -64,6 +64,7 @@ use App\Http\Controllers\WithdrawalSettingController;
 use App\Http\Controllers\BusinessWithdrawalSettingController;
 use App\Http\Controllers\WithdrawalRequestController;
 use App\Http\Controllers\BusinessSettingsController;
+use App\Http\Controllers\BroadcastAuthController;
 use App\Http\Controllers\ThirdPartyPayerController;
 use App\Http\Controllers\CreditNoteWorkflowController;
 use App\Http\Controllers\CreditNoteWorkflowBulkUploadController;
@@ -92,6 +93,14 @@ use Illuminate\Http\Request;
 */
 
 Route::redirect('/', 'login');
+
+Route::match(['get', 'post'], '/reverb/auth', BroadcastAuthController::class)
+    ->middleware(['auth'])
+    ->withoutMiddleware([
+        \App\Http\Middleware\RequireTwoFactorForKashtre::class,
+        \App\Http\Middleware\VerifyCsrfToken::class,
+    ])
+    ->name('reverb.auth');
 
 // Third-party payer authentication routes (public)
 Route::prefix('third-party-payer')->name('third-party-payer.')->group(function () {

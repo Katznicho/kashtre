@@ -34,7 +34,7 @@ if (reverbAppKey) {
     window.Echo = new Echo({
         broadcaster: 'reverb',
         key: reverbAppKey,
-        authEndpoint: '/broadcasting/auth',
+        authEndpoint: '/reverb/auth',
         auth: {
             headers: {
                 'X-CSRF-TOKEN': csrfToken ?? '',
