@@ -1,12 +1,37 @@
 <?php
 
 use App\Http\Controllers\EmergencyController;
+use App\Http\Controllers\API\DisplayBoardController;
 
 // Queue display board — migrated to standalone Calling Service
 // API endpoints for TV are no longer served from the Kashtre monolith
 
 // Public token-authenticated endpoint for the display board to get emergency color
 Route::get('/display/emergency-status', [EmergencyController::class, 'displayEmergencyStatus']);
+Route::get('/display/latest-calls', [DisplayBoardController::class, 'latestCalls']);
+Route::get('/display/audio', [DisplayBoardController::class, 'streamAudio']);
+Route::get('/display/emergency-audio', [DisplayBoardController::class, 'streamEmergencyAudio']);
+Route::get('/display/announcement-audio', [DisplayBoardController::class, 'streamAnnouncementAudio']);
+Route::options('/display/latest-calls', fn () => response()->noContent()->withHeaders([
+    'Access-Control-Allow-Origin' => '*',
+    'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+    'Access-Control-Allow-Headers' => 'Content-Type',
+]));
+Route::options('/display/audio', fn () => response()->noContent()->withHeaders([
+    'Access-Control-Allow-Origin' => '*',
+    'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+    'Access-Control-Allow-Headers' => 'Content-Type',
+]));
+Route::options('/display/emergency-audio', fn () => response()->noContent()->withHeaders([
+    'Access-Control-Allow-Origin' => '*',
+    'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+    'Access-Control-Allow-Headers' => 'Content-Type',
+]));
+Route::options('/display/announcement-audio', fn () => response()->noContent()->withHeaders([
+    'Access-Control-Allow-Origin' => '*',
+    'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+    'Access-Control-Allow-Headers' => 'Content-Type',
+]));
 
 // Public token-authenticated endpoint for the display board to get PA config (sections + Reverb details)
 Route::get('/display/pa-config', [\App\Http\Controllers\PaAnnouncementController::class, 'displayPaConfig']);
