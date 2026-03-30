@@ -368,7 +368,6 @@ function paConsole() {
             try {
                 this._stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 this.startLocalMicMeter();
-                this.startChunkBroadcast();
             } catch (_) {
                 await fetch(PA_STOP_URL, {
                     method: 'POST',
@@ -391,6 +390,7 @@ function paConsole() {
             }
 
             this.paState = 'broadcasting';
+            this.startChunkBroadcast();
             this.busyAnnouncer = '';
             this.busySectionName = '';
         },
