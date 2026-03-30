@@ -8,6 +8,7 @@ use App\Events\CallRejected;
 use App\Events\IncomingCall;
 use App\Events\WebRTCSignal;
 use App\Models\P2PCall;
+use App\Models\P2PCallSignal;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -239,11 +240,20 @@ class P2PCallController extends Controller
         // Send signal to the other participant
         $targetUserId = $call->caller_id === $user->id ? $call->callee_id : $call->caller_id;
 
+        $signal = P2PCallSignal::create([
+            'p2p_call_id' => $call->id,
+            'sender_id' => $user->id,
+            'receiver_id' => $targetUserId,
+            'type' => $request->type,
+            'data' => $request->data,
+        ]);
+
         $this->dispatchRealtime(new WebRTCSignal(
             $call->uuid,
             $targetUserId,
             $request->type,
             $request->data,
+            $signal->id,
         ), 'signal', [
             'call_uuid' => $call->uuid,
             'caller_id' => $call->caller_id,
@@ -253,6 +263,46 @@ class P2PCallController extends Controller
         ]);
 
         return response()->json(['status' => 'sent']);
+    }
+
+    /**
+     * Poll undelivered WebRTC signals for the current call participant.
+     */
+    public function pollSignals($callUuid)
+    {
+        $user = Auth::user();
+
+        $call = P2PCall::where('uuid', $callUuid)
+            ->where('business_id', $user->business_id)
+            ->where(function ($q) use ($user) {
+                $q->where('caller_id', $user->id)
+                    ->orWhere('callee_id', $user->id);
+            })
+            ->firstOrFail();
+
+        $signals = P2PCallSignal::where('p2p_call_id', $call->id)
+            ->where('receiver_id', $user->id)
+            ->whereNull('delivered_at')
+            ->orderBy('id')
+            ->get();
+
+        if ($signals->isEmpty()) {
+            return response()->json([]);
+        }
+
+        P2PCallSignal::whereIn('id', $signals->pluck('id'))
+            ->update(['delivered_at' => now()]);
+
+        return response()->json(
+            $signals->map(function ($signal) {
+                return [
+                    'signal_id' => $signal->id,
+                    'call_id' => $signal->call->uuid,
+                    'type' => $signal->type,
+                    'data' => $signal->data,
+                ];
+            })->values()
+        );
     }
 
     /**

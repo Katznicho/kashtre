@@ -18,9 +18,11 @@ export default function callingSystem() {
         outgoingRingtoneAudio: null,
         incomingPollInterval: null,
         callStatusPollInterval: null,
+        signalPollInterval: null,
         reconnectAttempts: 0,
         maxReconnectAttempts: 3,
         hasInitiatedWebRTC: false,
+        processedSignalIds: [],
 
         // ICE servers config (Google STUN)
         iceServers: {
@@ -75,22 +77,7 @@ export default function callingSystem() {
                         }
                     })
                     .listen('.WebRTCSignal', async (e) => {
-                        if (this.callId !== e.call_id) return;
-
-                        if (!this.peerConnection) {
-                            await this.setupPeerConnection();
-                        }
-
-                        if (e.type === 'offer') {
-                            await this.peerConnection.setRemoteDescription(new RTCSessionDescription(e.data));
-                            const answer = await this.peerConnection.createAnswer();
-                            await this.peerConnection.setLocalDescription(answer);
-                            this.sendSignal('answer', answer);
-                        } else if (e.type === 'answer') {
-                            await this.peerConnection.setRemoteDescription(new RTCSessionDescription(e.data));
-                        } else if (e.type === 'candidate') {
-                            await this.peerConnection.addIceCandidate(new RTCIceCandidate(e.data));
-                        }
+                        await this.handleWebRtcSignal(e);
                     });
 
                 // Presence channel — real-time online users (no polling)
@@ -163,6 +150,7 @@ export default function callingSystem() {
                 this.remoteUser = response.data.callee;
                 this.changeState('calling');
                 this.startCallStatusPoll();
+                this.startSignalPoll();
             } catch (error) {
                 console.error('Failed to initiate call', error);
                 alert(error.response?.data?.error || 'Failed to initiate call');
@@ -176,6 +164,7 @@ export default function callingSystem() {
                 await axios.post(`/calls/${this.callId}/accept`);
                 this.changeState('connected');
                 this.startCallStatusPoll();
+                this.startSignalPoll();
                 // Caller will initiate WebRTC offer upon receiving CallAccepted event
             } catch (error) {
                 console.error('Failed to accept call', error);
@@ -252,6 +241,26 @@ export default function callingSystem() {
             }
         },
 
+        startSignalPoll() {
+            this.stopSignalPoll();
+
+            if (!this.callId) {
+                return;
+            }
+
+            this.pollSignals();
+            this.signalPollInterval = setInterval(() => {
+                this.pollSignals();
+            }, 1000);
+        },
+
+        stopSignalPoll() {
+            if (this.signalPollInterval) {
+                clearInterval(this.signalPollInterval);
+                this.signalPollInterval = null;
+            }
+        },
+
         async checkIncomingCall() {
             if (this.callState !== 'idle') return;
 
@@ -267,6 +276,7 @@ export default function callingSystem() {
                 this.remoteUser = incomingCall.caller;
                 this.changeState('incoming');
                 this.startCallStatusPoll();
+                this.startSignalPoll();
             } catch (error) {
                 console.error('Incoming call fallback check failed', error);
             }
@@ -303,6 +313,50 @@ export default function callingSystem() {
                 }
             } catch (error) {
                 console.error('Call status sync failed', error);
+            }
+        },
+
+        async pollSignals() {
+            if (!this.callId || this.callState === 'idle') return;
+
+            try {
+                const response = await axios.get(`/calls/${this.callId}/signals`);
+
+                for (const signal of response.data || []) {
+                    await this.handleWebRtcSignal(signal);
+                }
+            } catch (error) {
+                console.error('Signal poll failed', error);
+            }
+        },
+
+        async handleWebRtcSignal(signal) {
+            if (this.callId !== signal.call_id) return;
+
+            if (signal.signal_id && this.processedSignalIds.includes(signal.signal_id)) {
+                return;
+            }
+
+            if (signal.signal_id) {
+                this.processedSignalIds.push(signal.signal_id);
+                if (this.processedSignalIds.length > 200) {
+                    this.processedSignalIds = this.processedSignalIds.slice(-100);
+                }
+            }
+
+            if (!this.peerConnection) {
+                await this.setupPeerConnection();
+            }
+
+            if (signal.type === 'offer') {
+                await this.peerConnection.setRemoteDescription(new RTCSessionDescription(signal.data));
+                const answer = await this.peerConnection.createAnswer();
+                await this.peerConnection.setLocalDescription(answer);
+                this.sendSignal('answer', answer);
+            } else if (signal.type === 'answer') {
+                await this.peerConnection.setRemoteDescription(new RTCSessionDescription(signal.data));
+            } else if (signal.type === 'candidate') {
+                await this.peerConnection.addIceCandidate(new RTCIceCandidate(signal.data));
             }
         },
 
@@ -466,7 +520,9 @@ export default function callingSystem() {
             this.durationFormatted = '00:00';
             this.reconnectAttempts = 0;
             this.hasInitiatedWebRTC = false;
+            this.processedSignalIds = [];
             this.stopCallStatusPoll();
+            this.stopSignalPoll();
 
             if (this.peerConnection) {
                 this.peerConnection.close();

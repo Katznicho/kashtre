@@ -17,6 +17,7 @@ class WebRTCSignal implements ShouldBroadcastNow
         public int    $targetUserId,
         public string $type,   // 'offer', 'answer', 'candidate'
         public array  $data,
+        public ?int   $signalId = null,
     ) {
         //
     }
@@ -36,6 +37,7 @@ class WebRTCSignal implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         return [
+            'signal_id' => $this->signalId,
             'call_id' => $this->callUuid,
             'type'    => $this->type,
             'data'    => $this->data,
