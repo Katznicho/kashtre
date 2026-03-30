@@ -52,11 +52,10 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                                <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Button Name</th>
+                                <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Emergency Button</th>
                                 <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</th>
                                 <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Triggered By</th>
                                 <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resolved At</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-100">
@@ -84,9 +83,6 @@
                                                 Resolved
                                             </span>
                                         @endif
-                                    </td>
-                                    <td class="px-5 py-3 whitespace-nowrap text-sm text-gray-500">
-                                        {{ $alert->resolved_at ? $alert->resolved_at->format('H:i:s') : '—' }}
                                     </td>
                                 </tr>
                             @endforeach

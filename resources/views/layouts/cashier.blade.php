@@ -42,6 +42,8 @@
         :enabled="$showEmergencyAmbient"
         :active-alert="$activeEmergencyAlert"
         :display-duration="$callingModuleConfig->emergency_display_duration ?? 0"
+        :flash-on="$callingModuleConfig->emergency_flash_on ?? 3"
+        :flash-off="$callingModuleConfig->emergency_flash_off ?? 1"
     />
 
     <!-- Page wrapper -->

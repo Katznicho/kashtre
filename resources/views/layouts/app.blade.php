@@ -77,11 +77,13 @@
         :enabled="$showEmergencyAmbient"
         :active-alert="$activeEmergencyAlert"
         :display-duration="$callingModuleConfig->emergency_display_duration ?? 0"
+        :flash-on="$callingModuleConfig->emergency_flash_on ?? 3"
+        :flash-off="$callingModuleConfig->emergency_flash_off ?? 1"
         :poll="false"
     />
 
     <!-- Page wrapper with global WebRTC Calling State -->
-    <div x-data="callingSystem()" @initiate-call.window="initiateCall($event.detail.uuid)" class="flex h-[100dvh] overflow-hidden">
+    <div x-data="callingSystem" @initiate-call.window="initiateCall($event.detail.uuid)" class="flex h-[100dvh] overflow-hidden">
 
         <!-- P2P Call Overlays -->
         <x-calling.incoming-call-modal />
@@ -133,9 +135,32 @@
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
             },
             body: JSON.stringify({ message: message || '', display_message: displayMessage || '', button_index: buttonIndex || 1 })
-        }).then(r => r.json()).then(data => {
-            if (data.success) globalEmergencyActive = true;
-        }).catch(() => {});
+        }).then(async r => {
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok || !data.success) {
+                throw new Error(data.error || 'Failed to trigger emergency alert.');
+            }
+
+            globalEmergencyActive = true;
+            pollEmergencyStatus();
+
+            if (window.Swal) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Emergency Triggered',
+                    text: data.message || 'Emergency alert sent successfully.',
+                    timer: 2200,
+                    timerProgressBar: true,
+                    showConfirmButton: false
+                });
+            }
+
+            return data;
+        }).catch(error => {
+            if (window.Swal) {
+                Swal.fire('Error', error.message || 'Failed to trigger emergency alert.', 'error');
+            }
+        });
     }
 
     window.fireEmergencyButton = function(message, displayMessage, buttonIndex) {
@@ -150,9 +175,22 @@
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
             },
             body: JSON.stringify({})
-        }).then(r => r.json()).then(data => {
-            if (data.success) globalEmergencyActive = false;
-        }).catch(() => {});
+        }).then(async r => {
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok || !data.success) {
+                throw new Error(data.error || 'Failed to clear emergency alert.');
+            }
+
+            globalEmergencyActive = false;
+            activeEmergencyId = null;
+            hideEmBanner();
+
+            return data;
+        }).catch(error => {
+            if (window.Swal) {
+                Swal.fire('Error', error.message || 'Failed to clear emergency alert.', 'error');
+            }
+        });
     }
 
     @if($callingModuleConfig)
@@ -225,9 +263,9 @@
         }
     }
 
-    function showEmBanner(message, triggeredAt, displayDuration, color, flashOn, flashOff) {
+    function showEmBanner(message, activatedAt, displayDuration, color, flashOn, flashOff) {
         if (window.KashtreEmergencyAmbient) {
-            window.KashtreEmergencyAmbient.show(color, triggeredAt, displayDuration, activeEmergencyId);
+            window.KashtreEmergencyAmbient.show(color, activatedAt, displayDuration, activeEmergencyId);
         }
         if (!emBanner) return;
         var bg   = EM_COLOR_MAP[color] || '#dc2626';
@@ -239,8 +277,8 @@
         startEmFlash(onMs, offMs);
 
         clearTimeout(emDismissTimer);
-        if (displayDuration > 0) {
-            var elapsed   = Math.floor(Date.now() / 1000) - triggeredAt;
+        if (displayDuration > 0 && activatedAt) {
+            var elapsed   = Math.floor(Date.now() / 1000) - activatedAt;
             var remaining = (displayDuration - elapsed) * 1000;
             if (remaining <= 0) { hideEmBanner(); return; }
             emDismissTimer = setTimeout(hideEmBanner, remaining);
@@ -265,7 +303,7 @@
             if (data.active) {
                 if (data.id !== activeEmergencyId) {
                     activeEmergencyId = data.id;
-                    showEmBanner(data.message, data.triggered_at, data.display_duration, data.color, data.flash_on, data.flash_off);
+                    showEmBanner(data.message, data.activated_at ?? data.triggered_at, data.display_duration, data.color, data.flash_on, data.flash_off);
                 }
             } else {
                 activeEmergencyId = null;
@@ -279,7 +317,7 @@
     activeEmergencyId = {{ $activeEmergencyAlert->id }};
     showEmBanner(
         @json($activeEmergencyAlert->display_message ?: $activeEmergencyAlert->message),
-        {{ $activeEmergencyAlert->triggered_at->timestamp }},
+        {{ ($activeEmergencyAlert->activated_at ?? $activeEmergencyAlert->triggered_at)->timestamp }},
         {{ $callingModuleConfig->emergency_display_duration ?? 0 }},
         @json($activeEmergencyAlert->color ?? 'red'),
         {{ $callingModuleConfig->emergency_flash_on  ?? 3 }},

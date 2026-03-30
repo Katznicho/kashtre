@@ -2,6 +2,8 @@
     'enabled' => false,
     'activeAlert' => null,
     'displayDuration' => 0,
+    'flashOn' => 3,
+    'flashOff' => 1,
     'statusUrl' => null,
     'poll' => true,
     'pollInterval' => 5000,
@@ -12,8 +14,10 @@
         $initialAlert = $activeAlert ? [
             'id' => $activeAlert->id,
             'color' => $activeAlert->color ?? 'red',
-            'triggered_at' => $activeAlert->triggered_at?->timestamp,
+            'activated_at' => ($activeAlert->activated_at ?? $activeAlert->triggered_at)?->timestamp,
             'display_duration' => (int) $displayDuration,
+            'flash_on' => (int) $flashOn,
+            'flash_off' => (int) $flashOff,
         ] : null;
     @endphp
 
@@ -31,6 +35,7 @@
                 var dismissTimer = null;
                 var pollTimer = null;
                 var activeEmergencyId = null;
+                var flashStyleEl = null;
 
                 var EM_COLOR_RGB_MAP = {
                     red: '220, 38, 38',
@@ -47,6 +52,43 @@
                     }
                 }
 
+                function stopFlash() {
+                    if (!el) return;
+                    el.style.animation = 'none';
+                    el.style.opacity = '1';
+                }
+
+                function startFlash(onSeconds, offSeconds) {
+                    if (!el) return;
+
+                    var onMs = Math.max(1, Number(onSeconds || 3)) * 1000;
+                    var offMs = Math.max(0, Number(offSeconds || 1)) * 1000;
+
+                    if (offMs === 0) {
+                        stopFlash();
+                        return;
+                    }
+
+                    var total = onMs + offMs;
+                    var onPct = ((onMs / total) * 100).toFixed(3);
+
+                    if (!flashStyleEl) {
+                        flashStyleEl = document.createElement('style');
+                        flashStyleEl.id = 'emergency-ambient-flash-style';
+                        document.head.appendChild(flashStyleEl);
+                    }
+
+                    flashStyleEl.textContent =
+                        '@keyframes emergency-ambient-flash {' +
+                        '0% { opacity: 1; }' +
+                        onPct + '% { opacity: 1; }' +
+                        onPct + '% { opacity: 0; }' +
+                        '100% { opacity: 0; }' +
+                        '}';
+
+                    el.style.animation = 'emergency-ambient-flash ' + total + 'ms linear infinite';
+                }
+
                 function renderAmbient(color) {
                     if (!el) return;
                     var rgb = EM_COLOR_RGB_MAP[color] || EM_COLOR_RGB_MAP.red;
@@ -60,17 +102,19 @@
                 function hide() {
                     if (!el) return;
                     clearDismissTimer();
+                    stopFlash();
                     el.style.opacity = '0';
                 }
 
-                function show(color, triggeredAt, displayDuration, id) {
+                function show(color, activatedAt, displayDuration, id, flashOn, flashOff) {
                     if (!el) return;
                     activeEmergencyId = id ?? activeEmergencyId;
                     renderAmbient(color);
                     clearDismissTimer();
+                    startFlash(flashOn, flashOff);
 
-                    if (displayDuration > 0 && triggeredAt) {
-                        var elapsed = Math.floor(Date.now() / 1000) - Number(triggeredAt);
+                    if (displayDuration > 0 && activatedAt) {
+                        var elapsed = Math.floor(Date.now() / 1000) - Number(activatedAt);
                         var remaining = (Number(displayDuration) - elapsed) * 1000;
                         if (remaining <= 0) {
                             activeEmergencyId = null;
@@ -87,7 +131,14 @@
                 function sync(data) {
                     if (data && data.active) {
                         if (data.id !== activeEmergencyId || !el || el.style.opacity !== '1') {
-                            show(data.color, data.triggered_at, data.display_duration, data.id);
+                            show(
+                                data.color,
+                                data.activated_at ?? data.triggered_at,
+                                data.display_duration,
+                                data.id,
+                                data.flash_on,
+                                data.flash_off
+                            );
                         }
                         return;
                     }
@@ -123,9 +174,11 @@
                     if (config.initialAlert) {
                         show(
                             config.initialAlert.color,
-                            config.initialAlert.triggered_at,
+                            config.initialAlert.activated_at,
                             config.initialAlert.display_duration,
-                            config.initialAlert.id
+                            config.initialAlert.id,
+                            config.initialAlert.flash_on,
+                            config.initialAlert.flash_off
                         );
                     }
 

@@ -33,7 +33,10 @@ class AnnounceQueuedEmergencyJob implements ShouldQueue
                 'resolved_at' => now(),
             ]);
 
-        $alert->update(['is_active' => true]);
+        $alert->update([
+            'is_active' => true,
+            'activated_at' => now(),
+        ]);
 
         app(CallingServiceClient::class)->syncEmergency($alert);
     }

@@ -18,6 +18,7 @@ class EmergencyAlert extends Model
         'is_active',
         'triggered_by',
         'triggered_at',
+        'activated_at',
         'scheduled_announce_at',
         'resolved_by',
         'resolved_at',
@@ -26,6 +27,7 @@ class EmergencyAlert extends Model
     protected $casts = [
         'is_active'            => 'boolean',
         'triggered_at'         => 'datetime',
+        'activated_at'         => 'datetime',
         'scheduled_announce_at'=> 'datetime',
         'resolved_at'          => 'datetime',
     ];

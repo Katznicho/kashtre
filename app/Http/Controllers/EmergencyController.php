@@ -146,6 +146,7 @@ class EmergencyController extends Controller
                 'is_active'             => false,
                 'triggered_by'          => $user->id,
                 'triggered_at'          => now(),
+                'activated_at'         => null,
                 'scheduled_announce_at' => $scheduleAt,
             ]);
 
@@ -164,6 +165,7 @@ class EmergencyController extends Controller
                 'is_active'             => true,
                 'triggered_by'          => $user->id,
                 'triggered_at'          => now(),
+                'activated_at'         => now(),
                 'scheduled_announce_at' => now(),
             ]);
 
@@ -273,6 +275,7 @@ class EmergencyController extends Controller
                 'is_active'             => false,
                 'triggered_by'          => $user->id,
                 'triggered_at'          => now(),
+                'activated_at'         => null,
                 'scheduled_announce_at' => $scheduleAt,
             ]);
 
@@ -290,6 +293,7 @@ class EmergencyController extends Controller
                 'is_active'             => true,
                 'triggered_by'          => $user->id,
                 'triggered_at'          => now(),
+                'activated_at'         => now(),
                 'scheduled_announce_at' => now(),
             ]);
 
@@ -328,6 +332,8 @@ class EmergencyController extends Controller
             return response()->json(['active' => false]);
         }
 
+        $activeAt = $alert->activated_at ?? $alert->triggered_at;
+
         return response()->json([
             'active'           => true,
             'id'               => $alert->id,
@@ -335,6 +341,7 @@ class EmergencyController extends Controller
             'color'            => $alert->color ?? 'red',
             'flash_on'         => $config->emergency_flash_on  ?? 3,
             'flash_off'        => $config->emergency_flash_off ?? 1,
+            'activated_at'     => $activeAt?->timestamp,
             'triggered_at'     => $alert->triggered_at->timestamp,
             'display_duration' => $config->emergency_display_duration ?? 0,
         ]);
@@ -388,6 +395,8 @@ class EmergencyController extends Controller
             return response()->json(['active' => false])->header('Access-Control-Allow-Origin', '*');
         }
 
+        $activeAt = $alert->activated_at ?? $alert->triggered_at;
+
         return response()->json([
             'active'       => true,
             'id'           => $alert->id,
@@ -395,6 +404,7 @@ class EmergencyController extends Controller
             'flash_on'     => $config->emergency_flash_on  ?? 3,
             'flash_off'    => $config->emergency_flash_off ?? 1,
             'message'      => $alert->display_message ?: $alert->message,
+            'activated_at' => $activeAt?->toISOString(),
             'triggered_at' => $alert->triggered_at?->toISOString(),
         ])->header('Access-Control-Allow-Origin', '*');
     }

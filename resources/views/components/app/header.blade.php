@@ -71,6 +71,7 @@
                         @endphp
                         @if($btnName && $btnMessage)
                             <button
+                                type="button"
                                 onclick="fireEmergencyButton('{{ addslashes($btnMessage) }}', '{{ addslashes($btnDisplayMessage) }}', {{ $n }})"
                                 class="px-5 py-2 rounded text-sm font-bold tracking-wide transition {{ $colorClass }}"
                             >{{ $btnName }}</button>
@@ -79,6 +80,7 @@
 
                     <!-- Resolve Emergency Button -->
                     <button
+                        type="button"
                         id="global-emergency-resolve-btn"
                         onclick="resolveGlobalEmergency()"
                         class="px-5 py-2 rounded text-sm font-bold tracking-wide transition bg-gray-600 hover:bg-gray-700 text-white border border-gray-800 hidden"
