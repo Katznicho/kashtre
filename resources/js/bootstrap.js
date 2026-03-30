@@ -27,13 +27,18 @@ const reverbHost = !configuredReverbHost
     : (localReverbHosts.includes(configuredReverbHost) && !localReverbHosts.includes(window.location.hostname)
         ? window.location.hostname
         : configuredReverbHost);
+const reverbAppKey = import.meta.env.VITE_REVERB_APP_KEY;
 
-window.Echo = new Echo({
-    broadcaster: 'reverb',
-    key: import.meta.env.VITE_REVERB_APP_KEY,
-    wsHost: reverbHost,
-    wsPort: import.meta.env.VITE_REVERB_PORT ?? 80,
-    wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
-    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
-    enabledTransports: ['ws', 'wss'],
-});
+if (reverbAppKey) {
+    window.Echo = new Echo({
+        broadcaster: 'reverb',
+        key: reverbAppKey,
+        wsHost: reverbHost,
+        wsPort: import.meta.env.VITE_REVERB_PORT ?? 80,
+        wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
+        forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
+        enabledTransports: ['ws', 'wss'],
+    });
+} else {
+    console.warn('Reverb disabled: missing VITE_REVERB_APP_KEY during frontend build.');
+}

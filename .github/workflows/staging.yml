@@ -37,6 +37,11 @@ jobs:
         run: npm ci
 
       - name: Build frontend assets
+        env:
+          VITE_REVERB_APP_KEY: kashtre-reverb-key
+          VITE_REVERB_HOST: reverb.kashtre.com
+          VITE_REVERB_PORT: 443
+          VITE_REVERB_SCHEME: https
         run: npm run build
 
       - name: Install sshpass
