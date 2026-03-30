@@ -22,7 +22,7 @@ class PaAnnouncementController extends Controller
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            $publicMethods = ['displayPaConfig', 'displaySignal'];
+            $publicMethods = ['displayPaConfig', 'displaySignal', 'displayPaStream'];
             $method = $request->route()?->getActionMethod();
 
             if (in_array($method, $publicMethods, true)) {
