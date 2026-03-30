@@ -17,8 +17,10 @@ export default function callingSystem() {
         ringtoneAudio: null,
         outgoingRingtoneAudio: null,
         incomingPollInterval: null,
+        callStatusPollInterval: null,
         reconnectAttempts: 0,
         maxReconnectAttempts: 3,
+        hasInitiatedWebRTC: false,
 
         // ICE servers config (Google STUN)
         iceServers: {
@@ -48,12 +50,14 @@ export default function callingSystem() {
                         this.callId = e.call_id;
                         this.remoteUser = e.caller;
                         this.changeState('incoming');
+                        this.startCallStatusPoll();
                     })
                     .listen('.CallAccepted', (e) => {
                         console.log('Call accepted by callee:', e);
                         if (this.callId === e.call_id) {
                             this.changeState('connected');
-                            this.initiateWebRTC();
+                            this.startCallStatusPoll();
+                            this.initiateWebRTCOnce();
                         }
                     })
                     .listen('.CallRejected', (e) => {
@@ -158,6 +162,7 @@ export default function callingSystem() {
                 this.callId = response.data.call_id;
                 this.remoteUser = response.data.callee;
                 this.changeState('calling');
+                this.startCallStatusPoll();
             } catch (error) {
                 console.error('Failed to initiate call', error);
                 alert(error.response?.data?.error || 'Failed to initiate call');
@@ -170,6 +175,7 @@ export default function callingSystem() {
                 await this.getLocalStream();
                 await axios.post(`/calls/${this.callId}/accept`);
                 this.changeState('connected');
+                this.startCallStatusPoll();
                 // Caller will initiate WebRTC offer upon receiving CallAccepted event
             } catch (error) {
                 console.error('Failed to accept call', error);
@@ -226,6 +232,26 @@ export default function callingSystem() {
             }
         },
 
+        startCallStatusPoll() {
+            this.stopCallStatusPoll();
+
+            if (!this.callId) {
+                return;
+            }
+
+            this.syncCallStatus();
+            this.callStatusPollInterval = setInterval(() => {
+                this.syncCallStatus();
+            }, 1500);
+        },
+
+        stopCallStatusPoll() {
+            if (this.callStatusPollInterval) {
+                clearInterval(this.callStatusPollInterval);
+                this.callStatusPollInterval = null;
+            }
+        },
+
         async checkIncomingCall() {
             if (this.callState !== 'idle') return;
 
@@ -240,8 +266,43 @@ export default function callingSystem() {
                 this.callId = incomingCall.call_id;
                 this.remoteUser = incomingCall.caller;
                 this.changeState('incoming');
+                this.startCallStatusPoll();
             } catch (error) {
                 console.error('Incoming call fallback check failed', error);
+            }
+        },
+
+        async syncCallStatus() {
+            if (!this.callId || this.callState === 'idle') return;
+
+            try {
+                const response = await axios.get(`/calls/${this.callId}/status`);
+                const status = response.data;
+
+                if (status?.other_user) {
+                    this.remoteUser = status.other_user;
+                }
+
+                if (status.status === 'ringing') {
+                    return;
+                }
+
+                if (status.status === 'in_progress') {
+                    this.changeState('connected');
+
+                    if (status.is_caller) {
+                        this.initiateWebRTCOnce();
+                    }
+
+                    return;
+                }
+
+                if (['completed', 'missed', 'cancelled', 'rejected'].includes(status.status)) {
+                    this.changeState('ended');
+                    setTimeout(() => this.resetCall(), 2000);
+                }
+            } catch (error) {
+                console.error('Call status sync failed', error);
             }
         },
 
@@ -322,6 +383,19 @@ export default function callingSystem() {
             this.sendSignal('offer', offer);
         },
 
+        async initiateWebRTCOnce() {
+            if (this.hasInitiatedWebRTC) return;
+
+            this.hasInitiatedWebRTC = true;
+
+            try {
+                await this.initiateWebRTC();
+            } catch (error) {
+                this.hasInitiatedWebRTC = false;
+                console.error('Failed to start WebRTC offer', error);
+            }
+        },
+
         sendSignal(type, data) {
             axios.post(`/calls/${this.callId}/signal`, {
                 type: type,
@@ -332,6 +406,10 @@ export default function callingSystem() {
         // --- UI & State Management ---
 
         changeState(newState) {
+            if (this.callState === newState) {
+                return;
+            }
+
             this.callState = newState;
 
             this.ringtoneAudio.stop();
@@ -387,6 +465,8 @@ export default function callingSystem() {
             this.duration = 0;
             this.durationFormatted = '00:00';
             this.reconnectAttempts = 0;
+            this.hasInitiatedWebRTC = false;
+            this.stopCallStatusPoll();
 
             if (this.peerConnection) {
                 this.peerConnection.close();

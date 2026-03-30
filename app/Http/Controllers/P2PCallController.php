@@ -327,4 +327,39 @@ class P2PCallController extends Controller
             'started_at' => optional($call->started_at)->toISOString(),
         ]);
     }
+
+    /**
+     * Reconcile the current call state from the database as a fallback when
+     * realtime events are delayed or missed by the browser.
+     */
+    public function callStatus($callUuid)
+    {
+        $user = Auth::user();
+
+        $call = P2PCall::where('uuid', $callUuid)
+            ->where('business_id', $user->business_id)
+            ->where(function ($q) use ($user) {
+                $q->where('caller_id', $user->id)
+                    ->orWhere('callee_id', $user->id);
+            })
+            ->with(['caller', 'callee'])
+            ->firstOrFail();
+
+        $otherUser = $call->caller_id === $user->id ? $call->callee : $call->caller;
+
+        return response()->json([
+            'call_id' => $call->uuid,
+            'status' => $call->status,
+            'is_caller' => $call->caller_id === $user->id,
+            'answered_at' => optional($call->answered_at)->toISOString(),
+            'ended_at' => optional($call->ended_at)->toISOString(),
+            'end_reason' => $call->end_reason,
+            'other_user' => [
+                'id' => $otherUser->id,
+                'uuid' => $otherUser->uuid,
+                'name' => $otherUser->name,
+                'photo' => $otherUser->profile_photo_url,
+            ],
+        ]);
+    }
 }
