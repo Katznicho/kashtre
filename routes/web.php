@@ -495,6 +495,7 @@ Route::prefix('calls')->name('calls.')->group(function () {
     Route::post('/{callUuid}/cancel', [\App\Http\Controllers\P2PCallController::class, 'cancelCall'])->name('cancel');
     Route::post('/{callUuid}/end', [\App\Http\Controllers\P2PCallController::class, 'endCall'])->name('end');
     Route::post('/{callUuid}/signal', [\App\Http\Controllers\P2PCallController::class, 'signal'])->name('signal');
+    Route::get('/incoming', [\App\Http\Controllers\P2PCallController::class, 'incomingCall'])->name('incoming');
     Route::get('/history', [\App\Http\Controllers\P2PCallController::class, 'callHistory'])->name('history');
     Route::get('/online-users', [\App\Http\Controllers\P2PCallController::class, 'onlineUsers'])->name('online-users');
 });

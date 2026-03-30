@@ -16,6 +16,7 @@ export default function callingSystem() {
         timerInterval: null,
         ringtoneAudio: null,
         outgoingRingtoneAudio: null,
+        incomingPollInterval: null,
         reconnectAttempts: 0,
         maxReconnectAttempts: 3,
 
@@ -107,6 +108,8 @@ export default function callingSystem() {
                         });
                 }
             }
+
+            this.startIncomingPoll();
         },
 
         // --- Ringtone helpers (Web Audio API) ---
@@ -205,6 +208,40 @@ export default function callingSystem() {
             } catch (error) {
                 console.error('Failed to end call', error);
                 this.resetCall();
+            }
+        },
+
+        startIncomingPoll() {
+            this.stopIncomingPoll();
+            this.checkIncomingCall();
+            this.incomingPollInterval = setInterval(() => {
+                this.checkIncomingCall();
+            }, 1500);
+        },
+
+        stopIncomingPoll() {
+            if (this.incomingPollInterval) {
+                clearInterval(this.incomingPollInterval);
+                this.incomingPollInterval = null;
+            }
+        },
+
+        async checkIncomingCall() {
+            if (this.callState !== 'idle') return;
+
+            try {
+                const response = await axios.get('/calls/incoming');
+                const incomingCall = response.data;
+
+                if (!incomingCall?.call_id) {
+                    return;
+                }
+
+                this.callId = incomingCall.call_id;
+                this.remoteUser = incomingCall.caller;
+                this.changeState('incoming');
+            } catch (error) {
+                console.error('Incoming call fallback check failed', error);
             }
         },
 

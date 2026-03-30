@@ -295,4 +295,36 @@ class P2PCallController extends Controller
 
         return response()->json($users);
     }
+
+    /**
+     * Lightweight fallback for the callee UI when realtime delivery is delayed.
+     */
+    public function incomingCall()
+    {
+        $user = Auth::user();
+
+        $call = P2PCall::where('callee_id', $user->id)
+            ->where('business_id', $user->business_id)
+            ->where('status', 'ringing')
+            ->with('caller')
+            ->latest('started_at')
+            ->first();
+
+        if (! $call) {
+            return response()->json([
+                'call_id' => null,
+            ]);
+        }
+
+        return response()->json([
+            'call_id' => $call->uuid,
+            'caller' => [
+                'id' => $call->caller->id,
+                'uuid' => $call->caller->uuid,
+                'name' => $call->caller->name,
+                'photo' => $call->caller->profile_photo_url,
+            ],
+            'started_at' => optional($call->started_at)->toISOString(),
+        ]);
+    }
 }
