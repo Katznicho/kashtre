@@ -108,69 +108,33 @@ class EmergencyController extends Controller
         $color       = ($buttonIndex === 2 ? $config->emergency_button_2_color : $config->emergency_button_1_color) ?? 'red';
         $buttonName  = ($buttonIndex === 2 ? $config->emergency_button_2_name : $config->emergency_button_1_name) ?: 'Emergency';
 
-        // Check for any pending or active alert (not yet resolved)
-        $latest = EmergencyAlert::where('business_id', $user->business_id)
+        // Emergency alerts should activate immediately on shared hosting too.
+        // Replace any unresolved alert instead of queueing behind stale/pending rows.
+        EmergencyAlert::where('business_id', $user->business_id)
             ->whereNull('resolved_at')
-            ->orderByDesc('scheduled_announce_at')
-            ->first();
-
-        // If the latest pending alert's scheduled time is already past (stale/orphaned),
-        // auto-resolve it and treat this trigger as immediate.
-        if ($latest) {
-            $scheduleAt = $this->nextScheduleAt($latest, $config);
-            if ($scheduleAt->isPast()) {
-                EmergencyAlert::where('business_id', $user->business_id)
-                    ->whereNull('resolved_at')
-                    ->update([
-                        'is_active'   => false,
-                        'resolved_by' => $user->id,
-                        'resolved_at' => now(),
-                    ]);
-                $latest = null;
-            }
-        }
-
-        if ($latest) {
-            // Queue — schedule after the latest alert's estimated completion + 60 s
-            $scheduleAt = $this->nextScheduleAt($latest, $config);
-
-            $alert = EmergencyAlert::create([
-                'business_id'           => $user->business_id,
-                'service_point_id'      => $servicePoint->id,
-                'service_point_name'    => $servicePoint->name,
-                'room_name'             => $roomContext['room_name'],
-                'button_name'           => $buttonName,
-                'message'               => $message,
-                'display_message'       => $displayMessage,
-                'color'                 => $color,
-                'is_active'             => false,
-                'triggered_by'          => $user->id,
-                'triggered_at'          => now(),
-                'activated_at'         => null,
-                'scheduled_announce_at' => $scheduleAt,
+            ->update([
+                'is_active'   => false,
+                'resolved_by' => $user->id,
+                'resolved_at' => now(),
             ]);
 
-            AnnounceQueuedEmergencyJob::dispatch($alert->id)->delay($scheduleAt);
-        } else {
-            // Announce immediately
-            $alert = EmergencyAlert::create([
-                'business_id'           => $user->business_id,
-                'service_point_id'      => $servicePoint->id,
-                'service_point_name'    => $servicePoint->name,
-                'room_name'             => $roomContext['room_name'],
-                'button_name'           => $buttonName,
-                'message'               => $message,
-                'display_message'       => $displayMessage,
-                'color'                 => $color,
-                'is_active'             => true,
-                'triggered_by'          => $user->id,
-                'triggered_at'          => now(),
-                'activated_at'         => now(),
-                'scheduled_announce_at' => now(),
-            ]);
+        $alert = EmergencyAlert::create([
+            'business_id'           => $user->business_id,
+            'service_point_id'      => $servicePoint->id,
+            'service_point_name'    => $servicePoint->name,
+            'room_name'             => $roomContext['room_name'],
+            'button_name'           => $buttonName,
+            'message'               => $message,
+            'display_message'       => $displayMessage,
+            'color'                 => $color,
+            'is_active'             => true,
+            'triggered_by'          => $user->id,
+            'triggered_at'          => now(),
+            'activated_at'          => now(),
+            'scheduled_announce_at' => now(),
+        ]);
 
-            app(CallingServiceClient::class)->syncEmergency($alert);
-        }
+        app(CallingServiceClient::class)->syncEmergency($alert);
 
         $duration = (int) ($config->emergency_display_duration ?? 0);
         $est = $this->estimateAnnounceDuration($alert, $config);
@@ -239,66 +203,31 @@ class EmergencyController extends Controller
         $color       = ($buttonIndex === 2 ? $config->emergency_button_2_color : $config->emergency_button_1_color) ?? 'red';
         $buttonName  = ($buttonIndex === 2 ? $config->emergency_button_2_name : $config->emergency_button_1_name) ?: 'Emergency';
 
-        $latest = EmergencyAlert::where('business_id', $user->business_id)
+        EmergencyAlert::where('business_id', $user->business_id)
             ->whereNull('resolved_at')
-            ->orderByDesc('scheduled_announce_at')
-            ->first();
-
-        // If the latest pending alert's scheduled time is already past (stale/orphaned),
-        // auto-resolve it and treat this trigger as immediate.
-        if ($latest) {
-            $scheduleAt = $this->nextScheduleAt($latest, $config);
-            if ($scheduleAt->isPast()) {
-                EmergencyAlert::where('business_id', $user->business_id)
-                    ->whereNull('resolved_at')
-                    ->update([
-                        'is_active'   => false,
-                        'resolved_by' => $user->id,
-                        'resolved_at' => now(),
-                    ]);
-                $latest = null;
-            }
-        }
-
-        if ($latest) {
-            $scheduleAt = $this->nextScheduleAt($latest, $config);
-
-            $alert = EmergencyAlert::create([
-                'business_id'           => $user->business_id,
-                'service_point_id'      => null,
-                'service_point_name'    => null,
-                'room_name'             => $roomContext['room_name'],
-                'button_name'           => $buttonName,
-                'message'               => $message,
-                'display_message'       => $displayMessage,
-                'color'                 => $color,
-                'is_active'             => false,
-                'triggered_by'          => $user->id,
-                'triggered_at'          => now(),
-                'activated_at'         => null,
-                'scheduled_announce_at' => $scheduleAt,
+            ->update([
+                'is_active'   => false,
+                'resolved_by' => $user->id,
+                'resolved_at' => now(),
             ]);
 
-            AnnounceQueuedEmergencyJob::dispatch($alert->id)->delay($scheduleAt);
-        } else {
-            $alert = EmergencyAlert::create([
-                'business_id'           => $user->business_id,
-                'service_point_id'      => null,
-                'service_point_name'    => null,
-                'room_name'             => $roomContext['room_name'],
-                'button_name'           => $buttonName,
-                'message'               => $message,
-                'display_message'       => $displayMessage,
-                'color'                 => $color,
-                'is_active'             => true,
-                'triggered_by'          => $user->id,
-                'triggered_at'          => now(),
-                'activated_at'         => now(),
-                'scheduled_announce_at' => now(),
-            ]);
+        $alert = EmergencyAlert::create([
+            'business_id'           => $user->business_id,
+            'service_point_id'      => null,
+            'service_point_name'    => null,
+            'room_name'             => $roomContext['room_name'],
+            'button_name'           => $buttonName,
+            'message'               => $message,
+            'display_message'       => $displayMessage,
+            'color'                 => $color,
+            'is_active'             => true,
+            'triggered_by'          => $user->id,
+            'triggered_at'          => now(),
+            'activated_at'          => now(),
+            'scheduled_announce_at' => now(),
+        ]);
 
-            app(CallingServiceClient::class)->syncEmergency($alert);
-        }
+        app(CallingServiceClient::class)->syncEmergency($alert);
 
         $duration = (int) ($config->emergency_display_duration ?? 0);
         $est = $this->estimateAnnounceDuration($alert, $config);
