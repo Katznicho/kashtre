@@ -9,7 +9,6 @@ use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Tables;
-use Filament\Tables\Actions\CreateAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Actions\DeleteAction;
@@ -209,10 +208,20 @@ class ListMaturationPeriods extends Component implements HasForms, HasTable
                 ]),
             ])
             ->headerActions([
-                CreateAction::make()
+                Action::make('create')
                     ->visible(fn() => $this->can('Add Maturation Periods'))
                     ->label('Create Maturation Period')
+                    ->icon('heroicon-o-plus')
                     ->url(route('maturation-periods.create'))
+                    ->color('success'),
+            ])
+            ->emptyStateActions([
+                Action::make('createEmpty')
+                    ->visible(fn() => $this->can('Add Maturation Periods'))
+                    ->label('Create Maturation Period')
+                    ->icon('heroicon-o-plus')
+                    ->url(route('maturation-periods.create'))
+                    ->button()
                     ->color('success'),
             ])
             ->defaultSort('business_id')
