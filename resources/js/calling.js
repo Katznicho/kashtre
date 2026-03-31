@@ -23,6 +23,8 @@ export default function callingSystem() {
         maxReconnectAttempts: 3,
         hasInitiatedWebRTC: false,
         processedSignalIds: [],
+        pendingIceCandidates: [],
+        audioPlaybackUnlockHandler: null,
 
         // ICE servers config (Google STUN)
         iceServers: {
@@ -135,6 +137,103 @@ export default function callingSystem() {
                     ctx = null;
                 }
             };
+        },
+
+        getRemoteAudioElement() {
+            return document.getElementById('remoteAudio');
+        },
+
+        attachRemoteStream() {
+            const audioElement = this.getRemoteAudioElement();
+            if (!audioElement || !this.remoteStream) {
+                return;
+            }
+
+            audioElement.autoplay = true;
+            audioElement.playsInline = true;
+            audioElement.muted = false;
+            audioElement.volume = 1;
+
+            if (audioElement.srcObject !== this.remoteStream) {
+                audioElement.srcObject = this.remoteStream;
+            }
+
+            this.ensureRemoteAudioPlayback();
+        },
+
+        ensureRemoteAudioPlayback() {
+            const audioElement = this.getRemoteAudioElement();
+            if (!audioElement?.srcObject) {
+                return;
+            }
+
+            const playPromise = audioElement.play();
+            if (typeof playPromise?.catch !== 'function') {
+                return;
+            }
+
+            playPromise
+                .then(() => this.unbindAudioPlaybackUnlock())
+                .catch((error) => {
+                    console.warn('Remote audio playback is waiting for browser permission:', error);
+                    this.bindAudioPlaybackUnlock();
+                });
+        },
+
+        bindAudioPlaybackUnlock() {
+            if (this.audioPlaybackUnlockHandler) {
+                return;
+            }
+
+            this.audioPlaybackUnlockHandler = () => {
+                this.ensureRemoteAudioPlayback();
+
+                if (!this.getRemoteAudioElement()?.paused) {
+                    this.unbindAudioPlaybackUnlock();
+                }
+            };
+
+            ['click', 'touchstart', 'keydown'].forEach((eventName) => {
+                window.addEventListener(eventName, this.audioPlaybackUnlockHandler);
+            });
+        },
+
+        unbindAudioPlaybackUnlock() {
+            if (!this.audioPlaybackUnlockHandler) {
+                return;
+            }
+
+            ['click', 'touchstart', 'keydown'].forEach((eventName) => {
+                window.removeEventListener(eventName, this.audioPlaybackUnlockHandler);
+            });
+
+            this.audioPlaybackUnlockHandler = null;
+        },
+
+        async addRemoteIceCandidate(candidateData) {
+            const candidate = new RTCIceCandidate(candidateData);
+
+            if (!this.peerConnection?.remoteDescription) {
+                this.pendingIceCandidates.push(candidate);
+                return;
+            }
+
+            await this.peerConnection.addIceCandidate(candidate);
+        },
+
+        async flushPendingIceCandidates() {
+            if (!this.peerConnection?.remoteDescription || this.pendingIceCandidates.length === 0) {
+                return;
+            }
+
+            const pendingCandidates = this.pendingIceCandidates.splice(0);
+            for (const candidate of pendingCandidates) {
+                try {
+                    await this.peerConnection.addIceCandidate(candidate);
+                } catch (error) {
+                    console.error('Failed to apply queued ICE candidate', error);
+                }
+            }
         },
 
         // --- Call Control Actions ---
@@ -350,13 +449,15 @@ export default function callingSystem() {
 
             if (signal.type === 'offer') {
                 await this.peerConnection.setRemoteDescription(new RTCSessionDescription(signal.data));
+                await this.flushPendingIceCandidates();
                 const answer = await this.peerConnection.createAnswer();
                 await this.peerConnection.setLocalDescription(answer);
                 this.sendSignal('answer', answer);
             } else if (signal.type === 'answer') {
                 await this.peerConnection.setRemoteDescription(new RTCSessionDescription(signal.data));
+                await this.flushPendingIceCandidates();
             } else if (signal.type === 'candidate') {
-                await this.peerConnection.addIceCandidate(new RTCIceCandidate(signal.data));
+                await this.addRemoteIceCandidate(signal.data);
             }
         },
 
@@ -368,19 +469,31 @@ export default function callingSystem() {
         },
 
         async setupPeerConnection() {
+            if (!this.localStream) {
+                await this.getLocalStream();
+            }
+
             this.peerConnection = new RTCPeerConnection(this.iceServers);
+            this.remoteStream = this.remoteStream || new MediaStream();
 
             this.localStream.getTracks().forEach(track => {
                 this.peerConnection.addTrack(track, this.localStream);
             });
 
             this.peerConnection.ontrack = (event) => {
-                this.remoteStream = event.streams[0];
-                const audioElement = document.getElementById('remoteAudio');
-                if (audioElement && audioElement.srcObject !== this.remoteStream) {
-                    audioElement.srcObject = this.remoteStream;
-                    audioElement.play().catch(e => console.error("Audio playback failed", e));
+                if (!this.remoteStream) {
+                    this.remoteStream = new MediaStream();
                 }
+
+                if (event.track && !this.remoteStream.getTracks().some(track => track.id === event.track.id)) {
+                    this.remoteStream.addTrack(event.track);
+                }
+
+                event.track.onunmute = () => {
+                    this.attachRemoteStream();
+                };
+
+                this.attachRemoteStream();
             };
 
             this.peerConnection.onicecandidate = (event) => {
@@ -475,6 +588,7 @@ export default function callingSystem() {
                 this.outgoingRingtoneAudio.play();
             } else if (newState === 'connected') {
                 this.startTimer();
+                this.ensureRemoteAudioPlayback();
             } else if (newState === 'ended') {
                 this.stopTimer();
             }
@@ -521,8 +635,10 @@ export default function callingSystem() {
             this.reconnectAttempts = 0;
             this.hasInitiatedWebRTC = false;
             this.processedSignalIds = [];
+            this.pendingIceCandidates = [];
             this.stopCallStatusPoll();
             this.stopSignalPoll();
+            this.unbindAudioPlaybackUnlock();
 
             if (this.peerConnection) {
                 this.peerConnection.close();
@@ -534,8 +650,9 @@ export default function callingSystem() {
             }
             this.remoteStream = null;
 
-            const audioElement = document.getElementById('remoteAudio');
+            const audioElement = this.getRemoteAudioElement();
             if (audioElement) {
+                audioElement.pause();
                 audioElement.srcObject = null;
             }
         }

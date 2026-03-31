@@ -24,7 +24,7 @@
     </div>
 
     <!-- WebRTC Audio Elements (Hidden but essential) -->
-    <audio id="remoteAudio" autoplay class="hidden"></audio>
+    <audio id="remoteAudio" autoplay playsinline preload="auto" class="hidden"></audio>
 
     <!-- Controls -->
     <div class="px-6 py-5 flex items-center justify-center gap-6 bg-white dark:bg-slate-800">
