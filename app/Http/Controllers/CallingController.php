@@ -9,6 +9,7 @@ use App\Models\PaSection;
 use App\Models\ServiceDeliveryQueue;
 use App\Models\ServicePoint;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class CallingController extends Controller
 {
@@ -147,6 +148,13 @@ class CallingController extends Controller
         $type = $validated['type'] ?? 'calling';
 
         if ($type === 'serving') {
+            if (!empty($validated['client_id'])) {
+                $this->storeServingState(
+                    $servicePoint,
+                    (int) $validated['client_id'],
+                    $validated['client_name'] ?? null
+                );
+            }
             // View Details opened — fake the queue status to the display board without updating DB
             if (!empty($validated['client_id'])) {
                 $pendingQueues = ServiceDeliveryQueue::where('client_id', $validated['client_id'])
@@ -165,6 +173,9 @@ class CallingController extends Controller
         }
 
         if ($type === 'stop-serving') {
+            if (!empty($validated['client_id'])) {
+                $this->clearServingState($servicePoint, (int) $validated['client_id']);
+            }
             // View Details closed / Save & Exit — revert the fake 'serving' status on the display
             if (!empty($validated['client_id'])) {
                 $pendingQueues = ServiceDeliveryQueue::where('client_id', $validated['client_id'])
@@ -211,6 +222,49 @@ class CallingController extends Controller
         }
 
         return response()->json(['success' => true, 'log_id' => $log->id]);
+    }
+
+    private function storeServingState(ServicePoint $servicePoint, int $clientId, ?string $clientName = null): void
+    {
+        $cacheKey = $this->servingStateCacheKey($servicePoint->id);
+        $entries = Cache::get($cacheKey, []);
+
+        $visitId = trim((string) ($clientName ?? ''));
+
+        if ($visitId === '') {
+            $client = \App\Models\Client::select('visit_id', 'name')->find($clientId);
+            $visitId = $client?->visit_id ?: ($client?->name ?: ('Client #' . $clientId));
+        }
+
+        $entries[$clientId] = [
+            'client_id' => $clientId,
+            'visit_id' => $visitId,
+            'service_point_id' => $servicePoint->id,
+            'service_point' => $servicePoint->name,
+            'started_at' => now()->toIso8601String(),
+        ];
+
+        Cache::put($cacheKey, $entries, now()->addHours(12));
+    }
+
+    private function clearServingState(ServicePoint $servicePoint, int $clientId): void
+    {
+        $cacheKey = $this->servingStateCacheKey($servicePoint->id);
+        $entries = Cache::get($cacheKey, []);
+
+        unset($entries[$clientId]);
+
+        if (empty($entries)) {
+            Cache::forget($cacheKey);
+            return;
+        }
+
+        Cache::put($cacheKey, $entries, now()->addHours(12));
+    }
+
+    private function servingStateCacheKey(int $servicePointId): string
+    {
+        return "display-serving:service-point:{$servicePointId}";
     }
 
     /**

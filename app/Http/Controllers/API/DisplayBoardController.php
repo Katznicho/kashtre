@@ -10,6 +10,7 @@ use App\Models\EmergencyAlert;
 use App\Models\ServiceDeliveryQueue;
 use App\Services\CallingServiceClient;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class DisplayBoardController extends Controller
@@ -124,6 +125,30 @@ class DisplayBoardController extends Controller
             ->map(fn ($q) => [
                 'visit_id' => $q->client?->visit_id ?: ('Client #' . $q->client_id),
                 'service_point' => $q->servicePoint?->name ?: '—',
+            ]);
+
+        $cachedNowServing = collect($servicePointIds)
+            ->flatMap(function ($servicePointId) {
+                $entries = Cache::get("display-serving:service-point:{$servicePointId}", []);
+
+                return collect($entries)->map(fn ($entry) => [
+                    'visit_id' => $entry['visit_id'] ?? ('Client #' . ($entry['client_id'] ?? '')),
+                    'service_point' => $entry['service_point'] ?? '-',
+                    'started_at' => $entry['started_at'] ?? null,
+                ])->values();
+            });
+
+        $nowServing = $cachedNowServing
+            ->concat($nowServing->map(fn ($entry) => [
+                'visit_id' => $entry['visit_id'],
+                'service_point' => $entry['service_point'],
+                'started_at' => null,
+            ]))
+            ->unique(fn ($entry) => ($entry['visit_id'] ?? '') . '|' . ($entry['service_point'] ?? ''))
+            ->values()
+            ->map(fn ($entry) => [
+                'visit_id' => $entry['visit_id'],
+                'service_point' => $entry['service_point'],
             ]);
 
         $activeEmergency = EmergencyAlert::where('business_id', $caller->business_id)
