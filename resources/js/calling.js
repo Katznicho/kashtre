@@ -294,6 +294,74 @@ export default function callingSystem() {
             }
         },
 
+        serializeSessionDescription(description) {
+            if (!description) {
+                return null;
+            }
+
+            if (typeof description.toJSON === 'function') {
+                return description.toJSON();
+            }
+
+            return {
+                type: description.type,
+                sdp: description.sdp,
+            };
+        },
+
+        serializeIceCandidate(candidate) {
+            if (!candidate) {
+                return null;
+            }
+
+            if (typeof candidate.toJSON === 'function') {
+                return candidate.toJSON();
+            }
+
+            return {
+                candidate: candidate.candidate,
+                sdpMid: candidate.sdpMid,
+                sdpMLineIndex: candidate.sdpMLineIndex,
+                usernameFragment: candidate.usernameFragment,
+            };
+        },
+
+        waitForIceGatheringComplete(timeoutMs = 5000) {
+            if (!this.peerConnection || this.peerConnection.iceGatheringState === 'complete') {
+                return Promise.resolve();
+            }
+
+            return new Promise((resolve) => {
+                const peerConnection = this.peerConnection;
+                let timeoutId = null;
+
+                const cleanup = () => {
+                    if (!peerConnection) {
+                        return;
+                    }
+
+                    peerConnection.removeEventListener('icegatheringstatechange', handleStateChange);
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                    }
+                };
+
+                const handleStateChange = () => {
+                    if (peerConnection.iceGatheringState === 'complete') {
+                        cleanup();
+                        resolve();
+                    }
+                };
+
+                timeoutId = setTimeout(() => {
+                    cleanup();
+                    resolve();
+                }, timeoutMs);
+
+                peerConnection.addEventListener('icegatheringstatechange', handleStateChange);
+            });
+        },
+
         setMediaConnectionState(state, message = '') {
             this.mediaConnectionState = state;
             this.mediaConnectionMessage = message;
@@ -523,7 +591,8 @@ export default function callingSystem() {
                 await this.flushPendingIceCandidates();
                 const answer = await this.peerConnection.createAnswer();
                 await this.peerConnection.setLocalDescription(answer);
-                this.sendSignal('answer', answer);
+                await this.waitForIceGatheringComplete();
+                this.sendSignal('answer', this.serializeSessionDescription(this.peerConnection.localDescription));
             } else if (signal.type === 'answer') {
                 await this.peerConnection.setRemoteDescription(new RTCSessionDescription(signal.data));
                 await this.flushPendingIceCandidates();
@@ -570,7 +639,7 @@ export default function callingSystem() {
 
             this.peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
-                    this.sendSignal('candidate', event.candidate);
+                    this.sendSignal('candidate', this.serializeIceCandidate(event.candidate));
                 }
             };
 
@@ -626,7 +695,8 @@ export default function callingSystem() {
             await this.setupPeerConnection();
             const offer = await this.peerConnection.createOffer();
             await this.peerConnection.setLocalDescription(offer);
-            this.sendSignal('offer', offer);
+            await this.waitForIceGatheringComplete();
+            this.sendSignal('offer', this.serializeSessionDescription(this.peerConnection.localDescription));
         },
 
         async initiateWebRTCOnce() {
