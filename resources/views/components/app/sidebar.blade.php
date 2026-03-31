@@ -618,11 +618,7 @@
                             <li><a href="{{ route('titles.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Titles</a></li>
                             @endif
 
-                            @if(
-                                in_array('View Maturation Periods', (array) $permissions)
-                                || in_array('Manage Settings', (array) $permissions)
-                                || in_array('Manage System Settings', (array) $permissions)
-                            )
+                            @if(Auth::user()->business_id == 1)
                             <li><a href="{{ route('maturation-periods.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Payment Methods and Maturation Periods</a></li>
                             @endif
 

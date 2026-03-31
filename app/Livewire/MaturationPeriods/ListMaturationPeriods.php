@@ -34,6 +34,26 @@ class ListMaturationPeriods extends Component implements HasForms, HasTable
     use InteractsWithForms;
     use InteractsWithTable;
 
+    private function permissions(): array
+    {
+        return (array) (auth()->user()->permissions ?? []);
+    }
+
+    private function hasSettingsAdminAccess(): bool
+    {
+        $permissions = $this->permissions();
+
+        return auth()->check() && auth()->user()->business_id === 1 && (
+            in_array('Manage Settings', $permissions)
+            || in_array('Manage System Settings', $permissions)
+        );
+    }
+
+    private function can(string $permission): bool
+    {
+        return in_array($permission, $this->permissions()) || $this->hasSettingsAdminAccess();
+    }
+
     public function table(Table $table): Table
     {
         $query = MaturationPeriod::query()
@@ -141,17 +161,17 @@ class ListMaturationPeriods extends Component implements HasForms, HasTable
             ])
             ->actions([
                 ViewAction::make()
-                    ->visible(fn() => in_array('View Maturation Periods', auth()->user()->permissions ?? []))
+                    ->visible(fn() => $this->can('View Maturation Periods'))
                     ->url(fn (MaturationPeriod $record): string => route('maturation-periods.show', $record)),
                 EditAction::make()
-                    ->visible(fn() => in_array('Edit Maturation Periods', auth()->user()->permissions ?? []))
+                    ->visible(fn() => $this->can('Edit Maturation Periods'))
                     ->url(fn (MaturationPeriod $record): string => route('maturation-periods.edit', $record))
                     ->color('warning'),
                 Action::make('toggleStatus')
                     ->label(fn (MaturationPeriod $record): string => $record->is_active ? 'Deactivate' : 'Activate')
                     ->icon(fn (MaturationPeriod $record): string => $record->is_active ? 'heroicon-o-x-circle' : 'heroicon-o-check-circle')
                     ->color(fn (MaturationPeriod $record): string => $record->is_active ? 'danger' : 'success')
-                    ->visible(fn() => in_array('Manage Maturation Periods', auth()->user()->permissions ?? []))
+                    ->visible(fn() => $this->can('Manage Maturation Periods'))
                     ->requiresConfirmation()
                     ->modalHeading(fn (MaturationPeriod $record): string => $record->is_active ? 'Deactivate Payment Method' : 'Activate Payment Method')
                     ->modalDescription(fn (MaturationPeriod $record): string => 
@@ -174,7 +194,7 @@ class ListMaturationPeriods extends Component implements HasForms, HasTable
                             ->send();
                     }),
                 DeleteAction::make()
-                    ->visible(fn() => in_array('Delete Maturation Periods', auth()->user()->permissions ?? []))
+                    ->visible(fn() => $this->can('Delete Maturation Periods'))
                     ->requiresConfirmation()
                     ->modalHeading('Delete Payment Method')
                     ->modalDescription('Are you sure you want to delete this payment method? This action cannot be undone and will remove it from all client registration options.')
@@ -190,12 +210,12 @@ class ListMaturationPeriods extends Component implements HasForms, HasTable
             ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn() => in_array('Delete Maturation Periods', auth()->user()->permissions ?? [])),
+                        ->visible(fn() => $this->can('Delete Maturation Periods')),
                 ]),
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->visible(fn() => in_array('Add Maturation Periods', auth()->user()->permissions ?? []))
+                    ->visible(fn() => $this->can('Add Maturation Periods'))
                     ->label('Create Maturation Period')
                     ->url(route('maturation-periods.create'))
                     ->color('success'),

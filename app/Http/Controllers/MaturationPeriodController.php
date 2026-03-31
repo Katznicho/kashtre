@@ -11,6 +11,26 @@ use Illuminate\Support\Facades\DB;
 
 class MaturationPeriodController extends Controller
 {
+    private function permissions(): array
+    {
+        return (array) (auth()->user()->permissions ?? []);
+    }
+
+    private function hasSettingsAdminAccess(): bool
+    {
+        $permissions = $this->permissions();
+
+        return auth()->user()->business_id === 1 && (
+            in_array('Manage Settings', $permissions)
+            || in_array('Manage System Settings', $permissions)
+        );
+    }
+
+    private function can(string $permission): bool
+    {
+        return in_array($permission, $this->permissions()) || $this->hasSettingsAdminAccess();
+    }
+
     public function __construct()
     {
         // Only allow Kashtre users (business_id = 1) with proper permissions to access these settings
@@ -19,13 +39,8 @@ class MaturationPeriodController extends Controller
                 abort(403, 'Access denied. This feature is only available to Kashtre administrators.');
             }
 
-            $permissions = (array) (auth()->user()->permissions ?? []);
-            $canAccess = in_array('View Maturation Periods', $permissions)
-                || in_array('Manage Settings', $permissions)
-                || in_array('Manage System Settings', $permissions);
-
             // Check for View Maturation Periods permission
-            if (!$canAccess) {
+            if (!$this->can('View Maturation Periods')) {
                 abort(403, 'Access denied. You do not have permission to view maturation periods.');
             }
 
@@ -49,7 +64,7 @@ class MaturationPeriodController extends Controller
     public function create()
     {
         // Check for Add Maturation Periods permission
-        if (!in_array('Add Maturation Periods', auth()->user()->permissions ?? [])) {
+        if (!$this->can('Add Maturation Periods')) {
             abort(403, 'Access denied. You do not have permission to add maturation periods.');
         }
 
@@ -102,7 +117,7 @@ class MaturationPeriodController extends Controller
     public function store(Request $request)
     {
         // Check for Add Maturation Periods permission
-        if (!in_array('Add Maturation Periods', auth()->user()->permissions ?? [])) {
+        if (!$this->can('Add Maturation Periods')) {
             abort(403, 'Access denied. You do not have permission to add maturation periods.');
         }
 
@@ -205,7 +220,7 @@ class MaturationPeriodController extends Controller
     public function show(MaturationPeriod $maturationPeriod)
     {
         // Check for View Maturation Periods permission
-        if (!in_array('View Maturation Periods', auth()->user()->permissions ?? [])) {
+        if (!$this->can('View Maturation Periods')) {
             abort(403, 'Access denied. You do not have permission to view maturation periods.');
         }
 
@@ -217,7 +232,7 @@ class MaturationPeriodController extends Controller
     public function edit(MaturationPeriod $maturationPeriod)
     {
         // Check for Edit Maturation Periods permission
-        if (!in_array('Edit Maturation Periods', auth()->user()->permissions ?? [])) {
+        if (!$this->can('Edit Maturation Periods')) {
             abort(403, 'Access denied. You do not have permission to edit maturation periods.');
         }
 
@@ -237,7 +252,7 @@ class MaturationPeriodController extends Controller
     public function update(Request $request, MaturationPeriod $maturationPeriod)
     {
         // Check for Edit Maturation Periods permission
-        if (!in_array('Edit Maturation Periods', auth()->user()->permissions ?? [])) {
+        if (!$this->can('Edit Maturation Periods')) {
             abort(403, 'Access denied. You do not have permission to edit maturation periods.');
         }
 
@@ -334,7 +349,7 @@ class MaturationPeriodController extends Controller
     public function destroy(MaturationPeriod $maturationPeriod)
     {
         // Check for Delete Maturation Periods permission
-        if (!in_array('Delete Maturation Periods', auth()->user()->permissions ?? [])) {
+        if (!$this->can('Delete Maturation Periods')) {
             abort(403, 'Access denied. You do not have permission to delete maturation periods.');
         }
 
@@ -347,7 +362,7 @@ class MaturationPeriodController extends Controller
     public function toggleStatus(MaturationPeriod $maturationPeriod)
     {
         // Check for Manage Maturation Periods permission
-        if (!in_array('Manage Maturation Periods', auth()->user()->permissions ?? [])) {
+        if (!$this->can('Manage Maturation Periods')) {
             abort(403, 'Access denied. You do not have permission to manage maturation periods.');
         }
 
