@@ -41,12 +41,7 @@ class ListMaturationPeriods extends Component implements HasForms, HasTable
 
     private function hasSettingsAdminAccess(): bool
     {
-        $permissions = $this->permissions();
-
-        return auth()->check() && auth()->user()->business_id === 1 && (
-            in_array('Manage Settings', $permissions)
-            || in_array('Manage System Settings', $permissions)
-        );
+        return auth()->check() && auth()->user()->business_id === 1;
     }
 
     private function can(string $permission): bool

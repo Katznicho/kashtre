@@ -18,12 +18,7 @@ class MaturationPeriodController extends Controller
 
     private function hasSettingsAdminAccess(): bool
     {
-        $permissions = $this->permissions();
-
-        return auth()->user()->business_id === 1 && (
-            in_array('Manage Settings', $permissions)
-            || in_array('Manage System Settings', $permissions)
-        );
+        return auth()->user()->business_id === 1;
     }
 
     private function can(string $permission): bool
