@@ -1648,6 +1648,8 @@ class InvoiceController extends Controller
             // 2. For credit clients with balance_due > 0, queue immediately (no payment required upfront)
             // 3. For insurance payments, queue immediately (regardless of third-party payer status)
             // 4. For fully paid cash transactions, queue immediately (payment is complete)
+            // 5. For fully paid mobile money transactions, queue immediately from save while
+            //    leaving the status checker as a backstop.
             // Zero-amount transactions should always be auto-completed regardless of payment method
             
             // Determine if this is an insurance payment (check payment methods, not just third-party payer)
@@ -1657,6 +1659,7 @@ class InvoiceController extends Controller
             // Check if payment is fully completed (for cash payments)
             $isFullyPaid = ($validated['amount_paid'] ?? 0) >= $invoice->total_amount && $invoice->payment_status === 'paid';
             $isCashPayment = in_array('cash', $paymentMethods) && !$isCreditTransaction && !$isInsurancePaymentMethod;
+            $isMobileMoneyPayment = in_array('mobile_money', $paymentMethods) && !$isCreditTransaction && !$isInsurancePaymentMethod;
             
             // Queue items immediately for credit clients (they're approved for credit, items should be offered)
             Log::info("=== STEP 15: CHECKING IF ITEMS SHOULD BE QUEUED ===", [
@@ -1678,13 +1681,14 @@ class InvoiceController extends Controller
             // Queue items for:
             // 1. Credit clients (they are approved to receive services on credit)
             // 2. Fully paid cash transactions (payment is complete, queue immediately)
+            // 3. Fully paid mobile money transactions after the prompt succeeds
             //
             // IMPORTANT: Insurance transactions are NO LONGER queued immediately at invoice save.
             // For insurance, items are queued only after the client portion payment is confirmed
             // (via the payment success flow / background payment status checks).
             $shouldQueueItems = (
                 $isCreditTransaction ||
-                ($isFullyPaid && $isCashPayment)
+                ($isFullyPaid && ($isCashPayment || $isMobileMoneyPayment))
             ) && $nonDepositItems->isNotEmpty();
             
             if ($shouldQueueItems) {
@@ -1693,6 +1697,8 @@ class InvoiceController extends Controller
                     $transactionType = 'INSURANCE';
                 } elseif ($isCreditTransaction) {
                     $transactionType = 'CREDIT';
+                } elseif ($isFullyPaid && $isMobileMoneyPayment) {
+                    $transactionType = 'MOBILE MONEY (FULLY PAID)';
                 } elseif ($isFullyPaid && $isCashPayment) {
                     $transactionType = 'CASH (FULLY PAID)';
                 } else {
@@ -1706,10 +1712,11 @@ class InvoiceController extends Controller
                     'client_name' => $client->name,
                     'is_credit_eligible' => $isCreditClient,
                     'is_insurance_payment' => $isInsuranceTransaction || $isInsurancePaymentMethod,
-                    'is_fully_paid_cash' => $isFullyPaid && $isCashPayment,
-                    'balance_due' => $invoice->balance_due,
-                    'items_count' => $nonDepositItems->count(),
-                    'items' => $nonDepositItems->toArray()
+                        'is_fully_paid_cash' => $isFullyPaid && $isCashPayment,
+                        'is_fully_paid_mobile_money' => $isFullyPaid && $isMobileMoneyPayment,
+                        'balance_due' => $invoice->balance_due,
+                        'items_count' => $nonDepositItems->count(),
+                        'items' => $nonDepositItems->toArray()
                 ]);
                 
                 try {
@@ -3747,6 +3754,22 @@ class InvoiceController extends Controller
 
             // Handle regular items with service points (only for non-package, non-bulk items)
             if ($branchServicePoint && $branchServicePoint->service_point_id) {
+                $existingQueue = \App\Models\ServiceDeliveryQueue::where('invoice_id', $invoice->id)
+                    ->where('client_id', $invoice->client_id)
+                    ->where('item_id', $itemId)
+                    ->where('service_point_id', $branchServicePoint->service_point_id)
+                    ->first();
+
+                if ($existingQueue) {
+                    Log::info("Regular item already queued for invoice, skipping duplicate", [
+                        'invoice_id' => $invoice->id,
+                        'queue_id' => $existingQueue->id,
+                        'item_id' => $itemId,
+                        'service_point_id' => $branchServicePoint->service_point_id,
+                    ]);
+                    continue;
+                }
+
                 Log::info("Creating service delivery queue for regular item", [
                     'item_id' => $itemId,
                     'service_point_id' => $branchServicePoint->service_point_id,

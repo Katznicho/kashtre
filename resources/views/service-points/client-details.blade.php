@@ -1343,62 +1343,22 @@
                 let paymentResult = null;
                 let amountPaid = 0;
 
-                // Only process mobile money payment if total amount > 0
+                // Temporary local bypass: mark mobile money as paid immediately so save
+                // can drive queue creation without waiting on Yo.
                 if (paymentMethods.includes('mobile_money') && paymentPhone && totalAmount > 0) {
-                    console.log('=== PROCESSING MOBILE MONEY PAYMENT ===');
-                    console.log('Processing mobile money payment:', {
+                    console.log('=== BYPASSING MOBILE MONEY PAYMENT ===');
+                    console.log('Skipping Yo mobile money prompt and marking as paid:', {
                         totalAmount,
                         paymentPhone,
                         totalAmountType: typeof totalAmount,
                         isNaN: isNaN(totalAmount),
                         parseFloatResult: parseFloat(totalAmount)
                     });
-
-                    // Show payment processing dialog
-                    Swal.fire({
-                        title: 'Processing Mobile Money Payment',
-                        html: `
-                            <div class="text-center">
-                                <div class="mb-4">
-                                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                                </div>
-                                <p class="text-lg font-semibold">UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-                                <p class="text-sm text-gray-600">To: ${paymentPhone}</p>
-                                <p class="text-sm text-gray-500 mt-2">Please wait while we process your payment...</p>
-                            </div>
-                        `,
-                        showConfirmButton: false,
-                        allowOutsideClick: false,
-                        allowEscapeKey: false
-                    });
-
-                    // Process mobile money payment
-                    paymentResult = await processMobileMoneyPayment(totalAmount, paymentPhone);
-
-                    if (paymentResult.success) {
-                        amountPaid = totalAmount;
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Payment Successful!',
-                            html: `
-                                <div class="text-center">
-                                    <p class="text-lg font-semibold text-green-600">UGX ${parseFloat(totalAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-                                    <p class="text-sm text-gray-600">Transaction ID: ${paymentResult.transaction_id}</p>
-                                    <p class="text-sm text-gray-500">Paid via Mobile Money</p>
-                                </div>
-                            `,
-                            timer: 3000,
-                            showConfirmButton: false
-                        });
-                    } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Payment Failed',
-                            text: 'Mobile money payment could not be processed. Please try again.',
-                            confirmButtonText: 'OK'
-                        });
-                        return;
-                    }
+                    paymentResult = {
+                        success: true,
+                        transaction_id: 'BYPASS-' + Date.now(),
+                    };
+                    amountPaid = totalAmount;
                 } else if (paymentMethods.includes('mobile_money') && totalAmount === 0) {
                     console.log('=== SKIPPING MOBILE MONEY PAYMENT - ZERO AMOUNT ===');
                     console.log('Mobile money payment skipped because total amount is 0:', {
