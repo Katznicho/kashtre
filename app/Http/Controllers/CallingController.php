@@ -199,7 +199,7 @@ class CallingController extends Controller
             'business_id'      => $businessId,
             'caller_id'        => $callerId ?: null,
             'service_point_id' => $servicePoint->id,
-            'room_id'          => session('room_id') ?: $servicePoint->room_id,
+            'room_id'          => session('room_id'),
             'client_id'        => $validated['client_id'] ?? null,
             'client_name'      => $validated['client_name'] ?? null,
             'item_name'        => $validated['item_name'] ?? null,
@@ -277,7 +277,7 @@ class CallingController extends Controller
 
         $logs = CallerLog::where('business_id', $businessId)
             ->whereDate('called_at', $date)
-            ->with(['caller', 'servicePoint', 'room', 'client', 'calledBy'])
+            ->with(['caller', 'servicePoint.room', 'room', 'client', 'calledBy'])
             ->orderByDesc('called_at')
             ->get();
 

@@ -16,7 +16,7 @@ class EmergencyController extends Controller
 {
     private function resolveRoomContext(?ServicePoint $servicePoint = null): array
     {
-        $roomId = session('room_id') ?: $servicePoint?->room_id;
+        $roomId = session('room_id');
         $room = $roomId ? Room::find($roomId) : null;
 
         return [
@@ -37,7 +37,7 @@ class EmergencyController extends Controller
     {
         $roomName = null;
 
-        $roomId = session('room_id') ?: $servicePoint->room_id;
+        $roomId = session('room_id');
         if ($roomId) {
             $room     = Room::find($roomId);
             $roomName = $room?->name;
@@ -268,7 +268,7 @@ class EmergencyController extends Controller
 
         $alerts = EmergencyAlert::where('business_id', $businessId)
             ->whereDate('triggered_at', $date)
-            ->with(['triggeredBy', 'resolvedBy', 'servicePoint'])
+            ->with(['triggeredBy', 'resolvedBy', 'servicePoint.room'])
             ->orderByDesc('triggered_at')
             ->get();
 
