@@ -97,26 +97,26 @@
                                     Manage Callers
                                 </a>
                             </li>
-                            @if($canBroadcastAnnouncements)
-                            <li>
-                                <a href="{{ route('pa.console') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
-                                    PA Console
-                                </a>
-                            </li>
-                            @endif
-                            <li>
-                                <a href="{{ route('service-point-callers.p2p-settings') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
-                                    P2P Call Settings
-                                </a>
-                            </li>
                             <li>
                                 <a href="{{ route('service-point-callers.call-settings-index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
                                     Call Settings
                                 </a>
                             </li>
+                            @if($canBroadcastAnnouncements)
+                            <li>
+                                <a href="{{ route('pa.console') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Public Announcements
+                                </a>
+                            </li>
+                            @endif
+                            <li>
+                                <a href="{{ route('service-point-callers.p2p-settings') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    P2P Calling
+                                </a>
+                            </li>
                             <li>
                                 <a href="{{ route('service-point-callers.emergency-settings-index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
-                                    Emergency Settings
+                                    Emergency Calling
                                 </a>
                             </li>
                         </ul>
