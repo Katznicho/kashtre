@@ -8,6 +8,7 @@ use App\Models\EmergencyAlert;
 use App\Models\ServiceDeliveryQueue;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class CallingServiceClient
 {
@@ -105,7 +106,11 @@ class CallingServiceClient
         $response = $this->client()->timeout(15)->get('/api/voices');
 
         if (!$response->successful()) {
-            throw new \RuntimeException('Could not fetch voices from calling service (HTTP ' . $response->status() . ').');
+            throw new \RuntimeException($this->formatHttpError(
+                'Could not fetch voices from calling service',
+                $response->status(),
+                $response->body()
+            ));
         }
 
         return $response->json();
@@ -135,7 +140,11 @@ class CallingServiceClient
             ]);
 
         if (!$response->successful()) {
-            throw new \RuntimeException('Audio preview failed from calling service (HTTP ' . $response->status() . ').');
+            throw new \RuntimeException($this->formatHttpError(
+                'Audio preview failed from calling service',
+                $response->status(),
+                $response->body()
+            ));
         }
 
         $body = $response->toPsrResponse()->getBody();
@@ -150,6 +159,17 @@ class CallingServiceClient
             'Cache-Control'     => 'no-store',
             'X-Accel-Buffering' => 'no',
         ]);
+    }
+
+    private function formatHttpError(string $prefix, int $status, ?string $body = null): string
+    {
+        $snippet = trim((string) $body);
+
+        if ($snippet === '') {
+            return "{$prefix} (HTTP {$status}).";
+        }
+
+        return "{$prefix} (HTTP {$status}): " . Str::limit($snippet, 300);
     }
 
     /**

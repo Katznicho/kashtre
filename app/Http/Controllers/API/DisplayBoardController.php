@@ -26,11 +26,11 @@ class DisplayBoardController extends Controller
 
     private function withCors($response)
     {
-        return $response->withHeaders([
-            'Access-Control-Allow-Origin' => '*',
-            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
-            'Access-Control-Allow-Headers' => 'Content-Type, Authorization, X-Requested-With',
-        ]);
+        $response->headers->set('Access-Control-Allow-Origin', '*');
+        $response->headers->set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+
+        return $response;
     }
 
     private function resolveCaller(?string $token): ?Caller
@@ -208,6 +208,13 @@ class DisplayBoardController extends Controller
         $config = $this->resolveConfig($caller->business_id);
 
         if (!$config || !$config->audio_enabled || !$config->tts_voice_id) {
+            Log::warning('DisplayBoardController::streamAudio missing voice configuration', [
+                'caller_id' => $caller->id,
+                'business_id' => $caller->business_id,
+                'audio_enabled' => (bool) ($config?->audio_enabled ?? false),
+                'tts_voice_id' => $config?->tts_voice_id,
+            ]);
+
             return $this->corsJson(['error' => 'Audio is not configured for this display.'], 422);
         }
 
@@ -227,6 +234,10 @@ class DisplayBoardController extends Controller
         } catch (\Throwable $e) {
             Log::error('DisplayBoardController::streamAudio failed', [
                 'log_id' => $logId,
+                'caller_id' => $caller->id,
+                'business_id' => $caller->business_id,
+                'calling_service_url' => config('services.calling_service.url'),
+                'tts_voice_id' => $config->tts_voice_id,
                 'error' => $e->getMessage(),
             ]);
 
