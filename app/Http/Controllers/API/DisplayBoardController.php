@@ -8,6 +8,7 @@ use App\Models\CallerLog;
 use App\Models\CallingModuleConfig;
 use App\Models\EmergencyAlert;
 use App\Models\ServiceDeliveryQueue;
+use App\Services\EmergencyAlertService;
 use App\Services\CallingServiceClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -151,10 +152,7 @@ class DisplayBoardController extends Controller
                 'service_point' => $entry['service_point'],
             ]);
 
-        $activeEmergency = EmergencyAlert::where('business_id', $caller->business_id)
-            ->where('is_active', true)
-            ->latest('triggered_at')
-            ->first();
+        $activeEmergency = app(EmergencyAlertService::class)->resolveActiveAlertForBusiness($caller->business_id);
 
         $emergencyData = $activeEmergency ? [
             'id' => $activeEmergency->id,

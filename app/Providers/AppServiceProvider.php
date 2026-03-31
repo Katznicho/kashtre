@@ -6,8 +6,8 @@ namespace App\Providers;
 use App\Models\Business;
 use App\Models\CallingModuleConfig;
 use App\Models\Caller;
-use App\Models\EmergencyAlert;
 use App\Models\Transaction;
+use App\Services\EmergencyAlertService;
 
 
 // Import models and observers
@@ -75,7 +75,7 @@ class AppServiceProvider extends ServiceProvider
             $view->with('userIsACaller', $userIsACaller);
 
             $activeEmergencyAlert = ($user && $callingModuleEnabled)
-                ? EmergencyAlert::where('business_id', $user->business_id)->where('is_active', true)->first()
+                ? app(EmergencyAlertService::class)->resolveActiveAlertForBusiness($user->business_id)
                 : null;
             $globalActiveEmergency = (bool) $activeEmergencyAlert;
             $view->with('globalActiveEmergency', $globalActiveEmergency);

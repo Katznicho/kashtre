@@ -8,6 +8,7 @@ use App\Models\CallingModuleConfig;
 use App\Models\EmergencyAlert;
 use App\Models\Room;
 use App\Models\ServicePoint;
+use App\Services\EmergencyAlertService;
 use App\Services\CallingServiceClient;
 use Illuminate\Http\Request;
 
@@ -136,14 +137,7 @@ class EmergencyController extends Controller
 
         app(CallingServiceClient::class)->syncEmergency($alert);
 
-        $duration = (int) ($config->emergency_display_duration ?? 0);
-        $est = $this->estimateAnnounceDuration($alert, $config);
-        $resolveDelay = max($duration, $est);
-
-        if ($resolveDelay > 0) {
-            $resolveAt = \Carbon\Carbon::parse($alert->scheduled_announce_at)->addSeconds($resolveDelay);
-            \App\Jobs\AutoResolveEmergencyJob::dispatch($alert->id)->delay($resolveAt);
-        }
+        app(EmergencyAlertService::class)->scheduleAutoResolve($alert, $config);
 
         return response()->json(['success' => true, 'alert_id' => $alert->id, 'message' => $message]);
     }
@@ -229,14 +223,7 @@ class EmergencyController extends Controller
 
         app(CallingServiceClient::class)->syncEmergency($alert);
 
-        $duration = (int) ($config->emergency_display_duration ?? 0);
-        $est = $this->estimateAnnounceDuration($alert, $config);
-        $resolveDelay = max($duration, $est);
-
-        if ($resolveDelay > 0) {
-            $resolveAt = \Carbon\Carbon::parse($alert->scheduled_announce_at)->addSeconds($resolveDelay);
-            \App\Jobs\AutoResolveEmergencyJob::dispatch($alert->id)->delay($resolveAt);
-        }
+        app(EmergencyAlertService::class)->scheduleAutoResolve($alert, $config);
 
         return response()->json(['success' => true, 'alert_id' => $alert->id, 'message' => $message]);
     }
@@ -253,9 +240,7 @@ class EmergencyController extends Controller
             return response()->json(['active' => false]);
         }
 
-        $alert = EmergencyAlert::where('business_id', $user->business_id)
-            ->where('is_active', true)
-            ->first();
+        $alert = app(EmergencyAlertService::class)->resolveActiveAlertForBusiness($user->business_id);
 
         if (!$alert) {
             return response()->json(['active' => false]);
@@ -316,9 +301,7 @@ class EmergencyController extends Controller
             return response()->json(['active' => false])->header('Access-Control-Allow-Origin', '*');
         }
 
-        $alert = EmergencyAlert::where('business_id', $caller->business_id)
-            ->where('is_active', true)
-            ->first();
+        $alert = app(EmergencyAlertService::class)->resolveActiveAlertForBusiness($caller->business_id);
 
         if (!$alert) {
             return response()->json(['active' => false])->header('Access-Control-Allow-Origin', '*');

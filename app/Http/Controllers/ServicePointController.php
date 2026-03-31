@@ -6,6 +6,7 @@ use App\Models\Caller;
 use App\Models\CallingModuleConfig;
 use App\Models\EmergencyAlert;
 use App\Models\ServicePoint;
+use App\Services\EmergencyAlertService;
 use Illuminate\Http\Request;
 
 class ServicePointController extends Controller
@@ -148,10 +149,7 @@ class ServicePointController extends Controller
         $callerSettings = Caller::where('business_id', $servicePoint->business_id)
             ->first(['announcement_message', 'speech_rate', 'speech_volume']);
 
-        $activeEmergency = EmergencyAlert::where('business_id', $servicePoint->business_id)
-            ->where('is_active', true)
-            ->latest('triggered_at')
-            ->first();
+        $activeEmergency = app(EmergencyAlertService::class)->resolveActiveAlertForBusiness($servicePoint->business_id);
 
         $callingModuleConfig = CallingModuleConfig::where('business_id', $servicePoint->business_id)->first();
         $defaultEmergencyMessage = $callingModuleConfig?->default_emergency_message;
