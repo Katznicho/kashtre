@@ -97,11 +97,6 @@
                                     Manage Callers
                                 </a>
                             </li>
-                            <li>
-                                <a href="{{ route('pa-sections.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
-                                    Public Announcements
-                                </a>
-                            </li>
                             @if($canBroadcastAnnouncements)
                             <li>
                                 <a href="{{ route('pa.console') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
@@ -122,16 +117,6 @@
                             <li>
                                 <a href="{{ route('service-point-callers.emergency-settings-index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
                                     Emergency Settings
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('callers.log') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
-                                    Called List
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('emergency.log') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
-                                    Emergency Log
                                 </a>
                             </li>
                         </ul>
@@ -546,6 +531,10 @@
                         </button>
                         <ul x-show="openGroup === 'reports'" x-collapse class="mt-1 space-y-1 pl-10">
                             <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>View Reports</a></li>
+                            @if(Auth::user()->business_id != 1 && isset($callingModuleEnabled) && $callingModuleEnabled)
+                            <li><a href="{{ route('callers.log') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Called List</a></li>
+                            <li><a href="{{ route('emergency.log') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Emergency Log</a></li>
+                            @endif
                         </ul>
                     </li>
                     @endif
