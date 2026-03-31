@@ -18,12 +18,17 @@ class MaturationPeriodController extends Controller
             if (auth()->user()->business_id !== 1) {
                 abort(403, 'Access denied. This feature is only available to Kashtre administrators.');
             }
-            
+
+            $permissions = (array) (auth()->user()->permissions ?? []);
+            $canAccess = in_array('View Maturation Periods', $permissions)
+                || in_array('Manage Settings', $permissions)
+                || in_array('Manage System Settings', $permissions);
+
             // Check for View Maturation Periods permission
-            if (!in_array('View Maturation Periods', auth()->user()->permissions ?? [])) {
+            if (!$canAccess) {
                 abort(403, 'Access denied. You do not have permission to view maturation periods.');
             }
-            
+
             return $next($request);
         });
     }
