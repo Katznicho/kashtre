@@ -1,3 +1,63 @@
+const DEFAULT_STUN_URLS = [
+    'stun:stun.l.google.com:19302',
+    'stun:stun1.l.google.com:19302',
+];
+
+function parseIceUrls(rawValue) {
+    if (!rawValue) {
+        return [];
+    }
+
+    return String(rawValue)
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+}
+
+function hasTurnServer(iceConfig) {
+    return (iceConfig.iceServers || []).some((server) => {
+        const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+        return urls.some((url) => String(url || '').startsWith('turn:') || String(url || '').startsWith('turns:'));
+    });
+}
+
+function buildIceConfiguration() {
+    const stunUrls = parseIceUrls(import.meta.env.VITE_WEBRTC_STUN_URLS);
+    const turnUrls = parseIceUrls(import.meta.env.VITE_WEBRTC_TURN_URL);
+    const turnUsername = String(import.meta.env.VITE_WEBRTC_TURN_USERNAME || '').trim();
+    const turnCredential = String(import.meta.env.VITE_WEBRTC_TURN_CREDENTIAL || '').trim();
+    const iceTransportPolicy = String(import.meta.env.VITE_WEBRTC_ICE_TRANSPORT_POLICY || 'all').trim() || 'all';
+
+    const iceServers = [];
+    const resolvedStunUrls = stunUrls.length > 0 ? stunUrls : DEFAULT_STUN_URLS;
+
+    if (resolvedStunUrls.length > 0) {
+        iceServers.push({ urls: resolvedStunUrls });
+    }
+
+    if (turnUrls.length > 0) {
+        const turnServer = { urls: turnUrls };
+
+        if (turnUsername) {
+            turnServer.username = turnUsername;
+        }
+
+        if (turnCredential) {
+            turnServer.credential = turnCredential;
+        }
+
+        iceServers.push(turnServer);
+    }
+
+    return {
+        iceServers,
+        iceTransportPolicy,
+    };
+}
+
+const WEBRTC_ICE_CONFIGURATION = buildIceConfiguration();
+const WEBRTC_HAS_TURN = hasTurnServer(WEBRTC_ICE_CONFIGURATION);
+
 export default function callingSystem() {
     return {
         // State
@@ -8,6 +68,8 @@ export default function callingSystem() {
         duration: 0,
         durationFormatted: '00:00',
         onlineUsers: [],
+        mediaConnectionState: 'idle',
+        mediaConnectionMessage: '',
 
         // Internal variables
         peerConnection: null,
@@ -25,14 +87,10 @@ export default function callingSystem() {
         processedSignalIds: [],
         pendingIceCandidates: [],
         audioPlaybackUnlockHandler: null,
+        hasTurnConfiguration: WEBRTC_HAS_TURN,
 
-        // ICE servers config (Google STUN)
-        iceServers: {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        },
+        // ICE servers config
+        iceServers: WEBRTC_ICE_CONFIGURATION,
 
         init() {
             // Setup Web Audio API ringtones (no file dependency)
@@ -234,6 +292,19 @@ export default function callingSystem() {
                     console.error('Failed to apply queued ICE candidate', error);
                 }
             }
+        },
+
+        setMediaConnectionState(state, message = '') {
+            this.mediaConnectionState = state;
+            this.mediaConnectionMessage = message;
+        },
+
+        buildMediaFailureMessage() {
+            if (this.hasTurnConfiguration) {
+                return 'Audio connection failed. Please retry the call.';
+            }
+
+            return 'Audio connection failed. TURN server configuration is likely required for this network.';
         },
 
         // --- Call Control Actions ---
@@ -475,6 +546,7 @@ export default function callingSystem() {
 
             this.peerConnection = new RTCPeerConnection(this.iceServers);
             this.remoteStream = this.remoteStream || new MediaStream();
+            this.setMediaConnectionState('connecting', 'Connecting audio...');
 
             this.localStream.getTracks().forEach(track => {
                 this.peerConnection.addTrack(track, this.localStream);
@@ -507,7 +579,10 @@ export default function callingSystem() {
                 const state = this.peerConnection?.iceConnectionState;
                 console.log('ICE connection state:', state);
 
-                if (state === 'disconnected') {
+                if (state === 'checking') {
+                    this.setMediaConnectionState('connecting', 'Connecting audio...');
+                } else if (state === 'disconnected') {
+                    this.setMediaConnectionState('connecting', 'Reconnecting audio...');
                     // Give it 3s to self-recover before attempting restart
                     setTimeout(() => {
                         if (this.peerConnection?.iceConnectionState === 'disconnected') {
@@ -515,9 +590,13 @@ export default function callingSystem() {
                         }
                     }, 3000);
                 } else if (state === 'failed') {
+                    this.setMediaConnectionState('failed', this.buildMediaFailureMessage());
                     this.attemptReconnect();
                 } else if (state === 'connected' || state === 'completed') {
                     this.reconnectAttempts = 0;
+                    this.setMediaConnectionState('connected', '');
+                } else if (state === 'closed') {
+                    this.setMediaConnectionState('idle', '');
                 }
             };
         },
@@ -583,13 +662,19 @@ export default function callingSystem() {
             this.outgoingRingtoneAudio.stop();
 
             if (newState === 'incoming') {
+                this.setMediaConnectionState('idle', '');
                 this.ringtoneAudio.play();
             } else if (newState === 'calling') {
+                this.setMediaConnectionState('idle', '');
                 this.outgoingRingtoneAudio.play();
             } else if (newState === 'connected') {
+                if (this.mediaConnectionState === 'idle') {
+                    this.setMediaConnectionState('connecting', 'Connecting audio...');
+                }
                 this.startTimer();
                 this.ensureRemoteAudioPlayback();
             } else if (newState === 'ended') {
+                this.setMediaConnectionState('idle', '');
                 this.stopTimer();
             }
         },
@@ -632,6 +717,7 @@ export default function callingSystem() {
             this.isMuted = false;
             this.duration = 0;
             this.durationFormatted = '00:00';
+            this.setMediaConnectionState('idle', '');
             this.reconnectAttempts = 0;
             this.hasInitiatedWebRTC = false;
             this.processedSignalIds = [];

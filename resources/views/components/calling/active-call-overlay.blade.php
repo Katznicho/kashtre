@@ -20,11 +20,15 @@
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span class="text-sm font-medium tracking-tabular-nums" :class="duration > 0 ? 'text-emerald-500' : 'text-slate-500'" x-text="durationFormatted">00:00</span>
             </div>
+            <p x-show="mediaConnectionState !== 'connected' && mediaConnectionMessage"
+               x-text="mediaConnectionMessage"
+               :class="mediaConnectionState === 'failed' ? 'text-rose-500' : 'text-amber-500'"
+               class="mt-1 text-xs font-medium"></p>
         </div>
     </div>
 
     <!-- WebRTC Audio Elements (Hidden but essential) -->
-    <audio id="remoteAudio" autoplay playsinline preload="auto" class="hidden"></audio>
+    <audio id="remoteAudio" autoplay playsinline preload="auto" aria-hidden="true" class="absolute w-0 h-0 opacity-0 pointer-events-none"></audio>
 
     <!-- Controls -->
     <div class="px-6 py-5 flex items-center justify-center gap-6 bg-white dark:bg-slate-800">
