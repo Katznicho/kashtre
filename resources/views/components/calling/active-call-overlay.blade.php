@@ -29,6 +29,7 @@
 
     <!-- WebRTC Audio Elements (Hidden but essential) -->
     <audio id="remoteAudio" autoplay playsinline preload="auto" aria-hidden="true" class="absolute w-0 h-0 opacity-0 pointer-events-none"></audio>
+    <audio id="compatibilityRemoteAudio" autoplay playsinline preload="auto" aria-hidden="true" class="absolute w-0 h-0 opacity-0 pointer-events-none"></audio>
 
     <!-- Controls -->
     <div class="px-6 py-5 flex items-center justify-center gap-6 bg-white dark:bg-slate-800">

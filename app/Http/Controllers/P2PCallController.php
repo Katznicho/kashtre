@@ -218,12 +218,12 @@ class P2PCallController extends Controller
     }
 
     /**
-     * Relay WebRTC signaling data (offer, answer, ICE candidate)
+     * Relay call signaling data (WebRTC offer/answer/candidate or compatibility audio chunks)
      */
     public function signal(Request $request, $callUuid)
     {
         $request->validate([
-            'type' => 'required|in:offer,answer,candidate',
+            'type' => 'required|in:offer,answer,candidate,audio_chunk',
             'data' => 'required|array',
         ]);
 

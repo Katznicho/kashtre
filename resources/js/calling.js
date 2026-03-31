@@ -57,6 +57,9 @@ function buildIceConfiguration() {
 
 const WEBRTC_ICE_CONFIGURATION = buildIceConfiguration();
 const WEBRTC_HAS_TURN = hasTurnServer(WEBRTC_ICE_CONFIGURATION);
+const COMPATIBILITY_AUDIO_START_DELAY_MS = 3000;
+const COMPATIBILITY_AUDIO_SEGMENT_MS = 1000;
+const COMPATIBILITY_AUDIO_MAX_QUEUE = 6;
 
 export default function callingSystem() {
     return {
@@ -88,6 +91,14 @@ export default function callingSystem() {
         pendingIceCandidates: [],
         audioPlaybackUnlockHandler: null,
         hasTurnConfiguration: WEBRTC_HAS_TURN,
+        compatibilityAudioActive: false,
+        compatibilityAudioPlaying: false,
+        compatibilityFallbackTimer: null,
+        compatibilityRecorder: null,
+        compatibilityRecorderStopTimer: null,
+        compatibilityChunkQueue: [],
+        compatibilityChunkSequence: 0,
+        compatibilityCurrentChunkUrl: null,
 
         // ICE servers config
         iceServers: WEBRTC_ICE_CONFIGURATION,
@@ -201,6 +212,17 @@ export default function callingSystem() {
             return document.getElementById('remoteAudio');
         },
 
+        getCompatibilityAudioElement() {
+            return document.getElementById('compatibilityRemoteAudio');
+        },
+
+        getPlayableAudioElements() {
+            return [
+                this.getRemoteAudioElement(),
+                this.getCompatibilityAudioElement(),
+            ].filter(Boolean);
+        },
+
         attachRemoteStream() {
             const audioElement = this.getRemoteAudioElement();
             if (!audioElement || !this.remoteStream) {
@@ -216,14 +238,18 @@ export default function callingSystem() {
                 audioElement.srcObject = this.remoteStream;
             }
 
-            this.ensureRemoteAudioPlayback();
+            this.ensureAudioElementPlayback(audioElement);
         },
 
-        ensureRemoteAudioPlayback() {
-            const audioElement = this.getRemoteAudioElement();
-            if (!audioElement?.srcObject) {
+        ensureAudioElementPlayback(audioElement) {
+            if (!audioElement || (!audioElement.srcObject && !audioElement.src)) {
                 return;
             }
+
+            audioElement.autoplay = true;
+            audioElement.playsInline = true;
+            audioElement.muted = false;
+            audioElement.volume = 1;
 
             const playPromise = audioElement.play();
             if (typeof playPromise?.catch !== 'function') {
@@ -238,6 +264,14 @@ export default function callingSystem() {
                 });
         },
 
+        ensureRemoteAudioPlayback() {
+            this.ensureAudioElementPlayback(this.getRemoteAudioElement());
+        },
+
+        ensureCompatibilityAudioPlayback() {
+            this.ensureAudioElementPlayback(this.getCompatibilityAudioElement());
+        },
+
         bindAudioPlaybackUnlock() {
             if (this.audioPlaybackUnlockHandler) {
                 return;
@@ -245,8 +279,10 @@ export default function callingSystem() {
 
             this.audioPlaybackUnlockHandler = () => {
                 this.ensureRemoteAudioPlayback();
+                this.ensureCompatibilityAudioPlayback();
 
-                if (!this.getRemoteAudioElement()?.paused) {
+                const anyPlaying = this.getPlayableAudioElements().some((audioElement) => !audioElement.paused);
+                if (anyPlaying) {
                     this.unbindAudioPlaybackUnlock();
                 }
             };
@@ -373,6 +409,272 @@ export default function callingSystem() {
             }
 
             return 'Audio connection failed. TURN server configuration is likely required for this network.';
+        },
+
+        async blobToBase64(blob) {
+            const buffer = await blob.arrayBuffer();
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            const chunkSize = 0x8000;
+
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+                binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+            }
+
+            return btoa(binary);
+        },
+
+        base64ToBlob(base64, mimeType = 'audio/webm') {
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+
+            return new Blob([bytes], { type: mimeType });
+        },
+
+        stopPeerConnection() {
+            if (this.peerConnection) {
+                try {
+                    this.peerConnection.close();
+                } catch (_) {}
+            }
+
+            this.peerConnection = null;
+            this.pendingIceCandidates = [];
+            this.hasInitiatedWebRTC = false;
+        },
+
+        cancelCompatibilityAudioFallback() {
+            if (this.compatibilityFallbackTimer) {
+                clearTimeout(this.compatibilityFallbackTimer);
+                this.compatibilityFallbackTimer = null;
+            }
+        },
+
+        scheduleCompatibilityAudioFallback() {
+            this.cancelCompatibilityAudioFallback();
+
+            if (
+                this.callState !== 'connected' ||
+                this.compatibilityAudioActive ||
+                this.mediaConnectionState === 'connected' ||
+                typeof window.MediaRecorder === 'undefined'
+            ) {
+                return;
+            }
+
+            this.compatibilityFallbackTimer = setTimeout(() => {
+                if (
+                    this.callState !== 'connected' ||
+                    this.compatibilityAudioActive ||
+                    this.mediaConnectionState === 'connected'
+                ) {
+                    return;
+                }
+
+                this.startCompatibilityAudioMode().catch((error) => {
+                    console.error('Failed to start compatibility audio mode', error);
+                });
+            }, COMPATIBILITY_AUDIO_START_DELAY_MS);
+        },
+
+        async startCompatibilityAudioMode() {
+            if (
+                this.compatibilityAudioActive ||
+                this.callState !== 'connected' ||
+                typeof window.MediaRecorder === 'undefined'
+            ) {
+                return;
+            }
+
+            await this.getLocalStream();
+
+            this.compatibilityAudioActive = true;
+            this.compatibilityChunkSequence = 0;
+            this.setMediaConnectionState('connecting', 'Switching to compatibility audio...');
+            this.cancelCompatibilityAudioFallback();
+            this.stopPeerConnection();
+            const remoteAudioElement = this.getRemoteAudioElement();
+            if (remoteAudioElement) {
+                remoteAudioElement.pause();
+                remoteAudioElement.srcObject = null;
+            }
+            this.startCompatibilityChunkLoop();
+        },
+
+        stopCompatibilityAudioTransport() {
+            this.cancelCompatibilityAudioFallback();
+
+            if (this.compatibilityRecorderStopTimer) {
+                clearTimeout(this.compatibilityRecorderStopTimer);
+                this.compatibilityRecorderStopTimer = null;
+            }
+
+            const recorder = this.compatibilityRecorder;
+            this.compatibilityRecorder = null;
+            this.compatibilityAudioActive = false;
+
+            if (recorder && recorder.state !== 'inactive') {
+                try {
+                    recorder.stop();
+                } catch (_) {}
+            }
+        },
+
+        startCompatibilityChunkLoop() {
+            if (!this.localStream || this.callState !== 'connected') {
+                return;
+            }
+
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus'
+                : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
+
+            const startSegment = () => {
+                if (!this.compatibilityAudioActive || !this.localStream || this.callState !== 'connected') {
+                    return;
+                }
+
+                const recorder = new MediaRecorder(this.localStream, mimeType ? { mimeType } : {});
+                const parts = [];
+                this.compatibilityRecorder = recorder;
+
+                recorder.addEventListener('dataavailable', (event) => {
+                    if (event.data && event.data.size > 0) {
+                        parts.push(event.data);
+                    }
+                });
+
+                recorder.addEventListener('stop', async () => {
+                    if (this.compatibilityRecorder === recorder) {
+                        this.compatibilityRecorder = null;
+                    }
+
+                    if (parts.length && this.callId && this.callState === 'connected') {
+                        try {
+                            const blob = new Blob(parts, { type: recorder.mimeType || mimeType || 'audio/webm' });
+                            const chunk = await this.blobToBase64(blob);
+                            this.compatibilityChunkSequence += 1;
+
+                            await this.sendSignal('audio_chunk', {
+                                chunk,
+                                mime_type: recorder.mimeType || mimeType || 'audio/webm',
+                                sequence: this.compatibilityChunkSequence,
+                            });
+                        } catch (error) {
+                            console.error('Compatibility audio chunk send failed', error);
+                        }
+                    }
+
+                    if (this.compatibilityAudioActive && this.callState === 'connected') {
+                        startSegment();
+                    }
+                });
+
+                recorder.start();
+                this.compatibilityRecorderStopTimer = setTimeout(() => {
+                    if (recorder.state !== 'inactive') {
+                        try {
+                            recorder.stop();
+                        } catch (_) {}
+                    }
+                }, COMPATIBILITY_AUDIO_SEGMENT_MS);
+            };
+
+            startSegment();
+        },
+
+        handleCompatibilityAudioChunk(data) {
+            if (this.callState !== 'connected' || !data?.chunk) {
+                return;
+            }
+
+            this.cancelCompatibilityAudioFallback();
+            this.compatibilityAudioActive = true;
+
+            try {
+                const blob = this.base64ToBlob(data.chunk, data.mime_type || 'audio/webm');
+                this.compatibilityChunkQueue.push(blob);
+
+                if (this.compatibilityChunkQueue.length > COMPATIBILITY_AUDIO_MAX_QUEUE) {
+                    this.compatibilityChunkQueue = this.compatibilityChunkQueue.slice(-COMPATIBILITY_AUDIO_MAX_QUEUE);
+                }
+
+                this.playNextCompatibilityChunk();
+            } catch (error) {
+                console.error('Compatibility audio chunk decode failed', error);
+            }
+        },
+
+        playNextCompatibilityChunk() {
+            if (this.compatibilityAudioPlaying || this.compatibilityChunkQueue.length === 0) {
+                return;
+            }
+
+            const audioElement = this.getCompatibilityAudioElement();
+            if (!audioElement) {
+                return;
+            }
+
+            const blob = this.compatibilityChunkQueue.shift();
+            if (!blob) {
+                return;
+            }
+
+            if (this.compatibilityCurrentChunkUrl) {
+                URL.revokeObjectURL(this.compatibilityCurrentChunkUrl);
+                this.compatibilityCurrentChunkUrl = null;
+            }
+
+            const cleanup = () => {
+                if (this.compatibilityCurrentChunkUrl) {
+                    URL.revokeObjectURL(this.compatibilityCurrentChunkUrl);
+                    this.compatibilityCurrentChunkUrl = null;
+                }
+
+                audioElement.onended = null;
+                audioElement.onerror = null;
+                audioElement.removeAttribute('src');
+                audioElement.load();
+                this.compatibilityAudioPlaying = false;
+
+                if (this.callState === 'connected') {
+                    this.playNextCompatibilityChunk();
+                }
+            };
+
+            this.compatibilityCurrentChunkUrl = URL.createObjectURL(blob);
+            this.compatibilityAudioPlaying = true;
+            audioElement.srcObject = null;
+            audioElement.src = this.compatibilityCurrentChunkUrl;
+            audioElement.currentTime = 0;
+            audioElement.onended = cleanup;
+            audioElement.onerror = cleanup;
+            this.setMediaConnectionState('connected', '');
+            this.ensureCompatibilityAudioPlayback();
+        },
+
+        resetCompatibilityAudioPlayback() {
+            this.compatibilityChunkQueue = [];
+            this.compatibilityAudioPlaying = false;
+            this.compatibilityChunkSequence = 0;
+
+            if (this.compatibilityCurrentChunkUrl) {
+                URL.revokeObjectURL(this.compatibilityCurrentChunkUrl);
+                this.compatibilityCurrentChunkUrl = null;
+            }
+
+            const audioElement = this.getCompatibilityAudioElement();
+            if (audioElement) {
+                audioElement.pause();
+                audioElement.onended = null;
+                audioElement.onerror = null;
+                audioElement.removeAttribute('src');
+                audioElement.load();
+            }
         },
 
         // --- Call Control Actions ---
@@ -582,6 +884,23 @@ export default function callingSystem() {
                 }
             }
 
+            if (signal.type === 'audio_chunk') {
+                if (!this.compatibilityAudioActive) {
+                    try {
+                        await this.startCompatibilityAudioMode();
+                    } catch (error) {
+                        console.error('Compatibility audio activation from remote chunk failed', error);
+                    }
+                }
+
+                this.handleCompatibilityAudioChunk(signal.data);
+                return;
+            }
+
+            if (this.compatibilityAudioActive) {
+                return;
+            }
+
             if (!this.peerConnection) {
                 await this.setupPeerConnection();
             }
@@ -652,6 +971,9 @@ export default function callingSystem() {
                     this.setMediaConnectionState('connecting', 'Connecting audio...');
                 } else if (state === 'disconnected') {
                     this.setMediaConnectionState('connecting', 'Reconnecting audio...');
+                    this.startCompatibilityAudioMode().catch((error) => {
+                        console.error('Compatibility audio activation after disconnect failed', error);
+                    });
                     // Give it 3s to self-recover before attempting restart
                     setTimeout(() => {
                         if (this.peerConnection?.iceConnectionState === 'disconnected') {
@@ -660,9 +982,13 @@ export default function callingSystem() {
                     }, 3000);
                 } else if (state === 'failed') {
                     this.setMediaConnectionState('failed', this.buildMediaFailureMessage());
+                    this.startCompatibilityAudioMode().catch((error) => {
+                        console.error('Compatibility audio activation after failure failed', error);
+                    });
                     this.attemptReconnect();
                 } else if (state === 'connected' || state === 'completed') {
                     this.reconnectAttempts = 0;
+                    this.cancelCompatibilityAudioFallback();
                     this.setMediaConnectionState('connected', '');
                 } else if (state === 'closed') {
                     this.setMediaConnectionState('idle', '');
@@ -671,7 +997,7 @@ export default function callingSystem() {
         },
 
         async attemptReconnect() {
-            if (!this.peerConnection || !this.callId) return;
+            if (!this.peerConnection || !this.callId || this.compatibilityAudioActive) return;
 
             if (this.reconnectAttempts >= this.maxReconnectAttempts) {
                 console.warn('Max reconnect attempts reached, ending call');
@@ -692,6 +1018,10 @@ export default function callingSystem() {
         },
 
         async initiateWebRTC() {
+            if (this.compatibilityAudioActive) {
+                return;
+            }
+
             await this.setupPeerConnection();
             const offer = await this.peerConnection.createOffer();
             await this.peerConnection.setLocalDescription(offer);
@@ -700,7 +1030,7 @@ export default function callingSystem() {
         },
 
         async initiateWebRTCOnce() {
-            if (this.hasInitiatedWebRTC) return;
+            if (this.hasInitiatedWebRTC || this.compatibilityAudioActive) return;
 
             this.hasInitiatedWebRTC = true;
 
@@ -713,7 +1043,7 @@ export default function callingSystem() {
         },
 
         sendSignal(type, data) {
-            axios.post(`/calls/${this.callId}/signal`, {
+            return axios.post(`/calls/${this.callId}/signal`, {
                 type: type,
                 data: data
             }).catch(err => console.error('Signaling error:', err));
@@ -743,7 +1073,9 @@ export default function callingSystem() {
                 }
                 this.startTimer();
                 this.ensureRemoteAudioPlayback();
+                this.scheduleCompatibilityAudioFallback();
             } else if (newState === 'ended') {
+                this.stopCompatibilityAudioTransport();
                 this.setMediaConnectionState('idle', '');
                 this.stopTimer();
             }
@@ -792,14 +1124,12 @@ export default function callingSystem() {
             this.hasInitiatedWebRTC = false;
             this.processedSignalIds = [];
             this.pendingIceCandidates = [];
+            this.stopCompatibilityAudioTransport();
+            this.resetCompatibilityAudioPlayback();
             this.stopCallStatusPoll();
             this.stopSignalPoll();
             this.unbindAudioPlaybackUnlock();
-
-            if (this.peerConnection) {
-                this.peerConnection.close();
-                this.peerConnection = null;
-            }
+            this.stopPeerConnection();
             if (this.localStream) {
                 this.localStream.getTracks().forEach(track => track.stop());
                 this.localStream = null;

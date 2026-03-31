@@ -15,7 +15,7 @@ class WebRTCSignal implements ShouldBroadcastNow
     public function __construct(
         public string $callUuid,
         public int    $targetUserId,
-        public string $type,   // 'offer', 'answer', 'candidate'
+        public string $type,   // 'offer', 'answer', 'candidate', 'audio_chunk'
         public array  $data,
         public ?int   $signalId = null,
     ) {
