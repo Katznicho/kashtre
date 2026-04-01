@@ -48,7 +48,7 @@ Broadcast::channel('presence-business.{businessId}', function ($user, $businessI
     return [
         'id'    => (int) $user->id,
         'uuid'  => $sanitize($user->uuid),
-        'name'  => $sanitize($user->name),
+        'name'  => $sanitize($user->p2p_name),
         'photo' => $sanitize($user->profile_photo_url),
     ];
 });

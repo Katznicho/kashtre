@@ -37,7 +37,7 @@ class IncomingCall implements ShouldBroadcastNow
             'caller'     => [
                 'id'    => $this->call->caller->id,
                 'uuid'  => $this->call->caller->uuid,
-                'name'  => $this->call->caller->name,
+                'name'  => $this->call->caller->p2p_name,
                 'photo' => $this->call->caller->profile_photo_url,
             ],
             'started_at' => $this->call->started_at->toISOString(),
