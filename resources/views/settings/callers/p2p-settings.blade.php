@@ -113,11 +113,11 @@
                                             @else
                                                 <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center">
                                                     <span class="text-sm font-semibold text-indigo-600">
-                                                        {{ strtoupper(substr($user->name, 0, 1)) }}
+                                                        {{ strtoupper(substr($user->p2p_name, 0, 1)) }}
                                                     </span>
                                                 </div>
                                             @endif
-                                            <p class="text-sm font-medium text-gray-900">{{ $user->name }}</p>
+                                            <p class="text-sm font-medium text-gray-900">{{ $user->p2p_name }}</p>
                                         </div>
                                     </td>
 
@@ -131,7 +131,7 @@
                                         <template x-if="isOnline('{{ $user->uuid }}')">
                                             <button
                                                 @click="$dispatch('initiate-call', { uuid: '{{ $user->uuid }}' })"
-                                                title="Call {{ $user->name }}"
+                                                title="Call {{ $user->p2p_name }}"
                                                 class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
