@@ -104,8 +104,20 @@ export default function callingSystem() {
         iceServers: WEBRTC_ICE_CONFIGURATION,
 
         init() {
-            // Setup Web Audio API ringtones (no file dependency)
-            this.ringtoneAudio = this.createBeepPattern(440, 800, 400);
+            // Read user preference from meta tag
+            const ringtonePref = document.querySelector('meta[name="user-p2p-ringtone"]')?.content || 'default';
+
+            // Setup Web Audio API ringtones based on preference
+            if (ringtonePref === 'rapid') {
+                this.ringtoneAudio = this.createBeepPattern(600, 200, 100);
+            } else if (ringtonePref === 'deep') {
+                this.ringtoneAudio = this.createBeepPattern(300, 1000, 1000);
+            } else if (ringtonePref === 'urgent') {
+                this.ringtoneAudio = this.createBeepPattern(800, 400, 200);
+            } else {
+                this.ringtoneAudio = this.createBeepPattern(440, 800, 400); // default
+            }
+
             this.outgoingRingtoneAudio = this.createBeepPattern(480, 500, 500);
 
             const userId = document.querySelector('meta[name="user-id"]')?.content;

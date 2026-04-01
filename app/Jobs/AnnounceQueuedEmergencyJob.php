@@ -39,5 +39,10 @@ class AnnounceQueuedEmergencyJob implements ShouldQueue
         ]);
 
         app(CallingServiceClient::class)->syncEmergency($alert);
+
+        $config = \App\Models\CallingModuleConfig::where('business_id', $alert->business_id)->first();
+        if ($config) {
+            app(\App\Services\EmergencyAlertService::class)->scheduleAutoResolve($alert, $config);
+        }
     }
 }

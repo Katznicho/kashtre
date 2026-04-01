@@ -8,6 +8,7 @@
     @auth
     <meta name="user-id" content="{{ Auth::id() }}">
     <meta name="business-id" content="{{ Auth::user()->business_id }}">
+    <meta name="user-p2p-ringtone" content="{{ Auth::user()->p2p_ringtone ?? 'default' }}">
     @endauth
 
     <title>{{ config('app.name', 'Kashtre') }}</title>

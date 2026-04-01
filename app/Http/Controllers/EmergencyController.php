@@ -70,9 +70,14 @@ class EmergencyController extends Controller
      */
     private function nextScheduleAt(EmergencyAlert $latest, CallingModuleConfig $config): \Carbon\Carbon
     {
-        $base = $latest->scheduled_announce_at ?? $latest->triggered_at ?? now();
+        $base = $latest->scheduled_announce_at ?? $latest->activated_at ?? $latest->triggered_at ?? now();
 
-        return \Carbon\Carbon::parse($base)->addSeconds(60);
+        $resolveDelay = max(
+            (int) ($config->emergency_display_duration ?? 0),
+            app(EmergencyAlertService::class)->estimateAnnounceDuration($latest, $config)
+        );
+
+        return \Carbon\Carbon::parse($base)->addSeconds($resolveDelay)->addSeconds(60);
     }
 
     public function trigger(Request $request, ServicePoint $servicePoint)
@@ -109,15 +114,18 @@ class EmergencyController extends Controller
         $color       = ($buttonIndex === 2 ? $config->emergency_button_2_color : $config->emergency_button_1_color) ?? 'red';
         $buttonName  = ($buttonIndex === 2 ? $config->emergency_button_2_name : $config->emergency_button_1_name) ?: 'Emergency';
 
-        // Emergency alerts should activate immediately on shared hosting too.
-        // Replace any unresolved alert instead of queueing behind stale/pending rows.
-        EmergencyAlert::where('business_id', $user->business_id)
+        $latest = EmergencyAlert::where('business_id', $user->business_id)
             ->whereNull('resolved_at')
-            ->update([
-                'is_active'   => false,
-                'resolved_by' => $user->id,
-                'resolved_at' => now(),
-            ]);
+            ->orderByDesc('scheduled_announce_at')
+            ->first();
+
+        $isActive = true;
+        $scheduledAt = now();
+
+        if ($latest) {
+            $isActive = false;
+            $scheduledAt = $this->nextScheduleAt($latest, $config);
+        }
 
         $alert = EmergencyAlert::create([
             'business_id'           => $user->business_id,
@@ -128,16 +136,19 @@ class EmergencyController extends Controller
             'message'               => $message,
             'display_message'       => $displayMessage,
             'color'                 => $color,
-            'is_active'             => true,
+            'is_active'             => $isActive,
             'triggered_by'          => $user->id,
             'triggered_at'          => now(),
-            'activated_at'          => now(),
-            'scheduled_announce_at' => now(),
+            'activated_at'          => $isActive ? now() : null,
+            'scheduled_announce_at' => $scheduledAt,
         ]);
 
-        app(CallingServiceClient::class)->syncEmergency($alert);
-
-        app(EmergencyAlertService::class)->scheduleAutoResolve($alert, $config);
+        if ($isActive) {
+            app(CallingServiceClient::class)->syncEmergency($alert);
+            app(EmergencyAlertService::class)->scheduleAutoResolve($alert, $config);
+        } else {
+            \App\Jobs\AnnounceQueuedEmergencyJob::dispatch($alert->id)->delay($scheduledAt);
+        }
 
         return response()->json(['success' => true, 'alert_id' => $alert->id, 'message' => $message]);
     }
@@ -197,13 +208,18 @@ class EmergencyController extends Controller
         $color       = ($buttonIndex === 2 ? $config->emergency_button_2_color : $config->emergency_button_1_color) ?? 'red';
         $buttonName  = ($buttonIndex === 2 ? $config->emergency_button_2_name : $config->emergency_button_1_name) ?: 'Emergency';
 
-        EmergencyAlert::where('business_id', $user->business_id)
+        $latest = EmergencyAlert::where('business_id', $user->business_id)
             ->whereNull('resolved_at')
-            ->update([
-                'is_active'   => false,
-                'resolved_by' => $user->id,
-                'resolved_at' => now(),
-            ]);
+            ->orderByDesc('scheduled_announce_at')
+            ->first();
+
+        $isActive = true;
+        $scheduledAt = now();
+
+        if ($latest) {
+            $isActive = false;
+            $scheduledAt = $this->nextScheduleAt($latest, $config);
+        }
 
         $alert = EmergencyAlert::create([
             'business_id'           => $user->business_id,
@@ -214,16 +230,19 @@ class EmergencyController extends Controller
             'message'               => $message,
             'display_message'       => $displayMessage,
             'color'                 => $color,
-            'is_active'             => true,
+            'is_active'             => $isActive,
             'triggered_by'          => $user->id,
             'triggered_at'          => now(),
-            'activated_at'          => now(),
-            'scheduled_announce_at' => now(),
+            'activated_at'          => $isActive ? now() : null,
+            'scheduled_announce_at' => $scheduledAt,
         ]);
 
-        app(CallingServiceClient::class)->syncEmergency($alert);
-
-        app(EmergencyAlertService::class)->scheduleAutoResolve($alert, $config);
+        if ($isActive) {
+            app(CallingServiceClient::class)->syncEmergency($alert);
+            app(EmergencyAlertService::class)->scheduleAutoResolve($alert, $config);
+        } else {
+            \App\Jobs\AnnounceQueuedEmergencyJob::dispatch($alert->id)->delay($scheduledAt);
+        }
 
         return response()->json(['success' => true, 'alert_id' => $alert->id, 'message' => $message]);
     }

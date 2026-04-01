@@ -231,6 +231,21 @@ class ServicePointCallerController extends Controller
     }
 
     /**
+     * Save current user's personal P2P settings (name override, ringtone).
+     */
+    public function saveP2pSettings(Request $request)
+    {
+        $validated = $request->validate([
+            'p2p_display_name' => 'nullable|string|max:255',
+            'p2p_ringtone'     => 'required|in:default,rapid,deep,urgent',
+        ]);
+
+        auth()->user()->update($validated);
+
+        return back()->with('success', 'Your personal P2P calling settings have been updated.');
+    }
+
+    /**
      * Form to create a new named caller.
      */
     public function create()

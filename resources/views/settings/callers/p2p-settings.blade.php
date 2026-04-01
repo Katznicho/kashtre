@@ -26,6 +26,42 @@
             </div>
         @endif
 
+        <!-- My Settings -->
+        <div class="mt-8 bg-white shadow sm:rounded-lg mb-8">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">
+                    My Calling Options
+                </h3>
+                <div class="mt-2 max-w-xl text-sm text-gray-500">
+                    <p>Customize how your name appears to others and choose your preferred incoming ringtone.</p>
+                </div>
+                <form action="{{ route('service-point-callers.save-p2p-settings') }}" method="POST" class="mt-5 sm:flex sm:items-center">
+                    @csrf
+                    <div class="w-full sm:max-w-xs me-4">
+                        <label for="p2p_display_name" class="sr-only">Display Name</label>
+                        <input type="text" name="p2p_display_name" id="p2p_display_name"
+                               class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                               placeholder="{{ auth()->user()->name }}"
+                               value="{{ auth()->user()->p2p_display_name }}">
+                    </div>
+                    
+                    <div class="w-full sm:max-w-xs mt-3 sm:mt-0 me-4">
+                        <label for="p2p_ringtone" class="sr-only">Incoming Ringtone</label>
+                        <select id="p2p_ringtone" name="p2p_ringtone" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                            <option value="default" {{ auth()->user()->p2p_ringtone === 'default' ? 'selected' : '' }}>Default Beeps</option>
+                            <option value="rapid" {{ auth()->user()->p2p_ringtone === 'rapid' ? 'selected' : '' }}>Rapid Pulse</option>
+                            <option value="deep" {{ auth()->user()->p2p_ringtone === 'deep' ? 'selected' : '' }}>Deep Tone</option>
+                            <option value="urgent" {{ auth()->user()->p2p_ringtone === 'urgent' ? 'selected' : '' }}>High Alert</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="mt-3 w-full inline-flex items-center justify-center px-4 py-2 border border-transparent shadow-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Save Preferences
+                    </button>
+                    <!-- Preview logic handled by calling.js ringtone map -->
+                </form>
+            </div>
+        </div>
+
         <!-- Staff Directory -->
         <div class="mt-8" x-data="p2pStaffDirectory()">
 

@@ -458,6 +458,7 @@ Route::post('service-point-callers/call-settings', [ServicePointCallerController
 Route::get('service-point-callers/emergency-settings', [ServicePointCallerController::class, 'emergencySettingsIndex'])->name('service-point-callers.emergency-settings-index');
 Route::post('service-point-callers/emergency-settings', [ServicePointCallerController::class, 'saveEmergencySettings'])->name('service-point-callers.save-emergency-settings');
 Route::get('service-point-callers/p2p-settings', [ServicePointCallerController::class, 'p2pSettingsIndex'])->name('service-point-callers.p2p-settings');
+Route::post('service-point-callers/p2p-settings', [ServicePointCallerController::class, 'saveP2pSettings'])->name('service-point-callers.save-p2p-settings');
 Route::delete('service-point-callers/{caller}/service-points/{servicePoint}', [ServicePointCallerController::class, 'removeServicePoint'])->name('service-point-callers.remove-service-point');
 Route::post('service-point-callers/{caller}/generate-token', [ServicePointCallerController::class, 'generateToken'])->name('service-point-callers.generate-token');
 Route::post('service-point-callers/{caller}/call-settings', [ServicePointCallerController::class, 'updateCallSettings'])->name('service-point-callers.update-call-settings');

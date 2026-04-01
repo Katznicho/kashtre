@@ -93,7 +93,7 @@ class P2PCallController extends Controller
             'callee'  => [
                 'id'    => $callee->id,
                 'uuid'  => $callee->uuid,
-                'name'  => $callee->name,
+                'name'  => $callee->p2p_name,
                 'photo' => $callee->profile_photo_url,
             ],
         ]);
@@ -332,13 +332,13 @@ class P2PCallController extends Controller
         $users = User::where('business_id', $user->business_id)
             ->where('id', '!=', $user->id)
             ->where('status', 'active')
-            ->select('id', 'uuid', 'name', 'profile_photo_path')
+            ->select('id', 'uuid', 'name', 'p2p_display_name', 'profile_photo_path')
             ->get()
             ->map(function ($u) {
                 return [
                     'id'    => $u->id,
                     'uuid'  => $u->uuid,
-                    'name'  => $u->name,
+                    'name'  => $u->p2p_name,
                     'photo' => $u->profile_photo_url,
                 ];
             });
@@ -371,7 +371,7 @@ class P2PCallController extends Controller
             'caller' => [
                 'id' => $call->caller->id,
                 'uuid' => $call->caller->uuid,
-                'name' => $call->caller->name,
+                'name' => $call->caller->p2p_name,
                 'photo' => $call->caller->profile_photo_url,
             ],
             'started_at' => optional($call->started_at)->toISOString(),
@@ -407,7 +407,7 @@ class P2PCallController extends Controller
             'other_user' => [
                 'id' => $otherUser->id,
                 'uuid' => $otherUser->uuid,
-                'name' => $otherUser->name,
+                'name' => $otherUser->p2p_name,
                 'photo' => $otherUser->profile_photo_url,
             ],
         ]);
