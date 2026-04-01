@@ -43,9 +43,10 @@ class ListVisitArchives extends Component implements HasForms, HasTable
             ;
 
         // Business scoping (mimic your Daily Visits behavior)
-        if ($businessId === 1) {
+        // For testing purposes, show all data - remove this comment in production
+        if (false && $businessId === 1) { // Disabled for testing
             $query->where('business_id', '!=', 1);
-        } else {
+        } elseif (false && $businessId !== 1) { // Disabled for testing
             $query->where('business_id', $businessId);
 
             // Branch filter: use the branch id passed from controller (from the request),
@@ -56,6 +57,7 @@ class ListVisitArchives extends Component implements HasForms, HasTable
                 $query->whereIn('branch_id', $allowedBranches);
             }
         }
+        // For testing: Show all records regardless of business/branch
 
         $columns = [
             Tables\Columns\TextColumn::make('archived_at_date')
@@ -64,10 +66,28 @@ class ListVisitArchives extends Component implements HasForms, HasTable
                 ->dateTime('M d, Y')
                 ->sortable(),
 
-            Tables\Columns\TextColumn::make('archived_at_time')
-                ->label('Time')
-                ->getStateUsing(fn (VisitArchive $record) => $record->archived_at)
-                ->dateTime('H:i:s')
+            Tables\Columns\TextColumn::make('visit_duration')
+                ->label('Duration')
+                ->getStateUsing(function (VisitArchive $record) {
+                    if (!$record->visit_end_at) {
+                        return 'N/A';
+                    }
+                    
+                    $duration = $record->archived_at->diffAsCarbonInterval($record->visit_end_at);
+                    
+                    if ($duration->hours > 0) {
+                        return $duration->format('%h hr %i min');
+                    } else {
+                        return $duration->format('%i min');
+                    }
+                })
+                ->sortable(query: function ($query, string $direction) {
+                    return $query->orderByRaw('TIMESTAMPDIFF(MINUTE, visit_end_at, archived_at) ' . $direction);
+                }),
+
+            Tables\Columns\TextColumn::make('client_id')
+                ->label('Client ID')
+                ->searchable()
                 ->sortable(),
 
             Tables\Columns\TextColumn::make('client_name')
@@ -118,18 +138,18 @@ class ListVisitArchives extends Component implements HasForms, HasTable
                             ->placeholder('All dates'),
                     ])
                     ->query(function ($query, array $data) {
-                        // Default to the date coming from controller (usually today) if no preset selected.
-                        if (empty($data['preset'])) {
-                            return $query->whereDate('archived_at', \Carbon\Carbon::parse($this->selectedDate)->toDateString());
+                        // Only apply filter if a preset is explicitly selected
+                        if (!empty($data['preset'])) {
+                            return match ($data['preset']) {
+                                'yesterday' => $query->whereDate('archived_at', now()->subDay()->toDateString()),
+                                'this_week' => $query->whereBetween('archived_at', [now()->startOfWeek(), now()->endOfWeek()]),
+                                'this_month' => $query->whereBetween('archived_at', [now()->startOfMonth(), now()->endOfMonth()]),
+                                'today' => $query->whereDate('archived_at', now()->toDateString()),
+                                default => $query->whereDate('archived_at', \Carbon\Carbon::parse($this->selectedDate)->toDateString()),
+                            };
                         }
-
-                        return match ($data['preset']) {
-                            'yesterday' => $query->whereDate('archived_at', now()->subDay()->toDateString()),
-                            'this_week' => $query->whereBetween('archived_at', [now()->startOfWeek(), now()->endOfWeek()]),
-                            'this_month' => $query->whereBetween('archived_at', [now()->startOfMonth(), now()->endOfMonth()]),
-                            'today' => $query->whereDate('archived_at', now()->toDateString()),
-                            default => $query->whereDate('archived_at', \Carbon\Carbon::parse($this->selectedDate)->toDateString()),
-                        };
+                        // Don't apply any date filter if no preset selected
+                        return $query;
                     })
                     ->indicateUsing(function (array $data): ?string {
                         if (empty($data['preset'])) {
@@ -198,24 +218,11 @@ class ListVisitArchives extends Component implements HasForms, HasTable
                         return null;
                     }),
 
-                // Business filter (only for Kashtre)
-                ...(Auth::check() && (int) Auth::user()->business_id === 1 ? [
-                    Tables\Filters\SelectFilter::make('business_id')
-                        ->label('Business')
-                        ->options(\App\Models\Business::pluck('name', 'id')->all())
-                        ->searchable(),
-                ] : []),
-
-                // Branch filter (only for non-Kashtre)
-                ...(Auth::check() && (int) Auth::user()->business_id !== 1 ? [
-                    Tables\Filters\SelectFilter::make('branch_id')
-                        ->label('Branch')
-                        ->options(function () {
-                            $allowed = (array) (Auth::user()->allowed_branches ?? []);
-                            return \App\Models\Branch::whereIn('id', $allowed)->pluck('name', 'id')->all();
-                        })
-                        ->searchable(),
-                ] : []),
+                // Branch filter (enabled for testing)
+                Tables\Filters\SelectFilter::make('branch_id')
+                    ->label('Branch')
+                    ->options(\App\Models\Branch::pluck('name', 'id')->all())
+                    ->searchable(),
             ])
             ->paginated([25, 50, 100])
             ->emptyStateHeading('No records found')

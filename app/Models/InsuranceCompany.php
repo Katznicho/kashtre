@@ -55,4 +55,17 @@ class InsuranceCompany extends Model
     {
         return $this->belongsTo(Country::class);
     }
+
+    public function settings()
+    {
+        return $this->hasMany(InsuranceCompanySetting::class);
+    }
+
+    /**
+     * Get visit authorization duration setting.
+     */
+    public function getVisitAuthorizationDurationAttribute()
+    {
+        return InsuranceCompanySetting::getVisitAuthorizationDuration($this->id);
+    }
 }
