@@ -716,8 +716,49 @@ class ClientController extends Controller
             $clientData['coinsurance_contributes_to_deductible'] = $paymentResponsibility['coinsurance_contributes_to_deductible'] ?? null;
         }
         
+        // Mark if client was registered via open enrollment
+        $clientData['registered_via_open_enrollment'] = ($verificationMethod === 'open_enrollment');
+        
         // Create the client
         $client = Client::create($clientData);
+        
+        // If registered via open enrollment, sync to third-party vendor system
+        if ($verificationMethod === 'open_enrollment' && $isInsuranceSelected) {
+            try {
+                $apiService = new ThirdPartyApiService();
+                $syncResult = $apiService->syncClientToVendor($client);
+                
+                if ($syncResult) {
+                    Log::info('Client synced to third-party vendor', [
+                        'kashtre_client_id' => $client->client_id,
+                        'vendor_sync_result' => $syncResult,
+                    ]);
+                }
+                
+                // Register the authorized visit on vendor
+                $visitRegistrationResult = $apiService->registerAuthorizedVisit(
+                    $client,
+                    $client->visit_id,
+                    now()->toDateString(),
+                    $client->visit_expires_at ? $client->visit_expires_at->toDateTimeString() : null,
+                    $client->services_category
+                );
+                
+                if ($visitRegistrationResult) {
+                    Log::info('Authorized visit registered with third-party vendor', [
+                        'kashtre_client_id' => $client->client_id,
+                        'visit_id' => $client->visit_id,
+                        'visit_registration_result' => $visitRegistrationResult,
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to sync client or register visit to third-party vendor', [
+                    'kashtre_client_id' => $client->client_id,
+                    'error' => $e->getMessage(),
+                ]);
+                // Don't fail the registration if sync fails - client is already created locally
+            }
+        }
         
         return redirect()->route('pos.item-selection', $client)
             ->with('success', 'Client registered successfully! Client ID: ' . $clientId);
@@ -2166,8 +2207,9 @@ class ClientController extends Controller
                         'response_data' => $errorResponse,
                     ]);
 
-                    $httpStatus = ($verificationResult['exists'] ?? false) ? 422 : 404;
-                    return response()->json($errorResponse, $httpStatus);
+                    // Always return 200 OK - the route exists and responded properly.
+                    // Check the 'success' and 'exists' fields in the response to determine actual status.
+                    return response()->json($errorResponse, 200);
                 }
             }
             
@@ -2227,7 +2269,7 @@ class ClientController extends Controller
                         'response_data' => $errorResponse,
                     ]);
                     
-                    return response()->json($errorResponse, 404);
+                    return response()->json($errorResponse, 200);
                 }
             }
             
@@ -2245,7 +2287,7 @@ class ClientController extends Controller
                 'response_data' => $errorResponse,
             ]);
             
-            return response()->json($errorResponse, 404);
+            return response()->json($errorResponse, 200);
             
         } catch (\Exception $e) {
             $errorResponse = [

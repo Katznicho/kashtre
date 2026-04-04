@@ -3,7 +3,11 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-
+// Public API routes for client registration and open enrollment checks (no auth required)
+Route::get('/insurance-company/by-code/{code}', [\App\Http\Controllers\ClientController::class, 'getInsuranceCompanyByCode'])->name('api.insurance-company.by-code');
+Route::get('/insurance-settings/{insuranceCompanyId}', [\App\Http\Controllers\ClientController::class, 'getInsuranceCompanySettingsApi'])->name('api.insurance-settings');
+Route::get('/policies/verify/{insuranceCompanyId}/{policyNumber}', [\App\Http\Controllers\ClientController::class, 'verifyPolicyNumber'])->name('api.policies.verify');
+Route::post('/policies/verify/{insuranceCompanyId}', [\App\Http\Controllers\ClientController::class, 'verifyPolicyNumber'])->name('api.policies.verify.post');
 
 Route::prefix('v1')->group(function () {
     include_once __DIR__ . '/custom/airtel_routes.php';
@@ -25,6 +29,9 @@ Route::prefix('v1')->group(function () {
     
     // Client co-pay status tracking
     Route::get('/clients/{client}/copay-status', [\App\Http\Controllers\API\ClientController::class, 'getCopayPaidStatus']);
+
+    // Insurance company settings
+    Route::get('/insurance-companies/{insuranceCompanyId}/settings', [\App\Http\Controllers\API\ClientController::class, 'getInsuranceCompanySettings']);
 
     // Callback from third-party insurer after authorization decision (approve/reject)
     Route::post('/insurance/authorization-decision', [\App\Http\Controllers\API\InvoiceController::class, 'receiveAuthorizationDecision']);

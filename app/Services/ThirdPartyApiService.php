@@ -670,51 +670,6 @@ class ThirdPartyApiService
     }
 
     /**
-     * Get insurance company settings by ID
-     *
-     * @param int $insuranceCompanyId
-     * @return array|null Returns settings data if found, null otherwise
-     */
-    public function getInsuranceCompanySettings(int $insuranceCompanyId): ?array
-    {
-        try {
-            Log::info('ThirdPartyApiService: Fetching insurance company settings', [
-                'insurance_company_id' => $insuranceCompanyId,
-            ]);
-
-            $response = Http::timeout($this->timeout)
-                ->get("{$this->baseUrl}/api/v1/businesses/{$insuranceCompanyId}/settings");
-
-            if ($response->successful()) {
-                $data = $response->json();
-                
-                Log::info('ThirdPartyApiService: Insurance company settings retrieved', [
-                    'insurance_company_id' => $insuranceCompanyId,
-                    'success' => $data['success'] ?? false,
-                ]);
-
-                return $data['data'] ?? null;
-            } else {
-                $error = $response->json();
-                Log::warning('ThirdPartyApiService: Failed to fetch insurance company settings', [
-                    'insurance_company_id' => $insuranceCompanyId,
-                    'status' => $response->status(),
-                    'error' => $error,
-                ]);
-
-                return null;
-            }
-        } catch (Exception $e) {
-            Log::error('ThirdPartyApiService: Exception while fetching insurance company settings', [
-                'insurance_company_id' => $insuranceCompanyId,
-                'message' => $e->getMessage(),
-            ]);
-
-            return null;
-        }
-    }
-
-    /**
      * Create client account in third-party system
      *
      * @param int $clientId Client ID in third-party system
@@ -953,6 +908,212 @@ class ThirdPartyApiService
                 'success' => false,
                 'message' => $e->getMessage(),
             ];
+        }
+    }
+
+    /**
+     * Get insurance company registration settings from third-party
+     */
+    public function getInsuranceCompanySettings(int $insuranceCompanyId): ?array
+    {
+        try {
+            Log::info('Kashtre: Fetching insurance company settings', [
+                'insurance_company_id' => $insuranceCompanyId,
+            ]);
+
+            // Fetch full settings including open enrollment
+            $url = "{$this->baseUrl}/api/v1/businesses/{$insuranceCompanyId}/settings";
+
+            $response = Http::timeout($this->timeout)->get($url);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                // Now fetch registration desk settings separately
+                try {
+                    $regUrl = "{$this->baseUrl}/api/v1/insurance-companies/{$insuranceCompanyId}/settings";
+                    $regResponse = Http::timeout($this->timeout)->get($regUrl);
+                    
+                    if ($regResponse->successful()) {
+                        $regData = $regResponse->json();
+                        // Merge registration settings into data
+                        if (isset($data['data'])) {
+                            $data['data']['show_policy_details_at_registration'] = $regData['show_policy_details_at_registration'] ?? true;
+                            $data['data']['visit_authorization_period_days'] = $regData['visit_authorization_period_days'] ?? 7;
+                        }
+                    }
+                } catch (Exception $e) {
+                    Log::warning('Kashtre: Could not fetch registration desk settings', ['error' => $e->getMessage()]);
+                    // Continue with main settings only
+                }
+                
+                Log::info('Kashtre: Insurance company settings fetched successfully', [
+                    'insurance_company_id' => $insuranceCompanyId,
+                ]);
+                
+                return $data['data'] ?? $data;
+            }
+
+            Log::warning('Kashtre: Failed to fetch insurance company settings', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return null;
+        } catch (Exception $e) {
+            Log::error('Kashtre: Exception while fetching insurance company settings', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Sync client to third-party vendor system when registered via open enrollment
+     * 
+     * @param \App\Models\Client $client
+     * @return array|null
+     */
+    public function syncClientToVendor($client): ?array
+    {
+        try {
+            if (!$client->insurance_company_id || !$client->registered_via_open_enrollment) {
+                return null;
+            }
+
+            Log::info('Kashtre: Syncing client to third-party vendor', [
+                'kashtre_client_id' => $client->client_id,
+                'insurance_company_id' => $client->insurance_company_id,
+            ]);
+
+            $payload = [
+                'kashtre_client_id' => $client->client_id,
+                'insurance_company_id' => $client->insurance_company_id,
+                'first_name' => $client->first_name,
+                'surname' => $client->surname,
+                'other_names' => $client->other_names,
+                'phone_number' => $client->phone_number,
+                'email' => $client->email,
+                'date_of_birth' => $client->date_of_birth ? $client->date_of_birth->toDateString() : null,
+                'gender' => strtolower($client->sex ?? ''),
+                'marital_status' => $client->marital_status,
+                'occupation' => $client->occupation,
+                'nationality' => $client->nationality,
+                'policy_number' => $client->policy_number,
+                'registered_via_open_enrollment' => $client->registered_via_open_enrollment,
+            ];
+
+            $response = Http::timeout($this->timeout)
+                ->post("{$this->baseUrl}/api/v1/clients/sync", $payload);
+
+            Log::info('Kashtre: Client sync response received', [
+                'status_code' => $response->status(),
+                'kashtre_client_id' => $client->client_id,
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                Log::info('Kashtre: Client synced to vendor successfully', [
+                    'kashtre_client_id' => $client->client_id,
+                    'response_data' => $data,
+                ]);
+
+                return $data;
+            } else {
+                Log::warning('Kashtre: Failed to sync client to vendor', [
+                    'kashtre_client_id' => $client->client_id,
+                    'status_code' => $response->status(),
+                    'response_body' => $response->body(),
+                ]);
+
+                return null;
+            }
+        } catch (Exception $e) {
+            Log::error('Kashtre: Exception while syncing client to vendor', [
+                'kashtre_client_id' => $client->client_id ?? null,
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Register authorized visit on third-party vendor system
+     * 
+     * @param $client
+     * @param string $visitId
+     * @param string $visitDate
+     * @param string|null $expiryAt
+     * @param string|null $servicesCategory
+     * @return array|null
+     */
+    public function registerAuthorizedVisit($client, string $visitId, string $visitDate, ?string $expiryAt = null, ?string $servicesCategory = null): ?array
+    {
+        try {
+            if (!$client->insurance_company_id) {
+                return null;
+            }
+
+            Log::info('Kashtre: Registering authorized visit on vendor', [
+                'kashtre_client_id' => $client->client_id,
+                'visit_id' => $visitId,
+                'insurance_company_id' => $client->insurance_company_id,
+            ]);
+
+            $payload = [
+                'kashtre_client_id' => $client->client_id,
+                'visit_id' => $visitId,
+                'insurance_company_id' => $client->insurance_company_id,
+                'visit_date' => $visitDate,
+                'expiry_at' => $expiryAt,
+                'services_category' => $servicesCategory ?? $client->services_category,
+                'notes' => "Visit registered via kashtre on " . now()->toDateTimeString(),
+            ];
+
+            $response = Http::timeout($this->timeout)
+                ->post("{$this->baseUrl}/api/v1/authorized-visits/register", $payload);
+
+            Log::info('Kashtre: Authorized visit registration response received', [
+                'status_code' => $response->status(),
+                'kashtre_client_id' => $client->client_id,
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                Log::info('Kashtre: Authorized visit registered on vendor successfully', [
+                    'kashtre_client_id' => $client->client_id,
+                    'visit_id' => $visitId,
+                    'response_data' => $data,
+                ]);
+
+                return $data;
+            } else {
+                Log::warning('Kashtre: Failed to register authorized visit on vendor', [
+                    'kashtre_client_id' => $client->client_id,
+                    'visit_id' => $visitId,
+                    'status_code' => $response->status(),
+                    'response_body' => $response->body(),
+                ]);
+
+                return null;
+            }
+        } catch (Exception $e) {
+            Log::error('Kashtre: Exception while registering authorized visit', [
+                'kashtre_client_id' => $client->client_id ?? null,
+                'visit_id' => $visitId ?? null,
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return null;
         }
     }
 }

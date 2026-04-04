@@ -1371,6 +1371,12 @@
             const policyVerificationResult = document.getElementById('policy_verification_result');
             const policyVerifiedInput = document.getElementById('policy_verified');
 
+            // Store registration settings (including show_policy_details_at_registration)
+            let registrationSettings = {
+                show_policy_details: true, // default to showing policy details
+                visit_authorization_period_days: 7
+            };
+
             function resetInsuranceVerificationUI() {
                 // Reset policy verification UI when insurance company / policy context changes.
                 // Do not clear physical_id_verified: it is a separate attestation (ID presented at counter)
@@ -1457,12 +1463,24 @@
 
                 const insuranceCompanyId = insuranceCompanySelect.value;
 
-                // Fetch settings to check open enrollment
+                // Fetch settings to check open enrollment and registration desk options
                 let settings = null;
                 try {
                     const res = await fetch(`/api/insurance-settings/${insuranceCompanyId}`);
                     if (res.ok) settings = await res.json();
                 } catch (e) { /* fall through to normal flow */ }
+
+                // Also fetch registration desk settings
+                try {
+                    const regRes = await fetch(`/api/v1/insurance-companies/${insuranceCompanyId}/settings`);
+                    if (regRes.ok) {
+                        const regSettings = await regRes.json();
+                        if (regSettings.success) {
+                            registrationSettings.show_policy_details = regSettings.show_policy_details_at_registration ?? true;
+                            registrationSettings.visit_authorization_period_days = regSettings.visit_authorization_period_days ?? 7;
+                        }
+                    }
+                } catch (e) { /* fall through */ }
 
                 const oeEnabled = settings?.open_enrollment?.enabled ?? false;
 
@@ -1534,14 +1552,18 @@
 
                 // Gather available client data from the form
                 const dobInput = document.querySelector('input[name="date_of_birth"]');
-                const genderSelect = document.querySelector('select[name="gender"]') || document.querySelector('input[name="gender"]');
+                const genderSelect = document.querySelector('select[name="sex"]') || document.querySelector('select[name="gender"]') || document.querySelector('input[name="gender"]');
                 const nationalityInput = document.querySelector('input[name="nationality"]');
                 const maritalSelect = document.querySelector('select[name="marital_status"]') || document.querySelector('input[name="marital_status"]');
                 const servicesCategorySelect = document.getElementById('services_category');
 
                 const params = new URLSearchParams();
                 if (dobInput?.value) params.append('date_of_birth', dobInput.value);
-                if (genderSelect?.value) params.append('gender', genderSelect.value);
+                if (genderSelect?.value) {
+                    // Capitalize gender value to match API expectations (Male/Female)
+                    const genderValue = genderSelect.value.charAt(0).toUpperCase() + genderSelect.value.slice(1).toLowerCase();
+                    params.append('gender', genderValue);
+                }
                 if (nationalityInput?.value) params.append('nationality', nationalityInput.value);
                 if (maritalSelect?.value) params.append('marital_status', maritalSelect.value);
                 if (servicesCategorySelect?.value) params.append('services_category', servicesCategorySelect.value);
@@ -1553,15 +1575,20 @@
                     const response = await fetch(url);
                     const data = await response.json();
 
-                    if (data.success && data.exists && (data.data?.open_enrollment || data.verification_method === 'open_enrollment')) {
+                    // For open enrollment, check if verification_method is 'open_enrollment' OR data.open_enrollment is true
+                    const isOpenEnrollment = data.verification_method === 'open_enrollment' || data.data?.open_enrollment === true;
+                    const isSuccess = data.success && data.exists;
+
+                    if (isSuccess && isOpenEnrollment) {
                         // Confirmed — populate the hidden policy number with the generic one
                         if (policyNumberInput) policyNumberInput.value = data.data.policy_number;
                         document.getElementById('policy_verified').value = '1';
 
                         // Build payment info html (reuse existing logic)
+                        // Only show policy details if the setting allows it
                         const paymentInfo = data.data?.payment_responsibility;
                         let paymentInfoHtml = '';
-                        if (paymentInfo) {
+                        if (paymentInfo && registrationSettings.show_policy_details) {
                             if (paymentInfo.has_deductible && paymentInfo.deductible_amount) {
                                 paymentInfoHtml += `<p class="text-xs text-green-700 mt-1">Deductible: UGX ${parseFloat(paymentInfo.deductible_amount).toLocaleString()}</p>`;
                             }
@@ -1589,6 +1616,16 @@
                         const displayMsg = msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('alternative verification')
                             ? 'Client does not meet the open enrollment criteria for this insurance company.'
                             : msg;
+                        
+                        // Log for debugging
+                        console.log('Open enrollment check failed:', {
+                            data: data,
+                            isSuccess: data.success && data.exists,
+                            isOpenEnrollment: data.verification_method === 'open_enrollment' || data.data?.open_enrollment === true,
+                            verification_method: data.verification_method,
+                            data_open_enrollment: data.data?.open_enrollment
+                        });
+                        
                         resultDiv.innerHTML = `
                             <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
                                 <p class="text-sm font-semibold text-red-800">✗ Not eligible</p>
@@ -1743,10 +1780,11 @@
                         }
                         
                         // Build payment responsibility information display
+                        // Only show policy details if the setting allows it
                         const paymentInfo = data.data?.payment_responsibility;
                         let paymentInfoHtml = '';
                         
-                        if (paymentInfo) {
+                        if (paymentInfo && registrationSettings.show_policy_details) {
                             paymentInfoHtml = '<div class="mt-3 pt-3 border-t border-' + statusColor + '-300">';
                             paymentInfoHtml += '<p class="text-xs font-semibold text-' + statusColor + '-800 mb-2">Payment Responsibility:</p>';
                             
@@ -2087,10 +2125,11 @@
                         const statusColor = data.verification_status === 'flagged' ? 'yellow' : 'green';
                         
                         // Build payment responsibility information display
+                        // Only show policy details if the setting allows it
                         const paymentInfo = data.data?.payment_responsibility;
                         let paymentInfoHtml = '';
                         
-                        if (paymentInfo) {
+                        if (paymentInfo && registrationSettings.show_policy_details) {
                             paymentInfoHtml = '<div class="mt-3 pt-3 border-t border-' + statusColor + '-300">';
                             paymentInfoHtml += '<p class="text-xs font-semibold text-' + statusColor + '-800 mb-2">Payment Responsibility:</p>';
                             

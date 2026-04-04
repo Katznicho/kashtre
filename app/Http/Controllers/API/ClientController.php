@@ -233,4 +233,39 @@ class ClientController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get insurance company registration settings (e.g., show_policy_details_at_registration)
+     */
+    public function getInsuranceCompanySettings(Request $request, $insuranceCompanyId)
+    {
+        try {
+            $thirdPartyService = app(\App\Services\ThirdPartyApiService::class);
+            $settings = $thirdPartyService->getInsuranceCompanySettings($insuranceCompanyId);
+
+            if ($settings) {
+                return response()->json([
+                    'success' => true,
+                    'data' => $settings
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Insurance company settings not found'
+            ], 404);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching insurance company settings', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching insurance company settings'
+            ], 500);
+        }
+    }
 }

@@ -64,6 +64,7 @@ class Client extends Model
         'copay_max_limit',
         'copay_contributes_to_deductible',
         'coinsurance_contributes_to_deductible',
+        'registered_via_open_enrollment',
     ];
 
     protected $casts = [
@@ -81,6 +82,7 @@ class Client extends Model
         'copay_max_limit' => 'decimal:2',
         'copay_contributes_to_deductible' => 'boolean',
         'coinsurance_contributes_to_deductible' => 'boolean',
+        'registered_via_open_enrollment' => 'boolean',
     ];
 
     protected static function booted()
