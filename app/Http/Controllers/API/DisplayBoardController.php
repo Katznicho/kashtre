@@ -7,7 +7,6 @@ use App\Models\Caller;
 use App\Models\CallerLog;
 use App\Models\CallingModuleConfig;
 use App\Models\EmergencyAlert;
-use App\Models\ServiceDeliveryQueue;
 use App\Services\EmergencyAlertService;
 use App\Services\CallingServiceClient;
 use Illuminate\Http\Request;
@@ -113,44 +112,17 @@ class DisplayBoardController extends Controller
                 'priority' => $q->priority ?? 'normal',
             ]);
 
-        $nowServing = ServiceDeliveryQueue::whereIn('service_point_id', $servicePointIds)
-            ->whereIn('status', ['in_progress', 'partially_done'])
-            ->with([
-                'client:id,visit_id',
-                'servicePoint:id,name',
-            ])
-            ->orderByDesc('updated_at')
-            ->get()
-            ->unique(fn ($q) => ($q->client?->visit_id ?: $q->client_id) . '|' . $q->service_point_id)
-            ->values()
-            ->map(fn ($q) => [
-                'visit_id' => $q->client?->visit_id ?: ('Client #' . $q->client_id),
-                'service_point' => $q->servicePoint?->name ?: '—',
-            ]);
-
-        $cachedNowServing = collect($servicePointIds)
+        $nowServing = collect($servicePointIds)
             ->flatMap(function ($servicePointId) {
                 $entries = Cache::get("display-serving:service-point:{$servicePointId}", []);
 
                 return collect($entries)->map(fn ($entry) => [
                     'visit_id' => $entry['visit_id'] ?? ('Client #' . ($entry['client_id'] ?? '')),
                     'service_point' => $entry['service_point'] ?? '-',
-                    'started_at' => $entry['started_at'] ?? null,
                 ])->values();
-            });
-
-        $nowServing = $cachedNowServing
-            ->concat($nowServing->map(fn ($entry) => [
-                'visit_id' => $entry['visit_id'],
-                'service_point' => $entry['service_point'],
-                'started_at' => null,
-            ]))
+            })
             ->unique(fn ($entry) => ($entry['visit_id'] ?? '') . '|' . ($entry['service_point'] ?? ''))
-            ->values()
-            ->map(fn ($entry) => [
-                'visit_id' => $entry['visit_id'],
-                'service_point' => $entry['service_point'],
-            ]);
+            ->values();
 
         $activeEmergency = app(EmergencyAlertService::class)->resolveActiveAlertForBusiness($caller->business_id);
 
