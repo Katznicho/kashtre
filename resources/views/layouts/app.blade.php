@@ -148,7 +148,7 @@
             if (window.Swal) {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Emergency Triggered',
+                    title: 'Emergency Started',
                     text: data.message || 'Emergency alert sent successfully.',
                     timer: 2200,
                     timerProgressBar: true,
