@@ -441,7 +441,7 @@ class ThirdPartyApiService
      * @param string|null $dateOfBirth Optional: Date of birth for tolerance-based verification
      * @return array|null Returns policy data if exists, null otherwise
      */
-    public function verifyPolicyNumber(int $insuranceCompanyId, string $policyNumber, ?string $name = null, ?string $dateOfBirth = null, ?string $servicesCategory = null): ?array
+    public function verifyPolicyNumber(int $insuranceCompanyId, string $policyNumber, ?string $name = null, ?string $dateOfBirth = null, ?string $servicesCategory = null, array $extraParams = []): ?array
     {
         try {
             Log::info('=== Kashtre: verifyPolicyNumber START ===', [
@@ -452,10 +452,11 @@ class ThirdPartyApiService
                 'name' => $name,
                 'date_of_birth' => $dateOfBirth,
                 'services_category' => $servicesCategory,
+                'extra_params' => $extraParams,
             ]);
 
             // Build query parameters if name or DOB are provided
-            $queryParams = [];
+            $queryParams = $extraParams;
             if ($name) {
                 $queryParams['name'] = $name;
             }
@@ -485,9 +486,9 @@ class ThirdPartyApiService
                 'response_headers' => $response->headers(),
             ]);
 
+            $data = $response->json();
+
             if ($response->successful()) {
-                $data = $response->json();
-                
                 Log::info('Kashtre: Policy number verified - SUCCESS', [
                     'insurance_company_id' => $insuranceCompanyId,
                     'policy_number' => $policyNumber,
@@ -500,19 +501,18 @@ class ThirdPartyApiService
                     'warnings' => $data['warnings'] ?? [],
                 ]);
 
-                // Return full response data including warnings and verification status
                 return $data;
             } else {
-                $error = $response->json();
                 Log::warning('Kashtre: Policy number verification FAILED', [
                     'insurance_company_id' => $insuranceCompanyId,
                     'policy_number' => $policyNumber,
                     'response_status_code' => $response->status(),
                     'response_body' => $response->body(),
-                    'response_data' => $error,
+                    'response_data' => $data,
                 ]);
 
-                return null;
+                // Return the error body so callers can surface the exact message
+                return $data;
             }
         } catch (Exception $e) {
             Log::error('Kashtre: Exception while verifying policy number', [

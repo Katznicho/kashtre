@@ -1443,17 +1443,168 @@
                 });
             });
 
-            // Function to toggle policy number section
-            function togglePolicyNumberSection() {
-                if (insuranceCompanySelect && insuranceCompanySelect.value) {
-                    policyNumberSection.style.display = 'block';
+            // Fetch insurance company settings and show the right section
+            async function togglePolicyNumberSection() {
+                if (!insuranceCompanySelect || !insuranceCompanySelect.value) {
+                    policyNumberSection.style.display = 'none';
+                    const oeCard = document.getElementById('open_enrollment_card');
+                    if (oeCard) oeCard.remove();
+                    if (policyNumberInput) policyNumberInput.value = '';
+                    document.getElementById('policy_verified').value = '0';
                     resetInsuranceVerificationUI();
-                } else {
+                    return;
+                }
+
+                const insuranceCompanyId = insuranceCompanySelect.value;
+
+                // Fetch settings to check open enrollment
+                let settings = null;
+                try {
+                    const res = await fetch(`/api/insurance-settings/${insuranceCompanyId}`);
+                    if (res.ok) settings = await res.json();
+                } catch (e) { /* fall through to normal flow */ }
+
+                const oeEnabled = settings?.open_enrollment?.enabled ?? false;
+
+                // Remove any existing open enrollment card
+                const existingCard = document.getElementById('open_enrollment_card');
+                if (existingCard) existingCard.remove();
+
+                if (oeEnabled) {
+                    // Hide policy number input — not needed for open enrollment
                     policyNumberSection.style.display = 'none';
                     if (policyNumberInput) policyNumberInput.value = '';
+                    document.getElementById('policy_verified').value = '0';
+
+                    // Build criteria summary for display
+                    const oe = settings.open_enrollment;
+                    let criteriaLines = [];
+                    if (oe.min_age !== null || oe.max_age !== null) {
+                        const min = oe.min_age ?? '0';
+                        const max = oe.max_age ?? '∞';
+                        criteriaLines.push(`Age: ${min} – ${max}`);
+                    }
+                    if (oe.genders && oe.genders.length) criteriaLines.push(`Gender: ${oe.genders.join(', ')}`);
+                    if (oe.service_categories && oe.service_categories.length) criteriaLines.push(`Categories: ${oe.service_categories.join(', ')}`);
+                    if (oe.start_date || oe.end_date) criteriaLines.push(`Window: ${oe.start_date ?? '—'} to ${oe.end_date ?? '—'}`);
+                    if (oe.nationalities && oe.nationalities.length) criteriaLines.push(`Nationality: ${oe.nationalities.join(', ')}`);
+                    if (oe.marital_statuses && oe.marital_statuses.length) criteriaLines.push(`Marital status: ${oe.marital_statuses.join(', ')}`);
+
+                    const criteriaHtml = criteriaLines.length
+                        ? `<ul class="mt-2 space-y-0.5">${criteriaLines.map(l => `<li class="text-xs text-blue-700">• ${l}</li>`).join('')}</ul>`
+                        : '<p class="text-xs text-blue-700 mt-1">No specific criteria — all clients qualify.</p>';
+
+                    const card = document.createElement('div');
+                    card.id = 'open_enrollment_card';
+                    card.className = 'mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg';
+                    card.innerHTML = `
+                        <div class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 110 20A10 10 0 0112 2z"/>
+                            </svg>
+                            <div class="flex-1">
+                                <p class="text-sm font-semibold text-blue-900">Open Enrollment</p>
+                                <p class="text-xs text-blue-700 mt-0.5">No policy number required. Client will be confirmed based on eligibility criteria.</p>
+                                ${criteriaHtml}
+                            </div>
+                        </div>
+                        <div id="oe_check_result" class="mt-3"></div>
+                        <button type="button" id="oe_check_btn"
+                            class="mt-3 w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                            onclick="checkOpenEnrollmentEligibility(${insuranceCompanyId})">
+                            Check Eligibility
+                        </button>
+                    `;
+                    policyNumberSection.insertAdjacentElement('afterend', card);
+                } else {
+                    policyNumberSection.style.display = 'block';
                     resetInsuranceVerificationUI();
                 }
             }
+
+            // Check client eligibility under open enrollment (no policy number needed)
+            window.checkOpenEnrollmentEligibility = async function(insuranceCompanyId) {
+                const btn = document.getElementById('oe_check_btn');
+                const resultDiv = document.getElementById('oe_check_result');
+                if (!btn || !resultDiv) return;
+
+                btn.disabled = true;
+                btn.textContent = 'Checking...';
+                resultDiv.innerHTML = '<p class="text-xs text-blue-600">Checking eligibility...</p>';
+
+                // Gather available client data from the form
+                const dobInput = document.querySelector('input[name="date_of_birth"]');
+                const genderSelect = document.querySelector('select[name="gender"]') || document.querySelector('input[name="gender"]');
+                const nationalityInput = document.querySelector('input[name="nationality"]');
+                const maritalSelect = document.querySelector('select[name="marital_status"]') || document.querySelector('input[name="marital_status"]');
+                const servicesCategorySelect = document.getElementById('services_category');
+
+                const params = new URLSearchParams();
+                if (dobInput?.value) params.append('date_of_birth', dobInput.value);
+                if (genderSelect?.value) params.append('gender', genderSelect.value);
+                if (nationalityInput?.value) params.append('nationality', nationalityInput.value);
+                if (maritalSelect?.value) params.append('marital_status', maritalSelect.value);
+                if (servicesCategorySelect?.value) params.append('services_category', servicesCategorySelect.value);
+
+                // Use a dummy policy number that won't exist — the third-party will fall back to open enrollment
+                const url = `/api/policies/verify/${insuranceCompanyId}/__open_enrollment__?${params.toString()}`;
+
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (data.success && data.exists && (data.data?.open_enrollment || data.verification_method === 'open_enrollment')) {
+                        // Confirmed — populate the hidden policy number with the generic one
+                        if (policyNumberInput) policyNumberInput.value = data.data.policy_number;
+                        document.getElementById('policy_verified').value = '1';
+
+                        // Build payment info html (reuse existing logic)
+                        const paymentInfo = data.data?.payment_responsibility;
+                        let paymentInfoHtml = '';
+                        if (paymentInfo) {
+                            if (paymentInfo.has_deductible && paymentInfo.deductible_amount) {
+                                paymentInfoHtml += `<p class="text-xs text-green-700 mt-1">Deductible: UGX ${parseFloat(paymentInfo.deductible_amount).toLocaleString()}</p>`;
+                            }
+                            if (paymentInfo.copay_amount) {
+                                paymentInfoHtml += `<p class="text-xs text-green-700">Co-pay: UGX ${parseFloat(paymentInfo.copay_amount).toLocaleString()} per visit</p>`;
+                            }
+                            if (paymentInfo.coinsurance_percentage) {
+                                paymentInfoHtml += `<p class="text-xs text-green-700">Co-insurance: ${parseFloat(paymentInfo.coinsurance_percentage).toFixed(2)}%</p>`;
+                            }
+                        }
+
+                        resultDiv.innerHTML = `
+                            <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <p class="text-sm font-semibold text-green-800">✓ Client is eligible</p>
+                                <p class="text-xs text-green-700 mt-0.5">${data.message}</p>
+                                ${paymentInfoHtml}
+                            </div>
+                        `;
+                        btn.textContent = '✓ Eligible';
+                        btn.classList.replace('bg-blue-600', 'bg-green-600');
+                        btn.classList.replace('hover:bg-blue-700', 'hover:bg-green-700');
+                    } else {
+                        const msg = data.message || 'Client does not meet the open enrollment criteria.';
+                        // Don't show generic "policy not found" language for open enrollment checks
+                        const displayMsg = msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('alternative verification')
+                            ? 'Client does not meet the open enrollment criteria for this insurance company.'
+                            : msg;
+                        resultDiv.innerHTML = `
+                            <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <p class="text-sm font-semibold text-red-800">✗ Not eligible</p>
+                                <p class="text-xs text-red-700 mt-0.5">${displayMsg}</p>
+                            </div>
+                        `;
+                        document.getElementById('policy_verified').value = '0';
+                        btn.disabled = false;
+                        btn.textContent = 'Check Eligibility';
+                    }
+                } catch (e) {
+                    resultDiv.innerHTML = '<p class="text-xs text-red-600">Unable to check eligibility. Please try again.</p>';
+                    btn.disabled = false;
+                    btn.textContent = 'Check Eligibility';
+                }
+            };
 
             // Function to verify policy number (with automatic fallback to alternative methods)
             async function verifyPolicyNumber() {

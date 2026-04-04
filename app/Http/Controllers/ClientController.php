@@ -2050,6 +2050,26 @@ class ClientController extends Controller
     }
 
     /**
+     * Get insurance company settings from third-party (API endpoint for frontend use)
+     */
+    public function getInsuranceCompanySettingsApi($insuranceCompanyId)
+    {
+        try {
+            $insuranceCompany = \App\Models\InsuranceCompany::findOrFail($insuranceCompanyId);
+            $apiService = new ThirdPartyApiService();
+            $settings = $apiService->getInsuranceCompanySettings((int) $insuranceCompany->third_party_business_id);
+
+            return response()->json($settings);
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch insurance company settings', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json(['open_enrollment' => ['enabled' => false]], 200);
+        }
+    }
+
+    /**
      * Verify policy number exists (API endpoint)
      * Supports both GET (policy number only) and POST (with alternative verification data)
      */
@@ -2081,21 +2101,32 @@ class ClientController extends Controller
                 // Get name and DOB from request for tolerance-based verification
                 $name = $request->input('name');
                 $dateOfBirth = $request->input('date_of_birth');
-                
+
+                // Extra params forwarded to third-party for open enrollment criteria evaluation
+                $extraParams = array_filter([
+                    'gender'         => $request->input('gender'),
+                    'nationality'    => $request->input('nationality'),
+                    'marital_status' => $request->input('marital_status'),
+                    'client_type'    => $request->input('client_type'),
+                    'invoice_amount' => $request->input('invoice_amount'),
+                ], fn($v) => $v !== null && $v !== '');
+
                 Log::info('Kashtre Controller: Calling API service for policy verification', [
                     'insurance_company_id' => $insuranceCompanyId,
                     'policy_number' => $policyNumber,
                     'name' => $name,
                     'date_of_birth' => $dateOfBirth,
                     'services_category' => $servicesCategory,
+                    'extra_params' => $extraParams,
                 ]);
-                
+
                 $verificationResult = $apiService->verifyPolicyNumber(
-                    (int)$insuranceCompanyId, 
+                    (int)$insuranceCompanyId,
                     $policyNumber,
                     $name,
                     $dateOfBirth,
-                    $servicesCategory
+                    $servicesCategory,
+                    $extraParams
                 );
                 
                 Log::info('Kashtre Controller: Received verification result from API service', [
@@ -2113,28 +2144,30 @@ class ClientController extends Controller
                         'data' => $verificationResult['data'] ?? null,
                         'warnings' => $verificationResult['warnings'] ?? [],
                     ];
-                    
+
                     Log::info('Kashtre Controller: Returning SUCCESS response', [
                         'response_data' => $responseData,
                     ]);
-                    
+
                     return response()->json($responseData, 200);
                 } elseif ($verificationResult && isset($verificationResult['success']) && !$verificationResult['success']) {
-                    // Policy number found but verification rejected due to name/DOB mismatch
+                    // Third-party returned an error — surface it directly (covers open enrollment
+                    // criteria-not-met, policy rejected, not found, etc.)
                     $errorResponse = [
                         'success' => false,
-                        'message' => $verificationResult['message'] ?? 'Policy number found, but name and date of birth do not match.',
-                        'exists' => $verificationResult['exists'] ?? true,
+                        'message' => $verificationResult['message'] ?? 'Verification failed.',
+                        'exists' => $verificationResult['exists'] ?? false,
                         'verification_status' => $verificationResult['verification_status'] ?? 'rejected',
                         'mismatches' => $verificationResult['mismatches'] ?? [],
                         'details' => $verificationResult['details'] ?? [],
                     ];
-                    
-                    Log::warning('Kashtre Controller: Verification REJECTED', [
+
+                    Log::warning('Kashtre Controller: Verification error from third-party', [
                         'response_data' => $errorResponse,
                     ]);
-                    
-                    return response()->json($errorResponse, 422);
+
+                    $httpStatus = ($verificationResult['exists'] ?? false) ? 422 : 404;
+                    return response()->json($errorResponse, $httpStatus);
                 }
             }
             
