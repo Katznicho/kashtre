@@ -936,7 +936,16 @@ export default function callingSystem() {
 
         async getLocalStream() {
             if (this.localStream) return;
-            this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            this.localStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    sampleRate: 48000,
+                    channelCount: 1,
+                },
+                video: false,
+            });
         },
 
         async setupPeerConnection() {

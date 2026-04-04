@@ -366,7 +366,15 @@ function paConsole() {
             this._sessionId = payload.session_id || null;
 
             try {
-                this._stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                this._stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 48000,
+                        channelCount: 1,
+                    },
+                });
                 this.startLocalMicMeter();
             } catch (_) {
                 await fetch(PA_STOP_URL, {
@@ -395,6 +403,35 @@ function paConsole() {
             this.busySectionName = '';
         },
 
+        waitForIceGatheringComplete(connection, timeoutMs = 5000) {
+            if (!connection || connection.iceGatheringState === 'complete') {
+                return Promise.resolve();
+            }
+
+            return new Promise((resolve) => {
+                let timeoutId = null;
+
+                const cleanup = () => {
+                    connection.removeEventListener('icegatheringstatechange', handleStateChange);
+                    if (timeoutId) clearTimeout(timeoutId);
+                };
+
+                const handleStateChange = () => {
+                    if (connection.iceGatheringState === 'complete') {
+                        cleanup();
+                        resolve();
+                    }
+                };
+
+                timeoutId = setTimeout(() => {
+                    cleanup();
+                    resolve();
+                }, timeoutMs);
+
+                connection.addEventListener('icegatheringstatechange', handleStateChange);
+            });
+        },
+
         async startPeerBroadcast(targetCallers) {
             this.closePeerConnections();
 
@@ -404,6 +441,7 @@ function paConsole() {
 
                 const offer = await connection.createOffer();
                 await connection.setLocalDescription(offer);
+                await this.waitForIceGatheringComplete(connection);
                 await this.sendSignalToCaller(caller.id, 'offer', {
                     type: connection.localDescription?.type || offer.type,
                     sdp_b64: btoa(connection.localDescription?.sdp || offer.sdp || ''),
