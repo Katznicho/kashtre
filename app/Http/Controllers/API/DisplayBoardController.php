@@ -7,6 +7,7 @@ use App\Models\Caller;
 use App\Models\CallerLog;
 use App\Models\CallingModuleConfig;
 use App\Models\EmergencyAlert;
+use App\Models\ServiceDeliveryQueue;
 use App\Services\EmergencyAlertService;
 use App\Services\CallingServiceClient;
 use Illuminate\Http\Request;
