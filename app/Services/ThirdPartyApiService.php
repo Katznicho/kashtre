@@ -982,12 +982,18 @@ class ThirdPartyApiService
     {
         try {
             if (!$client->insurance_company_id || !$client->registered_via_open_enrollment) {
+                Log::info('API: syncClientToVendor - Skipping sync', [
+                    'kashtre_client_id' => $client->client_id,
+                    'has_insurance' => (bool)$client->insurance_company_id,
+                    'is_open_enrollment' => $client->registered_via_open_enrollment,
+                ]);
                 return null;
             }
 
-            Log::info('Kashtre: Syncing client to third-party vendor', [
+            Log::info('API: syncClientToVendor - Starting sync request', [
                 'kashtre_client_id' => $client->client_id,
                 'insurance_company_id' => $client->insurance_company_id,
+                'endpoint' => "{$this->baseUrl}/api/v1/clients/sync",
             ]);
 
             $payload = [
@@ -1007,25 +1013,29 @@ class ThirdPartyApiService
                 'registered_via_open_enrollment' => $client->registered_via_open_enrollment,
             ];
 
+            Log::debug('API: syncClientToVendor - Payload', ['payload' => $payload]);
+
             $response = Http::timeout($this->timeout)
                 ->post("{$this->baseUrl}/api/v1/clients/sync", $payload);
 
-            Log::info('Kashtre: Client sync response received', [
-                'status_code' => $response->status(),
+            Log::info('API: syncClientToVendor - Response received', [
                 'kashtre_client_id' => $client->client_id,
+                'status_code' => $response->status(),
             ]);
 
             if ($response->successful()) {
                 $data = $response->json();
                 
-                Log::info('Kashtre: Client synced to vendor successfully', [
+                Log::info('API: syncClientToVendor - Success', [
                     'kashtre_client_id' => $client->client_id,
-                    'response_data' => $data,
+                    'vendor_success' => $data['success'] ?? false,
+                    'vendor_message' => $data['message'] ?? 'N/A',
+                    'vendor_client_id' => $data['data']['client']['id'] ?? null,
                 ]);
 
                 return $data;
             } else {
-                Log::warning('Kashtre: Failed to sync client to vendor', [
+                Log::warning('API: syncClientToVendor - Failed', [
                     'kashtre_client_id' => $client->client_id,
                     'status_code' => $response->status(),
                     'response_body' => $response->body(),
@@ -1034,10 +1044,12 @@ class ThirdPartyApiService
                 return null;
             }
         } catch (Exception $e) {
-            Log::error('Kashtre: Exception while syncing client to vendor', [
+            Log::error('API: syncClientToVendor - Exception', [
                 'kashtre_client_id' => $client->client_id ?? null,
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'error_message' => $e->getMessage(),
+                'error_code' => $e->getCode(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
             ]);
 
             return null;
@@ -1058,13 +1070,17 @@ class ThirdPartyApiService
     {
         try {
             if (!$client->insurance_company_id) {
+                Log::info('API: registerAuthorizedVisit - Skipping (no insurance)', [
+                    'kashtre_client_id' => $client->client_id,
+                ]);
                 return null;
             }
 
-            Log::info('Kashtre: Registering authorized visit on vendor', [
+            Log::info('API: registerAuthorizedVisit - Starting visit registration', [
                 'kashtre_client_id' => $client->client_id,
                 'visit_id' => $visitId,
                 'insurance_company_id' => $client->insurance_company_id,
+                'endpoint' => "{$this->baseUrl}/api/v1/authorized-visits/register",
             ]);
 
             $payload = [
@@ -1077,26 +1093,31 @@ class ThirdPartyApiService
                 'notes' => "Visit registered via kashtre on " . now()->toDateTimeString(),
             ];
 
+            Log::debug('API: registerAuthorizedVisit - Payload', ['payload' => $payload]);
+
             $response = Http::timeout($this->timeout)
                 ->post("{$this->baseUrl}/api/v1/authorized-visits/register", $payload);
 
-            Log::info('Kashtre: Authorized visit registration response received', [
-                'status_code' => $response->status(),
+            Log::info('API: registerAuthorizedVisit - Response received', [
                 'kashtre_client_id' => $client->client_id,
+                'visit_id' => $visitId,
+                'status_code' => $response->status(),
             ]);
 
             if ($response->successful()) {
                 $data = $response->json();
                 
-                Log::info('Kashtre: Authorized visit registered on vendor successfully', [
+                Log::info('API: registerAuthorizedVisit - Success', [
                     'kashtre_client_id' => $client->client_id,
                     'visit_id' => $visitId,
-                    'response_data' => $data,
+                    'vendor_success' => $data['success'] ?? false,
+                    'vendor_message' => $data['message'] ?? 'N/A',
+                    'vendor_visit_id' => $data['data']['visit']['id'] ?? null,
                 ]);
 
                 return $data;
             } else {
-                Log::warning('Kashtre: Failed to register authorized visit on vendor', [
+                Log::warning('API: registerAuthorizedVisit - Failed', [
                     'kashtre_client_id' => $client->client_id,
                     'visit_id' => $visitId,
                     'status_code' => $response->status(),
@@ -1106,11 +1127,13 @@ class ThirdPartyApiService
                 return null;
             }
         } catch (Exception $e) {
-            Log::error('Kashtre: Exception while registering authorized visit', [
+            Log::error('API: registerAuthorizedVisit - Exception', [
                 'kashtre_client_id' => $client->client_id ?? null,
                 'visit_id' => $visitId ?? null,
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'error_message' => $e->getMessage(),
+                'error_code' => $e->getCode(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
             ]);
 
             return null;

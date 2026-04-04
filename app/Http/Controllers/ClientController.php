@@ -293,53 +293,77 @@ class ClientController extends Controller
      */
     private function storeIndividual(Request $request, $business, $currentBranch)
     {
+        Log::info('FLOW: storeIndividual - Form submission received', [
+            'business_id' => $business->id,
+            'branch_id' => $currentBranch->id,
+            'user_id' => Auth::id(),
+            'payment_methods' => $request->input('payment_methods', []),
+            'insurance_company_id' => $request->input('insurance_company_id'),
+            'data_open_enrollment' => $request->input('data_open_enrollment', false),
+            'existing_client_id' => $request->input('existing_client_id'),
+        ]);
+
         // If the user chose to auto-fill an existing client, update their details and start a fresh visit.
         $existingClientId = $request->input('existing_client_id');
 
         // Re-verification enforcement:
         // If insurance is selected, never allow redirect/update of an existing client
         // without the user verifying the policy number (and physical ID if required).
+        // NOTE: These checks do NOT apply to open enrollment
         $isInsuranceSelected = in_array('insurance', $request->input('payment_methods', []));
         if ($isInsuranceSelected) {
             $insuranceCompanyId = (int) $request->input('insurance_company_id');
 
-            // Default to requiring physical ID unless the insurance settings say otherwise.
-            $requirePhysicalId = true;
-            if ($insuranceCompanyId > 0) {
-                try {
-                    $apiService = new ThirdPartyApiService();
-                    $settingsResponse = $apiService->getInsuranceCompanySettings($insuranceCompanyId);
-                    if (
-                        $settingsResponse
-                        && isset($settingsResponse['verification_settings']['require_physical_id'])
-                    ) {
-                        $requirePhysicalId = (bool) $settingsResponse['verification_settings']['require_physical_id'];
+            // Check if this is open enrollment
+            $isOpenEnrollment = (bool) $request->input('data_open_enrollment', false);
+
+            // Only require policy_verified and physical_id_verified if NOT open enrollment
+            if (!$isOpenEnrollment) {
+                // Default to requiring physical ID unless the insurance settings say otherwise.
+                $requirePhysicalId = true;
+                if ($insuranceCompanyId > 0) {
+                    try {
+                        $apiService = new ThirdPartyApiService();
+                        $settingsResponse = $apiService->getInsuranceCompanySettings($insuranceCompanyId);
+                        if (
+                            $settingsResponse
+                            && isset($settingsResponse['verification_settings']['require_physical_id'])
+                        ) {
+                            $requirePhysicalId = (bool) $settingsResponse['verification_settings']['require_physical_id'];
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning('Failed to fetch insurance settings (reverification enforcement), defaulting require_physical_id', [
+                            'insurance_company_id' => $insuranceCompanyId,
+                            'error' => $e->getMessage(),
+                        ]);
                     }
-                } catch (\Throwable $e) {
-                    Log::warning('Failed to fetch insurance settings (reverification enforcement), defaulting require_physical_id', [
-                        'insurance_company_id' => $insuranceCompanyId,
-                        'error' => $e->getMessage(),
-                    ]);
                 }
+
+                $rules = [
+                    'insurance_company_id' => 'required|integer|exists:insurance_companies,id',
+                    'policy_number' => 'required|string|max:255',
+                    'policy_verified' => 'required|accepted',
+                ];
+
+                $rules['physical_id_verified'] = $requirePhysicalId
+                    ? 'required|accepted'
+                    : 'nullable|accepted';
+
+                $request->validate($rules, [
+                    'insurance_company_id.required' => 'Please select an insurance company when insurance payment method is selected.',
+                    'policy_number.required' => 'Please enter the client\'s policy number when insurance payment method is selected.',
+                    'policy_verified.required' => 'Please verify the policy number again before submitting.',
+                    'policy_verified.accepted' => 'Please verify the policy number again before submitting.',
+                    'physical_id_verified.accepted' => 'Physical National ID verification is required by this insurance company.',
+                ]);
+            } else {
+                // For open enrollment, only require insurance_company_id
+                $request->validate([
+                    'insurance_company_id' => 'required|integer|exists:insurance_companies,id',
+                ], [
+                    'insurance_company_id.required' => 'Please select an insurance company when insurance payment method is selected.',
+                ]);
             }
-
-            $rules = [
-                'insurance_company_id' => 'required|integer|exists:insurance_companies,id',
-                'policy_number' => 'required|string|max:255',
-                'policy_verified' => 'required|accepted',
-            ];
-
-            $rules['physical_id_verified'] = $requirePhysicalId
-                ? 'required|accepted'
-                : 'nullable|accepted';
-
-            $request->validate($rules, [
-                'insurance_company_id.required' => 'Please select an insurance company when insurance payment method is selected.',
-                'policy_number.required' => 'Please enter the client\'s policy number when insurance payment method is selected.',
-                'policy_verified.required' => 'Please verify the policy number again before submitting.',
-                'policy_verified.accepted' => 'Please verify the policy number again before submitting.',
-                'physical_id_verified.accepted' => 'Physical National ID verification is required by this insurance company.',
-            ]);
         }
 
         if ($existingClientId) {
@@ -410,39 +434,45 @@ class ClientController extends Controller
             }
         }
         
-        // Validate physical ID verification if insurance is selected
+        // Validate physical ID verification if insurance is selected (but NOT for open enrollment)
         if ($isInsuranceSelected) {
-            // Get insurance company to check if physical ID is required
-            $insuranceCompanyId = $request->input('insurance_company_id');
-            $requirePhysicalId = true; // Default to required
+            // Check if this is open enrollment
+            $isOpenEnrollment = (bool) $request->input('data_open_enrollment', false);
             
-            if ($insuranceCompanyId) {
-                // Fetch from third-party API to get settings
-                try {
-                    $apiService = new ThirdPartyApiService();
-                    $settingsResponse = $apiService->getInsuranceCompanySettings((int)$insuranceCompanyId);
-                    if ($settingsResponse && isset($settingsResponse['verification_settings']['require_physical_id'])) {
-                        $requirePhysicalId = $settingsResponse['verification_settings']['require_physical_id'];
+            // Only validate verification if NOT open enrollment
+            if (!$isOpenEnrollment) {
+                // Get insurance company to check if physical ID is required
+                $insuranceCompanyId = $request->input('insurance_company_id');
+                $requirePhysicalId = true; // Default to required
+                
+                if ($insuranceCompanyId) {
+                    // Fetch from third-party API to get settings
+                    try {
+                        $apiService = new ThirdPartyApiService();
+                        $settingsResponse = $apiService->getInsuranceCompanySettings((int)$insuranceCompanyId);
+                        if ($settingsResponse && isset($settingsResponse['verification_settings']['require_physical_id'])) {
+                            $requirePhysicalId = $settingsResponse['verification_settings']['require_physical_id'];
+                        }
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to fetch insurance company settings, defaulting to require physical ID', [
+                            'insurance_company_id' => $insuranceCompanyId,
+                            'error' => $e->getMessage(),
+                        ]);
                     }
-                } catch (\Exception $e) {
-                    \Log::warning('Failed to fetch insurance company settings, defaulting to require physical ID', [
-                        'insurance_company_id' => $insuranceCompanyId,
-                        'error' => $e->getMessage(),
-                    ]);
                 }
-            }
-            
-            // Only validate physical ID if it's required by the insurance company
-            if ($requirePhysicalId && !$request->boolean('physical_id_verified')) {
-                return redirect()->back()
-                    ->withErrors(['physical_id_verified' => 'Physical National ID verification is required by this insurance company.'])
-                    ->withInput();
-            }
-            
-            if (!$request->boolean('policy_verified')) {
-                return redirect()->back()
-                    ->withErrors(['policy_number' => 'Policy number must be verified before submitting the form.'])
-                    ->withInput();
+                
+                // Only validate physical ID if it's required by the insurance company
+                if ($requirePhysicalId && !$request->boolean('physical_id_verified')) {
+                    return redirect()->back()
+                        ->withErrors(['physical_id_verified' => 'Physical National ID verification is required by this insurance company.'])
+                        ->withInput();
+                }
+                
+                if (!$request->boolean('policy_verified')) {
+                    return redirect()->back()
+                        ->withErrors(['policy_number' => 'Policy number must be verified before submitting the form.'])
+                        ->withInput();
+                }
             }
         }
         
@@ -465,11 +495,11 @@ class ClientController extends Controller
             'payment_methods.*' => 'required|string|in:' . implode(',', $availablePaymentMethods),
             'payment_phone_number' => 'nullable|string|max:255',
             
-            // Insurance fields (required if insurance payment method is selected)
+            // Insurance fields (required if insurance payment method is selected, but NOT for open enrollment)
             'insurance_company_id' => $isInsuranceSelected ? 'required|integer|exists:insurance_companies,id' : 'nullable|integer',
-            'policy_number' => $isInsuranceSelected ? 'required|string|max:255' : 'nullable|string|max:255',
-            'physical_id_verified' => $isInsuranceSelected ? 'required|accepted' : 'nullable|boolean',
-            'policy_verified' => $isInsuranceSelected ? 'required|accepted' : 'nullable|boolean',
+            'policy_number' => ($isInsuranceSelected && !$isOpenEnrollment) ? 'required|string|max:255' : 'nullable|string|max:255',
+            'physical_id_verified' => ($isInsuranceSelected && !$isOpenEnrollment) ? 'required|accepted' : 'nullable|boolean',
+            'policy_verified' => ($isInsuranceSelected && !$isOpenEnrollment) ? 'required|accepted' : 'nullable|boolean',
             
             // Next of Kin details
             'nok_surname' => 'required|string|max:255',
@@ -520,8 +550,24 @@ class ClientController extends Controller
             $verificationWarnings = [];
             $verificationResult = null;
             
-            // Try policy number verification first if provided
-            if (!empty($validated['policy_number'])) {
+            // Check if this is an open enrollment registration (from form submission)
+            $isOpenEnrollmentForm = (bool) $request->input('data_open_enrollment', false);
+            
+            if ($isOpenEnrollmentForm) {
+                // For open enrollment from form, skip API verification and set directly
+                $verificationMethod = 'open_enrollment';
+                $policyData = [
+                    'policy_number' => $validated['policy_number'] ?? '__open_enrollment__',
+                ];
+                
+                Log::info('Client registration via open enrollment (form-confirmed)', [
+                    'insurance_company_id' => $validated['insurance_company_id'],
+                    'policy_number' => $policyData['policy_number'],
+                ]);
+            } else {
+                // Normal verification flow for standard registrations
+                // Try policy number verification first if provided
+                if (!empty($validated['policy_number'])) {
                 // Build full name from available fields for tolerance-based verification
                 $fullName = trim(($validated['surname'] ?? '') . ' ' . ($validated['first_name'] ?? '') . ' ' . ($validated['other_names'] ?? ''));
                 $dateOfBirth = $validated['date_of_birth'] ?? null;
@@ -616,7 +662,7 @@ class ClientController extends Controller
                 }
             }
             
-            // If still no verification, return error
+            // If still no verification, return error (only for non-open-enrollment)
             if (!$policyData) {
                 $errorMessage = 'The policy number could not be verified.';
                 if (!empty($validated['policy_number'])) {
@@ -641,6 +687,7 @@ class ClientController extends Controller
                     'warnings' => $verificationWarnings,
                 ]);
             }
+            } // End of else block for normal verification
         }
         
         // Generate new client_id and visit_id for new client
@@ -719,23 +766,61 @@ class ClientController extends Controller
         // Mark if client was registered via open enrollment
         $clientData['registered_via_open_enrollment'] = ($verificationMethod === 'open_enrollment');
         
+        Log::info('FLOW: About to create client', [
+            'is_open_enrollment' => $clientData['registered_via_open_enrollment'],
+            'verification_method' => $verificationMethod,
+            'insurance_selected' => $isInsuranceSelected,
+            'insurance_company_id' => $clientData['insurance_company_id'] ?? null,
+        ]);
+        
         // Create the client
         $client = Client::create($clientData);
         
-        // If registered via open enrollment, sync to third-party vendor system
-        if ($verificationMethod === 'open_enrollment' && $isInsuranceSelected) {
+        Log::info('FLOW: Client created successfully', [
+            'kashtre_client_id' => $client->client_id,
+            'registered_via_open_enrollment' => $client->registered_via_open_enrollment,
+            'insurance_company_id' => $client->insurance_company_id,
+            'visit_id' => $client->visit_id,
+        ]);
+        
+        // Sync to third-party vendor system for all insurance registrations (both open enrollment and normal)
+        if ($isInsuranceSelected) {
             try {
                 $apiService = new ThirdPartyApiService();
-                $syncResult = $apiService->syncClientToVendor($client);
                 
-                if ($syncResult) {
-                    Log::info('Client synced to third-party vendor', [
+                // Sync client data if open enrollment
+                if ($verificationMethod === 'open_enrollment') {
+                    Log::info('FLOW: Starting client sync to third-party vendor', [
                         'kashtre_client_id' => $client->client_id,
-                        'vendor_sync_result' => $syncResult,
+                        'insurance_company_id' => $client->insurance_company_id,
+                    ]);
+                    
+                    $syncResult = $apiService->syncClientToVendor($client);
+                    
+                    if ($syncResult) {
+                        Log::info('FLOW: Client synced to third-party vendor successfully', [
+                            'kashtre_client_id' => $client->client_id,
+                            'vendor_response' => $syncResult,
+                        ]);
+                    } else {
+                        Log::warning('FLOW: Client sync returned null (possible API error)', [
+                            'kashtre_client_id' => $client->client_id,
+                        ]);
+                    }
+                } else {
+                    Log::info('FLOW: Skipping client sync (not open enrollment)', [
+                        'verification_method' => $verificationMethod,
+                        'kashtre_client_id' => $client->client_id,
                     ]);
                 }
                 
-                // Register the authorized visit on vendor
+                // Register the authorized visit for both open enrollment and normal registrations
+                Log::info('FLOW: Starting authorized visit registration', [
+                    'kashtre_client_id' => $client->client_id,
+                    'visit_id' => $client->visit_id,
+                    'visit_date' => now()->toDateString(),
+                ]);
+                
                 $visitRegistrationResult = $apiService->registerAuthorizedVisit(
                     $client,
                     $client->visit_id,
@@ -745,16 +830,24 @@ class ClientController extends Controller
                 );
                 
                 if ($visitRegistrationResult) {
-                    Log::info('Authorized visit registered with third-party vendor', [
+                    Log::info('FLOW: Authorized visit registered successfully', [
                         'kashtre_client_id' => $client->client_id,
                         'visit_id' => $client->visit_id,
-                        'visit_registration_result' => $visitRegistrationResult,
+                        'verification_method' => $verificationMethod,
+                        'vendor_response' => $visitRegistrationResult,
+                    ]);
+                } else {
+                    Log::warning('FLOW: Visit registration returned null (possible API error)', [
+                        'kashtre_client_id' => $client->client_id,
+                        'visit_id' => $client->visit_id,
                     ]);
                 }
             } catch (\Exception $e) {
-                Log::warning('Failed to sync client or register visit to third-party vendor', [
+                Log::error('FLOW: Exception during vendor sync/registration', [
                     'kashtre_client_id' => $client->client_id,
-                    'error' => $e->getMessage(),
+                    'error_message' => $e->getMessage(),
+                    'error_code' => $e->getCode(),
+                    'trace' => $e->getTraceAsString(),
                 ]);
                 // Don't fail the registration if sync fails - client is already created locally
             }
@@ -976,6 +1069,34 @@ class ClientController extends Controller
         // Prepare redirect
         $redirect = redirect()->route('clients.show', $client);
         
+        // Register authorized visit if insurance is selected
+        if ($isInsuranceSelected) {
+            try {
+                $apiService = new ThirdPartyApiService();
+                $visitRegistrationResult = $apiService->registerAuthorizedVisit(
+                    $client,
+                    $client->visit_id,
+                    now()->toDateString(),
+                    $client->visit_expires_at ? $client->visit_expires_at->toDateTimeString() : null,
+                    $client->services_category
+                );
+                
+                if ($visitRegistrationResult) {
+                    Log::info('Authorized visit registered for company client', [
+                        'kashtre_client_id' => $client->client_id,
+                        'visit_id' => $client->visit_id,
+                        'visit_registration_result' => $visitRegistrationResult,
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to register authorized visit for company client', [
+                    'kashtre_client_id' => $client->client_id,
+                    'error' => $e->getMessage(),
+                ]);
+                // Don't fail the registration if visit registration fails
+            }
+        }
+        
         // Create connected account record if connection was made
         if ($thirdPartyData && isset($thirdPartyData['business']['id'])) {
             try {
@@ -1089,6 +1210,34 @@ class ClientController extends Controller
             'status' => 'active',
             'client_type' => 'walk_in',
         ]);
+        
+        // Register authorized visit if insurance is selected
+        if ($isInsuranceSelected) {
+            try {
+                $apiService = new ThirdPartyApiService();
+                $visitRegistrationResult = $apiService->registerAuthorizedVisit(
+                    $client,
+                    $client->visit_id,
+                    now()->toDateString(),
+                    $client->visit_expires_at ? $client->visit_expires_at->toDateTimeString() : null,
+                    $client->services_category
+                );
+                
+                if ($visitRegistrationResult) {
+                    Log::info('Authorized visit registered for walk-in client', [
+                        'kashtre_client_id' => $client->client_id,
+                        'visit_id' => $client->visit_id,
+                        'visit_registration_result' => $visitRegistrationResult,
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to register authorized visit for walk-in client', [
+                    'kashtre_client_id' => $client->client_id,
+                    'error' => $e->getMessage(),
+                ]);
+                // Don't fail the registration if visit registration fails
+            }
+        }
         
         return redirect()->route('pos.item-selection', $client)
             ->with('success', 'Walk-in client created! Client ID: ' . $clientId);

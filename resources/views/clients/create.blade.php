@@ -422,6 +422,7 @@
                                         </div>
                                         <div id="policy_verification_result" class="mt-2"></div>
                                         <input type="hidden" name="policy_verified" id="policy_verified" value="0">
+                                        <input type="hidden" name="data_open_enrollment" id="data_open_enrollment" value="0">
                                         <p class="text-xs text-gray-500 mt-1">Enter the client's policy number to confirm they exist in the insurance system</p>
                                         @error('policy_number')
                                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -1583,6 +1584,7 @@
                         // Confirmed — populate the hidden policy number with the generic one
                         if (policyNumberInput) policyNumberInput.value = data.data.policy_number;
                         document.getElementById('policy_verified').value = '1';
+                        document.getElementById('data_open_enrollment').value = '1';  // Mark as open enrollment
 
                         // Build payment info html (reuse existing logic)
                         // Only show policy details if the setting allows it
