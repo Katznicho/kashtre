@@ -277,13 +277,9 @@
         emBanner.style.display = 'flex';
         startEmFlash(onMs, offMs);
 
+        // No client-side dismiss timer — the banner stays on until the
+        // backend resolves the alert (poll returns active = false).
         clearTimeout(emDismissTimer);
-        if (displayDuration > 0 && activatedAt) {
-            var elapsed   = Math.floor(Date.now() / 1000) - activatedAt;
-            var remaining = (displayDuration - elapsed) * 1000;
-            if (remaining <= 0) { hideEmBanner(); return; }
-            emDismissTimer = setTimeout(hideEmBanner, remaining);
-        }
     }
 
     function hideEmBanner() {

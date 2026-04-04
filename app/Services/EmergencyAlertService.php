@@ -28,14 +28,21 @@ class EmergencyAlertService
         }
 
         if ($this->hasExpired($alert, $config)) {
-            EmergencyAlert::where('business_id', $businessId)
-                ->whereNull('resolved_at')
-                ->update([
-                    'is_active' => false,
-                    'resolved_at' => now(),
-                ]);
+            // Only deactivate the current alert — queued alerts behind it
+            // must remain unresolved so AnnounceQueuedEmergencyJob can
+            // activate them after the 60-second gap.
+            $alert->update([
+                'is_active'   => false,
+                'resolved_at' => now(),
+            ]);
 
-            app(CallingServiceClient::class)->resolveEmergency($businessId);
+            $hasQueued = EmergencyAlert::where('business_id', $businessId)
+                ->whereNull('resolved_at')
+                ->exists();
+
+            if (!$hasQueued) {
+                app(CallingServiceClient::class)->resolveEmergency($businessId);
+            }
 
             return null;
         }
