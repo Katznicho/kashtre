@@ -27,10 +27,6 @@
         </div>
     </div>
 
-    <!-- WebRTC Audio Elements (Hidden but essential) -->
-    <audio id="remoteAudio" autoplay playsinline preload="auto" aria-hidden="true" class="absolute w-0 h-0 opacity-0 pointer-events-none"></audio>
-    <audio id="compatibilityRemoteAudio" autoplay playsinline preload="auto" aria-hidden="true" class="absolute w-0 h-0 opacity-0 pointer-events-none"></audio>
-
     <!-- Controls -->
     <div class="px-6 py-5 flex items-center justify-center gap-6 bg-white dark:bg-slate-800">
 
@@ -55,3 +51,9 @@
 
     </div>
 </div>
+
+<!-- WebRTC Audio Elements — kept outside the overlay so they are never in a display:none
+     subtree. Browsers need the <audio> in a visible DOM context for Acoustic Echo
+     Cancellation (AEC) to work correctly against the microphone input. -->
+<audio id="remoteAudio" autoplay playsinline preload="auto" aria-hidden="true" class="fixed w-0 h-0 opacity-0 pointer-events-none"></audio>
+<audio id="compatibilityRemoteAudio" autoplay playsinline preload="auto" aria-hidden="true" class="fixed w-0 h-0 opacity-0 pointer-events-none"></audio>
