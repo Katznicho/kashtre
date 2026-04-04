@@ -56,13 +56,19 @@ jobs:
           sshpass -v || { echo "sshpass not found after installation"; exit 1; }
 
       - name: Test SSH Connection
+        env:
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          SSHPASS: ${{ secrets.FTP_PASSWORD }}
         run: |
-          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} whoami
-          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "echo 'Test command execution' && ls -la /home/u242329769/domains/staging.kashtre.com/public_html"
+          sshpass -e ssh -o StrictHostKeyChecking=no -p 65002 "$FTP_USERNAME@$FTP_SERVER" whoami
+          sshpass -e ssh -o StrictHostKeyChecking=no -p 65002 "$FTP_USERNAME@$FTP_SERVER" "echo 'Test command execution' && ls -la /home/u242329769/domains/staging.kashtre.com/public_html"
 
       - name: Deploy to Hostinger
         env:
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          SSHPASS: ${{ secrets.FTP_PASSWORD }}
         run: |
           DEPLOY_DIR="/home/u242329769/domains/staging.kashtre.com/public_html"
           ARTISAN_PHP="php -d opcache.enable_cli=0"
@@ -70,9 +76,9 @@ jobs:
           echo "Local files in GITHUB_WORKSPACE:"
           ls -la $GITHUB_WORKSPACE
 
-          sshpass -p "$FTP_PASSWORD" rsync -avz --exclude '.env' --exclude '.htaccess' -e "ssh -p 65002 -o StrictHostKeyChecking=no" $GITHUB_WORKSPACE/ ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }}:"$DEPLOY_DIR"
+          sshpass -e rsync -avz --exclude '.env' --exclude '.htaccess' -e "ssh -p 65002 -o StrictHostKeyChecking=no" $GITHUB_WORKSPACE/ "$FTP_USERNAME@$FTP_SERVER":"$DEPLOY_DIR"
 
           # Clear stale cached Laravel config before any Artisan command.
-          sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "cd /home/u242329769/domains/staging.kashtre.com/public_html && echo 'Clearing stale cache files...' && rm -f bootstrap/cache/*.php && echo 'Checking Reverb config shape...' && $ARTISAN_PHP -r '\$config = require \"config/reverb.php\"; echo isset(\$config[\"servers\"][\"reverb\"][\"scaling\"]) ? \"Reverb scaling config present\n\" : \"Reverb scaling config missing\n\";' && echo 'Setting permissions...' && chmod -R 755 storage bootstrap/cache 2>/dev/null || echo 'Warning: Could not set permissions' && echo 'Removing existing storage link...' && rm -f public/storage && echo 'Creating storage link...' && $ARTISAN_PHP artisan storage:link"
+          sshpass -e ssh -o StrictHostKeyChecking=no -p 65002 "$FTP_USERNAME@$FTP_SERVER" "cd /home/u242329769/domains/staging.kashtre.com/public_html && echo 'Clearing stale cache files...' && rm -f bootstrap/cache/*.php && echo 'Checking Reverb config shape...' && $ARTISAN_PHP -r '\$config = require \"config/reverb.php\"; echo isset(\$config[\"servers\"][\"reverb\"][\"scaling\"]) ? \"Reverb scaling config present\n\" : \"Reverb scaling config missing\n\";' && echo 'Setting permissions...' && chmod -R 755 storage bootstrap/cache 2>/dev/null || echo 'Warning: Could not set permissions' && echo 'Removing existing storage link...' && rm -f public/storage && echo 'Creating storage link...' && $ARTISAN_PHP artisan storage:link"
 
-          sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "cd /home/u242329769/domains/staging.kashtre.com/public_html && echo 'Checking for existing tables that need migration records...' && $ARTISAN_PHP artisan fix:existing-tables && echo 'Running migrations...' && $ARTISAN_PHP artisan migrate --force --verbose && echo 'Checking migration status...' && $ARTISAN_PHP artisan migrate:status && echo 'Clearing and caching...' && $ARTISAN_PHP artisan optimize:clear && $ARTISAN_PHP artisan view:clear && $ARTISAN_PHP artisan config:cache && $ARTISAN_PHP artisan route:cache && echo 'Deployment completed successfully!'"
+          sshpass -e ssh -o StrictHostKeyChecking=no -p 65002 "$FTP_USERNAME@$FTP_SERVER" "cd /home/u242329769/domains/staging.kashtre.com/public_html && echo 'Checking for existing tables that need migration records...' && $ARTISAN_PHP artisan fix:existing-tables && echo 'Running migrations...' && $ARTISAN_PHP artisan migrate --force --verbose && echo 'Checking migration status...' && $ARTISAN_PHP artisan migrate:status && echo 'Clearing and caching...' && $ARTISAN_PHP artisan optimize:clear && $ARTISAN_PHP artisan view:clear && $ARTISAN_PHP artisan config:cache && $ARTISAN_PHP artisan route:cache && echo 'Deployment completed successfully!'"
