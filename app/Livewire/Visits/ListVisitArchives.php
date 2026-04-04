@@ -66,25 +66,6 @@ class ListVisitArchives extends Component implements HasForms, HasTable
                 ->dateTime('M d, Y')
                 ->sortable(),
 
-            Tables\Columns\TextColumn::make('visit_duration')
-                ->label('Duration')
-                ->getStateUsing(function (VisitArchive $record) {
-                    if (!$record->visit_end_at) {
-                        return 'N/A';
-                    }
-                    
-                    $duration = $record->archived_at->diffAsCarbonInterval($record->visit_end_at);
-                    
-                    if ($duration->hours > 0) {
-                        return $duration->format('%h hr %i min');
-                    } else {
-                        return $duration->format('%i min');
-                    }
-                })
-                ->sortable(query: function ($query, string $direction) {
-                    return $query->orderByRaw('TIMESTAMPDIFF(MINUTE, visit_end_at, archived_at) ' . $direction);
-                }),
-
             Tables\Columns\TextColumn::make('client_id')
                 ->label('Client ID')
                 ->searchable()
