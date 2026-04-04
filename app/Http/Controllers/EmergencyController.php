@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\AnnounceQueuedEmergencyJob;
 use App\Models\Caller;
 use App\Models\CallingModuleConfig;
 use App\Models\EmergencyAlert;
@@ -146,8 +145,6 @@ class EmergencyController extends Controller
         if ($isActive) {
             app(CallingServiceClient::class)->syncEmergency($alert);
             app(EmergencyAlertService::class)->scheduleAutoResolve($alert, $config);
-        } else {
-            \App\Jobs\AnnounceQueuedEmergencyJob::dispatch($alert->id)->delay($scheduledAt);
         }
 
         return response()->json(['success' => true, 'alert_id' => $alert->id, 'message' => $message]);
@@ -240,8 +237,6 @@ class EmergencyController extends Controller
         if ($isActive) {
             app(CallingServiceClient::class)->syncEmergency($alert);
             app(EmergencyAlertService::class)->scheduleAutoResolve($alert, $config);
-        } else {
-            \App\Jobs\AnnounceQueuedEmergencyJob::dispatch($alert->id)->delay($scheduledAt);
         }
 
         return response()->json(['success' => true, 'alert_id' => $alert->id, 'message' => $message]);

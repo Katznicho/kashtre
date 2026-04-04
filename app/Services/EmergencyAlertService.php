@@ -23,31 +23,47 @@ class EmergencyAlertService
             ->where('is_active', true)
             ->first();
 
-        if (!$alert) {
-            return null;
-        }
+        if ($alert) {
+            if (!$this->hasExpired($alert, $config)) {
+                return $alert;
+            }
 
-        if ($this->hasExpired($alert, $config)) {
-            // Only deactivate the current alert — queued alerts behind it
-            // must remain unresolved so AnnounceQueuedEmergencyJob can
-            // activate them after the 60-second gap.
+            // Display time is up â€” deactivate only this alert so any queued
+            // alerts can be promoted once their scheduled time is reached.
             $alert->update([
                 'is_active'   => false,
                 'resolved_at' => now(),
             ]);
-
-            $hasQueued = EmergencyAlert::where('business_id', $businessId)
-                ->whereNull('resolved_at')
-                ->exists();
-
-            if (!$hasQueued) {
-                app(CallingServiceClient::class)->resolveEmergency($businessId);
-            }
-
-            return null;
         }
 
-        return $alert;
+        $next = EmergencyAlert::where('business_id', $businessId)
+            ->whereNull('resolved_at')
+            ->where('is_active', false)
+            ->where('scheduled_announce_at', '<=', now())
+            ->orderBy('scheduled_announce_at')
+            ->first();
+
+        if ($next) {
+            $next->update([
+                'is_active'    => true,
+                'activated_at' => now(),
+            ]);
+
+            // Keep audio in sync with the alert that actually becomes active.
+            app(CallingServiceClient::class)->syncEmergency($next);
+
+            return $next;
+        }
+
+        $hasQueued = EmergencyAlert::where('business_id', $businessId)
+            ->whereNull('resolved_at')
+            ->exists();
+
+        if (!$hasQueued) {
+            app(CallingServiceClient::class)->resolveEmergency($businessId);
+        }
+
+        return null;
     }
 
     public function scheduleAutoResolve(EmergencyAlert $alert, CallingModuleConfig $config): void
