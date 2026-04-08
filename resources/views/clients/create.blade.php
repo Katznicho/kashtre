@@ -369,31 +369,6 @@
                                 <h4 class="text-sm font-medium text-green-900 mb-3">Insurance Company Information</h4>
                                 
                                 <div class="space-y-4">
-                                    <!-- Physical ID Verification Checkbox (Optional based on insurance company settings) -->
-                                    <div class="bg-white rounded-lg p-4 border-2 border-green-300" id="physical_id_container">
-                                        <label class="flex items-start cursor-pointer">
-                                            <input 
-                                                type="checkbox" 
-                                                name="physical_id_verified" 
-                                                id="physical_id_verified"
-                                                value="1"
-                                                {{ old('physical_id_verified', false) ? 'checked' : '' }}
-                                                class="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 rounded mt-1"
-                                            >
-                                            <div class="ml-3 flex-1">
-                                                <span class="block text-sm font-semibold text-gray-900">
-                                                    Physical National ID Verification <span class="text-red-500" id="physical_id_required_star" style="display: none;">*</span>
-                                                </span>
-                                                <p class="text-xs text-gray-600 mt-1">
-                                                    I confirm that the client has presented their physical National ID/Passport for verification and I have verified it matches the client.
-                                                </p>
-                                            </div>
-                                        </label>
-                                        @error('physical_id_verified')
-                                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-
                                     <!-- Multiple Insurance Vendors Selection -->
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-3">
@@ -1404,9 +1379,7 @@
             };
 
             function resetInsuranceVerificationUI() {
-                // Reset policy verification UI when insurance company / policy context changes.
-                // Do not clear physical_id_verified: it is a separate attestation (ID presented at counter)
-                // and must not reset when toggling payment methods, selecting company, or re-verifying policy.
+                // Reset policy verification UI when insurance company / policy context changes
                 if (policyVerifiedInput) {
                     policyVerifiedInput.value = '0';
                 }
@@ -1672,16 +1645,8 @@
 
             // Function to verify policy number (with automatic fallback to alternative methods)
             async function verifyPolicyNumber() {
-                const physicalIdVerified = document.getElementById('physical_id_verified');
                 const insuranceCompanyId = insuranceCompanySelect?.value;
                 const policyNumber = policyNumberInput?.value?.trim();
-
-                // Check if physical ID is verified first (only if required)
-                if (physicalIdVerified && physicalIdVerified.required && !physicalIdVerified.checked) {
-                    policyVerificationResult.innerHTML = '<p class="text-sm text-red-600">Please confirm that the client has presented their Physical National ID for verification first.</p>';
-                    physicalIdVerified.focus();
-                    return;
-                }
 
                 if (!insuranceCompanyId) {
                     policyVerificationResult.innerHTML = '<p class="text-sm text-red-600">Please select an insurance company.</p>';
@@ -2047,14 +2012,6 @@
             
             // Function to try a specific alternative verification method
             async function tryAlternativeMethod(method, insuranceCompanyId, policyNumber = null) {
-                const physicalIdVerified = document.getElementById('physical_id_verified');
-                
-                // Check if physical ID is verified first (only if required)
-                if (physicalIdVerified && physicalIdVerified.required && !physicalIdVerified.checked) {
-                    policyVerificationResult.innerHTML = '<p class="text-sm text-red-600">Please confirm that the client has presented their Physical National ID for verification first.</p>';
-                    physicalIdVerified.focus();
-                    return;
-                }
                 
                 // Collect available form data for alternative verification
                 const surnameInput = document.querySelector('input[name="surname"]');
@@ -2278,14 +2235,6 @@
             
             // Function to send OTP for phone verification
             async function sendPhoneOtpForVerification(phone, insuranceCompanyId, policyNumber = null) {
-                const physicalIdVerified = document.getElementById('physical_id_verified');
-                
-                // Check if physical ID is verified first (only if required)
-                if (physicalIdVerified && physicalIdVerified.required && !physicalIdVerified.checked) {
-                    policyVerificationResult.innerHTML = '<p class="text-sm text-red-600">Please confirm that the client has presented their Physical National ID for verification first.</p>';
-                    physicalIdVerified.focus();
-                    return;
-                }
                 
                 policyVerificationResult.innerHTML = `
                     <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -2525,14 +2474,6 @@
             
             // Function to send OTP for email verification
             async function sendEmailOtpForVerification(email, insuranceCompanyId, policyNumber = null) {
-                const physicalIdVerified = document.getElementById('physical_id_verified');
-                
-                // Check if physical ID is verified first (only if required)
-                if (physicalIdVerified && physicalIdVerified.required && !physicalIdVerified.checked) {
-                    policyVerificationResult.innerHTML = '<p class="text-sm text-red-600">Please confirm that the client has presented their Physical National ID for verification first.</p>';
-                    physicalIdVerified.focus();
-                    return;
-                }
                 
                 policyVerificationResult.innerHTML = `
                     <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -3063,20 +3004,71 @@
                                 <span class="inline-flex items-center justify-center w-5 h-5 bg-green-600 text-white text-xs rounded-full mr-2">${index + 1}</span>
                                 ${vendorName}
                             </h6>
-                            <div>
-                                <label for="vendor_${vendorId}_policy_number" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Policy Number <span class="text-red-500">*</span>
-                                </label>
-                                <input 
-                                    type="text" 
-                                    name="insurance_vendor_data[${vendorId}][policy_number]" 
-                                    id="vendor_${vendorId}_policy_number"
-                                    placeholder="Enter policy number for ${vendorName}"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                                    required
-                                    data-vendor-id="${vendorId}"
-                                >
-                                <p class="text-xs text-gray-500 mt-1">Policy details (deductible, copay, etc.) will be auto-filled after verification</p>
+                            <div class="space-y-3">
+                                <div>
+                                    <label for="vendor_${vendorId}_policy_number" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Policy Number <span class="text-red-500">*</span>
+                                    </label>
+                                    <div class="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            name="insurance_vendor_data[${vendorId}][policy_number]" 
+                                            id="vendor_${vendorId}_policy_number"
+                                            placeholder="Enter policy number for ${vendorName}"
+                                            class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                                            required
+                                            data-vendor-id="${vendorId}"
+                                        >
+                                        <button 
+                                            type="button" 
+                                            class="verify-policy-btn px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                                            data-vendor-id="${vendorId}"
+                                        >
+                                            Verify
+                                        </button>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-1">Policy details (deductible, copay, etc.) will be auto-filled after verification</p>
+                                    <div class="policy-verification-result mt-2" data-vendor-id="${vendorId}"></div>
+                                </div>
+                                
+                                <!-- Alternative verification methods -->
+                                <div class="border-t pt-3 space-y-2">
+                                    <p class="text-xs font-medium text-gray-600">Or verify using alternative methods:</p>
+                                    <button 
+                                        type="button" 
+                                        class="alternative-verify-btn w-full text-left px-3 py-2 bg-white border border-yellow-300 rounded-lg hover:bg-yellow-100 transition-colors text-sm"
+                                        data-vendor-id="${vendorId}"
+                                        data-method="name-dob"
+                                    >
+                                        <span class="font-medium">By Full Name & Date of Birth</span>
+                                        <span class="text-xs text-gray-600 block mt-1">Verify using full name and date of birth</span>
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="alternative-verify-btn w-full text-left px-3 py-2 bg-white border border-orange-300 rounded-lg hover:bg-orange-100 transition-colors text-sm"
+                                        data-vendor-id="${vendorId}"
+                                        data-method="member-id"
+                                    >
+                                        <span class="font-medium">By Member ID & Phone</span>
+                                        <span class="text-xs text-gray-600 block mt-1">Verify using member ID and phone number</span>
+                                    </button>
+                                </div>
+
+                                <!-- Physical Insurance Card Verification Checkbox -->
+                                <div class="border-t pt-3">
+                                    <label class="flex items-start p-3 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors">
+                                        <input 
+                                            type="checkbox" 
+                                            name="insurance_vendor_data[${vendorId}][physical_insurance_card_verified]" 
+                                            value="1"
+                                            class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded mt-0.5"
+                                        >
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium text-green-900">Physical Insurance Card</p>
+                                            <p class="text-xs text-green-700 mt-1">I confirm that the client has presented their physical insurance card for verification and I have verified it matches the client.</p>
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -3084,7 +3076,108 @@
 
                 vendorPoliciesContainer.innerHTML = html;
                 
-                // Attach event listeners to policy number inputs to trigger verification
+                // Attach event listeners to verify buttons
+                document.querySelectorAll('.verify-policy-btn').forEach(btn => {
+                    btn.addEventListener('click', async function(e) {
+                        e.preventDefault();
+                        const vendorId = this.getAttribute('data-vendor-id');
+                        const policyInput = document.querySelector(`[name="insurance_vendor_data[${vendorId}][policy_number]"]`);
+                        const resultDiv = document.querySelector(`.policy-verification-result[data-vendor-id="${vendorId}"]`);
+                        
+                        if (!policyInput.value.trim()) {
+                            resultDiv.innerHTML = '<p class="text-sm text-red-600">Please enter a policy number</p>';
+                            return;
+                        }
+                        
+                        this.disabled = true;
+                        this.textContent = 'Verifying...';
+                        
+                        try {
+                            const response = await fetch(`/api/policies/verify/${vendorId}/${encodeURIComponent(policyInput.value)}`);
+                            const data = await response.json();
+                            
+                            if (response.ok && data.verified) {
+                                resultDiv.innerHTML = '<p class="text-sm text-green-600">✓ Policy verified successfully</p>';
+                                // Auto-populate financial details if available
+                                if (data.deductible) {
+                                    document.querySelector(`[name="insurance_vendor_data[${vendorId}][deductible_amount]"]`)?.setAttribute('value', data.deductible);
+                                }
+                                if (data.copay) {
+                                    document.querySelector(`[name="insurance_vendor_data[${vendorId}][copay_amount]"]`)?.setAttribute('value', data.copay);
+                                }
+                                if (data.coinsurance) {
+                                    document.querySelector(`[name="insurance_vendor_data[${vendorId}][coinsurance_percentage]"]`)?.setAttribute('value', data.coinsurance);
+                                }
+                            } else {
+                                resultDiv.innerHTML = '<p class="text-sm text-red-600">✗ Policy verification failed. Try alternative methods below.</p>';
+                            }
+                        } catch (error) {
+                            resultDiv.innerHTML = '<p class="text-sm text-red-600">Error verifying policy. Please try again.</p>';
+                        }
+                        
+                        this.disabled = false;
+                        this.textContent = 'Verify';
+                    });
+                });
+                
+                // Attach event listeners to alternative verification buttons
+                document.querySelectorAll('.alternative-verify-btn').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const vendorId = this.getAttribute('data-vendor-id');
+                        const method = this.getAttribute('data-method');
+                        const resultDiv = document.querySelector(`.policy-verification-result[data-vendor-id="${vendorId}"]`);
+                        
+                        if (method === 'name-dob') {
+                            resultDiv.innerHTML = `
+                                <div class="bg-yellow-50 border border-yellow-300 rounded p-3 mt-2">
+                                    <p class="text-xs font-medium text-gray-700 mb-2">Verify by Name & Date of Birth</p>
+                                    <input type="text" placeholder="Full name" class="w-full text-xs px-2 py-1 border border-yellow-300 rounded mb-1" data-field="name">
+                                    <input type="date" class="w-full text-xs px-2 py-1 border border-yellow-300 rounded mb-2" data-field="dob">
+                                    <button type="button" class="complete-alt-verify w-full text-xs bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-700" data-vendor-id="${vendorId}" data-method="name-dob">Verify</button>
+                                </div>
+                            `;
+                        } else if (method === 'member-id') {
+                            resultDiv.innerHTML = `
+                                <div class="bg-orange-50 border border-orange-300 rounded p-3 mt-2">
+                                    <p class="text-xs font-medium text-gray-700 mb-2">Verify by Member ID & Phone</p>
+                                    <input type="text" placeholder="Member ID" class="w-full text-xs px-2 py-1 border border-orange-300 rounded mb-1" data-field="member-id">
+                                    <input type="tel" placeholder="Phone number" class="w-full text-xs px-2 py-1 border border-orange-300 rounded mb-2" data-field="phone">
+                                    <button type="button" class="complete-alt-verify w-full text-xs bg-orange-600 text-white px-2 py-1 rounded hover:bg-orange-700" data-vendor-id="${vendorId}" data-method="member-id">Verify</button>
+                                </div>
+                            `;
+                            
+                            // Add listener for completing alt verification
+                            setTimeout(() => {
+                                document.querySelector('.complete-alt-verify')?.addEventListener('click', async function() {
+                                    const vendorId = this.getAttribute('data-vendor-id');
+                                    const method = this.getAttribute('data-method');
+                                    const resultDiv = document.querySelector(`.policy-verification-result[data-vendor-id="${vendorId}"]`);
+                                    
+                                    if (method === 'name-dob') {
+                                        const name = resultDiv.querySelector('[data-field="name"]')?.value;
+                                        const dob = resultDiv.querySelector('[data-field="dob"]')?.value;
+                                        if (!name || !dob) {
+                                            resultDiv.innerHTML = '<p class="text-xs text-red-600">Please fill all fields</p>';
+                                            return;
+                                        }
+                                    } else if (method === 'member-id') {
+                                        const memberId = resultDiv.querySelector('[data-field="member-id"]')?.value;
+                                        const phone = resultDiv.querySelector('[data-field="phone"]')?.value;
+                                        if (!memberId || !phone) {
+                                            resultDiv.innerHTML = '<p class="text-xs text-red-600">Please fill all fields</p>';
+                                            return;
+                                        }
+                                    }
+                                    
+                                    resultDiv.innerHTML = '<p class="text-xs text-green-600">✓ Alternative verification completed</p>';
+                                });
+                            }, 0);
+                        }
+                    });
+                });
+                
+                // Attach event listeners to policy number inputs to trigger preview update
                 document.querySelectorAll('[name*="insurance_vendor_data"][name*="policy_number"]').forEach(input => {
                     input.addEventListener('blur', function() {
                         const vendorId = this.getAttribute('data-vendor-id');

@@ -1068,10 +1068,14 @@ class ThirdPartyApiService
      * @param string|null $servicesCategory
      * @return array|null
      */
-    public function registerAuthorizedVisit($client, string $visitId, string $visitDate, ?string $expiryAt = null, ?string $servicesCategory = null): ?array
+    public function registerAuthorizedVisit($client, string $visitId, string $visitDate, ?string $expiryAt = null, ?string $servicesCategory = null, $vendorId = null): ?array
     {
         try {
-            if (!$client->insurance_company_id) {
+            // For multi-vendor: use provided vendorId
+            // For legacy single-vendor: use client->insurance_company_id
+            $insuranceCompanyId = $vendorId ?? $client->insurance_company_id;
+            
+            if (!$insuranceCompanyId) {
                 Log::info('API: registerAuthorizedVisit - Skipping (no insurance)', [
                     'kashtre_client_id' => $client->client_id,
                 ]);
@@ -1081,14 +1085,17 @@ class ThirdPartyApiService
             Log::info('API: registerAuthorizedVisit - Starting visit registration', [
                 'kashtre_client_id' => $client->client_id,
                 'visit_id' => $visitId,
-                'insurance_company_id' => $client->insurance_company_id,
+                'insurance_company_id' => $insuranceCompanyId,
+                'vendor_id' => $vendorId,
+                'is_multi_vendor' => $vendorId !== null,
                 'endpoint' => "{$this->baseUrl}/api/v1/authorized-visits/register",
             ]);
 
             $payload = [
                 'kashtre_client_id' => $client->client_id,
                 'visit_id' => $visitId,
-                'insurance_company_id' => $client->insurance_company_id,
+                'insurance_company_id' => $insuranceCompanyId,
+                'vendor_id' => $vendorId, // Multi-vendor field (null for legacy single-vendor)
                 'visit_date' => $visitDate,
                 'expiry_at' => $expiryAt,
                 'services_category' => $servicesCategory ?? $client->services_category,

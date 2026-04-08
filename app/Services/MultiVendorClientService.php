@@ -92,6 +92,7 @@ class MultiVendorClientService
                 $clientVendorData = [
                     'policy_number' => $policyNumber,
                     'policy_verified' => $policyVerified,
+                    'physical_insurance_card_verified' => $data['physical_insurance_card_verified'] ?? false,
                     'is_open_enrollment' => $data['is_open_enrollment'] ?? false,
                     'status' => 'active',
                 ];

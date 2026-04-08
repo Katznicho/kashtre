@@ -468,6 +468,8 @@ class ClientController extends Controller
             'insurance_vendor_data.*.deductible_amount' => 'nullable|numeric|min:0',
             'insurance_vendor_data.*.copay_amount' => 'nullable|numeric|min:0',
             'insurance_vendor_data.*.coinsurance_percentage' => 'nullable|numeric|min:0|max:100',
+            // Physical insurance card verification required per vendor
+            'insurance_vendor_data.*.physical_insurance_card_verified' => $isInsuranceSelected ? 'required|boolean' : 'nullable|boolean',
             
             // Legacy single-vendor support (for backward compatibility)
             'insurance_company_id' => 'nullable|integer|exists:insurance_companies,id',
