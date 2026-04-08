@@ -49,6 +49,7 @@ class InsuranceCompanyController extends Controller
             'postal_address' => 'nullable|string|max:500',
             'website' => 'nullable|url|max:255',
             'description' => 'nullable|string',
+            'open_enrollment_enabled' => 'nullable|boolean',
             
             // User Account Information
             'user_email' => 'required|email|max:255',
@@ -131,6 +132,7 @@ class InsuranceCompanyController extends Controller
                 'phone' => $validated['phone'] ?? null,
                 'country_id' => $country->id,
                 'currency_code' => $currencyCode,
+                'open_enrollment_enabled' => (bool) ($validated['open_enrollment_enabled'] ?? false),
                 'tin' => $validated['tin'] ?? null,
                 'address' => $validated['address'] ?? null,
                 'head_office_address' => $validated['head_office_address'] ?? $validated['address'] ?? null,
@@ -158,6 +160,7 @@ class InsuranceCompanyController extends Controller
                 'postal_address' => $insuranceCompany->postal_address,
                 'website' => $insuranceCompany->website,
                 'description' => $insuranceCompany->description,
+                'open_enrollment_enabled' => (bool) $insuranceCompany->open_enrollment_enabled,
             ];
 
             // Use default password for now
@@ -176,11 +179,18 @@ class InsuranceCompanyController extends Controller
             $thirdPartyResponse = $thirdPartyService->registerBusinessAndUser($businessData, $userData);
 
             if ($thirdPartyResponse) {
-                // Store third-party IDs
+                // Store third-party IDs and sync open_enrollment_enabled status
                 $insuranceCompany->update([
                     'third_party_business_id' => $thirdPartyResponse['business']['id'] ?? null,
                     'third_party_user_id' => $thirdPartyResponse['user']['id'] ?? null,
                     'third_party_username' => $validated['user_username'],
+                    'open_enrollment_enabled' => (bool) ($thirdPartyResponse['business']['open_enrollment_enabled'] ?? $insuranceCompany->open_enrollment_enabled),
+                ]);
+
+                Log::info('Third party vendor created and registered successfully', [
+                    'third_party_business_id' => $thirdPartyResponse['business']['id'] ?? null,
+                    'open_enrollment_enabled' => (bool) ($thirdPartyResponse['business']['open_enrollment_enabled'] ?? false),
+                    'name' => $insuranceCompany->name,
                 ]);
 
                 // Generate password reset token and send email (handled by third-party system)

@@ -37,6 +37,23 @@ class ThirdPartyVendorsController extends Controller
             if ($response->successful()) {
                 $data = $response->json();
                 $vendors = $data['data'] ?? [];
+                
+                // Load local ThirdPartyPayer records and merge status information
+                $payers = \App\Models\ThirdPartyPayer::where('business_id', $business->id)
+                    ->where('type', 'insurance_company')
+                    ->whereNull('client_id')
+                    ->get()
+                    ->keyBy('insurance_company_id');
+                
+                // Merge payer status into vendor data
+                foreach ($vendors as &$vendor) {
+                    if (isset($payers[$vendor['id']])) {
+                        $payer = $payers[$vendor['id']];
+                        $vendor['payer_status'] = $payer->status;
+                        $vendor['payer_id'] = $payer->id;
+                    }
+                }
+                unset($vendor);
             } else {
                 Log::warning('Failed to fetch connected vendors', [
                     'business_id' => $business->id,
@@ -321,5 +338,72 @@ class ThirdPartyVendorsController extends Controller
             return redirect()->route('third-party-vendors.index')
                 ->with('error', 'Failed to load balance statement. Please try again later.');
         }
+    }
+
+    /**
+     * Block a vendor.
+     */
+    public function block(Request $request, $vendorId)
+    {
+        $business = auth()->user()->business;
+        
+        if (!$business) {
+            return redirect()->route('dashboard')->with('error', 'No business associated with your account.');
+        }
+
+        // Find the ThirdPartyPayer record
+        $payer = \App\Models\ThirdPartyPayer::where('insurance_company_id', $vendorId)
+            ->where('business_id', $business->id)
+            ->where('type', 'insurance_company')
+            ->whereNull('client_id')
+            ->firstOrFail();
+
+        $validated = $request->validate([
+            'reason' => 'required|string|max:1000',
+            'status' => 'required|in:blocked,suspended',
+        ]);
+
+        $statusLabel = $validated['status'] === 'suspended' ? 'Suspended' : 'Blocked';
+        
+        $payer->block(
+            $validated['reason'],
+            auth()->id(),
+            $validated['status']
+        );
+
+        return redirect()
+            ->route('third-party-vendors.show', $vendorId)
+            ->with('success', "Vendor {$statusLabel} successfully.");
+    }
+
+    /**
+     * Reactivate a blocked/suspended vendor.
+     */
+    public function reactivate(Request $request, $vendorId)
+    {
+        $business = auth()->user()->business;
+        
+        if (!$business) {
+            return redirect()->route('dashboard')->with('error', 'No business associated with your account.');
+        }
+
+        // Find the ThirdPartyPayer record
+        $payer = \App\Models\ThirdPartyPayer::where('insurance_company_id', $vendorId)
+            ->where('business_id', $business->id)
+            ->where('type', 'insurance_company')
+            ->whereNull('client_id')
+            ->firstOrFail();
+
+        if (!$payer->isBlocked() && !$payer->isSuspended()) {
+            return redirect()
+                ->route('third-party-vendors.show', $vendorId)
+                ->with('error', 'Vendor is not blocked or suspended.');
+        }
+
+        $payer->reactivate();
+
+        return redirect()
+            ->route('third-party-vendors.show', $vendorId)
+            ->with('success', 'Vendor reactivated successfully.');
     }
 }

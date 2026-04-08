@@ -285,6 +285,8 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::get('/third-party-vendors', [\App\Http\Controllers\ThirdPartyVendorsController::class, 'index'])->name('third-party-vendors.index');
     Route::get('/third-party-vendors/{vendorId}', [\App\Http\Controllers\ThirdPartyVendorsController::class, 'show'])->name('third-party-vendors.show');
     Route::get('/third-party-vendors/{vendorId}/balance-statement', [\App\Http\Controllers\ThirdPartyVendorsController::class, 'balanceStatement'])->name('third-party-vendors.balance-statement');
+    Route::post('/third-party-vendors/{vendorId}/block', [\App\Http\Controllers\ThirdPartyVendorsController::class, 'block'])->name('third-party-vendors.block');
+    Route::post('/third-party-vendors/{vendorId}/reactivate', [\App\Http\Controllers\ThirdPartyVendorsController::class, 'reactivate'])->name('third-party-vendors.reactivate');
     
     // Testing routes (Admin only) - Rate limited to prevent abuse
     Route::post('/testing/clear-data', [TestingController::class, 'clearData'])

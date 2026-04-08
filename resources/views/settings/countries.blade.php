@@ -39,7 +39,7 @@
                                             <option value="">Select country</option>
                                             @foreach($countryOptions as $option)
                                                 <option value="{{ $option['name'] }}" data-iso="{{ $option['iso_code'] }}" data-currency="{{ $option['currency_code'] }}">
-                                                    {{ $option['name'] }}
+                                                    {{ $option['name'] }} ({{ $option['iso_code'] }} - {{ $option['currency_code'] }})
                                                 </option>
                                             @endforeach
                                         </select>
@@ -49,13 +49,9 @@
                                         <input type="text" name="iso_code" id="create-country-iso" class="w-full border-gray-300 rounded-md" placeholder="e.g. UG" required>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-                                        <select name="currency_code" id="create-country-currency" class="w-full border-gray-300 rounded-md" required>
-                                            <option value="">Select currency code</option>
-                                            @foreach($currencyOptions as $currencyCode)
-                                                <option value="{{ $currencyCode }}">{{ $currencyCode }}</option>
-                                            @endforeach
-                                        </select>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Currency <span class="text-xs text-gray-500">(Auto-populated based on country)</span></label>
+                                        <input type="text" id="create-country-currency-display" class="w-full border-gray-300 rounded-md bg-gray-50" placeholder="Select a country first" readonly>
+                                        <input type="hidden" name="currency_code" id="create-country-currency">
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Exchange Rate to USD</label>
@@ -86,7 +82,7 @@
                                                         data-currency="{{ $option['currency_code'] }}"
                                                         {{ $editingCountry->name === $option['name'] ? 'selected' : '' }}
                                                     >
-                                                        {{ $option['name'] }}
+                                                        {{ $option['name'] }} ({{ $option['iso_code'] }} - {{ $option['currency_code'] }})
                                                     </option>
                                                 @endforeach
                                             </select>
@@ -97,14 +93,11 @@
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-                                            <select name="currency_code" id="edit-country-currency" class="w-full border-gray-300 rounded-md" required>
-                                                <option value="">Select currency code</option>
-                                                @foreach($currencyOptions as $currencyCode)
-                                                    <option value="{{ $currencyCode }}" {{ old('currency_code', $editingCountry->currency_code) === $currencyCode ? 'selected' : '' }}>
-                                                        {{ $currencyCode }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Currency <span class="text-xs text-gray-500">(Auto-populated based on country)</span></label>
+                                            <input type="text" id="edit-country-currency-display" class="w-full border-gray-300 rounded-md bg-gray-50" value="{{ $editingCountry->currency_code }}" readonly>
+                                            <input type="hidden" name="currency_code" id="edit-country-currency" value="{{ old('currency_code', $editingCountry->currency_code) }}">
+                                        </div>
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Exchange Rate to USD</label>
@@ -172,23 +165,32 @@
     </div>
 
     <script>
-        function wireCountrySelector(countrySelectId, isoInputId, currencySelectId) {
+        function wireCountrySelector(countrySelectId, isoInputId, currencyInputId, currencyDisplayId) {
             const countrySelect = document.getElementById(countrySelectId);
             const isoInput = document.getElementById(isoInputId);
-            const currencySelect = document.getElementById(currencySelectId);
-            if (!countrySelect || !isoInput || !currencySelect) return;
+            const currencyInput = document.getElementById(currencyInputId);
+            const currencyDisplay = document.getElementById(currencyDisplayId);
+            if (!countrySelect || !isoInput || !currencyInput) return;
 
             countrySelect.addEventListener('change', function () {
                 const selected = countrySelect.options[countrySelect.selectedIndex];
                 const iso = selected?.getAttribute('data-iso') || '';
                 const currency = selected?.getAttribute('data-currency') || '';
                 if (iso) isoInput.value = iso;
-                if (currency) currencySelect.value = currency;
+                if (currency) {
+                    currencyInput.value = currency;
+                    if (currencyDisplay) currencyDisplay.value = currency;
+                }
             });
+            
+            // Set initial display value if currency is already set
+            if (currencyInput.value && currencyDisplay) {
+                currencyDisplay.value = currencyInput.value;
+            }
         }
 
-        wireCountrySelector('create-country-name', 'create-country-iso', 'create-country-currency');
-        wireCountrySelector('edit-country-name', 'edit-country-iso', 'edit-country-currency');
+        wireCountrySelector('create-country-name', 'create-country-iso', 'create-country-currency', 'create-country-currency-display');
+        wireCountrySelector('edit-country-name', 'edit-country-iso', 'edit-country-currency', 'edit-country-currency-display');
     </script>
 </x-app-layout>
 

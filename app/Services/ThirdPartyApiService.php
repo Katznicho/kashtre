@@ -44,6 +44,7 @@ class ThirdPartyApiService
                 'postal_address' => $businessData['postal_address'] ?? null,
                 'website' => $businessData['website'] ?? null,
                 'description' => $businessData['description'] ?? null,
+                'open_enrollment_enabled' => $businessData['open_enrollment_enabled'] ?? false,
                 
                 // User data
                 'user_name' => $userData['name'] ?? '',
@@ -62,6 +63,7 @@ class ThirdPartyApiService
                 'user_email' => $payload['user_email'],
                 'country_name' => $payload['country_name'],
                 'currency_code' => $payload['currency_code'],
+                'open_enrollment_enabled' => $payload['open_enrollment_enabled'],
             ]);
 
             $response = Http::timeout($this->timeout)

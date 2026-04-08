@@ -194,6 +194,21 @@
                                        placeholder="e.g., Teacher, Engineer, Business Owner"
                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
                             </div>
+
+                            <div>
+                                <label for="nationality" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Nationality <span class="text-red-500">*</span>
+                                </label>
+                                <select name="nationality" id="nationality" required
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                                    <option value="">-- Select Nationality --</option>
+                                    @foreach($countries as $code => $country)
+                                        <option value="{{ $code }}" {{ old('nationality') === $code ? 'selected' : '' }}>
+                                            {{ $country }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -379,54 +394,64 @@
                                         @enderror
                                     </div>
 
+                                    <!-- Multiple Insurance Vendors Selection -->
                                     <div>
-                                        <label for="insurance_company_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                            Select Insurance Company <span class="text-red-500">*</span>
+                                        <label class="block text-sm font-medium text-gray-700 mb-3">
+                                            Select Insurance Companies <span class="text-red-500">*</span>
                                         </label>
-                                        <select name="insurance_company_id" id="insurance_company_id" 
-                                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors">
-                                            <option value="">-- Select Insurance Company --</option>
-                                            @if(isset($insuranceCompanies) && !empty($insuranceCompanies))
+                                        <p class="text-xs text-gray-500 mb-3">You can select multiple insurance companies. Each will be managed separately.</p>
+                                        
+                                        @if(isset($insuranceCompanies) && !empty($insuranceCompanies))
+                                            <div class="space-y-2 mb-4">
                                                 @foreach($insuranceCompanies as $company)
-                                                    <option value="{{ $company['id'] }}" {{ old('insurance_company_id') == $company['id'] ? 'selected' : '' }}>
-                                                        {{ $company['name'] }}@if($company['code']) ({{ $company['code'] }})@endif
-                                                    </option>
+                                                    <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-green-50 cursor-pointer transition-colors">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            name="insurance_company_ids[]" 
+                                                            value="{{ $company['id'] }}"
+                                                            class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded vendor-checkbox"
+                                                            {{ in_array($company['id'], old('insurance_company_ids', [])) ? 'checked' : '' }}
+                                                        >
+                                                        <span class="ml-3 text-sm font-medium text-gray-700">
+                                                            {{ $company['name'] }}@if($company['code']) ({{ $company['code'] }})@endif
+                                                        </span>
+                                                    </label>
                                                 @endforeach
-                                            @else
+                                            </div>
+                                        @elseif(isset($connectedVendors) && !empty($connectedVendors))
+                                            <div class="space-y-2 mb-4">
                                                 @foreach($connectedVendors as $vendor)
-                                                    <option value="{{ $vendor['id'] }}" {{ old('insurance_company_id') == $vendor['id'] ? 'selected' : '' }}>
-                                                        {{ $vendor['name'] }} ({{ $vendor['code'] }})
-                                                    </option>
+                                                    <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-green-50 cursor-pointer transition-colors">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            name="insurance_company_ids[]" 
+                                                            value="{{ $vendor['id'] }}"
+                                                            class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded vendor-checkbox"
+                                                            {{ in_array($vendor['id'], old('insurance_company_ids', [])) ? 'checked' : '' }}
+                                                        >
+                                                        <span class="ml-3 text-sm font-medium text-gray-700">
+                                                            {{ $vendor['name'] }} ({{ $vendor['code'] }})
+                                                        </span>
+                                                    </label>
                                                 @endforeach
-                                            @endif
-                                        </select>
-                                        <p class="text-xs text-gray-500 mt-1">Select the insurance company connected to this entity</p>
-                                        @error('insurance_company_id')
+                                            </div>
+                                        @endif
+                                        @error('insurance_company_ids')
                                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                         @enderror
                                     </div>
-                                    
-                                    <!-- Policy Number Field (shown after insurance company is selected) -->
-                                    <div id="policy_number_section" style="display: none;">
-                                        <label for="policy_number" class="block text-sm font-medium text-gray-700 mb-2">
-                                            Policy Number <span class="text-red-500">*</span>
-                                        </label>
-                                        <div class="flex gap-2">
-                                            <input type="text" name="policy_number" id="policy_number" value="{{ old('policy_number') }}" 
-                                                   placeholder="Enter client's policy number"
-                                                   class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors @error('policy_number') border-red-300 @enderror">
-                                            <button type="button" id="verify_policy_btn" 
-                                                    class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap">
-                                                Verify
-                                            </button>
-                                        </div>
-                                        <div id="policy_verification_result" class="mt-2"></div>
-                                        <input type="hidden" name="policy_verified" id="policy_verified" value="0">
-                                        <input type="hidden" name="data_open_enrollment" id="data_open_enrollment" value="0">
-                                        <p class="text-xs text-gray-500 mt-1">Enter the client's policy number to confirm they exist in the insurance system</p>
-                                        @error('policy_number')
-                                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                        @enderror
+
+                                    <!-- Vendor-specific policy details -->
+                                    <div id="vendor_policies_section" class="space-y-4" style="display: none;">
+                                        <h5 class="text-sm font-semibold text-gray-900 mb-3">Policy Details for Each Vendor</h5>
+                                        <div id="vendor_policies_container"></div>
+                                    </div>
+
+                                    <!-- Policy Details Display (when enabled by insurance company) -->
+                                    <div id="vendor_policy_details_section" class="space-y-4" style="display: none;">
+                                        <h5 class="text-sm font-semibold text-gray-900 mb-3">Registered Policy Details</h5>
+                                        <p class="text-xs text-gray-500 mb-3">The following details will be displayed to the client at the registration desk</p>
+                                        <div id="vendor_policy_details_container"></div>
                                     </div>
                                 </div>
                             </div>
@@ -1554,7 +1579,7 @@
                 // Gather available client data from the form
                 const dobInput = document.querySelector('input[name="date_of_birth"]');
                 const genderSelect = document.querySelector('select[name="sex"]') || document.querySelector('select[name="gender"]') || document.querySelector('input[name="gender"]');
-                const nationalityInput = document.querySelector('input[name="nationality"]');
+                const nationalityInput = document.querySelector('select[name="nationality"]') || document.querySelector('input[name="nationality"]');
                 const maritalSelect = document.querySelector('select[name="marital_status"]') || document.querySelector('input[name="marital_status"]');
                 const servicesCategorySelect = document.getElementById('services_category');
 
@@ -2956,6 +2981,271 @@
         validateFallbackPaymentMethod('client-registration-form-individual', 'fallback_payment_warning');
         validateFallbackPaymentMethod('client-registration-form-company', 'fallback_payment_warning_company');
         validateFallbackPaymentMethod('client-registration-form-walk_in', 'fallback_payment_warning_walkin');
+
+        // Multi-vendor insurance company handling
+        (function() {
+            const vendorCheckboxes = document.querySelectorAll('.vendor-checkbox');
+            const vendorPoliciesSection = document.getElementById('vendor_policies_section');
+            const vendorPoliciesContainer = document.getElementById('vendor_policies_container');
+            const vendorPolicyDetailsSection = document.getElementById('vendor_policy_details_section');
+            const vendorPolicyDetailsContainer = document.getElementById('vendor_policy_details_container');
+            const insuranceSection = document.getElementById('insurance_company_section');
+
+            // Cache for insurance company settings
+            const settingsCache = {};
+
+            // Get all available insurance companies from the checkboxes
+            function getVendorInfo(vendorId) {
+                const checkbox = document.querySelector(`.vendor-checkbox[value="${vendorId}"]`);
+                if (!checkbox) return null;
+                
+                const label = checkbox.closest('label');
+                const vendorName = label ? label.textContent.trim() : `Vendor ${vendorId}`;
+                return { id: vendorId, name: vendorName };
+            }
+
+            // Fetch insurance company settings from API
+            async function fetchInsuranceSettings(insuranceCompanyId) {
+                // Return cached result if available
+                if (settingsCache[insuranceCompanyId]) {
+                    return settingsCache[insuranceCompanyId];
+                }
+
+                try {
+                    const response = await fetch(`/api/v1/insurance-companies/${insuranceCompanyId}/settings`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success) {
+                            settingsCache[insuranceCompanyId] = data;
+                            return data;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching insurance settings:', error);
+                }
+                return null;
+            }
+
+            // Get currently selected vendors
+            function getSelectedVendors() {
+                const selected = [];
+                vendorCheckboxes.forEach(checkbox => {
+                    if (checkbox.checked) {
+                        selected.push({
+                            id: checkbox.value,
+                            name: getVendorInfo(checkbox.value).name
+                        });
+                    }
+                });
+                return selected;
+            }
+
+            // Render vendor-specific policy forms
+            function renderVendorPolicyForms() {
+                const selectedVendors = getSelectedVendors();
+                
+                if (selectedVendors.length === 0) {
+                    vendorPoliciesSection.style.display = 'none';
+                    vendorPoliciesContainer.innerHTML = '';
+                    return;
+                }
+
+                vendorPoliciesSection.style.display = 'block';
+                
+                let html = '';
+                selectedVendors.forEach((vendor, index) => {
+                    const vendorId = vendor.id;
+                    const vendorName = vendor.name;
+                    
+                    html += `
+                        <div class="bg-white rounded-lg border-2 border-green-300 p-4">
+                            <h6 class="text-sm font-semibold text-gray-900 mb-3">
+                                <span class="inline-flex items-center justify-center w-5 h-5 bg-green-600 text-white text-xs rounded-full mr-2">${index + 1}</span>
+                                ${vendorName}
+                            </h6>
+                            <div>
+                                <label for="vendor_${vendorId}_policy_number" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Policy Number <span class="text-red-500">*</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    name="insurance_vendor_data[${vendorId}][policy_number]" 
+                                    id="vendor_${vendorId}_policy_number"
+                                    placeholder="Enter policy number for ${vendorName}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                                    required
+                                    data-vendor-id="${vendorId}"
+                                >
+                                <p class="text-xs text-gray-500 mt-1">Policy details (deductible, copay, etc.) will be auto-filled after verification</p>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                vendorPoliciesContainer.innerHTML = html;
+                
+                // Attach event listeners to policy number inputs to trigger verification
+                document.querySelectorAll('[name*="insurance_vendor_data"][name*="policy_number"]').forEach(input => {
+                    input.addEventListener('blur', function() {
+                        const vendorId = this.getAttribute('data-vendor-id');
+                        updatePolicyDetailsPreview(vendorId);
+                    });
+                });
+            }
+
+            // Update policy details preview (what client will see at desk)
+            async function updatePolicyDetailsPreview(vendorId) {
+                const policyInput = document.querySelector(`[name="insurance_vendor_data[${vendorId}][policy_number]"]`);
+                const policyNumber = policyInput ? policyInput.value : null;
+                
+                if (!policyNumber) {
+                    return;
+                }
+
+                // Fetch insurance settings to check if we should display details
+                const settings = await fetchInsuranceSettings(vendorId);
+                
+                if (!settings || !settings.show_policy_details_at_registration) {
+                    // Don't show details if setting is disabled
+                    updatePolicyPreviewDisplay();
+                    return;
+                }
+
+                // Show policy detail preview
+                updatePolicyPreviewDisplay();
+            }
+
+            // Update the policy details preview section display
+            function updatePolicyPreviewDisplay() {
+                const selectedVendors = getSelectedVendors();
+                let hasVendorsWithDisplayEnabled = false;
+                
+                // Check if any vendor has show_policy_details_at_registration enabled
+                selectedVendors.forEach(async (vendor) => {
+                    const settings = settingsCache[vendor.id];
+                    if (settings && settings.show_policy_details_at_registration) {
+                        hasVendorsWithDisplayEnabled = true;
+                    }
+                });
+
+                if (hasVendorsWithDisplayEnabled) {
+                    renderPolicyDetailsPreview();
+                } else {
+                    vendorPolicyDetailsSection.style.display = 'none';
+                    vendorPolicyDetailsContainer.innerHTML = '';
+                }
+            }
+
+            // Render the policy details preview (what client sees at desk)
+            function renderPolicyDetailsPreview() {
+                const selectedVendors = getSelectedVendors();
+                let html = '';
+                let hasAnyDetailsToShow = false;
+
+                selectedVendors.forEach((vendor, index) => {
+                    const vendorId = vendor.id;
+                    const settings = settingsCache[vendorId];
+
+                    // Only show preview if setting is enabled
+                    if (settings && settings.show_policy_details_at_registration) {
+                        hasAnyDetailsToShow = true;
+                        const policyInput = document.querySelector(`[name="insurance_vendor_data[${vendorId}][policy_number]"]`);
+                        const policyNumber = policyInput ? policyInput.value : 'Not entered';
+
+                        // Get which fields to display based on insurance company configuration
+                        const fieldsToDisplay = settings.policy_details_to_display_at_registration || ['policy_number'];
+                        
+                        let detailsHtml = '<div class="bg-white rounded p-3 space-y-2 text-sm">';
+                        
+                        // Map field keys to display names and values
+                        const fieldConfigs = {
+                            'policy_number': { label: 'Policy Number', value: policyNumber },
+                            'deductible_amount': { label: 'Deductible', value: '-' },
+                            'copay_amount': { label: 'Copay', value: '-' },
+                            'coinsurance_percentage': { label: 'Coinsurance', value: '-' },
+                            'copay_max_limit': { label: 'Copay Max', value: '-' },
+                        };
+
+                        // Display only selected fields
+                        fieldsToDisplay.forEach(fieldKey => {
+                            if (fieldConfigs[fieldKey]) {
+                                const config = fieldConfigs[fieldKey];
+                                detailsHtml += `
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">${config.label}:</span>
+                                        <span class="font-semibold text-gray-900">${config.value}</span>
+                                    </div>
+                                `;
+                            }
+                        });
+
+                        detailsHtml += `
+                                    <div class="border-t pt-2 mt-2 text-xs text-gray-500">
+                                        <p>✓ Client will see this information at the registration desk</p>
+                                    </div>
+                                </div>
+                        `;
+
+                        html += `
+                            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-300 p-4">
+                                <h6 class="text-sm font-semibold text-blue-900 mb-3">
+                                    <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-600 text-white text-xs rounded-full mr-2">${index + 1}</span>
+                                    ${vendor.name} - Client Display at Desk
+                                </h6>
+                                ${detailsHtml}
+                            </div>
+                        `;
+                    }
+                });
+
+                if (hasAnyDetailsToShow) {
+                    vendorPolicyDetailsSection.style.display = 'block';
+                    vendorPolicyDetailsContainer.innerHTML = html;
+                } else {
+                    vendorPolicyDetailsSection.style.display = 'none';
+                    vendorPolicyDetailsContainer.innerHTML = '';
+                }
+            }
+
+            // Handle vendor checkbox changes
+            vendorCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', async function() {
+                    renderVendorPolicyForms();
+                    
+                    // Fetch settings for newly checked vendors
+                    if (this.checked) {
+                        await fetchInsuranceSettings(this.value);
+                    }
+                    
+                    updatePolicyPreviewDisplay();
+                });
+            });
+
+            // Initialize on page load
+            if (getSelectedVendors().length > 0) {
+                renderVendorPolicyForms();
+                
+                // Fetch all settings for pre-selected vendors
+                getSelectedVendors().forEach(vendor => {
+                    fetchInsuranceSettings(vendor.id);
+                });
+                
+                updatePolicyPreviewDisplay();
+            }
+
+            // Also handle when insurance section becomes visible/hidden
+            const insuranceCheckbox = document.getElementById('payment_insurance');
+            if (insuranceCheckbox) {
+                insuranceCheckbox.addEventListener('change', function() {
+                    if (!this.checked) {
+                        // Uncheck all vendor checkboxes when insurance is unchecked
+                        vendorCheckboxes.forEach(checkbox => checkbox.checked = false);
+                        renderVendorPolicyForms();
+                        vendorPolicyDetailsSection.style.display = 'none';
+                    }
+                });
+            }
+        })();
 
 
     </script>

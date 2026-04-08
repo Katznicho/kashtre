@@ -11,6 +11,7 @@ use App\Models\ThirdPartyPayer;
 use App\Models\ThirdPartyPayerAccount;
 use App\Models\ConnectedAccount;
 use App\Services\ThirdPartyApiService;
+use App\Services\MultiVendorClientService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -196,7 +197,9 @@ class ClientController extends Controller
             ]);
         }
 
-        return view('clients.create', compact('business', 'currentBranch', 'availablePaymentMethods', 'paymentMethodNames', 'connectedVendors', 'insuranceCompanies'));
+        $countries = \App\Services\CountriesService::getCountriesForSelect();
+
+        return view('clients.create', compact('business', 'currentBranch', 'availablePaymentMethods', 'paymentMethodNames', 'connectedVendors', 'insuranceCompanies', 'countries'));
     }
 
     /**
@@ -298,7 +301,7 @@ class ClientController extends Controller
             'branch_id' => $currentBranch->id,
             'user_id' => Auth::id(),
             'payment_methods' => $request->input('payment_methods', []),
-            'insurance_company_id' => $request->input('insurance_company_id'),
+            'insurance_company_ids' => $request->input('insurance_company_ids', []),
             'data_open_enrollment' => $request->input('data_open_enrollment', false),
             'existing_client_id' => $request->input('existing_client_id'),
         ]);
@@ -307,63 +310,23 @@ class ClientController extends Controller
         $existingClientId = $request->input('existing_client_id');
 
         // Re-verification enforcement:
-        // If insurance is selected, never allow redirect/update of an existing client
-        // without the user verifying the policy number (and physical ID if required).
-        // NOTE: These checks do NOT apply to open enrollment
+        // If insurance is selected, validate that at least one vendor is selected
+        // NOTE: These checks do NOT apply to open enrollment (legacy single-vendor flow)
         $isInsuranceSelected = in_array('insurance', $request->input('payment_methods', []));
-        if ($isInsuranceSelected) {
-            $insuranceCompanyId = (int) $request->input('insurance_company_id');
-
-            // Check if this is open enrollment
-            $isOpenEnrollment = (bool) $request->input('data_open_enrollment', false);
-
-            // Only require policy_verified and physical_id_verified if NOT open enrollment
-            if (!$isOpenEnrollment) {
-                // Default to requiring physical ID unless the insurance settings say otherwise.
-                $requirePhysicalId = true;
-                if ($insuranceCompanyId > 0) {
-                    try {
-                        $apiService = new ThirdPartyApiService();
-                        $settingsResponse = $apiService->getInsuranceCompanySettings($insuranceCompanyId);
-                        if (
-                            $settingsResponse
-                            && isset($settingsResponse['verification_settings']['require_physical_id'])
-                        ) {
-                            $requirePhysicalId = (bool) $settingsResponse['verification_settings']['require_physical_id'];
-                        }
-                    } catch (\Throwable $e) {
-                        Log::warning('Failed to fetch insurance settings (reverification enforcement), defaulting require_physical_id', [
-                            'insurance_company_id' => $insuranceCompanyId,
-                            'error' => $e->getMessage(),
-                        ]);
-                    }
-                }
-
-                $rules = [
-                    'insurance_company_id' => 'required|integer|exists:insurance_companies,id',
-                    'policy_number' => 'required|string|max:255',
-                    'policy_verified' => 'required|accepted',
-                ];
-
-                $rules['physical_id_verified'] = $requirePhysicalId
-                    ? 'required|accepted'
-                    : 'nullable|accepted';
-
-                $request->validate($rules, [
-                    'insurance_company_id.required' => 'Please select an insurance company when insurance payment method is selected.',
-                    'policy_number.required' => 'Please enter the client\'s policy number when insurance payment method is selected.',
-                    'policy_verified.required' => 'Please verify the policy number again before submitting.',
-                    'policy_verified.accepted' => 'Please verify the policy number again before submitting.',
-                    'physical_id_verified.accepted' => 'Physical National ID verification is required by this insurance company.',
-                ]);
-            } else {
-                // For open enrollment, only require insurance_company_id
-                $request->validate([
-                    'insurance_company_id' => 'required|integer|exists:insurance_companies,id',
-                ], [
-                    'insurance_company_id.required' => 'Please select an insurance company when insurance payment method is selected.',
-                ]);
-            }
+        
+        // Support both multi-vendor (insurance_company_ids array) and legacy single-vendor (insurance_company_id)
+        $selectedVendorIds = $request->input('insurance_company_ids', []);
+        $legacySingleVendorId = $request->input('insurance_company_id');
+        
+        // For backward compatibility, if no multi-vendor IDs but single ID exists, use it
+        if (empty($selectedVendorIds) && !empty($legacySingleVendorId)) {
+            $selectedVendorIds = [(int) $legacySingleVendorId];
+        }
+        
+        if ($isInsuranceSelected && empty($selectedVendorIds)) {
+            return redirect()->back()
+                ->withErrors(['insurance_company_ids' => 'Please select at least one insurance company when insurance payment method is selected.'])
+                ->withInput();
         }
 
         if ($existingClientId) {
@@ -495,11 +458,22 @@ class ClientController extends Controller
             'payment_methods.*' => 'required|string|in:' . implode(',', $availablePaymentMethods),
             'payment_phone_number' => 'nullable|string|max:255',
             
-            // Insurance fields (required if insurance payment method is selected, but NOT for open enrollment)
-            'insurance_company_id' => $isInsuranceSelected ? 'required|integer|exists:insurance_companies,id' : 'nullable|integer',
-            'policy_number' => ($isInsuranceSelected && !$isOpenEnrollment) ? 'required|string|max:255' : 'nullable|string|max:255',
-            'physical_id_verified' => ($isInsuranceSelected && !$isOpenEnrollment) ? 'required|accepted' : 'nullable|boolean',
-            'policy_verified' => ($isInsuranceSelected && !$isOpenEnrollment) ? 'required|accepted' : 'nullable|boolean',
+            // Multi-vendor insurance support - only policy number is required, payment details come from verification
+            'insurance_company_ids' => $isInsuranceSelected ? 'required|array|min:1' : 'nullable|array',
+            'insurance_company_ids.*' => $isInsuranceSelected ? 'required|integer|exists:insurance_companies,id' : 'nullable|integer',
+            'insurance_vendor_data' => $isInsuranceSelected ? 'required|array' : 'nullable|array',
+            'insurance_vendor_data.*' => $isInsuranceSelected ? 'required|array' : 'nullable|array',
+            'insurance_vendor_data.*.policy_number' => $isInsuranceSelected ? 'required|string|max:255' : 'nullable|string|max:255',
+            // Deductible, copay, coinsurance are optional - they'll be fetched from API verification
+            'insurance_vendor_data.*.deductible_amount' => 'nullable|numeric|min:0',
+            'insurance_vendor_data.*.copay_amount' => 'nullable|numeric|min:0',
+            'insurance_vendor_data.*.coinsurance_percentage' => 'nullable|numeric|min:0|max:100',
+            
+            // Legacy single-vendor support (for backward compatibility)
+            'insurance_company_id' => 'nullable|integer|exists:insurance_companies,id',
+            'policy_number' => 'nullable|string|max:255',
+            'physical_id_verified' => 'nullable|boolean',
+            'policy_verified' => 'nullable|boolean',
             
             // Next of Kin details
             'nok_surname' => 'required|string|max:255',
@@ -515,15 +489,24 @@ class ClientController extends Controller
             'is_long_stay' => 'nullable|boolean',
             'max_credit' => 'nullable|numeric|min:0',
         ], [
-            'insurance_company_id.required' => 'Please select an insurance company when insurance payment method is selected.',
-            'policy_number.required' => 'Please enter the client\'s policy number when insurance payment method is selected.',
+            'insurance_company_ids.required' => 'Please select at least one insurance company.',
+            'insurance_company_ids.*.required' => 'Please select an insurance company.',
+            'insurance_vendor_data.*.policy_number.required' => 'Please enter policy number for each selected insurance company.',
         ]);
 
         // Initialize payment responsibility variable (will be set if insurance is selected)
         $paymentResponsibility = null;
 
-        // If insurance is selected, verify the policy number exists
-        if ($isInsuranceSelected && !empty($validated['insurance_company_id'])) {
+        // Multi-vendor processing
+        if ($isInsuranceSelected && !empty($selectedVendorIds)) {
+            // Skip single-vendor verification flow for multi-vendor case
+            // The MultiVendorClientService will handle vendor attachment and verification
+            Log::info('FLOW: Multi-vendor insurance registration', [
+                'selected_vendor_ids' => $selectedVendorIds,
+                'vendor_count' => count($selectedVendorIds),
+            ]);
+        } else if ($isInsuranceSelected && !empty($validated['insurance_company_id'])) {
+            // Legacy single-vendor flow (for backward compatibility)
             // Get the local insurance company to find the third-party business ID
             $insuranceCompany = InsuranceCompany::find($validated['insurance_company_id']);
             if (!$insuranceCompany) {
@@ -747,13 +730,16 @@ class ClientController extends Controller
             'is_credit_eligible' => $isCreditEligible,
             'is_long_stay' => $isLongStay,
             'max_credit' => $isCreditEligible ? ($validated['max_credit'] ?? $business->max_first_party_credit_limit) : null,
-            // Insurance information (if insurance payment method is selected)
-            'insurance_company_id' => $isInsuranceSelected ? $validated['insurance_company_id'] : null,
-            'policy_number' => $isInsuranceSelected ? $validated['policy_number'] : null,
+            // Insurance information - only for single-vendor legacy flow
+            // Multi-vendor clients don't have direct insurance_company_id (use ClientVendor instead)
+            'insurance_company_id' => (!$isInsuranceSelected || !empty($selectedVendorIds)) ? null : ($validated['insurance_company_id'] ?? null),
+            'policy_number' => (!$isInsuranceSelected || !empty($selectedVendorIds)) ? null : ($validated['policy_number'] ?? null),
         ];
         
-        // Add payment responsibility information if available
-        if ($paymentResponsibility) {
+        // Add payment responsibility information if available (legacy single-vendor only)
+        if ($paymentResponsibility && !empty($selectedVendorIds)) {
+            // For multi-vendor, skip this - payment details are stored in ClientVendor
+        } else if ($paymentResponsibility) {
             $clientData['has_deductible'] = $paymentResponsibility['has_deductible'] ?? null;
             $clientData['deductible_amount'] = $paymentResponsibility['deductible_amount'] ?? null;
             $clientData['copay_amount'] = $paymentResponsibility['copay_amount'] ?? null;
@@ -764,13 +750,14 @@ class ClientController extends Controller
         }
         
         // Mark if client was registered via open enrollment
-        $clientData['registered_via_open_enrollment'] = ($verificationMethod === 'open_enrollment');
+        $clientData['registered_via_open_enrollment'] = (!$isInsuranceSelected || empty($selectedVendorIds)) ? ($verificationMethod === 'open_enrollment') : false;
         
         Log::info('FLOW: About to create client', [
             'is_open_enrollment' => $clientData['registered_via_open_enrollment'],
-            'verification_method' => $verificationMethod,
+            'verification_method' => $verificationMethod ?? null,
             'insurance_selected' => $isInsuranceSelected,
-            'insurance_company_id' => $clientData['insurance_company_id'] ?? null,
+            'is_multi_vendor' => !empty($selectedVendorIds),
+            'vendor_count' => count($selectedVendorIds),
         ]);
         
         // Create the client
@@ -783,14 +770,108 @@ class ClientController extends Controller
             'visit_id' => $client->visit_id,
         ]);
         
-        // Sync to third-party vendor system for all insurance registrations (both open enrollment and normal)
-        if ($isInsuranceSelected) {
+        // Handle multi-vendor insurance attachment
+        if ($isInsuranceSelected && !empty($selectedVendorIds)) {
+            try {
+                $multiVendorService = new MultiVendorClientService();
+                
+                // Prepare vendor data from form submission
+                $vendorData = [];
+                $insuranceVendorData = $request->input('insurance_vendor_data', []);
+                
+                foreach ($selectedVendorIds as $vendorId) {
+                    if (isset($insuranceVendorData[$vendorId])) {
+                        $vendorData[$vendorId] = $insuranceVendorData[$vendorId];
+                    } else {
+                        // Fallback if vendor data not provided
+                        $vendorData[$vendorId] = ['policy_number' => null];
+                    }
+                }
+                
+                Log::info('FLOW: Attaching multiple vendors to client', [
+                    'kashtre_client_id' => $client->client_id,
+                    'vendor_count' => count($vendorData),
+                    'vendor_ids' => array_keys($vendorData),
+                ]);
+                
+                $attachmentResult = $multiVendorService->attachMultipleVendors($client, $vendorData);
+                
+                if (!empty($attachmentResult['success'])) {
+                    Log::info('FLOW: Successfully attached vendors to client', [
+                        'kashtre_client_id' => $client->client_id,
+                        'success_count' => count($attachmentResult['success']),
+                        'failed_count' => count($attachmentResult['failed'] ?? []),
+                        'attached_vendors' => array_keys($attachmentResult['success']),
+                    ]);
+                }
+                
+                if (!empty($attachmentResult['failed'])) {
+                    Log::warning('FLOW: Some vendors failed to attach', [
+                        'kashtre_client_id' => $client->client_id,
+                        'failed_vendors' => $attachmentResult['failed'],
+                    ]);
+                }
+                
+                // Register authorized visits with each vendor
+                Log::info('FLOW: Starting multi-vendor authorized visit registration', [
+                    'kashtre_client_id' => $client->client_id,
+                    'visit_id' => $client->visit_id,
+                ]);
+                
+                $visitRegistrationResult = $multiVendorService->registerAuthorizedVisitsMultiVendor($client);
+                
+                if (!empty($visitRegistrationResult['registered'])) {
+                    Log::info('FLOW: Successfully registered visits with vendors', [
+                        'kashtre_client_id' => $client->client_id,
+                        'registered_vendors' => array_keys($visitRegistrationResult['registered']),
+                    ]);
+                }
+                
+                if (!empty($visitRegistrationResult['failed'])) {
+                    Log::warning('FLOW: Some visit registrations failed', [
+                        'kashtre_client_id' => $client->client_id,
+                        'failed_vendors' => $visitRegistrationResult['failed'],
+                    ]);
+                }
+                
+            } catch (\Exception $e) {
+                Log::error('FLOW: Exception during multi-vendor attachment/registration', [
+                    'kashtre_client_id' => $client->client_id,
+                    'error_message' => $e->getMessage(),
+                    'error_code' => $e->getCode(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                // Don't fail the registration if multi-vendor setup fails - client is already created locally
+            }
+        }
+        // Handle single-vendor legacy flow
+        else if ($isInsuranceSelected) {
             try {
                 $apiService = new ThirdPartyApiService();
                 
+                // Check if the insurance vendor is suspended or blocked
+                $insuranceCompany = \App\Models\InsuranceCompany::find($client->insurance_company_id);
+                if ($insuranceCompany && $insuranceCompany->third_party_business_id) {
+                    $vendor = \App\Models\ThirdPartyPayer::where('business_id', $insuranceCompany->third_party_business_id)->first();
+                    if ($vendor && ($vendor->isSuspended() || $vendor->isBlocked())) {
+                        Log::warning('storeIndividual: Insurance vendor is suspended/blocked', [
+                            'kashtre_client_id' => $client->client_id,
+                            'vendor_id' => $vendor->id,
+                            'vendor_status' => $vendor->status,
+                            'block_reason' => $vendor->block_reason,
+                        ]);
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Cannot register client: Insurance vendor is {$vendor->status}. Reason: {$vendor->block_reason}",
+                            'vendor_status' => $vendor->status,
+                            'vendor_block_reason' => $vendor->block_reason,
+                        ], 403);
+                    }
+                }
+                
                 // Sync client data if open enrollment
                 if ($verificationMethod === 'open_enrollment') {
-                    Log::info('FLOW: Starting client sync to third-party vendor', [
+                    Log::info('FLOW: Starting client sync to third-party vendor (single-vendor legacy)', [
                         'kashtre_client_id' => $client->client_id,
                         'insurance_company_id' => $client->insurance_company_id,
                     ]);
@@ -1073,6 +1154,25 @@ class ClientController extends Controller
         if ($isInsuranceSelected) {
             try {
                 $apiService = new ThirdPartyApiService();
+                
+                // Check if the insurance vendor is suspended or blocked
+                if ($linkedInsuranceCompany && isset($linkedInsuranceCompany['id'])) {
+                    $vendor = \App\Models\ThirdPartyPayer::where('business_id', $linkedInsuranceCompany['id'])->first();
+                    if ($vendor && ($vendor->isSuspended() || $vendor->isBlocked())) {
+                        Log::warning('storeCompany: Insurance vendor is suspended/blocked', [
+                            'kashtre_client_id' => $client->client_id,
+                            'vendor_id' => $vendor->id,
+                            'vendor_status' => $vendor->status,
+                            'block_reason' => $vendor->block_reason,
+                        ]);
+                        return redirect()->back()
+                            ->withInput()
+                            ->withErrors([
+                                'insurance_company_code' => "Cannot register: Insurance vendor is {$vendor->status}. Reason: {$vendor->block_reason}",
+                            ]);
+                    }
+                }
+                
                 $visitRegistrationResult = $apiService->registerAuthorizedVisit(
                     $client,
                     $client->visit_id,
@@ -1277,7 +1377,9 @@ class ClientController extends Controller
             abort(403, 'Unauthorized access to client.');
         }
         
-        return view('clients.edit', compact('client', 'business'));
+        $countries = \App\Services\CountriesService::getCountriesForSelect();
+        
+        return view('clients.edit', compact('client', 'business', 'countries'));
     }
 
     /**

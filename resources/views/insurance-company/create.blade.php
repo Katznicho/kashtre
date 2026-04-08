@@ -234,6 +234,47 @@
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
                                 </div>
+
+                                <!-- Open Enrollment Toggle -->
+                                <div class="md:col-span-2">
+                                    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded mb-4">
+                                        <div class="flex items-start">
+                                            <div class="flex-shrink-0">
+                                                <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                                </svg>
+                                            </div>
+                                            <div class="ml-3">
+                                                <p class="text-sm text-blue-700">
+                                                    <strong>Vendor Mode:</strong> Choose whether this vendor operates as a regular vendor (policy-based registrations) or as an open enrollment vendor (without policies). A vendor can switch between modes, but cannot support both simultaneously.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center gap-4">
+                                        <div class="flex items-center">
+                                            <label for="open_enrollment_enabled" class="flex items-center cursor-pointer">
+                                                <input type="hidden" name="open_enrollment_enabled" value="0">
+                                                <input type="checkbox" 
+                                                       id="open_enrollment_enabled" 
+                                                       name="open_enrollment_enabled" 
+                                                       value="1"
+                                                       {{ old('open_enrollment_enabled') ? 'checked' : '' }}
+                                                       class="h-5 w-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer">
+                                                <span class="ml-3 text-sm font-medium text-gray-700">Enable Open Enrollment Mode</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-3 text-xs text-gray-600 space-y-1">
+                                        <p><strong>Regular Vendor:</strong> Clients must have a valid policy number to register. Insurance authorization is processed through policy lookup.</p>
+                                        <p><strong>Open Enrollment Vendor:</strong> Clients can register without a policy number. Insurance coverage is determined during open enrollment periods with configurable eligibility criteria (age, gender, nationality, etc.).</p>
+                                    </div>
+                                    @error('open_enrollment_enabled')
+                                        <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                </div>
                             </div>
                         </div>
 

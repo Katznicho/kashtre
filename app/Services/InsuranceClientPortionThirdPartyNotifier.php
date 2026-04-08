@@ -31,6 +31,19 @@ class InsuranceClientPortionThirdPartyNotifier
                 return;
             }
 
+            // Check if the vendor is suspended or blocked
+            $vendor = \App\Models\ThirdPartyPayer::where('business_id', $localInsurance->third_party_business_id)->first();
+            if ($vendor && ($vendor->isSuspended() || $vendor->isBlocked())) {
+                Log::warning('InsuranceClientPortionThirdPartyNotifier: vendor is suspended/blocked', [
+                    'invoice_id' => $invoice->id,
+                    'transaction_id' => $transaction->id,
+                    'vendor_id' => $vendor->id,
+                    'vendor_status' => $vendor->status,
+                    'block_reason' => $vendor->block_reason,
+                ]);
+                return;
+            }
+
             $policyNumber = trim((string) ($client->policy_number ?? ''));
             if ($policyNumber === '') {
                 return;

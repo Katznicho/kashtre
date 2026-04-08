@@ -1882,6 +1882,22 @@ class InvoiceController extends Controller
                 $insuranceCompany = \App\Models\InsuranceCompany::find($client->insurance_company_id);
                 $thirdPartyBusinessId = $insuranceCompany->third_party_business_id ?? null;
                 if ($thirdPartyBusinessId) {
+                    // Check if the vendor is suspended or blocked
+                    $vendor = \App\Models\ThirdPartyPayer::where('business_id', $thirdPartyBusinessId)->first();
+                    if ($vendor && ($vendor->isSuspended() || $vendor->isBlocked())) {
+                        Log::warning('[Kashtre] Insurance authorization blocked: vendor is suspended/blocked', [
+                            'invoice_id' => $invoice->id,
+                            'vendor_id' => $vendor->id,
+                            'vendor_status' => $vendor->status,
+                            'block_reason' => $vendor->block_reason,
+                        ]);
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Cannot authorize invoice: Insurance vendor is {$vendor->status}. Reason: {$vendor->block_reason}",
+                            'vendor_status' => $vendor->status,
+                            'vendor_block_reason' => $vendor->block_reason,
+                        ], 403);
+                    }
                     $deductibleRemaining = isset($validated['deductible_remaining']) ? (float) $validated['deductible_remaining'] : 0;
                     // Prepare items payload for authorization, including item codes and Kashtre exclusion flags
                     $itemsForAuthorization = collect($invoice->items ?? [])->map(function (array $item) {

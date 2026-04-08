@@ -21,6 +21,7 @@ class InsuranceCompany extends Model
         'phone',
         'country_id',
         'currency_code',
+        'open_enrollment_enabled',
         'tin',
         'address',
         'head_office_address',

@@ -24,6 +24,9 @@ class ThirdPartyPayer extends Model
         'address',
         'credit_limit',
         'status',
+        'block_reason',
+        'blocked_at',
+        'blocked_by',
         'notes',
         'excluded_items',
     ];
@@ -31,6 +34,7 @@ class ThirdPartyPayer extends Model
     protected $casts = [
         'credit_limit' => 'decimal:2',
         'excluded_items' => 'array',
+        'blocked_at' => 'datetime',
     ];
 
     protected static function booted()
@@ -90,5 +94,75 @@ class ThirdPartyPayer extends Model
     public function balanceHistories()
     {
         return $this->hasMany(ThirdPartyPayerBalanceHistory::class);
+    }
+
+    /**
+     * Get the user who blocked this vendor.
+     */
+    public function blockedByUser()
+    {
+        return $this->belongsTo(User::class, 'blocked_by');
+    }
+
+    /**
+     * Check if this vendor is blocked.
+     */
+    public function isBlocked(): bool
+    {
+        return $this->status === 'blocked';
+    }
+
+    /**
+     * Check if this vendor is suspended.
+     */
+    public function isSuspended(): bool
+    {
+        return $this->status === 'suspended';
+    }
+
+    /**
+     * Check if this vendor is active.
+     */
+    public function isActive(): bool
+    {
+        return $this->status === 'active';
+    }
+
+    /**
+     * Block this vendor.
+     */
+    public function block(string $reason, ?int $blockedBy = null, string $status = 'blocked'): self
+    {
+        $this->update([
+            'status' => $status,
+            'block_reason' => $reason,
+            'blocked_at' => now(),
+            'blocked_by' => $blockedBy ?? auth()->id(),
+        ]);
+
+        return $this;
+    }
+
+    /**
+     * Suspend this vendor.
+     */
+    public function suspend(string $reason, ?int $suspendedBy = null): self
+    {
+        return $this->block($reason, $suspendedBy, 'suspended');
+    }
+
+    /**
+     * Reactivate this vendor.
+     */
+    public function reactivate(): self
+    {
+        $this->update([
+            'status' => 'active',
+            'block_reason' => null,
+            'blocked_at' => null,
+            'blocked_by' => null,
+        ]);
+
+        return $this;
     }
 }

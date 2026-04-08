@@ -65,6 +65,7 @@ class Client extends Model
         'copay_contributes_to_deductible',
         'coinsurance_contributes_to_deductible',
         'registered_via_open_enrollment',
+        'nationality',
     ];
 
     protected $casts = [
@@ -120,6 +121,42 @@ class Client extends Model
     {
         return $this->hasMany(CreditLimitChangeRequest::class, 'entity_id')
             ->where('entity_type', 'client');
+    }
+
+    /**
+     * Get all vendors associated with this client
+     */
+    public function vendors()
+    {
+        return $this->hasMany(ClientVendor::class);
+    }
+
+    /**
+     * Get the related third-party payers through vendors
+     */
+    public function thirdPartyPayers()
+    {
+        return $this->belongsToMany(
+            ThirdPartyPayer::class,
+            'client_vendors',
+            'client_id',
+            'third_party_payer_id'
+        )
+        ->withPivot([
+            'policy_number',
+            'policy_verified',
+            'is_open_enrollment',
+            'deductible_amount',
+            'copay_amount',
+            'coinsurance_percentage',
+            'copay_max_limit',
+            'copay_contributes_to_deductible',
+            'coinsurance_contributes_to_deductible',
+            'excluded_items',
+            'status',
+            'notes',
+        ])
+        ->withTimestamps();
     }
 
     /**
