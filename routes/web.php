@@ -73,6 +73,7 @@ use App\Http\Controllers\ServicePointSupervisorController;
 use App\Http\Controllers\AccountsReceivableController;
 use App\Http\Controllers\CreditLimitChangeRequestController;
 use App\Http\Controllers\ThirdPartyPayerDashboardController;
+use App\Http\Controllers\ClientSpaceController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
@@ -150,6 +151,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource("users", UserController::class);
     Route::resource("roles", RoleController::class);
     Route::resource("departments", DepartmentController::class);
+    Route::resource("client-spaces", ClientSpaceController::class);
     Route::resource("titles", TitleController::class);
     Route::resource("qualifications", QualificationController::class);
     Route::resource("rooms", RoomController::class);

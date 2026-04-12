@@ -49,4 +49,8 @@ return [
         'sync_secret' => env('CALLING_SERVICE_SYNC_SECRET', ''),
     ],
 
+    'hr_module' => [
+        'api_key' => env('HR_MODULE_API_KEY'),
+    ],
+
 ];

@@ -585,6 +585,10 @@
                             </li>
                             @endif
 
+                            @if(in_array('View Client Spaces', $permissions))
+                            <li><a href="{{ route('client-spaces.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Client Spaces</a></li>
+                            @endif
+
                             <!-- Settings only for business_id == 1 (Kashtre) -->
                             @if(Auth::user()->business_id == 1)
                             @if(in_array('View Service Points', $permissions))

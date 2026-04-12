@@ -90,10 +90,10 @@ trait AccessTrait
         "Withdrawal Settings" => ['View Withdrawal Settings', 'Edit Withdrawal Settings', 'Add Withdrawal Settings'],
         "Business Withdraw Charges" => ['View Business Withdrawal Charges', 'Edit Business Withdrawal Charges', 'Add Business Withdrawal Charges'],
         "Refund Workflows" => ['View Credit Note Workflows', 'Edit Credit Note Workflows', 'Add Credit Note Workflows'],
-        "Calling Module" => ['View Calling Module', 'Add Calling Module', 'Edit Calling Module', 'Manage Calling Module', 'Delete Calling Module'],
     ];
 
     public static $callers = [
+        "Calling Module" => ['View Calling Module', 'Add Calling Module', 'Edit Calling Module', 'Manage Calling Module', 'Delete Calling Module'],
         "Callers" => ['View Callers', 'Add Callers', 'Edit Callers', 'Manage Callers', 'Broadcast Announcements'],
     ];
 
@@ -112,6 +112,7 @@ trait AccessTrait
     public static $businessAccess = [
         "Business" => ['View Business', 'Edit Business', 'Add Business'],
         "Branches" => ['View Branches', 'Edit Branches', 'Add Branches'],
+        "Client Spaces" => ['View Client Spaces', 'Add Client Spaces', 'Edit Client Spaces', 'Delete Client Spaces'],
         "Business Settings" => ['View Business Settings', 'Edit Business Settings'],
     ];
 

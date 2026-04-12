@@ -60,6 +60,17 @@ Route::withoutMiddleware([ThrottleRequests::class])
 
 
 
+// HR Module Integration API
+Route::prefix('hr')->middleware('hr.api')->group(function () {
+    Route::get('/staff', [\App\Http\Controllers\API\HrIntegrationController::class, 'staff']);
+    Route::get('/staff/{uuid}', [\App\Http\Controllers\API\HrIntegrationController::class, 'staffShow']);
+    Route::get('/businesses', [\App\Http\Controllers\API\HrIntegrationController::class, 'businesses']);
+    Route::get('/branches', [\App\Http\Controllers\API\HrIntegrationController::class, 'branches']);
+    Route::get('/departments', [\App\Http\Controllers\API\HrIntegrationController::class, 'departments']);
+    Route::get('/qualifications', [\App\Http\Controllers\API\HrIntegrationController::class, 'qualifications']);
+    Route::get('/client-spaces', [\App\Http\Controllers\API\HrIntegrationController::class, 'clientSpaces']);
+});
+
 Route::prefix('v1')->group(function () {
     include_once __DIR__ . '/custom/airtel_routes.php';
     include_once __DIR__ . '/custom/mtn_routes.php';

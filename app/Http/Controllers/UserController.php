@@ -211,7 +211,6 @@ class UserController extends Controller
         $permissions = $this->getAccessControl(['Masters']);
         $permissions['Masters'] = [
             'Maturation Periods' => self::$masters['Maturation Periods'],
-            'Calling Module' => self::$masters['Calling Module'],
         ];
 
         return $permissions;
