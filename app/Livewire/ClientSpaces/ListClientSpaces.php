@@ -140,8 +140,6 @@ class ListClientSpaces extends Component implements HasForms, HasTable
                 CreateAction::make()
                     ->visible(fn() => in_array('Add Client Spaces', Auth::user()->permissions))
                     ->label('Create Client Space')
-                    ->icon('heroicon-o-plus')
-                    ->color('success')
                     ->modalHeading('Add New Client Space')
                     ->form([
                         Select::make('business_id')
@@ -190,8 +188,6 @@ class ListClientSpaces extends Component implements HasForms, HasTable
                 CreateAction::make()
                     ->visible(fn() => in_array('Add Client Spaces', Auth::user()->permissions))
                     ->label('Create Client Space')
-                    ->icon('heroicon-o-plus')
-                    ->color('success')
                     ->modalHeading('Add New Client Space')
                     ->form([
                         Select::make('business_id')

@@ -585,7 +585,17 @@
                             </li>
                             @endif
 
-                            @if(in_array('View Client Spaces', $permissions))
+                            @php
+                                $clientSpacePermissions = [
+                                    'Client Spaces',
+                                    'View Client Spaces',
+                                    'Add Client Spaces',
+                                    'Edit Client Spaces',
+                                    'Delete Client Spaces',
+                                ];
+                                $canAccessClientSpaces = count(array_intersect($clientSpacePermissions, (array) $permissions)) > 0;
+                            @endphp
+                            @if($canAccessClientSpaces)
                             <li><a href="{{ route('client-spaces.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Client Spaces</a></li>
                             @endif
 
