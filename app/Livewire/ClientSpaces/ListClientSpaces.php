@@ -98,6 +98,7 @@ class ListClientSpaces extends Component implements HasForms, HasTable
                             ->options(Business::where('id', '!=', 1)->pluck('name', 'id'))
                             ->required()
                             ->disabled(fn() => Auth::user()->business_id !== 1)
+                            ->dehydrated()
                             ->reactive(),
 
                         Select::make('branch_id')
@@ -149,6 +150,7 @@ class ListClientSpaces extends Component implements HasForms, HasTable
                             ->required()
                             ->default(Auth::user()->business_id)
                             ->disabled(fn() => Auth::user()->business_id !== 1)
+                            ->dehydrated()
                             ->reactive(),
 
                         Select::make('branch_id')
@@ -197,6 +199,7 @@ class ListClientSpaces extends Component implements HasForms, HasTable
                             ->required()
                             ->default(Auth::user()->business_id)
                             ->disabled(fn() => Auth::user()->business_id !== 1)
+                            ->dehydrated()
                             ->reactive(),
 
                         Select::make('branch_id')
