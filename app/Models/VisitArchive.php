@@ -16,16 +16,19 @@ class VisitArchive extends Model
         'business_id',
         'branch_id',
         'client_id',
+        'full_client_id',
         'client_name',
         'client_age',
         'visit_id',
         'archived_at',
         'visit_end_at',
+        'visit_created_at',
     ];
 
     protected $casts = [
         'archived_at' => 'datetime',
         'visit_end_at' => 'datetime',
+        'visit_created_at' => 'datetime',
         'client_age' => 'integer',
     ];
 

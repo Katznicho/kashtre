@@ -82,6 +82,9 @@
                         @csrf
                         <input type="hidden" name="client_type" value="individual">
                         <input type="hidden" name="existing_client_id" id="existing_client_id" value="">
+                        <input type="hidden" name="policy_verified" id="policy_verified" value="0">
+                        <input type="hidden" name="physical_id_verified" id="physical_id_verified" value="0">
+                        <input type="hidden" name="data_open_enrollment" id="data_open_enrollment" value="0">
                         
                         <!-- Personal Information Card -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -1375,6 +1378,7 @@
             // Store registration settings (including show_policy_details_at_registration)
             let registrationSettings = {
                 show_policy_details: true, // default to showing policy details
+                fields_to_display: ['benefit_balance', 'deductible_amount', 'copay_amount', 'coinsurance_percentage'], // default all
                 visit_authorization_period_days: 7
             };
 
@@ -1476,6 +1480,9 @@
                         const regSettings = await regRes.json();
                         if (regSettings.success) {
                             registrationSettings.show_policy_details = regSettings.show_policy_details_at_registration ?? true;
+                            registrationSettings.fields_to_display = regSettings.policy_details_to_display_at_registration?.length
+                                ? regSettings.policy_details_to_display_at_registration
+                                : ['benefit_balance', 'deductible_amount', 'copay_amount', 'coinsurance_percentage'];
                             registrationSettings.visit_authorization_period_days = regSettings.visit_authorization_period_days ?? 7;
                         }
                     }
@@ -1772,41 +1779,47 @@
                         }
                         
                         // Build payment responsibility information display
-                        // Only show policy details if the setting allows it
+                        // Only show benefit details if the setting allows it
                         const paymentInfo = data.data?.payment_responsibility;
                         let paymentInfoHtml = '';
-                        
+
                         if (paymentInfo && registrationSettings.show_policy_details) {
+                            const fieldsToDisplay = registrationSettings.fields_to_display;
                             paymentInfoHtml = '<div class="mt-3 pt-3 border-t border-' + statusColor + '-300">';
-                            paymentInfoHtml += '<p class="text-xs font-semibold text-' + statusColor + '-800 mb-2">Payment Responsibility:</p>';
-                            
-                            // Deductible
-                            if (paymentInfo.has_deductible && paymentInfo.deductible_amount) {
+                            paymentInfoHtml += '<p class="text-xs font-semibold text-' + statusColor + '-800 mb-2">Benefit Details:</p>';
+
+                            if (fieldsToDisplay.includes('benefit_balance')) {
+                                const balance = paymentInfo.benefit_balance;
+                                paymentInfoHtml += `<div class="mb-2">
+                                    <p class="text-xs font-medium text-${statusColor}-700">Benefit Balance: ${balance != null ? 'UGX ' + parseFloat(balance).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A'}</p>
+                                    <p class="text-xs text-gray-600 mt-0.5">Remaining insurance benefit for this client</p>
+                                </div>`;
+                            }
+
+                            if (fieldsToDisplay.includes('deductible_amount') && paymentInfo.has_deductible && paymentInfo.deductible_amount) {
                                 paymentInfoHtml += `<div class="mb-2">
                                     <p class="text-xs font-medium text-${statusColor}-700">Deductible: UGX ${parseFloat(paymentInfo.deductible_amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
                                     <p class="text-xs text-gray-600 mt-0.5">Amount client must pay before insurance coverage begins</p>
                                 </div>`;
                             }
-                            
-                            // Co-pay
-                            if (paymentInfo.copay_amount) {
+
+                            if (fieldsToDisplay.includes('copay_amount') && paymentInfo.copay_amount) {
                                 paymentInfoHtml += `<div class="mb-2">
                                     <p class="text-xs font-medium text-${statusColor}-700">Co-pay: UGX ${parseFloat(paymentInfo.copay_amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} per visit</p>
                                     <p class="text-xs text-gray-600 mt-0.5">Fixed amount payable at each visit</p>
                                 </div>`;
                             }
-                            
-                            // Co-insurance
-                            if (paymentInfo.coinsurance_percentage) {
+
+                            if (fieldsToDisplay.includes('coinsurance_percentage') && paymentInfo.coinsurance_percentage) {
                                 paymentInfoHtml += `<div class="mb-2">
                                     <p class="text-xs font-medium text-${statusColor}-700">Co-insurance: ${parseFloat(paymentInfo.coinsurance_percentage).toFixed(2)}%</p>
                                     <p class="text-xs text-gray-600 mt-0.5">Percentage of invoice amount paid by client</p>
                                 </div>`;
                             }
-                            
+
                             paymentInfoHtml += '</div>';
                         }
-                        
+
                         policyVerificationResult.innerHTML = `
                             <div class="p-3 bg-${statusColor}-50 border border-${statusColor}-200 rounded-lg">
                                 <p class="text-sm font-medium text-${statusColor}-800">${statusIcon} ${verificationStatus === 'rejected' ? 'Verification rejected' : verificationStatus === 'flagged' ? 'Verification flagged for review' : 'Verified successfully'} (${methodLabel})</p>
@@ -2109,41 +2122,47 @@
                         const statusColor = data.verification_status === 'flagged' ? 'yellow' : 'green';
                         
                         // Build payment responsibility information display
-                        // Only show policy details if the setting allows it
+                        // Only show benefit details if the setting allows it
                         const paymentInfo = data.data?.payment_responsibility;
                         let paymentInfoHtml = '';
-                        
+
                         if (paymentInfo && registrationSettings.show_policy_details) {
-                            paymentInfoHtml = '<div class="mt-3 pt-3 border-t border-' + statusColor + '-300">';
-                            paymentInfoHtml += '<p class="text-xs font-semibold text-' + statusColor + '-800 mb-2">Payment Responsibility:</p>';
-                            
-                            // Deductible
-                            if (paymentInfo.has_deductible && paymentInfo.deductible_amount) {
+                            const fieldsToDisplay = registrationSettings.fields_to_display;
+                            paymentInfoHtml = '<div class="mt-3 pt-3 border-t border-green-300">';
+                            paymentInfoHtml += '<p class="text-xs font-semibold text-green-800 mb-2">Benefit Details:</p>';
+
+                            if (fieldsToDisplay.includes('benefit_balance')) {
+                                const balance = paymentInfo.benefit_balance;
                                 paymentInfoHtml += `<div class="mb-2">
-                                    <p class="text-xs font-medium text-${statusColor}-700">Deductible: UGX ${parseFloat(paymentInfo.deductible_amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                    <p class="text-xs font-medium text-green-700">Benefit Balance: ${balance != null ? 'UGX ' + parseFloat(balance).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A'}</p>
+                                    <p class="text-xs text-gray-600 mt-0.5">Remaining insurance benefit for this client</p>
+                                </div>`;
+                            }
+
+                            if (fieldsToDisplay.includes('deductible_amount') && paymentInfo.has_deductible && paymentInfo.deductible_amount) {
+                                paymentInfoHtml += `<div class="mb-2">
+                                    <p class="text-xs font-medium text-green-700">Deductible: UGX ${parseFloat(paymentInfo.deductible_amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
                                     <p class="text-xs text-gray-600 mt-0.5">Amount client must pay before insurance coverage begins</p>
                                 </div>`;
                             }
-                            
-                            // Co-pay
-                            if (paymentInfo.copay_amount) {
+
+                            if (fieldsToDisplay.includes('copay_amount') && paymentInfo.copay_amount) {
                                 paymentInfoHtml += `<div class="mb-2">
-                                    <p class="text-xs font-medium text-${statusColor}-700">Co-pay: UGX ${parseFloat(paymentInfo.copay_amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} per visit</p>
+                                    <p class="text-xs font-medium text-green-700">Co-pay: UGX ${parseFloat(paymentInfo.copay_amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} per visit</p>
                                     <p class="text-xs text-gray-600 mt-0.5">Fixed amount payable at each visit</p>
                                 </div>`;
                             }
-                            
-                            // Co-insurance
-                            if (paymentInfo.coinsurance_percentage) {
+
+                            if (fieldsToDisplay.includes('coinsurance_percentage') && paymentInfo.coinsurance_percentage) {
                                 paymentInfoHtml += `<div class="mb-2">
-                                    <p class="text-xs font-medium text-${statusColor}-700">Co-insurance: ${parseFloat(paymentInfo.coinsurance_percentage).toFixed(2)}%</p>
+                                    <p class="text-xs font-medium text-green-700">Co-insurance: ${parseFloat(paymentInfo.coinsurance_percentage).toFixed(2)}%</p>
                                     <p class="text-xs text-gray-600 mt-0.5">Percentage of invoice amount paid by client</p>
                                 </div>`;
                             }
-                            
+
                             paymentInfoHtml += '</div>';
                         }
-                        
+
                         policyVerificationResult.innerHTML = `
                             <div class="p-3 ${data.verification_status === 'flagged' ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'} border rounded-lg">
                                 <p class="text-sm font-medium ${data.verification_status === 'flagged' ? 'text-yellow-800' : 'text-green-800'}">
@@ -3057,9 +3076,10 @@
                                 <!-- Physical Insurance Card Verification Checkbox -->
                                 <div class="border-t pt-3">
                                     <label class="flex items-start p-3 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors">
-                                        <input 
-                                            type="checkbox" 
-                                            name="insurance_vendor_data[${vendorId}][physical_insurance_card_verified]" 
+                                        <input type="hidden" name="insurance_vendor_data[${vendorId}][physical_insurance_card_verified]" value="0">
+                                        <input
+                                            type="checkbox"
+                                            name="insurance_vendor_data[${vendorId}][physical_insurance_card_verified]"
                                             value="1"
                                             class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded mt-0.5"
                                         >
@@ -3095,21 +3115,43 @@
                         try {
                             const response = await fetch(`/api/policies/verify/${vendorId}/${encodeURIComponent(policyInput.value)}`);
                             const data = await response.json();
-                            
-                            if (response.ok && data.verified) {
-                                resultDiv.innerHTML = '<p class="text-sm text-green-600">✓ Policy verified successfully</p>';
-                                // Auto-populate financial details if available
-                                if (data.deductible) {
-                                    document.querySelector(`[name="insurance_vendor_data[${vendorId}][deductible_amount]"]`)?.setAttribute('value', data.deductible);
+
+                            if (data.success && data.exists) {
+                                // Mark policy as verified so the form can be submitted
+                                const policyVerifiedInput = document.getElementById('policy_verified');
+                                if (policyVerifiedInput) policyVerifiedInput.value = '1';
+
+                                // Auto-populate financial details from payment_responsibility
+                                const paymentResp = data.data?.payment_responsibility;
+                                if (paymentResp) {
+                                    if (paymentResp.deductible_amount) {
+                                        document.querySelector(`[name="insurance_vendor_data[${vendorId}][deductible_amount]"]`)?.setAttribute('value', paymentResp.deductible_amount);
+                                    }
+                                    if (paymentResp.copay_amount) {
+                                        document.querySelector(`[name="insurance_vendor_data[${vendorId}][copay_amount]"]`)?.setAttribute('value', paymentResp.copay_amount);
+                                    }
+                                    if (paymentResp.coinsurance_percentage) {
+                                        document.querySelector(`[name="insurance_vendor_data[${vendorId}][coinsurance_percentage]"]`)?.setAttribute('value', paymentResp.coinsurance_percentage);
+                                    }
                                 }
-                                if (data.copay) {
-                                    document.querySelector(`[name="insurance_vendor_data[${vendorId}][copay_amount]"]`)?.setAttribute('value', data.copay);
-                                }
-                                if (data.coinsurance) {
-                                    document.querySelector(`[name="insurance_vendor_data[${vendorId}][coinsurance_percentage]"]`)?.setAttribute('value', data.coinsurance);
-                                }
+
+                                const memberName = data.data?.principal_member_name || '';
+                                const policyStatus = data.data?.status || '';
+                                resultDiv.innerHTML = `
+                                    <div class="p-2 bg-green-50 border border-green-200 rounded">
+                                        <p class="text-sm text-green-700 font-medium">Policy verified successfully</p>
+                                        ${memberName ? `<p class="text-xs text-green-600">Policy holder: ${memberName}</p>` : ''}
+                                        ${policyStatus ? `<p class="text-xs text-green-600">Status: ${policyStatus}</p>` : ''}
+                                    </div>`;
+                                policyInput.classList.add('border-green-400');
+                                policyInput.classList.remove('border-red-400');
                             } else {
-                                resultDiv.innerHTML = '<p class="text-sm text-red-600">✗ Policy verification failed. Try alternative methods below.</p>';
+                                const policyVerifiedInput = document.getElementById('policy_verified');
+                                if (policyVerifiedInput) policyVerifiedInput.value = '0';
+                                const msg = data.message || 'Policy not found. Try alternative methods below.';
+                                resultDiv.innerHTML = `<p class="text-sm text-red-600">${msg}</p>`;
+                                policyInput.classList.add('border-red-400');
+                                policyInput.classList.remove('border-green-400');
                             }
                         } catch (error) {
                             resultDiv.innerHTML = '<p class="text-sm text-red-600">Error verifying policy. Please try again.</p>';
@@ -3178,7 +3220,15 @@
                 });
                 
                 // Attach event listeners to policy number inputs to trigger preview update
+                // Also reset policy_verified when user edits a policy number field
                 document.querySelectorAll('[name*="insurance_vendor_data"][name*="policy_number"]').forEach(input => {
+                    input.addEventListener('input', function() {
+                        const policyVerifiedInput = document.getElementById('policy_verified');
+                        if (policyVerifiedInput) policyVerifiedInput.value = '0';
+                        const resultDiv = document.querySelector(`.policy-verification-result[data-vendor-id="${this.getAttribute('data-vendor-id')}"]`);
+                        if (resultDiv) resultDiv.innerHTML = '';
+                        this.classList.remove('border-green-400', 'border-red-400');
+                    });
                     input.addEventListener('blur', function() {
                         const vendorId = this.getAttribute('data-vendor-id');
                         updatePolicyDetailsPreview(vendorId);

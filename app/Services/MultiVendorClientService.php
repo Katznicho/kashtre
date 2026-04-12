@@ -164,13 +164,20 @@ class MultiVendorClientService
                     continue;
                 }
 
+                // Resolve the third-party's business_id — the API expects this, not the Kashtre-local third_party_payer_id
+                $thirdPartyPayer = ThirdPartyPayer::find($clientVendor->third_party_payer_id);
+                if (!$thirdPartyPayer || !$thirdPartyPayer->business_id) {
+                    $results['failed'][$clientVendor->third_party_payer_id] = 'Vendor has no business_id configured';
+                    continue;
+                }
+
                 $visitRegistrationResult = $this->apiService->registerAuthorizedVisit(
                     $client,
                     $client->visit_id,
                     now()->toDateString(),
                     $client->visit_expires_at ? $client->visit_expires_at->toDateTimeString() : null,
                     $client->services_category,
-                    $clientVendor->third_party_payer_id
+                    $thirdPartyPayer->business_id
                 );
 
                 if ($visitRegistrationResult) {

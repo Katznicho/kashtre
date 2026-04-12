@@ -126,7 +126,6 @@ class ThirdPartyVendorsController extends Controller
                 ->where('business_id', $business->id)
                 ->where('type', 'insurance_company')
                 ->whereNull('client_id') // Business-level
-                ->where('status', 'active')
                 ->first();
 
             $balanceHistories = collect();
@@ -294,7 +293,6 @@ class ThirdPartyVendorsController extends Controller
                 ->where('business_id', $business->id)
                 ->where('type', 'insurance_company')
                 ->whereNull('client_id') // Business-level
-                ->where('status', 'active')
                 ->first();
 
             if (!$thirdPartyPayer) {

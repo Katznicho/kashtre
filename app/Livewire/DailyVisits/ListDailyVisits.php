@@ -59,8 +59,20 @@ class ListDailyVisits extends Component implements HasForms, HasTable
                     ->dateTime('H:i:s')
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Visit Creation Date')
+                    ->dateTime('M d, Y H:i')
+                    ->sortable()
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('visit_expires_at')
+                    ->label('Visit Expiry Date')
+                    ->dateTime('M d, Y H:i')
+                    ->sortable()
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('client_id')
-                    ->label('Client ID')
+                    ->label('Full Client ID')
                     ->searchable()
                     ->sortable(),
 

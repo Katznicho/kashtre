@@ -66,10 +66,31 @@ class ListVisitArchives extends Component implements HasForms, HasTable
                 ->dateTime('M d, Y')
                 ->sortable(),
 
+            ...(($this->recordType === 'previous') ? [
+                Tables\Columns\TextColumn::make('visit_created_at')
+                    ->label('Visit Creation Date')
+                    ->dateTime('M d, Y H:i')
+                    ->sortable()
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('visit_end_at')
+                    ->label('Visit Expiry Date')
+                    ->dateTime('M d, Y H:i')
+                    ->sortable()
+                    ->toggleable(),
+            ] : []),
+
             Tables\Columns\TextColumn::make('client_id')
                 ->label('Client ID')
                 ->searchable()
                 ->sortable(),
+
+            ...(($this->recordType === 'previous') ? [
+                Tables\Columns\TextColumn::make('full_client_id')
+                    ->label('Full Client ID')
+                    ->searchable()
+                    ->sortable(),
+            ] : []),
 
             Tables\Columns\TextColumn::make('client_name')
                 ->label('Client Name')

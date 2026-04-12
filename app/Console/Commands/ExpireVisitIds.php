@@ -61,10 +61,12 @@ class ExpireVisitIds extends Command
         $archiveSnapshotUpdateColumns = [
             'business_id',
             'branch_id',
+            'full_client_id',
             'client_name',
             'client_age',
             'visit_id',
             'visit_end_at',
+            'visit_created_at',
             'updated_at',
         ];
 
@@ -87,11 +89,13 @@ class ExpireVisitIds extends Command
                         'business_id' => (int) ($client->business_id ?? 0),
                         'branch_id' => (int) ($client->branch_id ?? 0),
                         'client_id' => (int) $client->id,
+                        'full_client_id' => $client->client_id,
                         'client_name' => $client->full_name,
                         'client_age' => $ageAtMidnight,
                         'visit_id' => $client->visit_id,
                         'archived_at' => $midnight,
                         'visit_end_at' => null,
+                        'visit_created_at' => $client->created_at,
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
@@ -289,11 +293,13 @@ class ExpireVisitIds extends Command
                             'business_id' => (int) ($client->business_id ?? 0),
                             'branch_id' => (int) ($client->branch_id ?? 0),
                             'client_id' => (int) $client->id,
+                            'full_client_id' => $client->client_id,
                             'client_name' => $client->full_name,
                             'client_age' => $ageAtMidnight,
                             'visit_id' => $oldVisitId,
                             'archived_at' => $midnight,
                             'visit_end_at' => $midnight,
+                            'visit_created_at' => $client->created_at,
                             'created_at' => $now,
                             'updated_at' => $now,
                         ];
@@ -322,10 +328,12 @@ class ExpireVisitIds extends Command
                         [
                             'business_id',
                             'branch_id',
+                            'full_client_id',
                             'client_name',
                             'client_age',
                             'visit_id',
                             'visit_end_at',
+                            'visit_created_at',
                             'updated_at',
                         ]
                     );
