@@ -30,7 +30,22 @@ class MultiVendorClientService
             'failed' => [],
         ];
 
-        foreach ($vendorData as $insuranceCompanyId => $data) {
+        // Assign cascade priority: non-OE vendors get lower numbers (go first),
+        // OE vendors go last. Within each group, preserve submission order.
+        $nonOE = [];
+        $oe    = [];
+        foreach ($vendorData as $id => $data) {
+            if (!empty($data['is_open_enrollment'])) {
+                $oe[$id] = $data;
+            } else {
+                $nonOE[$id] = $data;
+            }
+        }
+        $orderedVendorData = $nonOE + $oe;
+        $priorityCounter   = 1;
+
+        foreach ($orderedVendorData as $insuranceCompanyId => $data) {
+            $assignedPriority = $priorityCounter++;
             try {
                 // Resolve the local InsuranceCompany (keyed by insurance_companies.id)
                 $insuranceCompany = InsuranceCompany::find($insuranceCompanyId);
@@ -119,6 +134,7 @@ class MultiVendorClientService
                     'policy_verified'                  => $policyVerified,
                     'physical_insurance_card_verified' => $data['physical_insurance_card_verified'] ?? false,
                     'is_open_enrollment'               => $data['is_open_enrollment'] ?? false,
+                    'priority'                         => $assignedPriority,
                     'status'                           => 'active',
                 ];
 

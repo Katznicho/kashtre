@@ -13,6 +13,7 @@ class ClientVendor extends Model
         'policy_number',
         'policy_verified',
         'is_open_enrollment',
+        'priority',
         'deductible_amount',
         'copay_amount',
         'coinsurance_percentage',

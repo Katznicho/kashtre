@@ -1871,7 +1871,24 @@ class InvoiceController extends Controller
 
             // Insurance flow: send invoice to third-party for authorization; get client_total and insurance_total (sync, one round-trip)
             $insuranceAuthorization = null;
-            if ($client->insurance_company_id && $client->policy_number) {
+
+            // ── Multi-vendor cascade ──────────────────────────────────────────────────
+            // For clients with multiple insurers (ClientVendor records), cascade the
+            // invoice: full amount → Vendor 1, Vendor 1's client_total → Vendor 2, etc.
+            $activeClientVendors = \App\Models\ClientVendor::where('client_id', $client->id)
+                ->where('status', 'active')
+                ->orderBy('priority')
+                ->get();
+
+            if ($activeClientVendors->count() > 0) {
+                $insuranceAuthorization = $this->runMultiVendorCascade(
+                    $invoice, $client, $business, $activeClientVendors,
+                    isset($validated['deductible_remaining']) ? (float) $validated['deductible_remaining'] : 0
+                );
+            }
+
+            // ── Legacy single-vendor ─────────────────────────────────────────────────
+            if (!$insuranceAuthorization && $client->insurance_company_id && $client->policy_number) {
                 Log::info('[Kashtre] Insurance authorization: client is insurance', [
                     'invoice_id' => $invoice->id,
                     'invoice_number' => $invoice->invoice_number,
@@ -4065,6 +4082,197 @@ class InvoiceController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Cascade invoice authorization across multiple vendors in priority order.
+     *
+     * Vendor 1 receives the full invoice amount. Whatever client_total they return
+     * becomes the total_amount sent to Vendor 2, and so on. The final client_total
+     * is what the client actually pays out-of-pocket.
+     */
+    private function runMultiVendorCascade(
+        Invoice $invoice,
+        $client,
+        $business,
+        \Illuminate\Support\Collection $clientVendors,
+        float $deductibleRemaining = 0
+    ): ?array {
+        $apiService = new \App\Services\ThirdPartyApiService();
+
+        // Build items payload once — same for every vendor in the cascade
+        $itemsForAuthorization = collect($invoice->items ?? [])->map(function (array $item) {
+            $itemId    = $item['id'] ?? $item['item_id'] ?? null;
+            $itemModel = $itemId ? \App\Models\Item::find($itemId) : null;
+            $quantity  = (float) ($item['quantity'] ?? 1);
+            $price     = (float) ($item['price'] ?? 0);
+            $total     = (float) ($item['total_amount'] ?? ($price * $quantity));
+            return [
+                'id'              => $itemId,
+                'name'            => $item['name'] ?? $item['displayName'] ?? null,
+                'quantity'        => $quantity,
+                'price'           => $price,
+                'total_amount'    => $total,
+                'code'            => $itemModel?->code,
+                'type'            => $itemModel?->type,
+                'kashtre_excluded' => !empty($item['kashtre_excluded']),
+            ];
+        })->values()->all();
+
+        $vendorResults       = [];
+        $amountForNextVendor = (float) $invoice->total_amount;
+        $totalInsuranceTotal = 0.0;
+        $finalClientTotal    = $amountForNextVendor;
+        $allWarnings         = [];
+
+        foreach ($clientVendors as $clientVendor) {
+            $thirdPartyPayer  = $clientVendor->vendor; // ThirdPartyPayer
+            $insuranceCompany = $thirdPartyPayer?->insuranceCompany;
+
+            if (!$insuranceCompany || !$insuranceCompany->third_party_business_id) {
+                Log::warning('[Kashtre] Multi-vendor cascade: skipping vendor — no third_party_business_id', [
+                    'client_vendor_id' => $clientVendor->id,
+                ]);
+                continue;
+            }
+
+            $thirdPartyBusinessId = (int) $insuranceCompany->third_party_business_id;
+
+            // Check suspended / blocked
+            if ($thirdPartyPayer->isSuspended() || $thirdPartyPayer->isBlocked()) {
+                Log::warning('[Kashtre] Multi-vendor cascade: skipping suspended/blocked vendor', [
+                    'vendor_id' => $thirdPartyPayer->id,
+                    'status'    => $thirdPartyPayer->status,
+                ]);
+                $vendorResults[] = [
+                    'vendor_id'              => $clientVendor->third_party_payer_id,
+                    'vendor_name'            => $insuranceCompany->name,
+                    'priority'               => $clientVendor->priority,
+                    'is_open_enrollment'     => $clientVendor->is_open_enrollment,
+                    'amount_submitted'       => $amountForNextVendor,
+                    'authorization_reference' => null,
+                    'client_total'           => $amountForNextVendor,
+                    'insurance_total'        => 0.0,
+                    'authorization_status'   => 'skipped',
+                    'error'                  => "Vendor is {$thirdPartyPayer->status}",
+                ];
+                continue;
+            }
+
+            $authPayload = [
+                'kashtre_invoice_id'                  => (string) $invoice->id,
+                'invoice_number'                      => $invoice->invoice_number,
+                'insurance_company_id'                => $thirdPartyBusinessId,
+                'policy_number'                       => trim((string) ($clientVendor->policy_number ?? '')),
+                'services_category'                   => $client->services_category ?? null,
+                'total_amount'                        => $amountForNextVendor,
+                'deductible_remaining'                => $deductibleRemaining,
+                'copay_contributes_to_deductible'     => (bool) $clientVendor->copay_contributes_to_deductible,
+                'coinsurance_contributes_to_deductible' => (bool) $clientVendor->coinsurance_contributes_to_deductible,
+                'items'                               => $itemsForAuthorization,
+                'connected_business_id'               => $business->id,
+            ];
+
+            Log::info('[Kashtre] Multi-vendor cascade: authorizing vendor', [
+                'invoice_id'              => $invoice->id,
+                'vendor_name'             => $insuranceCompany->name,
+                'priority'                => $clientVendor->priority,
+                'amount_submitted'        => $amountForNextVendor,
+                'third_party_business_id' => $thirdPartyBusinessId,
+            ]);
+
+            $authResult = $apiService->requestInvoiceAuthorization($authPayload);
+
+            if ($authResult && !empty($authResult['success'])) {
+                $vendorClientTotal    = (float) ($authResult['client_total'] ?? $amountForNextVendor);
+                $vendorInsuranceTotal = (float) ($authResult['insurance_total'] ?? 0);
+
+                // Ensure vendor totals are internally consistent
+                $expectedClientTotal  = round(max(0, $amountForNextVendor - $vendorInsuranceTotal), 2);
+                if (abs($vendorClientTotal - $expectedClientTotal) > 0.02) {
+                    $vendorClientTotal = $expectedClientTotal;
+                }
+
+                $vendorResults[] = [
+                    'vendor_id'               => $clientVendor->third_party_payer_id,
+                    'vendor_name'             => $insuranceCompany->name,
+                    'priority'                => $clientVendor->priority,
+                    'is_open_enrollment'      => $clientVendor->is_open_enrollment,
+                    'policy_number'           => $clientVendor->policy_number,
+                    'amount_submitted'        => $amountForNextVendor,
+                    'authorization_reference' => $authResult['authorization_reference'] ?? null,
+                    'client_total'            => $vendorClientTotal,
+                    'insurance_total'         => $vendorInsuranceTotal,
+                    'breakdown'               => $authResult['breakdown'] ?? [],
+                    'authorization_status'    => $authResult['authorization_status'] ?? 'auto_approved',
+                    'warnings'                => $authResult['warnings'] ?? [],
+                ];
+
+                $totalInsuranceTotal  += $vendorInsuranceTotal;
+                $finalClientTotal      = $vendorClientTotal;
+                $amountForNextVendor   = $vendorClientTotal; // remainder goes to next vendor
+                $allWarnings           = array_merge($allWarnings, $authResult['warnings'] ?? []);
+
+                // Reset deductible_remaining for subsequent vendors (they track their own)
+                $deductibleRemaining = 0;
+            } else {
+                // Vendor auth failed — log it; next vendor still receives the same remaining amount
+                $errorMessage = is_array($authResult) ? ($authResult['message'] ?? 'Authorization failed') : 'No response';
+                Log::warning('[Kashtre] Multi-vendor cascade: authorization failed for vendor', [
+                    'invoice_id'  => $invoice->id,
+                    'vendor_name' => $insuranceCompany->name,
+                    'error'       => $errorMessage,
+                ]);
+                $vendorResults[] = [
+                    'vendor_id'               => $clientVendor->third_party_payer_id,
+                    'vendor_name'             => $insuranceCompany->name,
+                    'priority'                => $clientVendor->priority,
+                    'is_open_enrollment'      => $clientVendor->is_open_enrollment,
+                    'amount_submitted'        => $amountForNextVendor,
+                    'authorization_reference' => null,
+                    'client_total'            => $amountForNextVendor,
+                    'insurance_total'         => 0.0,
+                    'authorization_status'    => 'failed',
+                    'error'                   => $errorMessage,
+                ];
+                $allWarnings[] = "{$insuranceCompany->name}: {$errorMessage}";
+            }
+        }
+
+        if (empty($vendorResults)) {
+            return null;
+        }
+
+        // Aggregate auth references (one per vendor, pipe-separated for storage)
+        $authRefs = collect($vendorResults)->pluck('authorization_reference')->filter()->implode('|');
+
+        $snapshot = [
+            'success'                  => true,
+            'multi_vendor'             => true,
+            'vendors'                  => $vendorResults,
+            'client_total'             => $finalClientTotal,
+            'insurance_total'          => $totalInsuranceTotal,
+            'authorization_reference'  => $authRefs,
+            'authorization_status'     => collect($vendorResults)->contains('authorization_status', 'auto_rejected') ? 'auto_rejected' : 'auto_approved',
+            'warnings'                 => array_values(array_unique($allWarnings)),
+        ];
+
+        $invoice->update([
+            'insurance_client_total'           => $finalClientTotal,
+            'insurance_insurance_total'        => $totalInsuranceTotal,
+            'insurance_authorized_at'          => now(),
+            'insurance_authorization_reference' => $authRefs ?: null,
+            'insurance_authorization_snapshot' => $snapshot,
+        ]);
+
+        Log::info('[Kashtre] Multi-vendor cascade: complete', [
+            'invoice_id'          => $invoice->id,
+            'vendor_count'        => count($vendorResults),
+            'total_insurance'     => $totalInsuranceTotal,
+            'final_client_total'  => $finalClientTotal,
+        ]);
+
+        return $snapshot;
     }
 
     /**
