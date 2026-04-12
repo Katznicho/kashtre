@@ -81,6 +81,7 @@ trait AccessTrait
         "Item Units" => ['View Item Units', 'Edit Item Units', 'Add Item Units', 'Bulky Update Item Units'],
         "Groups" => ['View Groups', 'Edit Groups', 'Add Groups', 'Bulky Update Groups'],
         "Patient Categories" => ['View Patient Categories', 'Edit Patient Categories', 'Add Patient Categories', 'Bulky Update Patient Categories'],
+        "Client Spaces" => ['View Client Spaces', 'Edit Client Spaces', 'Add Client Spaces', 'Delete Client Spaces'],
         "Suppliers" => ['View Suppliers', 'Edit Suppliers', 'Add Suppliers', 'Bulky Update Suppliers'],
         "Stores" => ['View Stores', 'Edit Stores', 'Add Stores', 'Bulky Update Stores'],
         "Insurance Companies" => ['View Insurance Companies', 'Edit Insurance Companies', 'Add Insurance Companies', 'Bulky Update Insurance Companies'],

@@ -20,6 +20,7 @@ use App\Http\Controllers\ItemBulkUploadController;
 use App\Http\Controllers\PackageBulkUploadController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\PatientCategoryController;
+use App\Http\Controllers\ClientSpaceController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ContractorProfileController;
 use App\Http\Controllers\ContractorProfileBulkUploadController;
@@ -189,6 +190,7 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     
     Route::resource("groups", GroupController::class);
     Route::resource("patient-categories", PatientCategoryController::class);
+    Route::resource("client-spaces", ClientSpaceController::class);
     Route::resource("suppliers", SupplierController::class);
     Route::resource("contractor-profiles", ContractorProfileController::class);
     
