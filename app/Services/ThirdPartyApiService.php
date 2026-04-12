@@ -981,13 +981,24 @@ class ThirdPartyApiService
      * @param \App\Models\Client $client
      * @return array|null
      */
-    public function syncClientToVendor($client): ?array
+    public function syncClientToVendor($client, ?int $thirdPartyInsuranceCompanyId = null): ?array
     {
         try {
-            if (!$client->insurance_company_id || !$client->registered_via_open_enrollment) {
-                Log::info('API: syncClientToVendor - Skipping sync', [
+            // When called for multi-vendor OE, the caller provides the third-party insurance company ID
+            // directly and we skip the registered_via_open_enrollment guard.
+            $insuranceCompanyId = $thirdPartyInsuranceCompanyId ?? $client->insurance_company_id;
+
+            if (!$insuranceCompanyId) {
+                Log::info('API: syncClientToVendor - Skipping (no insurance company ID)', [
                     'kashtre_client_id' => $client->client_id,
-                    'has_insurance' => (bool)$client->insurance_company_id,
+                ]);
+                return null;
+            }
+
+            // For the legacy single-vendor path (no explicit ID provided), enforce the OE guard.
+            if ($thirdPartyInsuranceCompanyId === null && !$client->registered_via_open_enrollment) {
+                Log::info('API: syncClientToVendor - Skipping (not open enrollment)', [
+                    'kashtre_client_id' => $client->client_id,
                     'is_open_enrollment' => $client->registered_via_open_enrollment,
                 ]);
                 return null;
@@ -995,13 +1006,13 @@ class ThirdPartyApiService
 
             Log::info('API: syncClientToVendor - Starting sync request', [
                 'kashtre_client_id' => $client->client_id,
-                'insurance_company_id' => $client->insurance_company_id,
+                'insurance_company_id' => $insuranceCompanyId,
                 'endpoint' => "{$this->baseUrl}/api/v1/clients/sync",
             ]);
 
             $payload = [
                 'kashtre_client_id' => $client->client_id,
-                'insurance_company_id' => $client->insurance_company_id,
+                'insurance_company_id' => $insuranceCompanyId,
                 'first_name' => $client->first_name,
                 'surname' => $client->surname,
                 'other_names' => $client->other_names,
@@ -1013,7 +1024,9 @@ class ThirdPartyApiService
                 'occupation' => $client->occupation,
                 'nationality' => $client->nationality,
                 'policy_number' => $client->policy_number,
-                'registered_via_open_enrollment' => $client->registered_via_open_enrollment,
+                // For multi-vendor OE (explicit ID provided), the client IS via open enrollment
+                // even though registered_via_open_enrollment on the model is false (multi-vendor flag)
+                'registered_via_open_enrollment' => $thirdPartyInsuranceCompanyId !== null ? true : (bool)$client->registered_via_open_enrollment,
             ];
 
             Log::debug('API: syncClientToVendor - Payload', ['payload' => $payload]);

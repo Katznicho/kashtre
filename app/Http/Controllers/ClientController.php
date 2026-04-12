@@ -397,11 +397,12 @@ class ClientController extends Controller
             }
         }
         
-        // Validate physical ID verification if insurance is selected (but NOT for open enrollment)
-        if ($isInsuranceSelected) {
+        // Validate physical ID verification if insurance is selected (but NOT for open enrollment or multi-vendor)
+        // Multi-vendor uses per-vendor physical_insurance_card_verified fields instead.
+        if ($isInsuranceSelected && empty($selectedVendorIds)) {
             // Check if this is open enrollment
             $isOpenEnrollment = (bool) $request->input('data_open_enrollment', false);
-            
+
             // Only validate verification if NOT open enrollment
             if (!$isOpenEnrollment) {
                 // Get insurance company to check if physical ID is required
