@@ -425,12 +425,6 @@
                                         <div id="vendor_policies_container"></div>
                                     </div>
 
-                                    <!-- Policy Details Display (when enabled by insurance company) -->
-                                    <div id="vendor_policy_details_section" class="space-y-4" style="display: none;">
-                                        <h5 class="text-sm font-semibold text-gray-900 mb-3">Registered Policy Details</h5>
-                                        <p class="text-xs text-gray-500 mb-3">The following details will be displayed to the client at the registration desk</p>
-                                        <div id="vendor_policy_details_container"></div>
-                                    </div>
                                 </div>
                             </div>
 
@@ -2946,8 +2940,6 @@
             const vendorCheckboxes = document.querySelectorAll('.vendor-checkbox');
             const vendorPoliciesSection = document.getElementById('vendor_policies_section');
             const vendorPoliciesContainer = document.getElementById('vendor_policies_container');
-            const vendorPolicyDetailsSection = document.getElementById('vendor_policy_details_section');
-            const vendorPolicyDetailsContainer = document.getElementById('vendor_policy_details_container');
             const insuranceSection = document.getElementById('insurance_company_section');
 
             // Cache for insurance company settings
@@ -3319,140 +3311,20 @@
                         if (resultDiv) resultDiv.innerHTML = '';
                         this.classList.remove('border-green-400', 'border-red-400');
                     });
-                    input.addEventListener('blur', function() {
-                        const vendorId = this.getAttribute('data-vendor-id');
-                        updatePolicyDetailsPreview(vendorId);
-                    });
+                    input.addEventListener('blur', function() {});
                 });
-            }
-
-            // Update policy details preview (what client will see at desk)
-            async function updatePolicyDetailsPreview(vendorId) {
-                const policyInput = document.querySelector(`[name="insurance_vendor_data[${vendorId}][policy_number]"]`);
-                const policyNumber = policyInput ? policyInput.value : null;
-                
-                if (!policyNumber) {
-                    return;
-                }
-
-                // Fetch insurance settings to check if we should display details
-                const settings = await fetchInsuranceSettings(vendorId);
-                
-                if (!settings || !settings.show_policy_details_at_registration) {
-                    // Don't show details if setting is disabled
-                    updatePolicyPreviewDisplay();
-                    return;
-                }
-
-                // Show policy detail preview
-                updatePolicyPreviewDisplay();
-            }
-
-            // Update the policy details preview section display
-            function updatePolicyPreviewDisplay() {
-                const selectedVendors = getSelectedVendors();
-                let hasVendorsWithDisplayEnabled = false;
-
-                // Only show for non-OE vendors that have show_policy_details_at_registration enabled
-                selectedVendors.forEach((vendor) => {
-                    const settings = settingsCache[vendor.id];
-                    const isOE = settings?.open_enrollment?.enabled ?? false;
-                    if (!isOE && settings && settings.show_policy_details_at_registration) {
-                        hasVendorsWithDisplayEnabled = true;
-                    }
-                });
-
-                if (hasVendorsWithDisplayEnabled) {
-                    renderPolicyDetailsPreview();
-                } else {
-                    vendorPolicyDetailsSection.style.display = 'none';
-                    vendorPolicyDetailsContainer.innerHTML = '';
-                }
-            }
-
-            // Render the policy details preview (what client sees at desk)
-            function renderPolicyDetailsPreview() {
-                const selectedVendors = getSelectedVendors();
-                let html = '';
-                let hasAnyDetailsToShow = false;
-
-                selectedVendors.forEach((vendor, index) => {
-                    const vendorId = vendor.id;
-                    const settings = settingsCache[vendorId];
-
-                    // Only show preview for non-OE vendors with the setting enabled
-                    const isOEVendor = settings?.open_enrollment?.enabled ?? false;
-                    if (!isOEVendor && settings && settings.show_policy_details_at_registration) {
-                        hasAnyDetailsToShow = true;
-                        const policyInput = document.querySelector(`[name="insurance_vendor_data[${vendorId}][policy_number]"]`);
-                        const policyNumber = policyInput ? policyInput.value : 'Not entered';
-
-                        // Get which fields to display based on insurance company configuration
-                        const fieldsToDisplay = settings.policy_details_to_display_at_registration || ['policy_number'];
-                        
-                        let detailsHtml = '<div class="bg-white rounded p-3 space-y-2 text-sm">';
-                        
-                        // Map field keys to display names and values
-                        const fieldConfigs = {
-                            'policy_number': { label: 'Policy Number', value: policyNumber },
-                            'deductible_amount': { label: 'Deductible', value: '-' },
-                            'copay_amount': { label: 'Copay', value: '-' },
-                            'coinsurance_percentage': { label: 'Coinsurance', value: '-' },
-                            'copay_max_limit': { label: 'Copay Max', value: '-' },
-                        };
-
-                        // Display only selected fields
-                        fieldsToDisplay.forEach(fieldKey => {
-                            if (fieldConfigs[fieldKey]) {
-                                const config = fieldConfigs[fieldKey];
-                                detailsHtml += `
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-600">${config.label}:</span>
-                                        <span class="font-semibold text-gray-900">${config.value}</span>
-                                    </div>
-                                `;
-                            }
-                        });
-
-                        detailsHtml += `
-                                    <div class="border-t pt-2 mt-2 text-xs text-gray-500">
-                                        <p>✓ Client will see this information at the registration desk</p>
-                                    </div>
-                                </div>
-                        `;
-
-                        html += `
-                            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-300 p-4">
-                                <h6 class="text-sm font-semibold text-blue-900 mb-3">
-                                    <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-600 text-white text-xs rounded-full mr-2">${index + 1}</span>
-                                    ${vendor.name} - Client Display at Desk
-                                </h6>
-                                ${detailsHtml}
-                            </div>
-                        `;
-                    }
-                });
-
-                if (hasAnyDetailsToShow) {
-                    vendorPolicyDetailsSection.style.display = 'block';
-                    vendorPolicyDetailsContainer.innerHTML = html;
-                } else {
-                    vendorPolicyDetailsSection.style.display = 'none';
-                    vendorPolicyDetailsContainer.innerHTML = '';
-                }
             }
 
             // Handle vendor checkbox changes
             vendorCheckboxes.forEach(checkbox => {
                 checkbox.addEventListener('change', async function() {
                     await renderVendorPolicyForms();
-                    updatePolicyPreviewDisplay();
                 });
             });
 
             // Initialize on page load
             if (getSelectedVendors().length > 0) {
-                renderVendorPolicyForms().then(() => updatePolicyPreviewDisplay());
+                renderVendorPolicyForms();
             }
 
             // Also handle when insurance section becomes visible/hidden
@@ -3460,10 +3332,8 @@
             if (insuranceCheckbox) {
                 insuranceCheckbox.addEventListener('change', function() {
                     if (!this.checked) {
-                        // Uncheck all vendor checkboxes when insurance is unchecked
                         vendorCheckboxes.forEach(checkbox => checkbox.checked = false);
                         renderVendorPolicyForms();
-                        vendorPolicyDetailsSection.style.display = 'none';
                     }
                 });
             }
