@@ -941,6 +941,7 @@ class ThirdPartyApiService
                         // Merge registration settings into data
                         if (isset($data['data'])) {
                             $data['data']['show_policy_details_at_registration'] = $regData['show_policy_details_at_registration'] ?? true;
+                            $data['data']['policy_details_to_display_at_registration'] = $regData['policy_details_to_display_at_registration'] ?? [];
                             $data['data']['visit_authorization_period_days'] = $regData['visit_authorization_period_days'] ?? 7;
                         }
                     }

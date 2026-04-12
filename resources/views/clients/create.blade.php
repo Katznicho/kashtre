@@ -626,7 +626,12 @@
                                         if (companyAddressField && !companyAddressField.value) {
                                             companyAddressField.value = companyData.head_office_address || companyData.postal_address || '';
                                         }
-                                        
+
+                                        const companyTinField = document.getElementById('company_tin');
+                                        if (companyTinField && !companyTinField.value) {
+                                            companyTinField.value = companyData.tin || '';
+                                        }
+
                                         this.companyLoaded = true;
                                         setTimeout(() => { this.companyLoaded = false; }, 3000);
                                     } else {
@@ -1467,26 +1472,20 @@
                 const insuranceCompanyId = insuranceCompanySelect.value;
 
                 // Fetch settings to check open enrollment and registration desk options
+                // This single call returns merged settings: open_enrollment + show_policy_details + fields_to_display
                 let settings = null;
                 try {
                     const res = await fetch(`/api/insurance-settings/${insuranceCompanyId}`);
-                    if (res.ok) settings = await res.json();
-                } catch (e) { /* fall through to normal flow */ }
-
-                // Also fetch registration desk settings
-                try {
-                    const regRes = await fetch(`/api/v1/insurance-companies/${insuranceCompanyId}/settings`);
-                    if (regRes.ok) {
-                        const regSettings = await regRes.json();
-                        if (regSettings.success) {
-                            registrationSettings.show_policy_details = regSettings.show_policy_details_at_registration ?? true;
-                            registrationSettings.fields_to_display = regSettings.policy_details_to_display_at_registration?.length
-                                ? regSettings.policy_details_to_display_at_registration
-                                : ['benefit_balance', 'deductible_amount', 'copay_amount', 'coinsurance_percentage'];
-                            registrationSettings.visit_authorization_period_days = regSettings.visit_authorization_period_days ?? 7;
-                        }
+                    if (res.ok) {
+                        settings = await res.json();
+                        // Populate registrationSettings from the merged response
+                        registrationSettings.show_policy_details = settings?.show_policy_details_at_registration ?? true;
+                        registrationSettings.fields_to_display = settings?.policy_details_to_display_at_registration?.length
+                            ? settings.policy_details_to_display_at_registration
+                            : ['benefit_balance', 'deductible_amount', 'copay_amount', 'coinsurance_percentage'];
+                        registrationSettings.visit_authorization_period_days = settings?.visit_authorization_period_days ?? 7;
                     }
-                } catch (e) { /* fall through */ }
+                } catch (e) { /* fall through to normal flow */ }
 
                 const oeEnabled = settings?.open_enrollment?.enabled ?? false;
 
@@ -2964,21 +2963,17 @@
                 return { id: vendorId, name: vendorName };
             }
 
-            // Fetch insurance company settings from API
+            // Fetch insurance company settings from API (merged: open enrollment + registration settings)
             async function fetchInsuranceSettings(insuranceCompanyId) {
-                // Return cached result if available
                 if (settingsCache[insuranceCompanyId]) {
                     return settingsCache[insuranceCompanyId];
                 }
-
                 try {
-                    const response = await fetch(`/api/v1/insurance-companies/${insuranceCompanyId}/settings`);
+                    const response = await fetch(`/api/insurance-settings/${insuranceCompanyId}`);
                     if (response.ok) {
                         const data = await response.json();
-                        if (data.success) {
-                            settingsCache[insuranceCompanyId] = data;
-                            return data;
-                        }
+                        settingsCache[insuranceCompanyId] = data;
+                        return data;
                     }
                 } catch (error) {
                     console.error('Error fetching insurance settings:', error);
@@ -3000,10 +2995,100 @@
                 return selected;
             }
 
-            // Render vendor-specific policy forms
-            function renderVendorPolicyForms() {
+            // Build HTML for an open-enrollment vendor card
+            function buildOEVendorCard(vendor, index, settings) {
+                const oe = settings?.open_enrollment ?? {};
+                const criteria = [];
+                if (oe.min_age != null || oe.max_age != null) criteria.push(`Age: ${oe.min_age ?? 0}–${oe.max_age ?? '∞'}`);
+                if (oe.genders?.length) criteria.push(`Gender: ${oe.genders.join(', ')}`);
+                if (oe.service_categories?.length) criteria.push(`Categories: ${oe.service_categories.join(', ')}`);
+                const criteriaHtml = criteria.length
+                    ? criteria.map(c => `<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full mr-1 mb-1">${c}</span>`).join('')
+                    : '<span class="text-xs text-gray-500">No specific criteria — all eligible</span>';
+                return `
+                    <div class="bg-white rounded-lg border-2 border-blue-300 p-4">
+                        <h6 class="text-sm font-semibold text-gray-900 mb-3">
+                            <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-600 text-white text-xs rounded-full mr-2">${index + 1}</span>
+                            ${vendor.name}
+                            <span class="ml-2 text-xs font-normal text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Open Enrollment</span>
+                        </h6>
+                        <div class="space-y-3">
+                            <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p class="text-xs font-medium text-blue-800 mb-2">Eligibility Criteria</p>
+                                <div>${criteriaHtml}</div>
+                            </div>
+                            <input type="hidden" name="insurance_vendor_data[${vendor.id}][policy_number]" value="" data-vendor-id="${vendor.id}">
+                            <input type="hidden" name="insurance_vendor_data[${vendor.id}][is_open_enrollment]" value="1">
+                            <button type="button" class="oe-enroll-btn w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium" data-vendor-id="${vendor.id}">
+                                Check Eligibility &amp; Enroll
+                            </button>
+                            <div class="oe-result-div mt-2" data-vendor-id="${vendor.id}"></div>
+                            <div class="border-t pt-3">
+                                <label class="flex items-start p-3 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors">
+                                    <input type="hidden" name="insurance_vendor_data[${vendor.id}][physical_insurance_card_verified]" value="0">
+                                    <input type="checkbox" name="insurance_vendor_data[${vendor.id}][physical_insurance_card_verified]" value="1" class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded mt-0.5">
+                                    <div class="ml-3">
+                                        <p class="text-sm font-medium text-green-900">Physical Insurance Card</p>
+                                        <p class="text-xs text-green-700 mt-1">I confirm that the client has presented their physical insurance card for verification and I have verified it matches the client.</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+
+            // Build HTML for a regular (policy-number) vendor card
+            function buildRegularVendorCard(vendor, index) {
+                return `
+                    <div class="bg-white rounded-lg border-2 border-green-300 p-4">
+                        <h6 class="text-sm font-semibold text-gray-900 mb-3">
+                            <span class="inline-flex items-center justify-center w-5 h-5 bg-green-600 text-white text-xs rounded-full mr-2">${index + 1}</span>
+                            ${vendor.name}
+                        </h6>
+                        <div class="space-y-3">
+                            <div>
+                                <label for="vendor_${vendor.id}_policy_number" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Policy Number <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="text" name="insurance_vendor_data[${vendor.id}][policy_number]" id="vendor_${vendor.id}_policy_number"
+                                        placeholder="Enter policy number for ${vendor.name}"
+                                        class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                                        required data-vendor-id="${vendor.id}">
+                                    <button type="button" class="verify-policy-btn px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium" data-vendor-id="${vendor.id}">Verify</button>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Policy details (deductible, copay, etc.) will be auto-filled after verification</p>
+                                <div class="policy-verification-result mt-2" data-vendor-id="${vendor.id}"></div>
+                            </div>
+                            <div class="border-t pt-3 space-y-2">
+                                <p class="text-xs font-medium text-gray-600">Or verify using alternative methods:</p>
+                                <button type="button" class="alternative-verify-btn w-full text-left px-3 py-2 bg-white border border-yellow-300 rounded-lg hover:bg-yellow-100 transition-colors text-sm" data-vendor-id="${vendor.id}" data-method="name-dob">
+                                    <span class="font-medium">By Full Name &amp; Date of Birth</span>
+                                    <span class="text-xs text-gray-600 block mt-1">Verify using full name and date of birth</span>
+                                </button>
+                                <button type="button" class="alternative-verify-btn w-full text-left px-3 py-2 bg-white border border-orange-300 rounded-lg hover:bg-orange-100 transition-colors text-sm" data-vendor-id="${vendor.id}" data-method="member-id">
+                                    <span class="font-medium">By Member ID &amp; Phone</span>
+                                    <span class="text-xs text-gray-600 block mt-1">Verify using member ID and phone number</span>
+                                </button>
+                            </div>
+                            <div class="border-t pt-3">
+                                <label class="flex items-start p-3 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors">
+                                    <input type="hidden" name="insurance_vendor_data[${vendor.id}][physical_insurance_card_verified]" value="0">
+                                    <input type="checkbox" name="insurance_vendor_data[${vendor.id}][physical_insurance_card_verified]" value="1" class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded mt-0.5">
+                                    <div class="ml-3">
+                                        <p class="text-sm font-medium text-green-900">Physical Insurance Card</p>
+                                        <p class="text-xs text-green-700 mt-1">I confirm that the client has presented their physical insurance card for verification and I have verified it matches the client.</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+
+            // Render vendor-specific policy forms (async: fetches OE settings per vendor)
+            async function renderVendorPolicyForms() {
                 const selectedVendors = getSelectedVendors();
-                
+
                 if (selectedVendors.length === 0) {
                     vendorPoliciesSection.style.display = 'none';
                     vendorPoliciesContainer.innerHTML = '';
@@ -3011,91 +3096,74 @@
                 }
 
                 vendorPoliciesSection.style.display = 'block';
-                
+
+                // Fetch settings for all selected vendors in parallel
+                await Promise.all(selectedVendors.map(v => fetchInsuranceSettings(v.id)));
+
+                // Build cards based on OE status
                 let html = '';
                 selectedVendors.forEach((vendor, index) => {
-                    const vendorId = vendor.id;
-                    const vendorName = vendor.name;
-                    
-                    html += `
-                        <div class="bg-white rounded-lg border-2 border-green-300 p-4">
-                            <h6 class="text-sm font-semibold text-gray-900 mb-3">
-                                <span class="inline-flex items-center justify-center w-5 h-5 bg-green-600 text-white text-xs rounded-full mr-2">${index + 1}</span>
-                                ${vendorName}
-                            </h6>
-                            <div class="space-y-3">
-                                <div>
-                                    <label for="vendor_${vendorId}_policy_number" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Policy Number <span class="text-red-500">*</span>
-                                    </label>
-                                    <div class="flex gap-2">
-                                        <input 
-                                            type="text" 
-                                            name="insurance_vendor_data[${vendorId}][policy_number]" 
-                                            id="vendor_${vendorId}_policy_number"
-                                            placeholder="Enter policy number for ${vendorName}"
-                                            class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                                            required
-                                            data-vendor-id="${vendorId}"
-                                        >
-                                        <button 
-                                            type="button" 
-                                            class="verify-policy-btn px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                                            data-vendor-id="${vendorId}"
-                                        >
-                                            Verify
-                                        </button>
-                                    </div>
-                                    <p class="text-xs text-gray-500 mt-1">Policy details (deductible, copay, etc.) will be auto-filled after verification</p>
-                                    <div class="policy-verification-result mt-2" data-vendor-id="${vendorId}"></div>
-                                </div>
-                                
-                                <!-- Alternative verification methods -->
-                                <div class="border-t pt-3 space-y-2">
-                                    <p class="text-xs font-medium text-gray-600">Or verify using alternative methods:</p>
-                                    <button 
-                                        type="button" 
-                                        class="alternative-verify-btn w-full text-left px-3 py-2 bg-white border border-yellow-300 rounded-lg hover:bg-yellow-100 transition-colors text-sm"
-                                        data-vendor-id="${vendorId}"
-                                        data-method="name-dob"
-                                    >
-                                        <span class="font-medium">By Full Name & Date of Birth</span>
-                                        <span class="text-xs text-gray-600 block mt-1">Verify using full name and date of birth</span>
-                                    </button>
-                                    <button 
-                                        type="button" 
-                                        class="alternative-verify-btn w-full text-left px-3 py-2 bg-white border border-orange-300 rounded-lg hover:bg-orange-100 transition-colors text-sm"
-                                        data-vendor-id="${vendorId}"
-                                        data-method="member-id"
-                                    >
-                                        <span class="font-medium">By Member ID & Phone</span>
-                                        <span class="text-xs text-gray-600 block mt-1">Verify using member ID and phone number</span>
-                                    </button>
-                                </div>
-
-                                <!-- Physical Insurance Card Verification Checkbox -->
-                                <div class="border-t pt-3">
-                                    <label class="flex items-start p-3 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors">
-                                        <input type="hidden" name="insurance_vendor_data[${vendorId}][physical_insurance_card_verified]" value="0">
-                                        <input
-                                            type="checkbox"
-                                            name="insurance_vendor_data[${vendorId}][physical_insurance_card_verified]"
-                                            value="1"
-                                            class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded mt-0.5"
-                                        >
-                                        <div class="ml-3">
-                                            <p class="text-sm font-medium text-green-900">Physical Insurance Card</p>
-                                            <p class="text-xs text-green-700 mt-1">I confirm that the client has presented their physical insurance card for verification and I have verified it matches the client.</p>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    `;
+                    const settings = settingsCache[vendor.id];
+                    const isOE = settings?.open_enrollment?.enabled ?? false;
+                    html += isOE ? buildOEVendorCard(vendor, index, settings) : buildRegularVendorCard(vendor, index);
                 });
 
                 vendorPoliciesContainer.innerHTML = html;
-                
+
+                // Attach event listeners to open-enrollment enroll buttons
+                document.querySelectorAll('.oe-enroll-btn').forEach(btn => {
+                    btn.addEventListener('click', async function() {
+                        const vendorId = this.getAttribute('data-vendor-id');
+                        const resultDiv = document.querySelector(`.oe-result-div[data-vendor-id="${vendorId}"]`);
+                        const policyInput = document.querySelector(`[name="insurance_vendor_data[${vendorId}][policy_number]"]`);
+
+                        this.disabled = true;
+                        this.textContent = 'Checking...';
+
+                        // Gather client details already entered in the form
+                        const surname = document.getElementById('surname')?.value?.trim() || '';
+                        const firstName = document.getElementById('first_name')?.value?.trim() || '';
+                        const name = [surname, firstName].filter(Boolean).join(' ');
+                        const dob = document.getElementById('date_of_birth')?.value || '';
+                        const sex = document.getElementById('sex')?.value || '';
+                        const servicesCategory = document.getElementById('services_category')?.value || '';
+
+                        const params = new URLSearchParams();
+                        if (name) params.set('name', name);
+                        if (dob)  params.set('date_of_birth', dob);
+                        if (sex)  params.set('gender', sex);
+                        if (servicesCategory) params.set('services_category', servicesCategory);
+
+                        try {
+                            const response = await fetch(`/api/policies/verify/${vendorId}/__open_enrollment__?${params}`);
+                            const data = await response.json();
+
+                            if (data.success && data.exists) {
+                                if (policyInput) policyInput.value = data.data?.policy_number || '__open_enrollment__';
+                                const policyVerifiedInput = document.getElementById('policy_verified');
+                                if (policyVerifiedInput) policyVerifiedInput.value = '1';
+
+                                resultDiv.innerHTML = `
+                                    <div class="p-2 bg-green-50 border border-green-200 rounded">
+                                        <p class="text-sm text-green-700 font-medium">✓ Eligible — enrolled via open enrollment</p>
+                                        <p class="text-xs text-green-600">${data.message || ''}</p>
+                                    </div>`;
+                                this.textContent = '✓ Enrolled';
+                                this.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                                this.classList.add('bg-green-600', 'hover:bg-green-700');
+                            } else {
+                                resultDiv.innerHTML = `<p class="text-sm text-red-600">${data.message || 'Client does not meet eligibility criteria.'}</p>`;
+                                this.disabled = false;
+                                this.textContent = 'Check Eligibility & Enroll';
+                            }
+                        } catch (err) {
+                            resultDiv.innerHTML = '<p class="text-sm text-red-600">Error checking eligibility. Please try again.</p>';
+                            this.disabled = false;
+                            this.textContent = 'Check Eligibility & Enroll';
+                        }
+                    });
+                });
+
                 // Attach event listeners to verify buttons
                 document.querySelectorAll('.verify-policy-btn').forEach(btn => {
                     btn.addEventListener('click', async function(e) {
@@ -3137,11 +3205,33 @@
 
                                 const memberName = data.data?.principal_member_name || '';
                                 const policyStatus = data.data?.status || '';
+
+                                // Build payment detail lines based on third-party settings
+                                const vendorSettings = settingsCache[vendorId];
+                                const showDetails = vendorSettings?.show_policy_details_at_registration ?? true;
+                                const fieldsToDisplay = vendorSettings?.policy_details_to_display_at_registration?.length
+                                    ? vendorSettings.policy_details_to_display_at_registration
+                                    : ['benefit_balance', 'deductible_amount', 'copay_amount', 'coinsurance_percentage'];
+
+                                let detailLines = '';
+                                if (showDetails && paymentResp) {
+                                    const fmt = n => parseFloat(n).toLocaleString();
+                                    if (fieldsToDisplay.includes('benefit_balance') && paymentResp.benefit_balance != null)
+                                        detailLines += `<p class="text-xs text-green-700">Benefit Balance: UGX ${fmt(paymentResp.benefit_balance)}</p>`;
+                                    if (fieldsToDisplay.includes('deductible_amount') && paymentResp.deductible_amount)
+                                        detailLines += `<p class="text-xs text-green-700">Deductible: UGX ${fmt(paymentResp.deductible_amount)}</p>`;
+                                    if (fieldsToDisplay.includes('copay_amount') && paymentResp.copay_amount)
+                                        detailLines += `<p class="text-xs text-green-700">Co-pay: UGX ${fmt(paymentResp.copay_amount)}</p>`;
+                                    if (fieldsToDisplay.includes('coinsurance_percentage') && paymentResp.coinsurance_percentage)
+                                        detailLines += `<p class="text-xs text-green-700">Co-insurance: ${paymentResp.coinsurance_percentage}%</p>`;
+                                }
+
                                 resultDiv.innerHTML = `
                                     <div class="p-2 bg-green-50 border border-green-200 rounded">
                                         <p class="text-sm text-green-700 font-medium">Policy verified successfully</p>
                                         ${memberName ? `<p class="text-xs text-green-600">Policy holder: ${memberName}</p>` : ''}
                                         ${policyStatus ? `<p class="text-xs text-green-600">Status: ${policyStatus}</p>` : ''}
+                                        ${detailLines}
                                     </div>`;
                                 policyInput.classList.add('border-green-400');
                                 policyInput.classList.remove('border-red-400');
@@ -3262,11 +3352,12 @@
             function updatePolicyPreviewDisplay() {
                 const selectedVendors = getSelectedVendors();
                 let hasVendorsWithDisplayEnabled = false;
-                
-                // Check if any vendor has show_policy_details_at_registration enabled
-                selectedVendors.forEach(async (vendor) => {
+
+                // Only show for non-OE vendors that have show_policy_details_at_registration enabled
+                selectedVendors.forEach((vendor) => {
                     const settings = settingsCache[vendor.id];
-                    if (settings && settings.show_policy_details_at_registration) {
+                    const isOE = settings?.open_enrollment?.enabled ?? false;
+                    if (!isOE && settings && settings.show_policy_details_at_registration) {
                         hasVendorsWithDisplayEnabled = true;
                     }
                 });
@@ -3289,8 +3380,9 @@
                     const vendorId = vendor.id;
                     const settings = settingsCache[vendorId];
 
-                    // Only show preview if setting is enabled
-                    if (settings && settings.show_policy_details_at_registration) {
+                    // Only show preview for non-OE vendors with the setting enabled
+                    const isOEVendor = settings?.open_enrollment?.enabled ?? false;
+                    if (!isOEVendor && settings && settings.show_policy_details_at_registration) {
                         hasAnyDetailsToShow = true;
                         const policyInput = document.querySelector(`[name="insurance_vendor_data[${vendorId}][policy_number]"]`);
                         const policyNumber = policyInput ? policyInput.value : 'Not entered';
@@ -3353,27 +3445,14 @@
             // Handle vendor checkbox changes
             vendorCheckboxes.forEach(checkbox => {
                 checkbox.addEventListener('change', async function() {
-                    renderVendorPolicyForms();
-                    
-                    // Fetch settings for newly checked vendors
-                    if (this.checked) {
-                        await fetchInsuranceSettings(this.value);
-                    }
-                    
+                    await renderVendorPolicyForms();
                     updatePolicyPreviewDisplay();
                 });
             });
 
             // Initialize on page load
             if (getSelectedVendors().length > 0) {
-                renderVendorPolicyForms();
-                
-                // Fetch all settings for pre-selected vendors
-                getSelectedVendors().forEach(vendor => {
-                    fetchInsuranceSettings(vendor.id);
-                });
-                
-                updatePolicyPreviewDisplay();
+                renderVendorPolicyForms().then(() => updatePolicyPreviewDisplay());
             }
 
             // Also handle when insurance section becomes visible/hidden

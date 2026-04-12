@@ -2318,6 +2318,9 @@ class ClientController extends Controller
 
             $business = $insuranceCompanyData['business'];
 
+            // Also look up the local Kashtre record to get TIN
+            $localCompany = \App\Models\InsuranceCompany::where('code', $code)->first();
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -2327,6 +2330,7 @@ class ClientController extends Controller
                     'head_office_address' => $business['head_office_address'] ?? '',
                     'postal_address' => $business['postal_address'] ?? '',
                     'website' => $business['website'] ?? '',
+                    'tin' => $localCompany?->tin ?? '',
                 ],
             ]);
         } catch (\Exception $e) {
@@ -2392,21 +2396,29 @@ class ClientController extends Controller
             
             // Try policy number verification first if provided
             if ($policyNumber) {
+                // Resolve Kashtre-local insurance company ID → third-party business ID
+                $localInsuranceCompany = \App\Models\InsuranceCompany::find($insuranceCompanyId);
+                $thirdPartyInsuranceId = (int)($localInsuranceCompany?->third_party_business_id ?? $insuranceCompanyId);
+
                 // Get name and DOB from request for tolerance-based verification
                 $name = $request->input('name');
                 $dateOfBirth = $request->input('date_of_birth');
 
                 // Extra params forwarded to third-party for open enrollment criteria evaluation
+                // and service category exclusion checks per connected company
+                $kashtreBusiness = \App\Models\Business::first();
                 $extraParams = array_filter([
-                    'gender'         => $request->input('gender'),
-                    'nationality'    => $request->input('nationality'),
-                    'marital_status' => $request->input('marital_status'),
-                    'client_type'    => $request->input('client_type'),
-                    'invoice_amount' => $request->input('invoice_amount'),
+                    'gender'               => $request->input('gender'),
+                    'nationality'          => $request->input('nationality'),
+                    'marital_status'       => $request->input('marital_status'),
+                    'client_type'          => $request->input('client_type'),
+                    'invoice_amount'       => $request->input('invoice_amount'),
+                    'connected_business_id'=> $kashtreBusiness?->id,
                 ], fn($v) => $v !== null && $v !== '');
 
                 Log::info('Kashtre Controller: Calling API service for policy verification', [
-                    'insurance_company_id' => $insuranceCompanyId,
+                    'kashtre_insurance_company_id' => $insuranceCompanyId,
+                    'third_party_insurance_id'     => $thirdPartyInsuranceId,
                     'policy_number' => $policyNumber,
                     'name' => $name,
                     'date_of_birth' => $dateOfBirth,
@@ -2415,7 +2427,7 @@ class ClientController extends Controller
                 ]);
 
                 $verificationResult = $apiService->verifyPolicyNumber(
-                    (int)$insuranceCompanyId,
+                    $thirdPartyInsuranceId,
                     $policyNumber,
                     $name,
                     $dateOfBirth,
