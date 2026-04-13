@@ -129,7 +129,16 @@ trait AccessTrait
     ];
 
     public static $hrModule = [
-        "HR Module" => ['View HR Staff', 'Add HR Staff', 'Edit HR Staff', 'View HR Setup', 'Edit HR Setup'],
+        "HR Module" => [
+            'View HR Staff',
+            'Add HR Staff',
+            'Edit HR Staff',
+            'View HR Setup',
+            'Add HR Setup',
+            'Edit HR Setup',
+            'View HR Approvals',
+            'Edit HR Approvals',
+        ],
     ];
 
     public static $reportAccess = [
