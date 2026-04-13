@@ -76,7 +76,7 @@ class EmergencyController extends Controller
             app(EmergencyAlertService::class)->estimateAnnounceDuration($latest, $config)
         );
 
-        return \Carbon\Carbon::parse($base)->addSeconds($resolveDelay)->addSeconds(60);
+        return \Carbon\Carbon::parse($base)->addSeconds($resolveDelay)->addSeconds(10);
     }
 
     public function trigger(Request $request, ServicePoint $servicePoint)

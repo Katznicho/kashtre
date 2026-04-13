@@ -105,7 +105,7 @@ class EmergencyQueueingTest extends TestCase
             $this->assertNull($alert2->activated_at);
 
             $diffSeconds = Carbon::parse($alert2->scheduled_announce_at)->diffInSeconds($now);
-            $this->assertGreaterThanOrEqual(60, $diffSeconds);
+            $this->assertGreaterThanOrEqual(40, $diffSeconds);
 
             $service = app(EmergencyAlertService::class);
 
@@ -120,7 +120,7 @@ class EmergencyQueueingTest extends TestCase
             $alert2->refresh();
             $this->assertFalse((bool) $alert2->is_active);
 
-            Carbon::setTestNow($now->copy()->addSeconds(91));
+            Carbon::setTestNow($now->copy()->addSeconds(41));
             $activated = $service->resolveActiveAlertForBusiness($business->id);
             $this->assertNotNull($activated);
             $this->assertSame($alert2->id, $activated->id);
