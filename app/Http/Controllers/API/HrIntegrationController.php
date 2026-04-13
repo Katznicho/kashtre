@@ -13,11 +13,19 @@ use Illuminate\Http\Request;
 
 class HrIntegrationController extends Controller
 {
+    private const HR_PERMISSIONS = [
+        'View HR Staff',
+        'Add HR Staff',
+        'Edit HR Staff',
+        'View HR Setup',
+        'Edit HR Setup',
+    ];
+
     public function staff(Request $request)
     {
         $query = User::query()
             ->where('business_id', '!=', 1)
-            ->select('id', 'uuid', 'name', 'email', 'phone', 'gender', 'business_id', 'branch_id', 'qualification_id', 'department_id', 'title_id', 'section_id', 'status', 'created_at');
+            ->select('id', 'uuid', 'name', 'email', 'phone', 'gender', 'business_id', 'branch_id', 'qualification_id', 'department_id', 'title_id', 'section_id', 'status', 'permissions', 'created_at');
 
         if ($request->has('business_id')) {
             $query->where('business_id', $request->business_id);
@@ -27,9 +35,15 @@ class HrIntegrationController extends Controller
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
+        if ($request->has('email')) {
+            $query->where('email', $request->email);
+        }
+
         $staff = $query->with(['qualification:id,name', 'department:id,name', 'title:id,name', 'branch:id,name'])
             ->latest()
             ->paginate($request->get('per_page', 50));
+
+        $staff->getCollection()->transform(fn (User $user): User => $this->withHrPermissions($user));
 
         return response()->json($staff);
     }
@@ -41,7 +55,7 @@ class HrIntegrationController extends Controller
             ->with(['qualification:id,name', 'department:id,name', 'title:id,name', 'branch:id,name', 'business:id,name,uuid'])
             ->firstOrFail();
 
-        return response()->json($user);
+        return response()->json($this->withHrPermissions($user));
     }
 
     public function businesses()
@@ -102,5 +116,13 @@ class HrIntegrationController extends Controller
         }
 
         return response()->json($query->get());
+    }
+
+    private function withHrPermissions(User $user): User
+    {
+        $user->setAttribute('hr_permissions', array_values(array_intersect($user->permissions ?? [], self::HR_PERMISSIONS)));
+        $user->makeHidden('permissions');
+
+        return $user;
     }
 }
