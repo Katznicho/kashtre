@@ -146,7 +146,16 @@ class ClientController extends Controller
             if ($response->successful()) {
                 $data = $response->json();
                 $connectedVendors = $data['data'] ?? [];
-                
+
+                // Load suspended/blocked payers for this business to filter them out
+                $suspendedPayerIds = \App\Models\ThirdPartyPayer::where('business_id', $business->id)
+                    ->where('type', 'insurance_company')
+                    ->whereNull('client_id')
+                    ->whereIn('status', ['suspended', 'blocked'])
+                    ->pluck('insurance_company_id')
+                    ->map(fn($id) => (string) $id)
+                    ->toArray();
+
                 // Map third-party vendors to local insurance companies
                 // Find or create local insurance company records for each connected vendor
                 foreach ($connectedVendors as $vendor) {
@@ -154,7 +163,12 @@ class ClientController extends Controller
                     if (!$thirdPartyBusinessId) {
                         continue;
                     }
-                    
+
+                    // Skip suspended or blocked vendors
+                    if (in_array((string) $thirdPartyBusinessId, $suspendedPayerIds)) {
+                        continue;
+                    }
+
                     // Try to find existing local insurance company by third_party_business_id
                     $insuranceCompany = InsuranceCompany::where('third_party_business_id', $thirdPartyBusinessId)
                         ->where(function($query) use ($business) {
@@ -162,7 +176,7 @@ class ClientController extends Controller
                                   ->orWhereNull('business_id');
                         })
                         ->first();
-                    
+
                     // If not found, create a new local insurance company record
                     if (!$insuranceCompany) {
                         $insuranceCompany = InsuranceCompany::create([
@@ -173,14 +187,14 @@ class ClientController extends Controller
                             'phone' => $vendor['phone'] ?? null,
                             'third_party_business_id' => (string)$thirdPartyBusinessId,
                         ]);
-                        
+
                         Log::info('Created local insurance company for connected vendor', [
                             'insurance_company_id' => $insuranceCompany->id,
                             'third_party_business_id' => $thirdPartyBusinessId,
                             'name' => $vendor['name'] ?? null,
                         ]);
                     }
-                    
+
                     // Add to list with local ID
                     $insuranceCompanies[] = [
                         'id' => $insuranceCompany->id, // Local insurance company ID
