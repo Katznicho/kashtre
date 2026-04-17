@@ -41,5 +41,10 @@ class VisitArchive extends Model
     {
         return $this->belongsTo(Branch::class);
     }
+
+    public function client()
+    {
+        return $this->belongsTo(Client::class);
+    }
 }
 

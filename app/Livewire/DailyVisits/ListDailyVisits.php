@@ -47,18 +47,6 @@ class ListDailyVisits extends Component implements HasForms, HasTable
         return $table
             ->query($query)
             ->columns([
-                Tables\Columns\TextColumn::make('updated_at_date')
-                    ->label('Date')
-                    ->getStateUsing(fn (Client $record) => $record->updated_at)
-                    ->dateTime('M d, Y')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('updated_at_time')
-                    ->label('Time')
-                    ->getStateUsing(fn (Client $record) => $record->updated_at)
-                    ->dateTime('H:i:s')
-                    ->sortable(),
-
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Visit Creation Date')
                     ->dateTime('M d, Y H:i')
@@ -72,7 +60,7 @@ class ListDailyVisits extends Component implements HasForms, HasTable
                     ->toggleable(),
 
                 Tables\Columns\TextColumn::make('client_id')
-                    ->label('Full Client ID')
+                    ->label('Client ID')
                     ->searchable()
                     ->sortable(),
 
@@ -122,10 +110,10 @@ class ListDailyVisits extends Component implements HasForms, HasTable
                 ] : []),
 
                 // Quick date presets (removable default)
-                Tables\Filters\Filter::make('quick_date')
+                Tables\Filters\Filter::make('quick_creation')
                     ->form([
                         \Filament\Forms\Components\Select::make('preset')
-                            ->label('Quick Date')
+                            ->label('Quick Creation Date')
                             ->options([
                                 'today' => 'Today',
                                 'yesterday' => 'Yesterday',
@@ -135,83 +123,110 @@ class ListDailyVisits extends Component implements HasForms, HasTable
                             ->placeholder('All dates')
                     ])
                     ->query(function ($query, array $data) {
-                        // Default to today if no preset selected (but don't show as active filter badge)
-                        if (empty($data['preset'])) {
-                            return $query->whereDate('updated_at', now()->toDateString());
-                        }
-                        return match ($data['preset']) {
-                            'yesterday' => $query->whereDate('updated_at', now()->subDay()->toDateString()),
-                            'this_week' => $query->whereBetween('updated_at', [now()->startOfWeek(), now()->endOfWeek()]),
-                            'this_month' => $query->whereBetween('updated_at', [now()->startOfMonth(), now()->endOfMonth()]),
-                            'today' => $query->whereDate('updated_at', now()->toDateString()),
-                            default => $query->whereDate('updated_at', now()->toDateString()), // Default to today
+                        if (empty($data['preset'])) return;
+                        match ($data['preset']) {
+                            'yesterday' => $query->whereDate('created_at', now()->subDay()->toDateString()),
+                            'this_week' => $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]),
+                            'this_month' => $query->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()]),
+                            default => $query->whereDate('created_at', now()->toDateString()),
                         };
                     })
                     ->indicateUsing(function (array $data): ?string {
-                        if (empty($data['preset'])) {
-                            return null; // Don't show indicator when using default (today)
-                        }
-                        return match ($data['preset']) {
-                            'yesterday' => 'Date: Yesterday',
-                            'this_week' => 'Date: This Week',
-                            'this_month' => 'Date: This Month',
-                            'today' => 'Date: Today',
-                            default => null,
+                        if (empty($data['preset'])) return null;
+                        return 'Created: ' . match ($data['preset']) {
+                            'yesterday' => 'Yesterday',
+                            'this_week' => 'This Week',
+                            'this_month' => 'This Month',
+                            default => 'Today',
                         };
                     }),
 
-                // Specific date filter (only applies when explicitly selected)
-                Tables\Filters\Filter::make('date')
+                Tables\Filters\Filter::make('quick_expiry')
                     ->form([
-                        \Filament\Forms\Components\DatePicker::make('created_at')
-                            ->label('Date'),
+                        \Filament\Forms\Components\Select::make('preset')
+                            ->label('Quick Expiry Date')
+                            ->options([
+                                'today' => 'Today',
+                                'yesterday' => 'Yesterday',
+                                'this_week' => 'This Week',
+                                'this_month' => 'This Month',
+                            ])
+                            ->placeholder('All dates')
                     ])
                     ->query(function ($query, array $data) {
-                        if (!empty($data['created_at'])) {
-                            $query->whereDate('updated_at', $data['created_at']);
+                        if (empty($data['preset'])) return;
+                        match ($data['preset']) {
+                            'yesterday' => $query->whereDate('visit_expires_at', now()->subDay()->toDateString()),
+                            'this_week' => $query->whereBetween('visit_expires_at', [now()->startOfWeek(), now()->endOfWeek()]),
+                            'this_month' => $query->whereBetween('visit_expires_at', [now()->startOfMonth(), now()->endOfMonth()]),
+                            default => $query->whereDate('visit_expires_at', now()->toDateString()),
+                        };
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (empty($data['preset'])) return null;
+                        return 'Expiry: ' . match ($data['preset']) {
+                            'yesterday' => 'Yesterday',
+                            'this_week' => 'This Week',
+                            'this_month' => 'This Month',
+                            default => 'Today',
+                        };
+                    }),
+
+                // Filter by visit creation date
+                Tables\Filters\Filter::make('creation_date')
+                    ->label('Visit Creation Date')
+                    ->form([
+                        \Filament\Forms\Components\DatePicker::make('creation_from')->label('Creation From'),
+                        \Filament\Forms\Components\DatePicker::make('creation_to')->label('Creation To'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        $from = $data['creation_from'] ?? null;
+                        $to = $data['creation_to'] ?? null;
+                        if ($from && $to) {
+                            $query->whereBetween('created_at', [\Carbon\Carbon::parse($from)->startOfDay(), \Carbon\Carbon::parse($to)->endOfDay()]);
+                        } elseif ($from) {
+                            $query->where('created_at', '>=', \Carbon\Carbon::parse($from)->startOfDay());
+                        } elseif ($to) {
+                            $query->where('created_at', '<=', \Carbon\Carbon::parse($to)->endOfDay());
                         }
                     })
                     ->indicateUsing(function (array $data): ?string {
-                        if (!empty($data['created_at'])) {
-                            $selectedDate = \Carbon\Carbon::parse($data['created_at']);
-                            $today = now()->toDateString();
-                            // Only show if it's different from today (to avoid duplicate with quick_date)
-                            if ($selectedDate->toDateString() !== $today) {
-                                return 'Date: ' . $selectedDate->format('M d, Y');
-                            }
+                        $from = $data['creation_from'] ?? null;
+                        $to = $data['creation_to'] ?? null;
+                        if ($from && $to) {
+                            return 'Creation: ' . \Carbon\Carbon::parse($from)->format('M d, Y') . ' → ' . \Carbon\Carbon::parse($to)->format('M d, Y');
                         }
+                        if ($from) return 'Creation From: ' . \Carbon\Carbon::parse($from)->format('M d, Y');
+                        if ($to) return 'Creation To: ' . \Carbon\Carbon::parse($to)->format('M d, Y');
                         return null;
                     }),
 
-                // Date range filter
-                Tables\Filters\Filter::make('date_range')
+                // Filter by visit expiry date
+                Tables\Filters\Filter::make('expiry_date')
+                    ->label('Visit Expiry Date')
                     ->form([
-                        \Filament\Forms\Components\DatePicker::make('from')->label('From'),
-                        \Filament\Forms\Components\DatePicker::make('to')->label('To'),
+                        \Filament\Forms\Components\DatePicker::make('expiry_from')->label('Expiry From'),
+                        \Filament\Forms\Components\DatePicker::make('expiry_to')->label('Expiry To'),
                     ])
                     ->query(function ($query, array $data) {
-                        $from = $data['from'] ?? null;
-                        $to = $data['to'] ?? null;
+                        $from = $data['expiry_from'] ?? null;
+                        $to = $data['expiry_to'] ?? null;
                         if ($from && $to) {
-                            $query->whereBetween('updated_at', [\Carbon\Carbon::parse($from)->startOfDay(), \Carbon\Carbon::parse($to)->endOfDay()]);
+                            $query->whereBetween('visit_expires_at', [\Carbon\Carbon::parse($from)->startOfDay(), \Carbon\Carbon::parse($to)->endOfDay()]);
                         } elseif ($from) {
-                            $query->where('updated_at', '>=', \Carbon\Carbon::parse($from)->startOfDay());
+                            $query->where('visit_expires_at', '>=', \Carbon\Carbon::parse($from)->startOfDay());
                         } elseif ($to) {
-                            $query->where('updated_at', '<=', \Carbon\Carbon::parse($to)->endOfDay());
+                            $query->where('visit_expires_at', '<=', \Carbon\Carbon::parse($to)->endOfDay());
                         }
                     })
                     ->indicateUsing(function (array $data): ?string {
-                        $from = $data['from'] ?? null;
-                        $to = $data['to'] ?? null;
+                        $from = $data['expiry_from'] ?? null;
+                        $to = $data['expiry_to'] ?? null;
                         if ($from && $to) {
-                            return 'Range: ' . \Carbon\Carbon::parse($from)->format('M d, Y') . ' → ' . \Carbon\Carbon::parse($to)->format('M d, Y');
+                            return 'Expiry: ' . \Carbon\Carbon::parse($from)->format('M d, Y') . ' → ' . \Carbon\Carbon::parse($to)->format('M d, Y');
                         }
-                        if ($from) {
-                            return 'From: ' . \Carbon\Carbon::parse($from)->format('M d, Y');
-                        }
-                        if ($to) {
-                            return 'To: ' . \Carbon\Carbon::parse($to)->format('M d, Y');
-                        }
+                        if ($from) return 'Expiry From: ' . \Carbon\Carbon::parse($from)->format('M d, Y');
+                        if ($to) return 'Expiry To: ' . \Carbon\Carbon::parse($to)->format('M d, Y');
                         return null;
                     }),
             ])

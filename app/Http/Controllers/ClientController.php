@@ -513,6 +513,7 @@ class ClientController extends Controller
 
         // Initialize payment responsibility variable (will be set if insurance is selected)
         $paymentResponsibility = null;
+        $verificationMethod = null;
 
         // Multi-vendor processing
         if ($isInsuranceSelected && !empty($selectedVendorIds)) {

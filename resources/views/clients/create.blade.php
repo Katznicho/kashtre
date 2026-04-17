@@ -833,13 +833,16 @@
                                         </div>
                                     @else
                                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            @foreach($availablePaymentMethods as $index => $method)
+                                            @php $companyIndex = 0; @endphp
+                                            @foreach($availablePaymentMethods as $method)
+                                                @if($method === 'insurance') @continue @endif
+                                                @php $companyIndex++; @endphp
                                                 <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                                                     <input type="checkbox" name="payment_methods[]" id="payment_company_{{ $method }}" value="{{ $method }}"
                                                            {{ in_array($method, old('payment_methods', [])) ? 'checked' : '' }}
                                                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
                                                     <label for="payment_company_{{ $method }}" class="ml-3 text-sm font-medium text-gray-700">
-                                                        <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">{{ $index + 1 }}</span>
+                                                        <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full mr-2">{{ $companyIndex }}</span>
                                                         {{ $paymentMethodNames[$method] ?? ucfirst(str_replace('_', ' ', $method)) }}
                                                     </label>
                                                 </div>

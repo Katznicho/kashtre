@@ -38,7 +38,7 @@ class ListVisitArchives extends Component implements HasForms, HasTable
         $allowedBranches = (array) ($user->allowed_branches ?? []);
 
         $query = VisitArchive::query()
-            ->with(['business', 'branch'])
+            ->with(['business', 'branch', 'client'])
             ->where('record_type', $this->recordType)
             ;
 
@@ -60,37 +60,25 @@ class ListVisitArchives extends Component implements HasForms, HasTable
         // For testing: Show all records regardless of business/branch
 
         $columns = [
-            Tables\Columns\TextColumn::make('archived_at_date')
-                ->label('Date')
-                ->getStateUsing(fn (VisitArchive $record) => $record->archived_at)
-                ->dateTime('M d, Y')
-                ->sortable(),
-
             ...(($this->recordType === 'previous') ? [
-                Tables\Columns\TextColumn::make('visit_created_at')
-                    ->label('Visit Creation Date')
-                    ->dateTime('M d, Y H:i')
-                    ->sortable()
-                    ->toggleable(),
-
                 Tables\Columns\TextColumn::make('visit_end_at')
                     ->label('Visit Expiry Date')
                     ->dateTime('M d, Y H:i')
                     ->sortable()
                     ->toggleable(),
+
+                Tables\Columns\TextColumn::make('visit_created_at')
+                    ->label('Visit Creation Date')
+                    ->dateTime('M d, Y H:i')
+                    ->sortable()
+                    ->toggleable(),
             ] : []),
 
-            Tables\Columns\TextColumn::make('client_id')
+            Tables\Columns\TextColumn::make('full_client_id')
                 ->label('Client ID')
+                ->getStateUsing(fn (VisitArchive $record) => $record->full_client_id ?? $record->client?->client_id ?? '-')
                 ->searchable()
                 ->sortable(),
-
-            ...(($this->recordType === 'previous') ? [
-                Tables\Columns\TextColumn::make('full_client_id')
-                    ->label('Full Client ID')
-                    ->searchable()
-                    ->sortable(),
-            ] : []),
 
             Tables\Columns\TextColumn::make('client_name')
                 ->label('Client Name')
@@ -126,99 +114,178 @@ class ListVisitArchives extends Component implements HasForms, HasTable
             ->columns($columns)
             ->defaultSort('archived_at', 'desc')
             ->filters([
-                // Quick date presets
-                Tables\Filters\Filter::make('quick_date')
-                    ->form([
-                        \Filament\Forms\Components\Select::make('preset')
-                            ->label('Quick Date')
-                            ->options([
-                                'today' => 'Today',
+                ...($this->recordType === 'previous' ? [
+                    Tables\Filters\Filter::make('quick_creation')
+                        ->form([
+                            \Filament\Forms\Components\Select::make('preset')
+                                ->label('Quick Creation Date')
+                                ->options([
+                                    'today' => 'Today',
+                                    'yesterday' => 'Yesterday',
+                                    'this_week' => 'This Week',
+                                    'this_month' => 'This Month',
+                                ])
+                                ->placeholder('All dates'),
+                        ])
+                        ->query(function ($query, array $data) {
+                            if (empty($data['preset'])) return;
+                            match ($data['preset']) {
+                                'yesterday' => $query->whereDate('visit_created_at', now()->subDay()->toDateString()),
+                                'this_week' => $query->whereBetween('visit_created_at', [now()->startOfWeek(), now()->endOfWeek()]),
+                                'this_month' => $query->whereBetween('visit_created_at', [now()->startOfMonth(), now()->endOfMonth()]),
+                                default => $query->whereDate('visit_created_at', now()->toDateString()),
+                            };
+                        })
+                        ->indicateUsing(function (array $data): ?string {
+                            if (empty($data['preset'])) return null;
+                            return 'Created: ' . match ($data['preset']) {
                                 'yesterday' => 'Yesterday',
                                 'this_week' => 'This Week',
                                 'this_month' => 'This Month',
-                            ])
-                            ->placeholder('All dates'),
-                    ])
-                    ->query(function ($query, array $data) {
-                        // Only apply filter if a preset is explicitly selected
-                        if (!empty($data['preset'])) {
-                            return match ($data['preset']) {
+                                default => 'Today',
+                            };
+                        }),
+
+                    Tables\Filters\Filter::make('quick_expiry')
+                        ->form([
+                            \Filament\Forms\Components\Select::make('preset')
+                                ->label('Quick Expiry Date')
+                                ->options([
+                                    'today' => 'Today',
+                                    'yesterday' => 'Yesterday',
+                                    'this_week' => 'This Week',
+                                    'this_month' => 'This Month',
+                                ])
+                                ->placeholder('All dates'),
+                        ])
+                        ->query(function ($query, array $data) {
+                            if (empty($data['preset'])) return;
+                            match ($data['preset']) {
+                                'yesterday' => $query->whereDate('visit_end_at', now()->subDay()->toDateString()),
+                                'this_week' => $query->whereBetween('visit_end_at', [now()->startOfWeek(), now()->endOfWeek()]),
+                                'this_month' => $query->whereBetween('visit_end_at', [now()->startOfMonth(), now()->endOfMonth()]),
+                                default => $query->whereDate('visit_end_at', now()->toDateString()),
+                            };
+                        })
+                        ->indicateUsing(function (array $data): ?string {
+                            if (empty($data['preset'])) return null;
+                            return 'Expiry: ' . match ($data['preset']) {
+                                'yesterday' => 'Yesterday',
+                                'this_week' => 'This Week',
+                                'this_month' => 'This Month',
+                                default => 'Today',
+                            };
+                        }),
+
+                    Tables\Filters\Filter::make('creation_date')
+                        ->label('Visit Creation Date')
+                        ->form([
+                            \Filament\Forms\Components\DatePicker::make('creation_from')->label('Creation From'),
+                            \Filament\Forms\Components\DatePicker::make('creation_to')->label('Creation To'),
+                        ])
+                        ->query(function ($query, array $data) {
+                            $from = $data['creation_from'] ?? null;
+                            $to = $data['creation_to'] ?? null;
+                            if ($from && $to) {
+                                $query->whereBetween('visit_created_at', [\Carbon\Carbon::parse($from)->startOfDay(), \Carbon\Carbon::parse($to)->endOfDay()]);
+                            } elseif ($from) {
+                                $query->where('visit_created_at', '>=', \Carbon\Carbon::parse($from)->startOfDay());
+                            } elseif ($to) {
+                                $query->where('visit_created_at', '<=', \Carbon\Carbon::parse($to)->endOfDay());
+                            }
+                        })
+                        ->indicateUsing(function (array $data): ?string {
+                            $from = $data['creation_from'] ?? null;
+                            $to = $data['creation_to'] ?? null;
+                            if ($from && $to) return 'Creation: ' . \Carbon\Carbon::parse($from)->format('M d, Y') . ' → ' . \Carbon\Carbon::parse($to)->format('M d, Y');
+                            if ($from) return 'Creation From: ' . \Carbon\Carbon::parse($from)->format('M d, Y');
+                            if ($to) return 'Creation To: ' . \Carbon\Carbon::parse($to)->format('M d, Y');
+                            return null;
+                        }),
+
+                    Tables\Filters\Filter::make('expiry_date')
+                        ->label('Visit Expiry Date')
+                        ->form([
+                            \Filament\Forms\Components\DatePicker::make('expiry_from')->label('Expiry From'),
+                            \Filament\Forms\Components\DatePicker::make('expiry_to')->label('Expiry To'),
+                        ])
+                        ->query(function ($query, array $data) {
+                            $from = $data['expiry_from'] ?? null;
+                            $to = $data['expiry_to'] ?? null;
+                            if ($from && $to) {
+                                $query->whereBetween('visit_end_at', [\Carbon\Carbon::parse($from)->startOfDay(), \Carbon\Carbon::parse($to)->endOfDay()]);
+                            } elseif ($from) {
+                                $query->where('visit_end_at', '>=', \Carbon\Carbon::parse($from)->startOfDay());
+                            } elseif ($to) {
+                                $query->where('visit_end_at', '<=', \Carbon\Carbon::parse($to)->endOfDay());
+                            }
+                        })
+                        ->indicateUsing(function (array $data): ?string {
+                            $from = $data['expiry_from'] ?? null;
+                            $to = $data['expiry_to'] ?? null;
+                            if ($from && $to) return 'Expiry: ' . \Carbon\Carbon::parse($from)->format('M d, Y') . ' → ' . \Carbon\Carbon::parse($to)->format('M d, Y');
+                            if ($from) return 'Expiry From: ' . \Carbon\Carbon::parse($from)->format('M d, Y');
+                            if ($to) return 'Expiry To: ' . \Carbon\Carbon::parse($to)->format('M d, Y');
+                            return null;
+                        }),
+                ] : [
+                    Tables\Filters\Filter::make('quick_date')
+                        ->form([
+                            \Filament\Forms\Components\Select::make('preset')
+                                ->label('Quick Date')
+                                ->options([
+                                    'today' => 'Today',
+                                    'yesterday' => 'Yesterday',
+                                    'this_week' => 'This Week',
+                                    'this_month' => 'This Month',
+                                ])
+                                ->placeholder('All dates'),
+                        ])
+                        ->query(function ($query, array $data) {
+                            if (empty($data['preset'])) return;
+                            match ($data['preset']) {
                                 'yesterday' => $query->whereDate('archived_at', now()->subDay()->toDateString()),
                                 'this_week' => $query->whereBetween('archived_at', [now()->startOfWeek(), now()->endOfWeek()]),
                                 'this_month' => $query->whereBetween('archived_at', [now()->startOfMonth(), now()->endOfMonth()]),
-                                'today' => $query->whereDate('archived_at', now()->toDateString()),
-                                default => $query->whereDate('archived_at', \Carbon\Carbon::parse($this->selectedDate)->toDateString()),
+                                default => $query->whereDate('archived_at', now()->toDateString()),
                             };
-                        }
-                        // Don't apply any date filter if no preset selected
-                        return $query;
-                    })
-                    ->indicateUsing(function (array $data): ?string {
-                        if (empty($data['preset'])) {
-                            return null;
-                        }
-                        return match ($data['preset']) {
-                            'yesterday' => 'Date: Yesterday',
-                            'this_week' => 'Date: This Week',
-                            'this_month' => 'Date: This Month',
-                            'today' => 'Date: Today',
-                            default => null,
-                        };
-                    }),
+                        })
+                        ->indicateUsing(function (array $data): ?string {
+                            if (empty($data['preset'])) return null;
+                            return 'Date: ' . match ($data['preset']) {
+                                'yesterday' => 'Yesterday',
+                                'this_week' => 'This Week',
+                                'this_month' => 'This Month',
+                                default => 'Today',
+                            };
+                        }),
 
-                // Specific date filter
-                Tables\Filters\Filter::make('date')
-                    ->form([
-                        \Filament\Forms\Components\DatePicker::make('archived_date')
-                            ->label('Date'),
-                    ])
-                    ->query(function ($query, array $data) {
-                        if (!empty($data['archived_date'])) {
-                            $query->whereDate('archived_at', $data['archived_date']);
-                        }
-                    })
-                    ->indicateUsing(function (array $data): ?string {
-                        if (!empty($data['archived_date'])) {
-                            $selectedDate = \Carbon\Carbon::parse($data['archived_date']);
-                            $today = now()->toDateString();
-                            if ($selectedDate->toDateString() !== $today) {
-                                return 'Date: ' . $selectedDate->format('M d, Y');
+                    Tables\Filters\Filter::make('date_range')
+                        ->label('Date Range')
+                        ->form([
+                            \Filament\Forms\Components\DatePicker::make('from')->label('From'),
+                            \Filament\Forms\Components\DatePicker::make('to')->label('To'),
+                        ])
+                        ->query(function ($query, array $data) {
+                            $from = $data['from'] ?? null;
+                            $to = $data['to'] ?? null;
+                            if ($from && $to) {
+                                $query->whereBetween('archived_at', [\Carbon\Carbon::parse($from)->startOfDay(), \Carbon\Carbon::parse($to)->endOfDay()]);
+                            } elseif ($from) {
+                                $query->where('archived_at', '>=', \Carbon\Carbon::parse($from)->startOfDay());
+                            } elseif ($to) {
+                                $query->where('archived_at', '<=', \Carbon\Carbon::parse($to)->endOfDay());
                             }
-                        }
-                        return null;
-                    }),
-
-                // Date range filter
-                Tables\Filters\Filter::make('date_range')
-                    ->form([
-                        \Filament\Forms\Components\DatePicker::make('from')->label('From'),
-                        \Filament\Forms\Components\DatePicker::make('to')->label('To'),
-                    ])
-                    ->query(function ($query, array $data) {
-                        $from = $data['from'] ?? null;
-                        $to = $data['to'] ?? null;
-                        if ($from && $to) {
-                            $query->whereBetween('archived_at', [\Carbon\Carbon::parse($from)->startOfDay(), \Carbon\Carbon::parse($to)->endOfDay()]);
-                        } elseif ($from) {
-                            $query->where('archived_at', '>=', \Carbon\Carbon::parse($from)->startOfDay());
-                        } elseif ($to) {
-                            $query->where('archived_at', '<=', \Carbon\Carbon::parse($to)->endOfDay());
-                        }
-                    })
-                    ->indicateUsing(function (array $data): ?string {
-                        $from = $data['from'] ?? null;
-                        $to = $data['to'] ?? null;
-                        if ($from && $to) {
-                            return 'Range: ' . \Carbon\Carbon::parse($from)->format('M d, Y') . ' → ' . \Carbon\Carbon::parse($to)->format('M d, Y');
-                        }
-                        if ($from) {
-                            return 'From: ' . \Carbon\Carbon::parse($from)->format('M d, Y');
-                        }
-                        if ($to) {
-                            return 'To: ' . \Carbon\Carbon::parse($to)->format('M d, Y');
-                        }
-                        return null;
-                    }),
+                        })
+                        ->indicateUsing(function (array $data): ?string {
+                            $from = $data['from'] ?? null;
+                            $to = $data['to'] ?? null;
+                            if ($from && $to) return 'Range: ' . \Carbon\Carbon::parse($from)->format('M d, Y') . ' → ' . \Carbon\Carbon::parse($to)->format('M d, Y');
+                            if ($from) return 'From: ' . \Carbon\Carbon::parse($from)->format('M d, Y');
+                            if ($to) return 'To: ' . \Carbon\Carbon::parse($to)->format('M d, Y');
+                            return null;
+                        }),
+                ]),
 
                 // Branch filter (enabled for testing)
                 Tables\Filters\SelectFilter::make('branch_id')
