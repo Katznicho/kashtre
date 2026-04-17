@@ -1477,7 +1477,7 @@
                         settings = await res.json();
                         // Populate registrationSettings from the merged response
                         registrationSettings.show_policy_details = settings?.show_policy_details_at_registration ?? true;
-                        registrationSettings.fields_to_display = settings?.policy_details_to_display_at_registration?.length
+                        registrationSettings.fields_to_display = Array.isArray(settings?.policy_details_to_display_at_registration)
                             ? settings.policy_details_to_display_at_registration
                             : ['benefit_balance', 'deductible_amount', 'copay_amount', 'coinsurance_percentage'];
                         registrationSettings.visit_authorization_period_days = settings?.visit_authorization_period_days ?? 7;
@@ -1665,6 +1665,18 @@
                 verifyPolicyBtn.disabled = true;
                 verifyPolicyBtn.textContent = 'Verifying...';
                 policyVerificationResult.innerHTML = '<p class="text-sm text-blue-600">Verifying policy number...</p>';
+
+                // Always refresh settings so toggled changes take effect immediately
+                try {
+                    const settingsRes = await fetch(`/api/insurance-settings/${insuranceCompanyId}`);
+                    if (settingsRes.ok) {
+                        const freshSettings = await settingsRes.json();
+                        registrationSettings.show_policy_details = freshSettings?.show_policy_details_at_registration ?? true;
+                        registrationSettings.fields_to_display = Array.isArray(freshSettings?.policy_details_to_display_at_registration)
+                            ? freshSettings.policy_details_to_display_at_registration
+                            : ['benefit_balance', 'deductible_amount', 'copay_amount', 'coinsurance_percentage'];
+                    }
+                } catch (e) { /* fall through with existing settings */ }
 
                 try {
                 // Collect name and DOB from form for tolerance-based verification
@@ -3174,9 +3186,13 @@
                         
                         this.disabled = true;
                         this.textContent = 'Verifying...';
-                        
+
                         try {
-                            const response = await fetch(`/api/policies/verify/${vendorId}/${encodeURIComponent(policyInput.value)}`);
+                            const verifyParams = new URLSearchParams();
+                            const servCat = document.getElementById('services_category')?.value || '';
+                            if (servCat) verifyParams.set('services_category', servCat);
+                            const verifyUrl = `/api/policies/verify/${vendorId}/${encodeURIComponent(policyInput.value)}?${verifyParams}`;
+                            const response = await fetch(verifyUrl);
                             const data = await response.json();
 
                             if (data.success && data.exists) {
@@ -3201,10 +3217,11 @@
                                 const memberName = data.data?.principal_member_name || '';
                                 const policyStatus = data.data?.status || '';
 
-                                // Build payment detail lines based on third-party settings
-                                const vendorSettings = settingsCache[vendorId];
+                                // Build payment detail lines based on third-party settings (always fresh)
+                                delete settingsCache[vendorId];
+                                const vendorSettings = await fetchInsuranceSettings(vendorId);
                                 const showDetails = vendorSettings?.show_policy_details_at_registration ?? true;
-                                const fieldsToDisplay = vendorSettings?.policy_details_to_display_at_registration?.length
+                                const fieldsToDisplay = Array.isArray(vendorSettings?.policy_details_to_display_at_registration)
                                     ? vendorSettings.policy_details_to_display_at_registration
                                     : ['benefit_balance', 'deductible_amount', 'copay_amount', 'coinsurance_percentage'];
 
