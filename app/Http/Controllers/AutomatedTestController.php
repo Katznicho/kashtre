@@ -101,8 +101,8 @@ class AutomatedTestController extends Controller
 
             // Get payment phone, item count, item types, and max amount from request
             $paymentPhone = $request->input('payment_phone', '');
-            $itemCount = intval($request->input('item_count', 3));
-            $itemCount = max(1, min($itemCount, 10)); // Ensure between 1 and 10
+            $itemCount = intval($request->input('item_count', 50)); // Allow up to 50 items to fill budget
+            $itemCount = max(1, min($itemCount, 100)); // Ensure between 1 and 100
             $maxAmount = intval($request->input('max_amount', 100000));
             $maxAmount = max(1000, $maxAmount); // Minimum 1000 UGX
             $itemTypes = $request->input('item_types', ['service', 'good', 'package', 'bulk']);
@@ -112,16 +112,19 @@ class AutomatedTestController extends Controller
             $output[] = "STEP 1: USER REGISTRATION\n";
             $output[] = "----------------------------\n";
             
-            $clientId = strtoupper(substr('TST', 0, 3)) . '-' . rand(10000, 99999);
             $firstName = 'Test';
-            $surname = 'User ' . now()->timestamp;
+            $surname = 'User';
             $clientPhone = '0777' . rand(100000, 999999);
             $paymentPhoneNumber = $paymentPhone ?: '0776' . rand(100000, 999999);
+            
+            // Generate client_id and visit_id using the same methods as real registration
+            $clientId = Client::generateClientId($business, $surname, $firstName, null);
+            $visitId = Client::generateVisitId($business, $branch, false, false);
             
             $client = Client::create([
                 'client_type' => 'individual',
                 'client_id' => $clientId,
-                'visit_id' => 'VIS-' . strtoupper(Str::random(8)),
+                'visit_id' => $visitId,
                 'visit_expires_at' => now()->addDays(7),
                 'business_id' => $business->id,
                 'branch_id' => $branch->id,
@@ -176,22 +179,17 @@ class AutomatedTestController extends Controller
                     ->shuffle();
             }
 
-            // Select items based on budget constraint
+            // Select items based on budget constraint - prioritize filling budget
             $items = collect();
             $runningTotal = 0;
             $itemsAdded = 0;
 
             foreach ($availableItems as $item) {
-                // Stop if we've reached the desired item count
-                if ($itemsAdded >= $itemCount) {
-                    break;
-                }
-
                 $unitPrice = $item->default_price ?? 10000;
                 $itemCost = $unitPrice;
 
-                // Check if adding this item would exceed budget
-                if ($runningTotal + $itemCost <= $maxAmount) {
+                // Keep adding items while they fit in budget and we haven't exceeded max item count
+                if ($runningTotal + $itemCost <= $maxAmount && $itemsAdded < $itemCount) {
                     $items->push($item);
                     $runningTotal += $itemCost;
                     $itemsAdded++;
@@ -266,7 +264,17 @@ class AutomatedTestController extends Controller
             $output[] = "  Invoice #: {$invoice->invoice_number}\n";
             $output[] = "  Total Amount: " . number_format($totalAmount) . " UGX\n";
             $output[] = "  Items: " . count($invoiceItems) . "\n";
-            $output[] = "  Will be queued to: {$servicePoint->name}\n\n";
+            
+            // Calculate projected queue numbers for items
+            $currentQueueNumber = ServiceQueue::where('service_point_id', $servicePoint->id)->max('queue_number') ?? 0;
+            $projectedQueueNumbers = [];
+            for ($i = 1; $i <= count($invoiceItems); $i++) {
+                $projectedQueueNumbers[] = $currentQueueNumber + $i;
+            }
+            $queueNumbersStr = implode(", ", $projectedQueueNumbers);
+            
+            $output[] = "  Service Point: {$servicePoint->name} (ID: {$servicePoint->id})\n";
+            $output[] = "  Projected Queue Numbers: {$queueNumbersStr}\n\n";
 
             // STEP 4: Process Payment (Call YoAPI)
             $output[] = "STEP 4: PAYMENT PROCESSING\n";
