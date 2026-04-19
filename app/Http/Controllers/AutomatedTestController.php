@@ -225,7 +225,7 @@ class AutomatedTestController extends Controller
             $output[] = "\n";
 
             // STEP 3: Create Invoice (Order)
-            $output[] = "STEP 3️⃣ : PROCESS PAYMENT\n";
+            $output[] = "STEP 3️⃣ : ORDER CONFIRMATION\n";
             $output[] = "----------------------------\n";
 
             $invoice = Invoice::create([
@@ -255,7 +255,24 @@ class AutomatedTestController extends Controller
             $output[] = "   Total Amount: {$totalAmount}\n";
             $output[] = "   Items: " . count($invoiceItems) . "\n\n";
 
-            // STEP 4: Payment Processing
+            // STEP 4: Payment Processing - PIN Verification
+            $output[] = "STEP 4️⃣ : PAYMENT PIN VERIFICATION\n";
+            $output[] = "----------------------------\n";
+            
+            // Simulate PIN entry
+            $testPin = '1234';
+            $output[] = "🔐 Payment PIN: {$testPin}\n";
+            $output[] = "   Verifying PIN...\n";
+            
+            // Simulate PIN verification delay
+            usleep(500000); // 0.5 second delay
+            
+            $output[] = "✅ PIN Verified Successfully\n\n";
+            
+            // Create transaction after PIN verification
+            $output[] = "STEP 5️⃣ : PROCESS PAYMENT\n";
+            $output[] = "----------------------------\n";
+            
             $transaction = Transaction::create([
                 'invoice_id' => $invoice->id,
                 'client_id' => $client->id,
@@ -281,7 +298,7 @@ class AutomatedTestController extends Controller
             $output[] = "   Status: Paid\n\n";
 
             // STEP 5: Queue Items
-            $output[] = "STEP 4️⃣ : ITEMS QUEUED FOR DELIVERY\n";
+            $output[] = "STEP 5️⃣ : ITEMS QUEUED FOR DELIVERY\n";
             $output[] = "-------------------------------------\n";
 
             // Get or create service point

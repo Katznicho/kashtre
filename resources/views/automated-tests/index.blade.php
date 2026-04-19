@@ -172,7 +172,9 @@
                             html += '<div class="text-cyan-400">' + escapeHtml(line) + '</div>';
                         } else if (line.includes('---') || line.includes('===')) {
                             html += '<div class="text-gray-500">' + escapeHtml(line) + '</div>';
-                        } else if (line.includes('•') || line.includes('Total') || line.includes('Price')) {
+                        } else if (line.includes('🔐') || line.includes('PIN')) {
+                            html += '<div class="text-purple-400">' + escapeHtml(line) + '</div>';
+                        } else if (line.includes('•') || line.includes('Total') || line.includes('Price') || line.includes('Budget')) {
                             html += '<div class="text-yellow-300">' + escapeHtml(line) + '</div>';
                         } else if (line.trim()) {
                             html += '<div>' + escapeHtml(line) + '</div>';
