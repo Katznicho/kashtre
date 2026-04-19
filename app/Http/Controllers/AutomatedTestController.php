@@ -405,7 +405,7 @@ class AutomatedTestController extends Controller
                 
                 $output[] = "What happens next:\n";
                 $output[] = "  1. Customer confirms the payment on their phone\n";
-                $output[] = "  2. System checks for payment confirmation every 5 minutes\n";
+                $output[] = "  2. System checks for payment confirmation every minute\n";
                 $output[] = "  3. Once confirmed:\n";
                 $output[] = "     • Payment will be marked as completed\n";
                 $output[] = "     • Items will be queued to " . $servicePoint->name . "\n";
