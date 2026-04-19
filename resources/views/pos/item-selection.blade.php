@@ -114,6 +114,31 @@
                                 Edit Payment Methods
                             </button>
                         </div>
+                        @if($client->vendors && $client->vendors->count() > 0)
+                        <div class="bg-green-50 p-4 rounded-lg border-2 border-green-200">
+                            <p class="text-sm text-green-700 font-medium mb-3">Insurance Companies</p>
+                            <div class="space-y-2">
+                                @foreach($client->vendors as $vendor)
+                                    @if($vendor->vendor && $vendor->vendor->insuranceCompany)
+                                        <div class="bg-white p-3 rounded border border-green-100 flex items-center justify-between">
+                                            <div>
+                                                <p class="text-sm font-semibold text-gray-900">{{ $vendor->vendor->insuranceCompany->name }}</p>
+                                                <p class="text-xs text-gray-600">Policy: {{ $vendor->policy_number ?? 'N/A' }}</p>
+                                                @if($vendor->policy_verified)
+                                                    <span class="inline-block text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded mt-1">✓ Verified</span>
+                                                @endif
+                                            </div>
+                                            <div class="text-right">
+                                                @if($vendor->physical_insurance_card_verified)
+                                                    <span class="inline-block text-xs text-blue-700 bg-blue-100 px-2 py-0.5 rounded">Card Verified</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endif
+                                @endforeach
+                            </div>
+                        </div>
+                        @endif
                         <div id="payment-phone-section" class="bg-gray-50 p-4 rounded-lg border-2 border-dashed border-blue-200 hover:border-blue-300 transition-colors" style="display: none;">
                             <div class="flex items-center justify-between mb-2">
                                 <p class="text-sm text-gray-500 font-medium">Payment Phone Number</p>
@@ -1272,7 +1297,7 @@
         // Flag to indicate if this client is an insurance client.
         // We use this to ensure no automatic payments are triggered
         // before the invoice is saved for insurance clients.
-        const isInsuranceClient = {{ $client->insurance_company_id ? 'true' : 'false' }};
+        const isInsuranceClient = {{ ($client->insurance_company_id || $client->vendors()->exists()) ? 'true' : 'false' }};
         
         // Add event listeners to quantity inputs
         document.addEventListener('DOMContentLoaded', function() {
@@ -2439,10 +2464,80 @@
                         return;
                     }
 
-                    // Auto-approved — normal flow (amount to collect = invoice_total − insurance_total)
+                    // Auto-approved — For insurance clients: no payment prompt (collect separately)
+                    // For cash/direct pay clients: show payment prompt immediately
                     const clientTotalDue = computeInsuranceClientAmountDue(data);
+                    const isMultiVendor = data.is_multi_vendor === true;
+                    const isInsuranceAuth = !!data.insurance_authorization;
+                    const fmt = (n) => (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-                    if (clientTotalDue > 0) {
+                    if (isInsuranceAuth) {
+                        // Insurance client: show authorization success then collect client portion
+                        const vendorBreakdown = data.insurance_authorization?.vendors ? data.insurance_authorization.vendors : [];
+                        const vendorBreakdownHtml = vendorBreakdown.length ? `
+                            <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                <p class="text-xs font-semibold tracking-wide text-slate-700 uppercase mb-2">Insurance Cascade Summary</p>
+                                <div class="space-y-2">
+                                    ${vendorBreakdown.map(v => `
+                                        <div class="bg-white rounded p-2 text-sm">
+                                            <p class="font-medium text-slate-700">${v.vendor_name}</p>
+                                            <div class="text-xs text-slate-600 grid grid-cols-2 gap-1 mt-1">
+                                                <span>Submitted: UGX ${fmt(v.amount_submitted)}</span>
+                                                <span>Insurer pays: UGX ${fmt(v.insurance_total)}</span>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : '';
+
+                        // If client portion > 0 and payment method is available: collect now
+                        if (clientTotalDue > 0) {
+                            // Show authorization then proceed to collection
+                            await Swal.fire({
+                                icon: 'success',
+                                title: 'Invoice Authorized',
+                                html: `
+                                    <div class="text-left text-sm">
+                                        <p class="text-slate-700 mb-3">Authorization has been processed successfully.</p>
+                                        ${vendorBreakdownHtml}
+                                        <div class="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                                            <p class="text-xs font-semibold text-blue-700 uppercase mb-2">Client Portion to Collect</p>
+                                            <p class="text-lg font-bold text-blue-900">UGX ${fmt(clientTotalDue)}</p>
+                                        </div>
+                                    </div>
+                                `,
+                                confirmButtonText: 'Collect Payment',
+                                confirmButtonColor: '#2563eb',
+                                allowOutsideClick: false
+                            });
+
+                            // Now collect the client portion via phone/mobile money
+                            showCollectClientModal(data, paymentPhone, data, invoiceNumber, button, originalText);
+                        } else {
+                            // No client portion due - just show success
+                            await Swal.fire({
+                                icon: 'success',
+                                title: 'Invoice Authorized',
+                                html: `
+                                    <div class="text-left text-sm">
+                                        <p class="text-slate-700 mb-3">Authorization has been processed successfully.</p>
+                                        ${vendorBreakdownHtml}
+                                        <div class="mt-3 rounded-lg border border-green-200 bg-green-50 p-3">
+                                            <p class="text-xs font-semibold text-green-700 uppercase mb-2">Insurance Covers Full Amount</p>
+                                            <p class="text-sm text-green-700">No client payment required.</p>
+                                        </div>
+                                    </div>
+                                `,
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#10b981',
+                                allowOutsideClick: false
+                            }).then(() => {
+                                finishInvoiceSuccess(data, invoiceNumber, button, originalText);
+                            });
+                        }
+                    } else if (clientTotalDue > 0) {
+                        // Non-insurance client with amount due: show payment prompt
                         showCollectClientModal(data, paymentPhone, data, invoiceNumber, button, originalText);
                     } else {
                         finishInvoiceSuccess(data, invoiceNumber, button, originalText);

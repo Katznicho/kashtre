@@ -75,6 +75,9 @@ class TransactionController extends Controller
      */
     public function itemSelection(Client $client)
     {
+        // Load vendors with their third-party payer and insurance company details
+        $client->load(['vendors.vendor.insuranceCompany']);
+        
         // Check if user has access to this client
         $user = auth()->user();
         if ($user->business_id !== 1 && $client->business_id !== $user->business_id) {

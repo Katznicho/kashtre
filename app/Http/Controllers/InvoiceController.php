@@ -2109,6 +2109,12 @@ class InvoiceController extends Controller
                 }
 
                 $responseData['authorization_status'] = $authStatus;
+                // For multi-vendor: client payment is the FINAL client_total (after all vendors cascade)
+                // For single-vendor: client payment is the standard client_total
+                $isMultiVendor = !empty($insuranceAuthorization['multi_vendor']);
+                $responseData['is_multi_vendor'] = $isMultiVendor;
+                // Only show payment prompt if there's a client portion to collect
+                // For multi-vendor, this is the true final amount after cascade complete
                 $responseData['requires_insurance_client_payment'] = ((float) ($insuranceAuthorization['client_total'] ?? 0)) > 0;
                 $responseData['insurance_authorization'] = $insuranceAuthorization;
                 $responseData['client_total'] = (float) ($insuranceAuthorization['client_total'] ?? 0);
@@ -4159,6 +4165,17 @@ class InvoiceController extends Controller
                 continue;
             }
 
+            // Filter items for this vendor (remove vendor-specific exclusions)
+            $vendorExcludedItemIds = is_array($clientVendor->excluded_items) ? $clientVendor->excluded_items : [];
+            $vendorItems = array_filter($itemsForAuthorization, function (array $item) use ($vendorExcludedItemIds) {
+                // Mark items as excluded for this vendor if they're in the vendor's excluded list
+                if (!empty($vendorExcludedItemIds) && in_array($item['id'], $vendorExcludedItemIds)) {
+                    $item['kashtre_excluded'] = true;
+                }
+                return true; // Always include, but mark excluded ones
+            });
+            $vendorItems = array_values($vendorItems);
+
             $authPayload = [
                 'kashtre_invoice_id'                  => (string) $invoice->id,
                 'invoice_number'                      => $invoice->invoice_number,
@@ -4169,7 +4186,7 @@ class InvoiceController extends Controller
                 'deductible_remaining'                => $deductibleRemaining,
                 'copay_contributes_to_deductible'     => (bool) $clientVendor->copay_contributes_to_deductible,
                 'coinsurance_contributes_to_deductible' => (bool) $clientVendor->coinsurance_contributes_to_deductible,
-                'items'                               => $itemsForAuthorization,
+                'items'                               => $vendorItems,
                 'connected_business_id'               => $business->id,
             ];
 

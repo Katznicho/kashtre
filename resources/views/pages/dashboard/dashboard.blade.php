@@ -71,8 +71,32 @@
                 </div>
             @endif
 
+            <!-- Automated Test Button -->
+            <div class="mb-6 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">System Testing</h3>
+                            <p class="text-sm text-gray-600">Run automated tests for finances, queueing, packages, and bulk items</p>
+                        </div>
+                    </div>
+                    <a href="{{ route('automated-tests.index') }}" 
+                       class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold transition duration-200 flex items-center space-x-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                        <span>Automated Test</span>
+                    </a>
+                </div>
+            </div>
+
             <!-- Testing Dashboard - Only for Admin Users and Local Environment -->
-            @if(Auth::user()->business_id == 1 && Auth::user()->status === 'active' && config('app.env') === 'local' && !app()->environment('production'))
+            @if((Auth::user()->business_id == 1 || $business->shortcode === 'KS1759822163') && Auth::user()->status === 'active' && config('app.env') === 'local' && !app()->environment('production'))
                 <div class="mb-6 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-6">
                     <div class="flex items-center justify-between mb-4">
                         <div class="flex items-center space-x-4">
@@ -215,6 +239,15 @@
                             </svg>
                             <span>Clear Business Statements</span>
                         </button>
+
+                        <!-- Run Comprehensive Tests -->
+                        <a href="{{ route('system-tests.runner') }}" 
+                           class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white px-4 py-3 rounded-lg font-semibold transition duration-200 flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            <span>🧪 Run Comprehensive Tests</span>
+                        </a>
                     </div>
                 </div>
             @endif

@@ -54,6 +54,7 @@ use App\Http\Controllers\PaymentReviewController;
 use App\Http\Controllers\ServiceQueueController;
 use App\Http\Controllers\ServiceDeliveryQueueController;
 use App\Http\Controllers\TestingController;
+use App\Http\Controllers\AutomatedTestController;
 use App\Http\Controllers\MaturationPeriodController;
 use App\Http\Controllers\PaymentMethodAccountController;
 use App\Http\Controllers\BankScheduleController;
@@ -123,6 +124,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Route::get('/json-data-feed', [DataFeedController::class, 'getDataFeed'])->name('json_data_feed');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Automated Tests
+    Route::get('/automated-tests', [AutomatedTestController::class, 'index'])->name('automated-tests.index');
+    Route::get('/automated-tests/items', [AutomatedTestController::class, 'getItems'])->name('automated-tests.items');
+    Route::post('/automated-tests/run', [AutomatedTestController::class, 'run'])->name('automated-tests.run');
 
     Route::impersonate();
 
@@ -482,5 +488,12 @@ Route::get('/suspense-accounts-api/data', [SuspenseAccountController::class, 'ge
 
     Route::get('/test-mail-view', function () {
         return view('mail.bot'); // 
+    });
+
+    // System Test Routes (for comprehensive testing against Exquisite Test Life business)
+    Route::prefix('system-tests')->name('system-tests.')->group(function () {
+        Route::get('/runner', [\App\Http\Controllers\SystemTestController::class, 'runner'])->name('runner');
+        Route::post('/run', [\App\Http\Controllers\SystemTestController::class, 'run'])->name('run');
+        Route::get('/results/{testId}', [\App\Http\Controllers\SystemTestController::class, 'results'])->name('results');
     });
 });

@@ -280,8 +280,10 @@
                     $isRejected = in_array($authStatus, ['auto_rejected', 'rejected']);
                     $isPending = $authStatus === 'pending_review';
                     $fmtNum = fn($v) => number_format((float) ($v ?? 0), 0);
+                    $fmtDecimal = fn($v) => number_format((float) ($v ?? 0), 2);
                     $insurancePortionAmt = (float) ($authSnap['insurance_total'] ?? $invoice->insurance_insurance_total ?? 0);
                     $clientPortionDisplay = round(max(0, (float) $invoice->total_amount - $insurancePortionAmt), 2);
+                    $isMultiVendor = $authSnap['multi_vendor'] ?? false;
                 @endphp
                 <div class="mb-6 rounded-lg border {{ $isApproved ? 'bg-green-50 border-green-200' : ($isRejected ? 'bg-red-50 border-red-200' : 'bg-orange-50 border-orange-200') }} p-5">
                     <div class="flex items-center gap-2 mb-3">
@@ -297,14 +299,58 @@
                         @endif
                     </div>
 
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                    @if($isMultiVendor && !empty($authSnap['vendors']))
+                        <!-- Multi-Vendor Breakdown -->
+                        <div class="mb-4">
+                            <p class="text-sm font-semibold text-gray-700 mb-2">Vendor Breakdown (Cascade Order):</p>
+                            <div class="space-y-2">
+                                @php
+                                    $runningTotal = (float) $invoice->total_amount;
+                                @endphp
+                                @foreach($authSnap['vendors'] as $vendorIdx => $vendor)
+                                    @php
+                                        $vendorAmountSubmitted = (float) ($vendor['amount_submitted'] ?? 0);
+                                        $vendorInsuranceAmount = (float) ($vendor['insurance_total'] ?? 0);
+                                        $vendorClientAmount = (float) ($vendor['client_total'] ?? 0);
+                                    @endphp
+                                    <div class="bg-white rounded p-3 border border-gray-200">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <div>
+                                                <p class="font-medium text-gray-900">{{ $vendor['vendor_name'] ?? "Vendor " . ($vendorIdx + 1) }}</p>
+                                                <p class="text-xs text-gray-600">Priority: {{ $vendor['priority'] ?? 'N/A' }}</p>
+                                            </div>
+                                            <span class="text-xs px-2 py-1 rounded-full {{ $vendor['authorization_status'] === 'approved' ? 'bg-green-100 text-green-800' : ($vendor['authorization_status'] === 'skipped' ? 'bg-gray-100 text-gray-800' : 'bg-orange-100 text-orange-800') }}">
+                                                {{ ucfirst($vendor['authorization_status'] ?? 'unknown') }}
+                                            </span>
+                                        </div>
+                                        <div class="grid grid-cols-3 gap-2 text-sm">
+                                            <div>
+                                                <p class="text-gray-600">Amount Submitted</p>
+                                                <p class="font-semibold text-gray-900">UGX {{ $fmtDecimal($vendorAmountSubmitted) }}</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-gray-600">Insurance Paid</p>
+                                                <p class="font-semibold text-green-700">UGX {{ $fmtDecimal($vendorInsuranceAmount) }}</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-gray-600">Client Portion</p>
+                                                <p class="font-semibold text-blue-700">UGX {{ $fmtDecimal($vendorClientAmount) }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm border-t pt-4">
                         <div>
-                            <p class="text-gray-500">Insurance portion</p>
-                            <p class="font-bold {{ $isApproved ? 'text-green-800' : ($isPending ? 'text-orange-800' : 'text-red-800') }}">UGX {{ $fmtNum($insurancePortionAmt) }}</p>
+                            <p class="text-gray-500">Total Insurance Coverage</p>
+                            <p class="font-bold {{ $isApproved ? 'text-green-800' : ($isPending ? 'text-orange-800' : 'text-red-800') }}">UGX {{ $fmtDecimal($insurancePortionAmt) }}</p>
                         </div>
                         <div>
-                            <p class="text-gray-500">Client portion</p>
-                            <p class="font-bold text-gray-900">UGX {{ $fmtNum($clientPortionDisplay) }}</p>
+                            <p class="text-gray-500">Final Client Portion</p>
+                            <p class="font-bold text-gray-900">UGX {{ $fmtDecimal($clientPortionDisplay) }}</p>
                         </div>
                         @if($invoice->insurance_authorization_reference)
                             <div>
