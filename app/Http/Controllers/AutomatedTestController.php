@@ -106,7 +106,7 @@ class AutomatedTestController extends Controller
             $itemCount = intval($request->input('item_count', 50)); // Allow up to 50 items to fill budget
             $itemCount = max(1, min($itemCount, 100)); // Ensure between 1 and 100
             $maxAmount = intval($request->input('max_amount', 100000));
-            $maxAmount = max(1000, $maxAmount); // Minimum 1000 UGX
+            $maxAmount = max(500, $maxAmount); // Minimum 500 UGX budget
             $itemTypes = $request->input('item_types', ['service', 'good', 'package', 'bulk']);
             $itemTypes = is_array($itemTypes) ? $itemTypes : ['service', 'good', 'package', 'bulk'];
 
