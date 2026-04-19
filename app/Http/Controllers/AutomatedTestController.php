@@ -11,6 +11,7 @@ use App\Models\Invoice;
 use App\Models\Transaction;
 use App\Models\ServiceQueue;
 use App\Models\ServicePoint;
+use App\Models\ServiceCharge;
 use App\Models\Group;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -225,11 +226,38 @@ class AutomatedTestController extends Controller
                 $output[] = "   • {$item->name} ({$itemType}) - {$quantity} × " . number_format($unitPrice) . " UGX = " . number_format($itemTotal) . " UGX\n";
             }
             
+            // Calculate service charge based on Kashtre's configuration
+            $serviceChargeAmount = 0;
+            $serviceChargeConfig = ServiceCharge::where('business_id', $business->id)
+                ->where('entity_type', 'business')
+                ->where('is_active', true)
+                ->where('lower_bound', '<=', $totalAmount)
+                ->where('upper_bound', '>=', $totalAmount)
+                ->orderBy('lower_bound', 'desc')
+                ->first();
+            
+            if ($serviceChargeConfig) {
+                if ($serviceChargeConfig->type === 'fixed') {
+                    $serviceChargeAmount = $serviceChargeConfig->amount;
+                } elseif ($serviceChargeConfig->type === 'percentage') {
+                    $serviceChargeAmount = ($totalAmount * $serviceChargeConfig->amount) / 100;
+                }
+            }
+            
+            $finalAmount = $totalAmount + $serviceChargeAmount;
+            
             $output[] = "\n";
             $output[] = "COST BREAKDOWN:\n";
             $output[] = "  Items total: " . number_format($totalAmount) . " UGX\n";
+            if ($serviceChargeAmount > 0) {
+                $output[] = "  Service charge: " . number_format($serviceChargeAmount) . " UGX\n";
+                $output[] = "  Total amount: " . number_format($finalAmount) . " UGX\n";
+            } else {
+                $output[] = "  Service charge: None\n";
+                $output[] = "  Total amount: " . number_format($finalAmount) . " UGX\n";
+            }
             $output[] = "  Number of items: " . $items->count() . "\n";
-            $output[] = "  Budget used: " . number_format($totalAmount) . " UGX of " . number_format($maxAmount) . " UGX\n";
+            $output[] = "  Budget used: " . number_format($finalAmount) . " UGX of " . number_format($maxAmount) . " UGX\n";
             $output[] = "\n";
 
             // STEP 3: Create Invoice (Order)
@@ -248,10 +276,10 @@ class AutomatedTestController extends Controller
                 'payment_phone' => $client->payment_phone_number,
                 'items' => $invoiceItems,
                 'subtotal' => $totalAmount,
-                'service_charge' => 0,
-                'total_amount' => $totalAmount,
+                'service_charge' => $serviceChargeAmount,
+                'total_amount' => $finalAmount,
                 'amount_paid' => 0,
-                'balance_due' => $totalAmount,
+                'balance_due' => $finalAmount,
                 'payment_status' => 'unpaid',
                 'payment_methods' => [],
                 'status' => 'pending',
@@ -260,7 +288,7 @@ class AutomatedTestController extends Controller
 
             $output[] = "[OK] Order confirmed\n";
             $output[] = "  Order #: {$invoice->invoice_number}\n";
-            $output[] = "  Amount to pay: " . number_format($totalAmount) . " UGX\n";
+            $output[] = "  Amount to pay: " . number_format($finalAmount) . " UGX\n";
             $output[] = "  Items in order: " . count($invoiceItems) . "\n";
             
             // Calculate projected queue numbers for items
@@ -286,7 +314,11 @@ class AutomatedTestController extends Controller
             $paymentNarrative = "Order " . $invoice->invoice_number . ": " . implode(", ", $itemsDescription);
             
             $output[] = "Sending payment prompt to customer...\n";
-            $output[] = "  Amount: " . number_format($totalAmount) . " UGX\n";
+            $output[] = "  Subtotal: " . number_format($totalAmount) . " UGX\n";
+            if ($serviceChargeAmount > 0) {
+                $output[] = "  Service charge: " . number_format($serviceChargeAmount) . " UGX\n";
+            }
+            $output[] = "  Total amount: " . number_format($finalAmount) . " UGX\n";
             $output[] = "  Phone: {$client->payment_phone_number}\n";
             $output[] = "  Order: {$invoice->invoice_number}\n\n";
             
@@ -313,7 +345,7 @@ class AutomatedTestController extends Controller
                 
                 $paymentResult = $yoPayments->ac_deposit_funds(
                     $formattedPhone,
-                    intval($totalAmount),
+                    intval($finalAmount),
                     $paymentNarrative
                 );
                 
@@ -395,11 +427,26 @@ class AutomatedTestController extends Controller
                 $output[] = "  Phone: {$client->phone_number}\n";
                 $output[] = "  Payment Phone: {$client->payment_phone_number}\n\n";
                 
-                $output[] = "ORDER SUMMARY:\n";
+                $output[] = "INVOICE SUMMARY:\n";
                 $output[] = "  Order #: {$invoice->invoice_number}\n";
-                $output[] = "  Total Amount: " . number_format($totalAmount) . " UGX\n";
-                $output[] = "  Items: " . count($invoiceItems) . " items\n";
-                $output[] = "  Where to collect: {$servicePoint->name}\n\n";
+                $output[] = "  Collection point: {$servicePoint->name}\n\n";
+                
+                $output[] = "Items ordered:\n";
+                foreach ($invoiceItems as $item) {
+                    $output[] = "  • {$item['name']} - {$item['quantity']} × " . number_format($item['unit_price']) . " = " . number_format($item['total']) . " UGX\n";
+                }
+                
+                $output[] = "\n";
+                $output[] = "Amount breakdown:\n";
+                $output[] = "  Subtotal: " . number_format($totalAmount) . " UGX\n";
+                if ($serviceChargeAmount > 0) {
+                    $output[] = "  Service charge: " . number_format($serviceChargeAmount) . " UGX\n";
+                    $output[] = "  " . str_repeat("-", 40) . "\n";
+                    $output[] = "  Total to pay: " . number_format($finalAmount) . " UGX\n\n";
+                } else {
+                    $output[] = "  " . str_repeat("-", 40) . "\n";
+                    $output[] = "  Total to pay: " . number_format($finalAmount) . " UGX\n\n";
+                }
                 
                 $output[] = "NEXT STEPS:\n";
                 $output[] = "  ✓ Payment prompt sent to customer\n";
