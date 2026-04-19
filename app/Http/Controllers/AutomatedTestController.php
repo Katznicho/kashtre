@@ -179,28 +179,57 @@ class AutomatedTestController extends Controller
                     ->shuffle();
             }
 
-            // Select items based on budget constraint - prioritize filling budget
+            // Select items based on budget constraint - ensure minimum 500 UGX
             $items = collect();
             $runningTotal = 0;
             $itemsAdded = 0;
+            $minimumAmount = 500; // Ensure we always order at least 500 UGX worth
 
             foreach ($availableItems as $item) {
                 $unitPrice = $item->default_price ?? 10000;
                 $itemCost = $unitPrice;
 
-                // Keep adding items while they fit in budget and we haven't exceeded max item count
+                // Keep adding items while:
+                // 1. We haven't reached the minimum amount (500 UGX) OR we're still below budget
+                // 2. AND we haven't exceeded the max item count
                 if ($runningTotal + $itemCost <= $maxAmount && $itemsAdded < $itemCount) {
                     $items->push($item);
                     $runningTotal += $itemCost;
                     $itemsAdded++;
+                    
+                    // After reaching minimum, still add more items to fill budget better
+                    if ($runningTotal >= $minimumAmount && $items->count() >= 5) {
+                        break; // Stop after reaching minimum and having reasonable variety
+                    }
                 }
             }
 
-            // If no items fit in budget, add at least one cheapest item
+            // If total is still below minimum, keep adding items until we reach 500
+            if ($runningTotal < $minimumAmount && $availableItems->count() > 0) {
+                foreach ($availableItems as $item) {
+                    if ($items->contains('id', $item->id)) {
+                        continue; // Skip already selected items
+                    }
+
+                    $unitPrice = $item->default_price ?? 10000;
+                    $itemCost = $unitPrice;
+
+                    if ($runningTotal + $itemCost <= $maxAmount) {
+                        $items->push($item);
+                        $runningTotal += $itemCost;
+                    }
+
+                    if ($runningTotal >= $minimumAmount) {
+                        break;
+                    }
+                }
+            }
+
+            // If still no items or below minimum, add at least one of the most expensive items
             if ($items->count() === 0 && $availableItems->count() > 0) {
-                $cheapest = $availableItems->sortBy('default_price')->first();
-                $items->push($cheapest);
-                $runningTotal = $cheapest->default_price ?? 10000;
+                $mostExpensive = $availableItems->sortByDesc('default_price')->first();
+                $items->push($mostExpensive);
+                $runningTotal = $mostExpensive->default_price ?? 10000;
             }
 
             $output[] = "[OK] Items selected\n\n";
