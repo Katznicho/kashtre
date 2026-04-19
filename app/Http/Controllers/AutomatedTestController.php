@@ -353,49 +353,82 @@ class AutomatedTestController extends Controller
             $output[] = "✅ Payment Completed\n";
             $output[] = "   Reference: {$paymentReference}\n";
             $output[] = "   Amount: " . number_format($totalAmount) . " UGX\n";
-
-            // STEP 5: Queue Items
-            $output[] = "STEP 5️⃣ : ITEMS QUEUED FOR DELIVERY\n";
-            $output[] = "-------------------------------------\n";
-
-            // Get or create service point
-            $servicePoint = ServicePoint::where('branch_id', $branch->id)->first();
-            if (!$servicePoint) {
-                $servicePoint = ServicePoint::create([
-                    'name' => 'Main Service Point',
-                    'branch_id' => $branch->id,
-                    'business_id' => $business->id,
-                ]);
-            }
-
-            // Create queue for each item
-            $queueCount = 0;
-            foreach ($invoiceItems as $invoiceItem) {
-                $queue = ServiceQueue::create([
-                    'client_id' => $client->id,
-                    'service_point_id' => $servicePoint->id,
-                    'business_id' => $business->id,
-                    'branch_id' => $branch->id,
-                    'queue_number' => ServiceQueue::generateQueueNumber($servicePoint->id, $business->id),
-                    'status' => 'pending',
-                    'user_id' => Auth::id(),
-                ]);
-                $queueCount++;
-                $output[] = "✅ Item Queued: #{$queue->queue_number}\n";
-            }
-
+            $output[] = "   Status: " . ucfirst(str_replace('_', ' ', $paymentStatus)) . "\n";
             $output[] = "\n";
+
+            // STEP 6: Items Queuing Status (Auto-queued by CRON when payment confirmed)
+            $output[] = "STEP 6️⃣ : PAYMENT CONFIRMATION & ITEM QUEUING\n";
+            $output[] = "-------------------------------------\n";
+            
+            $queueCount = 0;
+            
+            if ($paymentStatus === 'completion_pending') {
+                $output[] = "✅ Payment Request Sent Successfully\n";
+                $output[] = "   Transaction Reference: {$paymentReference}\n";
+                $output[] = "   Status: Awaiting Payment Confirmation\n\n";
+                $output[] = "📱 Customer Flow:\n";
+                $output[] = "   1. Customer receives payment prompt on: {$client->payment_phone_number}\n";
+                $output[] = "   2. Customer enters PIN to confirm payment\n";
+                $output[] = "   3. YoAPI processes the transaction\n";
+                $output[] = "   4. System automatically confirms payment status\n";
+                $output[] = "   5. Items automatically queued to service point\n\n";
+                $output[] = "⏳ Automatic Queuing:\n";
+                $output[] = "   The CRON job (payments:check-status) will automatically:\n";
+                $output[] = "   • Check payment status every 5 minutes with YoAPI\n";
+                $output[] = "   • Detect when transaction status = SUCCEEDED\n";
+                $output[] = "   • Update this transaction to 'completed'\n";
+                $output[] = "   • Update invoice to 'paid'\n";
+                $output[] = "   • Queue all items to the service point\n\n";
+                $output[] = "📊 Queue Status:\n";
+                $output[] = "   Current: Items pending payment confirmation\n";
+                $output[] = "   Next: Items will appear in queue after payment confirmed\n";
+            } else {
+                $output[] = "⚠️ Payment Request Failed\n";
+                $output[] = "   Status: " . ($paymentStatus === 'pending' ? 'Initiation Failed' : 'Gateway Error') . "\n";
+                $output[] = "   Reference: {$paymentReference}\n";
+                $output[] = "   Items will NOT be queued\n";
+                $output[] = "   Action: Retry payment or contact support\n\n";
+            }
 
             // SUMMARY
             $output[] = "====================================================\n";
-            $output[] = "✅ TEST COMPLETED SUCCESSFULLY!\n";
-            $output[] = "====================================================\n\n";
-            $output[] = "📊 SUMMARY:\n";
-            $output[] = "• User Registered: {$client->name}\n";
-            $output[] = "• Items Ordered: " . count($invoiceItems) . "\n";
-            $output[] = "• Total Amount: {$totalAmount}\n";
-            $output[] = "• Payment Status: PAID\n";
-            $output[] = "• Items in Queue: {$queueCount}\n";
+            if ($paymentStatus === 'completion_pending') {
+                $output[] = "✅ AUTOMATED TEST INITIATED SUCCESSFULLY!\n";
+                $output[] = "====================================================\n\n";
+                $output[] = "🎯 TEST JOURNEY COMPLETED:\n";
+                $output[] = "• User Registered: {$client->name}\n";
+                $output[] = "• Client ID: {$client->client_id}\n";
+                $output[] = "• Items Ordered: " . count($invoiceItems) . "\n";
+                $output[] = "• Order Total: " . number_format($totalAmount) . " UGX\n";
+                $output[] = "• Invoice: {$invoice->invoice_number}\n";
+                $output[] = "• Payment Method: YoAPI Mobile Money\n";
+                $output[] = "• Transaction Ref: {$paymentReference}\n";
+                $output[] = "\n📱 NEXT AUTOMATIC STEPS:\n";
+                $output[] = "1. Customer receives payment prompt on: {$client->payment_phone_number}\n";
+                $output[] = "2. Customer confirms payment on their phone\n";
+                $output[] = "3. CRON job detects payment confirmation (every 5 minutes)\n";
+                $output[] = "4. Transaction marked as 'completed' in system\n";
+                $output[] = "5. Items automatically queued to service point\n";
+                $output[] = "\n📊 MONITORING:\n";
+                $output[] = "• Check transaction status in: Transactions table with ref {$paymentReference}\n";
+                $output[] = "• Check queue status in: Service Queue\n";
+                $output[] = "• Confirm invoice paid status in: Invoices\n";
+            } else {
+                $output[] = "⏳ TEST COMPLETED WITH PAYMENT ISSUE\n";
+                $output[] = "====================================================\n\n";
+                $output[] = "⚠️ PAYMENT INITIATION FAILED\n";
+                $output[] = "• User Registered: {$client->name}\n";
+                $output[] = "• Client ID: {$client->client_id}\n";
+                $output[] = "• Items Would Be Ordered: " . count($invoiceItems) . "\n";
+                $output[] = "• Order Total: " . number_format($totalAmount) . " UGX\n";
+                $output[] = "• Payment Reference: {$paymentReference}\n";
+                $output[] = "• Status: Payment Request Failed\n";
+                $output[] = "\n❌ ACTION NEEDED:\n";
+                $output[] = "• Retry payment with valid phone number\n";
+                $output[] = "• Check YoAPI credentials in config/payments.php\n";
+                $output[] = "• Verify customer account has balance\n";
+                $output[] = "• Check system logs for YoAPI error details\n";
+            }
 
             DB::commit();
 
