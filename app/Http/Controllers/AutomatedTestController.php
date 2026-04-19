@@ -335,12 +335,8 @@ class AutomatedTestController extends Controller
             $output[] = "STEP 4: SEND PAYMENT REQUEST\n";
             $output[] = "----------------------------\n";
             
-            // Prepare items description for payment gateway
-            $itemsDescription = [];
-            foreach ($invoiceItems as $item) {
-                $itemsDescription[] = $item['name'];
-            }
-            $paymentNarrative = "Order " . $invoice->invoice_number . ": " . implode(", ", $itemsDescription);
+            // Prepare concise description for transaction (keep under 255 chars)
+            $paymentNarrative = "Order " . $invoice->invoice_number . " - " . count($invoiceItems) . " items";
             
             $output[] = "Sending payment prompt to customer...\n";
             $output[] = "  Subtotal: " . number_format($totalAmount) . " UGX\n";
