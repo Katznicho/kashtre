@@ -252,25 +252,11 @@ class AutomatedTestController extends Controller
 
             $output[] = "✅ Order Created\n";
             $output[] = "   Invoice #: {$invoice->invoice_number}\n";
-            $output[] = "   Total Amount: {$totalAmount}\n";
+            $output[] = "   Total Amount: " . number_format($totalAmount) . " UGX\n";
             $output[] = "   Items: " . count($invoiceItems) . "\n\n";
 
-            // STEP 4: Payment Processing - PIN Verification
-            $output[] = "STEP 4️⃣ : PAYMENT PIN VERIFICATION\n";
-            $output[] = "----------------------------\n";
-            
-            // Simulate PIN entry
-            $testPin = '1234';
-            $output[] = "🔐 Payment PIN: {$testPin}\n";
-            $output[] = "   Verifying PIN...\n";
-            
-            // Simulate PIN verification delay
-            usleep(500000); // 0.5 second delay
-            
-            $output[] = "✅ PIN Verified Successfully\n\n";
-            
-            // Create transaction after PIN verification
-            $output[] = "STEP 5️⃣ : PROCESS PAYMENT\n";
+            // STEP 4: Process Payment (Call YoAPI)
+            $output[] = "STEP 4️⃣ : PAYMENT PROCESSING\n";
             $output[] = "----------------------------\n";
             
             // Prepare items description for payment gateway
@@ -281,72 +267,53 @@ class AutomatedTestController extends Controller
             $paymentNarrative = "Order " . $invoice->invoice_number . ": " . implode(", ", $itemsDescription);
             
             $output[] = "💳 Initiating Mobile Money Payment...\n";
-            $output[] = "   Provider: YoAPI\n";
             $output[] = "   Phone: {$client->payment_phone_number}\n";
             $output[] = "   Amount: " . number_format($totalAmount) . " UGX\n";
             
             // Format phone number for YoAPI (must be international format 256XXXXXXXXX)
             $formattedPhone = $client->payment_phone_number;
-            
-            // Remove any non-numeric characters except + at the beginning
             $formattedPhone = preg_replace('/[^0-9+]/', '', $formattedPhone);
             
-            // Handle different phone number formats
             if (str_starts_with($formattedPhone, '+256')) {
-                // Remove the + prefix for YoAPI
                 $formattedPhone = substr($formattedPhone, 1);
-            } elseif (str_starts_with($formattedPhone, '256')) {
-                // Already in correct format
-                $formattedPhone = $formattedPhone;
             } elseif (str_starts_with($formattedPhone, '0')) {
-                // Convert from local format (0XXXXXXXXX) to international (256XXXXXXXXX)
                 $formattedPhone = '256' . substr($formattedPhone, 1);
-            } else {
-                // Assume it's already in international format without +
-                $formattedPhone = $formattedPhone;
             }
             
-            $output[] = "   Formatted Phone: {$formattedPhone}\n";
+            $paymentReference = null;
+            $paymentStatus = 'pending';
             
-            // Call actual payment gateway
             try {
                 $yoPayments = new \App\Payments\YoAPI(
                     config('payments.yo_username'),
                     config('payments.yo_password')
                 );
                 
-                // Set external reference
-                $externalRef = 'TST' . now()->timestamp;
-                $yoPayments->set_external_reference($externalRef);
+                $yoPayments->set_external_reference('OR' . $invoice->invoice_number);
                 
-                // Process the actual payment with formatted phone number
                 $paymentResult = $yoPayments->ac_deposit_funds(
                     $formattedPhone,
                     intval($totalAmount),
                     $paymentNarrative
                 );
                 
-                // Log payment result
                 Log::info('YoAPI Payment Result', ['result' => $paymentResult]);
                 
-                // Check if payment was initiated successfully
                 if (isset($paymentResult['Status']) && $paymentResult['Status'] === 'OK') {
-                    $output[] = "✅ Payment Request Sent to Phone\n";
-                    $output[] = "   Transaction Ref: {$paymentResult['TransactionReference']}\n";
-                    $paymentReference = $paymentResult['TransactionReference'];
-                    $paymentStatus = 'pending'; // Status is 'pending' until CRON confirms with YoAPI
+                    $output[] = "✅ Payment Request Initiated\n";
+                    $paymentReference = $paymentResult['TransactionReference'] ?? 'YO' . now()->timestamp;
+                    $paymentStatus = 'pending';
+                    $output[] = "   Status: Awaiting Customer Confirmation\n";
                 } else {
-                    // Payment failed or not OK
-                    $output[] = "⚠️ Payment Response: " . ($paymentResult['StatusMessage'] ?? 'Unknown response') . "\n";
-                    Log::warning('YoAPI Payment Failed', ['result' => $paymentResult]);
+                    $output[] = "⚠️ Payment Failed: " . ($paymentResult['StatusMessage'] ?? 'Unknown error') . "\n";
                     $paymentReference = 'FAILED-' . now()->timestamp;
-                    $paymentStatus = 'failed'; // Use 'failed' enum value
+                    $paymentStatus = 'failed';
                 }
             } catch (\Exception $e) {
-                $output[] = "⚠️ Payment Gateway Error: " . $e->getMessage() . "\n";
-                Log::error('Payment Gateway Error', ['error' => $e->getMessage()]);
+                $output[] = "⚠️ Payment Error: " . $e->getMessage() . "\n";
+                Log::error('Payment Error', ['error' => $e->getMessage()]);
                 $paymentReference = 'ERROR-' . now()->timestamp;
-                $paymentStatus = 'pending';
+                $paymentStatus = 'failed';
             }
             
             $output[] = "\n";
@@ -359,11 +326,11 @@ class AutomatedTestController extends Controller
                 'branch_id' => $branch->id,
                 'amount' => $totalAmount,
                 'reference' => $invoice->invoice_number,
-                'external_reference' => $paymentReference, // YoAPI transaction reference
+                'external_reference' => $paymentReference,
                 'service' => 'healthcare',
-                'status' => $paymentStatus, // 'pending' or 'failed'
-                'type' => 'credit', // Money coming in to the business
-                'origin' => 'web', // Payment initiated from web interface
+                'status' => $paymentStatus,
+                'type' => 'credit',
+                'origin' => 'web',
                 'method' => 'mobile_money',
                 'provider' => 'yo',
                 'phone_number' => $formattedPhone,
@@ -375,84 +342,66 @@ class AutomatedTestController extends Controller
                 'payment_status' => $paymentStatus === 'pending' ? 'pending' : 'failed',
             ]);
 
-            $output[] = "✅ Payment Completed\n";
-            $output[] = "   Reference: {$paymentReference}\n";
-            $output[] = "   Amount: " . number_format($totalAmount) . " UGX\n";
-            $output[] = "   Status: " . ucfirst(str_replace('_', ' ', $paymentStatus)) . "\n";
-            $output[] = "\n";
-
-            // STEP 6: Items Queuing Status (Auto-queued by CRON when payment confirmed)
-            $output[] = "STEP 6️⃣ : PAYMENT CONFIRMATION & ITEM QUEUING\n";
+            // STEP 5: Awaiting Automatic Confirmation
+            $output[] = "STEP 5️⃣ : AWAITING AUTOMATIC CONFIRMATION\n";
             $output[] = "-------------------------------------\n";
             
-            $queueCount = 0;
-            
             if ($paymentStatus === 'pending') {
-                $output[] = "✅ Payment Request Sent Successfully\n";
-                $output[] = "   Transaction Reference: {$paymentReference}\n";
-                $output[] = "   Status: Awaiting Payment Confirmation\n\n";
-                $output[] = "📱 Customer Flow:\n";
-                $output[] = "   1. Customer receives payment prompt on: {$client->payment_phone_number}\n";
-                $output[] = "   2. Customer enters PIN to confirm payment\n";
-                $output[] = "   3. YoAPI processes the transaction\n";
-                $output[] = "   4. System automatically confirms payment status\n";
-                $output[] = "   5. Items automatically queued to service point\n\n";
-                $output[] = "⏳ Automatic Queuing:\n";
-                $output[] = "   The CRON job (payments:check-status) will automatically:\n";
-                $output[] = "   • Check payment status every 5 minutes with YoAPI\n";
-                $output[] = "   • Detect when transaction status = SUCCEEDED\n";
-                $output[] = "   • Update this transaction to 'completed'\n";
-                $output[] = "   • Update invoice to 'paid'\n";
-                $output[] = "   • Queue all items to the service point\n\n";
-                $output[] = "📊 Queue Status:\n";
-                $output[] = "   Current: Items pending payment confirmation\n";
-                $output[] = "   Next: Items will appear in queue after payment confirmed\n";
+                $output[] = "⏳ Payment Pending Confirmation\n";
+                $output[] = "   Invoice: {$invoice->invoice_number}\n";
+                $output[] = "   Amount: " . number_format($totalAmount) . " UGX\n";
+                $output[] = "   Phone: {$client->payment_phone_number}\n\n";
+                
+                $output[] = "🤖 CRON JOB AUTOMATION:\n";
+                $output[] = "   • Runs every 5 minutes (payments:check-status)\n";
+                $output[] = "   • Checks YoAPI for payment confirmation\n";
+                $output[] = "   • When payment confirmed:\n";
+                $output[] = "     ✅ Transaction marked as 'completed'\n";
+                $output[] = "     ✅ Invoice marked as 'paid'\n";
+                $output[] = "     ✅ Items automatically queued to service point\n\n";
+                
+                $output[] = "📱 Customer will receive prompt on: {$client->payment_phone_number}\n";
             } else {
-                $output[] = "⚠️ Payment Request Failed\n";
-                $output[] = "   Status: " . ($paymentStatus === 'failed' ? 'YoAPI Rejected' : 'Gateway Error') . "\n";
-                $output[] = "   Reference: {$paymentReference}\n";
-                $output[] = "   Items will NOT be queued\n";
-                $output[] = "   Action: Retry payment or contact support\n\n";
+                $output[] = "❌ Payment Failed - Manual Review Needed\n";
+                $output[] = "   Invoice: {$invoice->invoice_number}\n";
+                $output[] = "   Status: " . ucfirst($paymentStatus) . "\n";
             }
 
             // SUMMARY
             $output[] = "====================================================\n";
             if ($paymentStatus === 'pending') {
-                $output[] = "✅ AUTOMATED TEST INITIATED SUCCESSFULLY!\n";
+                $output[] = "✅ AUTOMATED TEST COMPLETED!\n";
                 $output[] = "====================================================\n\n";
-                $output[] = "🎯 TEST JOURNEY COMPLETED:\n";
-                $output[] = "• User Registered: {$client->name}\n";
+                $output[] = "🎯 ORDER SUBMITTED FOR PAYMENT:\n";
+                $output[] = "• User: {$client->name}\n";
                 $output[] = "• Client ID: {$client->client_id}\n";
-                $output[] = "• Items Ordered: " . count($invoiceItems) . "\n";
-                $output[] = "• Order Total: " . number_format($totalAmount) . " UGX\n";
                 $output[] = "• Invoice: {$invoice->invoice_number}\n";
-                $output[] = "• Payment Method: YoAPI Mobile Money\n";
-                $output[] = "• Transaction Ref: {$paymentReference}\n";
-                $output[] = "\n📱 NEXT AUTOMATIC STEPS:\n";
-                $output[] = "1. Customer receives payment prompt on: {$client->payment_phone_number}\n";
-                $output[] = "2. Customer confirms payment on their phone\n";
-                $output[] = "3. CRON job detects payment confirmation (every 5 minutes)\n";
-                $output[] = "4. Transaction marked as 'completed' in system\n";
-                $output[] = "5. Items automatically queued to service point\n";
-                $output[] = "\n📊 MONITORING:\n";
-                $output[] = "• Check transaction status in: Transactions table with ref {$paymentReference}\n";
-                $output[] = "• Check queue status in: Service Queue\n";
-                $output[] = "• Confirm invoice paid status in: Invoices\n";
+                $output[] = "• Amount: " . number_format($totalAmount) . " UGX\n";
+                $output[] = "• Items: " . count($invoiceItems) . "\n";
+                $output[] = "• Payment Phone: {$client->payment_phone_number}\n\n";
+                
+                $output[] = "⏳ NEXT: AUTOMATIC PROCESSING\n";
+                $output[] = "   The system will automatically (every 5 minutes):\n";
+                $output[] = "   1. Confirm payment status with YoAPI\n";
+                $output[] = "   2. Mark transaction as 'completed'\n";
+                $output[] = "   3. Mark invoice as 'paid'\n";
+                $output[] = "   4. Queue items to service point\n\n";
+                
+                $output[] = "📊 MONITORING:\n";
+                $output[] = "   Invoice: {$invoice->invoice_number}\n";
+                $output[] = "   Transaction Ref: {$transaction->id}\n";
+                $output[] = "   Check payment status in database\n";
             } else {
-                $output[] = "⏳ TEST COMPLETED WITH PAYMENT ISSUE\n";
+                $output[] = "❌ TEST FAILED - PAYMENT ERROR\n";
                 $output[] = "====================================================\n\n";
-                $output[] = "⚠️ PAYMENT INITIATION FAILED\n";
-                $output[] = "• User Registered: {$client->name}\n";
-                $output[] = "• Client ID: {$client->client_id}\n";
-                $output[] = "• Items Would Be Ordered: " . count($invoiceItems) . "\n";
-                $output[] = "• Order Total: " . number_format($totalAmount) . " UGX\n";
-                $output[] = "• Payment Reference: {$paymentReference}\n";
-                $output[] = "• Status: Payment Request Failed\n";
-                $output[] = "\n❌ ACTION NEEDED:\n";
-                $output[] = "• Retry payment with valid phone number\n";
-                $output[] = "• Check YoAPI credentials in config/payments.php\n";
-                $output[] = "• Verify customer account has balance\n";
-                $output[] = "• Check system logs for YoAPI error details\n";
+                $output[] = "⚠️ Order could not be submitted:\n";
+                $output[] = "• User: {$client->name}\n";
+                $output[] = "• Invoice: {$invoice->invoice_number}\n";
+                $output[] = "• Error: Payment initiation failed\n";
+                $output[] = "• Amount: " . number_format($totalAmount) . " UGX\n\n";
+                
+                $output[] = "❌ ACTION REQUIRED:\n";
+                $output[] = "   Please check YoAPI configuration and try again\n";
             }
 
             DB::commit();
