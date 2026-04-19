@@ -15,6 +15,7 @@ use App\Models\Group;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class AutomatedTestController extends Controller
 {
@@ -87,57 +88,109 @@ class AutomatedTestController extends Controller
             $output[] = "📍 Branch: {$branch->name}\n";
             $output[] = "====================================================\n\n";
 
-            // Get selected items and payment phone from request
-            $selectedItemIds = $request->input('items', []);
+            // Get payment phone, item count, item types, and max amount from request
             $paymentPhone = $request->input('payment_phone', '');
+            $itemCount = intval($request->input('item_count', 3));
+            $itemCount = max(1, min($itemCount, 10)); // Ensure between 1 and 10
+            $maxAmount = intval($request->input('max_amount', 100000));
+            $maxAmount = max(1000, $maxAmount); // Minimum 1000 UGX
+            $itemTypes = $request->input('item_types', ['service', 'good', 'package', 'bulk']);
+            $itemTypes = is_array($itemTypes) ? $itemTypes : ['service', 'good', 'package', 'bulk'];
 
             // STEP 1: Register a user (Create Client)
             $output[] = "STEP 1️⃣ : USER REGISTRATION\n";
             $output[] = "----------------------------\n";
             
+            $clientId = strtoupper(substr('TST', 0, 3)) . '-' . rand(10000, 99999);
+            $firstName = 'Test';
+            $surname = 'User ' . now()->timestamp;
             $clientPhone = '0777' . rand(100000, 999999);
+            $paymentPhoneNumber = $paymentPhone ?: '0776' . rand(100000, 999999);
+            
             $client = Client::create([
-                'name' => 'Test User ' . now()->timestamp,
-                'phone' => $clientPhone,
-                'email' => 'testuser' . rand(10000, 99999) . '@test.com',
-                'payment_phone' => $paymentPhone ?: '0777' . rand(100000, 999999),
+                'client_type' => 'individual',
+                'client_id' => $clientId,
+                'visit_id' => 'VIS-' . strtoupper(Str::random(8)),
+                'visit_expires_at' => now()->addDays(7),
                 'business_id' => $business->id,
                 'branch_id' => $branch->id,
-                'category' => 'general',
+                'name' => $firstName . ' ' . $surname,
+                'first_name' => $firstName,
+                'surname' => $surname,
+                'phone_number' => $clientPhone,
+                'payment_phone_number' => $paymentPhoneNumber,
+                'email' => 'testuser' . rand(10000, 99999) . '@test.com',
+                'services_category' => 'outpatient',
+                'payment_methods' => [],
+                'status' => 'active',
+                'balance' => 0,
             ]);
             
             $output[] = "✅ User Registered\n";
+            $output[] = "   Client ID: {$client->client_id}\n";
             $output[] = "   Name: {$client->name}\n";
-            $output[] = "   Phone: {$client->phone}\n";
-            $output[] = "   Payment Phone: {$client->payment_phone}\n";
+            $output[] = "   Phone: {$client->phone_number}\n";
+            $output[] = "   Payment Phone: {$client->payment_phone_number}\n";
             $output[] = "   Email: {$client->email}\n\n";
 
-            // STEP 2: User Orders Items
+            // STEP 2: User Orders Items (with budget constraint)
             $output[] = "STEP 2️⃣ : USER ORDERS ITEMS\n";
             $output[] = "----------------------------\n";
+            $output[] = "📍 Budget: " . number_format($maxAmount) . " UGX\n\n";
 
-            // Get items - use selected items or get defaults
-            if (!empty($selectedItemIds)) {
-                $items = Item::whereIn('id', $selectedItemIds)->where('business_id', $business->id)->get();
-            } else {
-                $items = Item::where('business_id', $business->id)->limit(3)->get();
-            }
-            
-            if ($items->count() < 1) {
-                $output[] = "⚠️ No items available. Creating test items...\n";
+            // Get random items from business inventory with selected types
+            $availableItems = Item::where('business_id', $business->id)
+                ->whereIn('type', $itemTypes)
+                ->get()
+                ->shuffle();
+
+            if ($availableItems->count() < 1) {
+                $output[] = "⚠️ No items available in selected types. Creating test items...\n";
                 $group = Group::where('business_id', $business->id)->first() ?? 
                     Group::create(['name' => 'Test Items Group', 'business_id' => $business->id]);
 
-                for ($i = 1; $i <= 3; $i++) {
+                for ($i = 1; $i <= $itemCount; $i++) {
                     Item::create([
                         'name' => "Test Item {$i}",
-                        'type' => 'good',
+                        'type' => $itemTypes[($i - 1) % count($itemTypes)],
                         'business_id' => $business->id,
                         'group_id' => $group->id,
                         'default_price' => 10000,
                     ]);
                 }
-                $items = Item::where('business_id', $business->id)->limit(3)->get();
+                $availableItems = Item::where('business_id', $business->id)
+                    ->whereIn('type', $itemTypes)
+                    ->get()
+                    ->shuffle();
+            }
+
+            // Select items based on budget constraint
+            $items = collect();
+            $runningTotal = 0;
+            $itemsAdded = 0;
+
+            foreach ($availableItems as $item) {
+                // Stop if we've reached the desired item count
+                if ($itemsAdded >= $itemCount) {
+                    break;
+                }
+
+                $unitPrice = $item->default_price ?? 10000;
+                $itemCost = $unitPrice;
+
+                // Check if adding this item would exceed budget
+                if ($runningTotal + $itemCost <= $maxAmount) {
+                    $items->push($item);
+                    $runningTotal += $itemCost;
+                    $itemsAdded++;
+                }
+            }
+
+            // If no items fit in budget, add at least one cheapest item
+            if ($items->count() === 0 && $availableItems->count() > 0) {
+                $cheapest = $availableItems->sortBy('default_price')->first();
+                $items->push($cheapest);
+                $runningTotal = $cheapest->default_price ?? 10000;
             }
 
             $output[] = "✅ Items Selected for Order\n";
@@ -159,9 +212,16 @@ class AutomatedTestController extends Controller
                     'total' => $itemTotal,
                 ];
 
-                $output[] = "   • {$item->name} - Qty: {$quantity}, Price: {$unitPrice}\n";
+                $itemType = ucfirst($item->type ?? 'unknown');
+                $output[] = "   • {$item->name} ({$itemType}) - Qty: {$quantity} × " . number_format($unitPrice) . " = " . number_format($itemTotal) . " UGX\n";
             }
             
+            $output[] = "\n";
+            $output[] = "📊 ORDER SUMMARY\n";
+            $output[] = "   Budget Limit: " . number_format($maxAmount) . " UGX\n";
+            $output[] = "   Total Amount: " . number_format($totalAmount) . " UGX\n";
+            $output[] = "   Items Count: " . $items->count() . "\n";
+            $output[] = "   Remaining Budget: " . number_format($maxAmount - $totalAmount) . " UGX\n";
             $output[] = "\n";
 
             // STEP 3: Create Invoice (Order)
@@ -171,12 +231,13 @@ class AutomatedTestController extends Controller
             $invoice = Invoice::create([
                 'invoice_number' => 'ORD' . now()->timestamp,
                 'client_id' => $client->id,
+                'visit_id' => $client->visit_id,
                 'business_id' => $business->id,
                 'branch_id' => $branch->id,
                 'created_by' => Auth::id(),
                 'client_name' => $client->name,
-                'client_phone' => $client->phone,
-                'payment_phone' => $client->payment_phone,
+                'client_phone' => $client->phone_number,
+                'payment_phone' => $client->payment_phone_number,
                 'items' => $invoiceItems,
                 'subtotal' => $totalAmount,
                 'service_charge' => 0,
@@ -201,10 +262,9 @@ class AutomatedTestController extends Controller
                 'business_id' => $business->id,
                 'branch_id' => $branch->id,
                 'amount' => $totalAmount,
-                'payment_method' => 'cash',
-                'transaction_type' => 'payment',
+                'reference' => 'PAY' . now()->timestamp,
+                'service' => 'healthcare',
                 'status' => 'completed',
-                'reference_number' => 'PAY' . now()->timestamp,
             ]);
 
             // Update invoice to paid
@@ -216,7 +276,7 @@ class AutomatedTestController extends Controller
             ]);
 
             $output[] = "✅ Payment Completed\n";
-            $output[] = "   Reference: {$transaction->reference_number}\n";
+            $output[] = "   Reference: {$transaction->reference}\n";
             $output[] = "   Amount: {$totalAmount}\n";
             $output[] = "   Status: Paid\n\n";
 
@@ -243,8 +303,8 @@ class AutomatedTestController extends Controller
                     'business_id' => $business->id,
                     'branch_id' => $branch->id,
                     'queue_number' => ServiceQueue::generateQueueNumber($servicePoint->id, $business->id),
-                    'status' => 'waiting',
-                    'created_by' => Auth::id(),
+                    'status' => 'pending',
+                    'user_id' => Auth::id(),
                 ]);
                 $queueCount++;
                 $output[] = "✅ Item Queued: #{$queue->queue_number}\n";

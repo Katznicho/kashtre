@@ -24,25 +24,61 @@
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
 
-                    <!-- Items Selection -->
+                    <!-- Item Types Selection -->
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Select Items to Order</label>
-                        <div class="border border-gray-300 rounded-lg p-4 max-h-64 overflow-y-auto bg-gray-50">
-                            <div id="items-list" class="space-y-3">
-                                <div class="text-center text-gray-500 py-4">
-                                    <div class="animate-pulse">Loading items...</div>
-                                </div>
-                            </div>
+                        <label class="block text-sm font-medium text-gray-700 mb-3">Select Item Types to Include</label>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <label class="flex items-center space-x-2 p-3 border border-gray-300 rounded-lg hover:bg-blue-50 cursor-pointer">
+                                <input type="checkbox" value="service" class="item-type-checkbox" checked>
+                                <span class="text-sm font-medium text-gray-700">Service</span>
+                            </label>
+                            <label class="flex items-center space-x-2 p-3 border border-gray-300 rounded-lg hover:bg-blue-50 cursor-pointer">
+                                <input type="checkbox" value="good" class="item-type-checkbox" checked>
+                                <span class="text-sm font-medium text-gray-700">Good</span>
+                            </label>
+                            <label class="flex items-center space-x-2 p-3 border border-gray-300 rounded-lg hover:bg-blue-50 cursor-pointer">
+                                <input type="checkbox" value="package" class="item-type-checkbox" checked>
+                                <span class="text-sm font-medium text-gray-700">Package</span>
+                            </label>
+                            <label class="flex items-center space-x-2 p-3 border border-gray-300 rounded-lg hover:bg-blue-50 cursor-pointer">
+                                <input type="checkbox" value="bulk" class="item-type-checkbox" checked>
+                                <span class="text-sm font-medium text-gray-700">Bulk</span>
+                            </label>
                         </div>
-                        <div class="mt-2 text-sm text-gray-600">
-                            Selected: <span id="selected-count" class="font-semibold">0</span> items
+                    </div>
+
+                    <!-- Number of Items -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Number of Items to Order</label>
+                        <div class="flex items-center space-x-4">
+                            <input type="number" 
+                                   id="item-count" 
+                                   value="3"
+                                   min="1"
+                                   max="10"
+                                   class="w-32 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <span class="text-sm text-gray-600">(Random items will be selected from your inventory)</span>
+                        </div>
+                    </div>
+
+                    <!-- Maximum Total Amount -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Maximum Total Amount (Budget)</label>
+                        <div class="flex items-center space-x-4">
+                            <input type="number" 
+                                   id="max-amount" 
+                                   value="100000"
+                                   min="1000"
+                                   step="1000"
+                                   class="w-40 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <span class="text-sm text-gray-600">UGX (Items will be selected until budget is reached)</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="border-t pt-6 flex items-center justify-between">
                     <div class="text-sm text-gray-600">
-                        <strong>What This Test Does:</strong> Registers a user → Orders selected items → Processes payment → Queues items for delivery
+                        <strong>What This Test Does:</strong> Registers a user → Orders randomly selected items → Processes payment → Queues items for delivery
                     </div>
                     <button onclick="runTests()" 
                             id="run-button"
@@ -61,7 +97,7 @@
                     <h2 class="text-2xl font-semibold text-gray-900">Test Progress</h2>
                     <button onclick="clearOutput()" class="text-sm text-gray-600 hover:text-gray-900">Clear</button>
                 </div>
-                <div id="output-content" class="bg-gray-900 text-green-400 p-4 rounded font-mono text-sm overflow-auto max-h-96 whitespace-pre-wrap break-words border border-gray-700">
+                <div id="output-content" class="bg-gray-900 text-green-400 p-4 rounded font-mono text-sm overflow-auto max-h-96 whitespace-pre-wrap break-words border border-gray-700" style="line-height: 1.6;">
                     <!-- Test output will appear here -->
                 </div>
             </div>
@@ -69,80 +105,35 @@
     </div>
 
     <script>
-        let selectedItems = [];
-        let allItems = [];
-
-        // Load items on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            loadItems();
-        });
-
-        function loadItems() {
-            fetch('{{ route("automated-tests.items") }}')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Failed to load items');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    allItems = data;
-                    renderItems();
-                })
-                .catch(error => {
-                    console.error('Error loading items:', error);
-                    document.getElementById('items-list').innerHTML = '<div class="text-red-500 p-4">❌ Error loading items. Please refresh the page.</div>';
-                });
-        }
-
-        function renderItems() {
-            const itemsList = document.getElementById('items-list');
-            if (!allItems || allItems.length === 0) {
-                itemsList.innerHTML = '<div class="text-gray-500 py-4 text-center">No items available in your business</div>';
-                return;
-            }
-
-            itemsList.innerHTML = allItems.map(item => `
-                <label class="flex items-center space-x-3 p-3 hover:bg-white rounded cursor-pointer hover:border border-gray-200">
-                    <input type="checkbox" 
-                           value="${item.id}"
-                           onchange="toggleItem(${item.id}, '${escapeQuote(item.name)}')"
-                           class="w-4 h-4 text-blue-600 rounded">
-                    <div class="flex-1 min-w-0">
-                        <div class="font-medium text-gray-900 truncate">${item.name}</div>
-                        <div class="text-sm text-gray-600">${item.price.toLocaleString()} UGX</div>
-                    </div>
-                </label>
-            `).join('');
-        }
-
-        function toggleItem(id, name) {
-            const index = selectedItems.indexOf(id);
-            if (index > -1) {
-                selectedItems.splice(index, 1);
-            } else {
-                selectedItems.push(id);
-            }
-            updateSelectedCount();
-        }
-
-        function updateSelectedCount() {
-            document.getElementById('selected-count').textContent = selectedItems.length;
-        }
-
         function runTests() {
             const button = document.getElementById('run-button');
             const outputSection = document.getElementById('test-output');
             const outputContent = document.getElementById('output-content');
             const paymentPhone = document.getElementById('payment-phone').value;
+            const itemCount = parseInt(document.getElementById('item-count').value) || 3;
+            const maxAmount = parseInt(document.getElementById('max-amount').value) || 100000;
+            
+            // Get selected item types
+            const selectedTypes = Array.from(document.querySelectorAll('.item-type-checkbox:checked'))
+                .map(checkbox => checkbox.value);
             
             if (!paymentPhone.trim()) {
                 alert('Please enter a payment phone number');
                 return;
             }
 
-            if (selectedItems.length === 0) {
-                alert('Please select at least one item');
+            if (itemCount < 1 || itemCount > 10) {
+                alert('Please select between 1 and 10 items');
+                return;
+            }
+
+            if (maxAmount < 1000) {
+                alert('Budget must be at least 1,000 UGX');
+                return;
+            }
+
+            if (selectedTypes.length === 0) {
+                alert('Please select at least one item type');
                 return;
             }
 
@@ -161,7 +152,9 @@
                 },
                 body: JSON.stringify({
                     payment_phone: paymentPhone,
-                    items: selectedItems
+                    item_count: itemCount,
+                    max_amount: maxAmount,
+                    item_types: selectedTypes
                 })
             })
             .then(response => response.json())
@@ -179,6 +172,8 @@
                             html += '<div class="text-cyan-400">' + escapeHtml(line) + '</div>';
                         } else if (line.includes('---') || line.includes('===')) {
                             html += '<div class="text-gray-500">' + escapeHtml(line) + '</div>';
+                        } else if (line.includes('•') || line.includes('Total') || line.includes('Price')) {
+                            html += '<div class="text-yellow-300">' + escapeHtml(line) + '</div>';
                         } else if (line.trim()) {
                             html += '<div>' + escapeHtml(line) + '</div>';
                         } else {
@@ -188,7 +183,7 @@
                     
                     outputContent.innerHTML = html;
                 } else {
-                    outputContent.innerHTML = '<span class="text-red-400">❌ Error: ' + (data.message || 'Unknown error') + '</span>\n' + (data.output || '');
+                    outputContent.innerHTML = '<span class="text-red-400">❌ Error: ' + escapeHtml(data.message || 'Unknown error') + '</span>\n' + (data.output || '');
                 }
                 
                 // Re-enable button
@@ -196,7 +191,7 @@
                 button.classList.remove('opacity-50', 'cursor-not-allowed');
             })
             .catch(error => {
-                outputContent.innerHTML = '<span class="text-red-400">❌ Error: ' + error.message + '</span>';
+                outputContent.innerHTML = '<span class="text-red-400">❌ Error: ' + escapeHtml(error.message) + '</span>';
                 button.disabled = false;
                 button.classList.remove('opacity-50', 'cursor-not-allowed');
             });
@@ -216,10 +211,6 @@
                 "'": '&#039;'
             };
             return text.replace(/[&<>"']/g, m => map[m]);
-        }
-
-        function escapeQuote(text) {
-            return text.replace(/'/g, "\\'");
         }
     </script>
 </x-app-layout>

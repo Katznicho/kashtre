@@ -127,7 +127,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Automated Tests
     Route::get('/automated-tests', [AutomatedTestController::class, 'index'])->name('automated-tests.index');
-    Route::get('/automated-tests/items', [AutomatedTestController::class, 'getItems'])->name('automated-tests.items');
     Route::post('/automated-tests/run', [AutomatedTestController::class, 'run'])->name('automated-tests.run');
 
     Route::impersonate();
