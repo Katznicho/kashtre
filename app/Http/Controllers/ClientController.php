@@ -1239,6 +1239,62 @@ class ClientController extends Controller
                 ]);
                 // Don't fail the entire registration if connection record creation fails
             }
+            
+            // Auto-create ThirdPartyPayer record for this vendor
+            if ($linkedInsuranceCompany && isset($linkedInsuranceCompany['id'])) {
+                try {
+                    // Find or create local InsuranceCompany record
+                    $insuranceCompany = InsuranceCompany::where('code', $validated['insurance_company_code'])->first();
+                    
+                    if (!$insuranceCompany) {
+                        // Create insurance company record if it doesn't exist
+                        $insuranceCompany = InsuranceCompany::create([
+                            'business_id' => $business->id,
+                            'name' => $linkedInsuranceCompany['name'],
+                            'code' => $validated['insurance_company_code'],
+                            'email' => $linkedInsuranceCompany['email'] ?? null,
+                            'phone' => $linkedInsuranceCompany['phone'] ?? null,
+                            'third_party_business_id' => $linkedInsuranceCompany['id'],
+                        ]);
+                        
+                        Log::info('Created insurance company record during client registration', [
+                            'insurance_company_id' => $insuranceCompany->id,
+                            'vendor_code' => $validated['insurance_company_code'],
+                            'vendor_id' => $linkedInsuranceCompany['id'],
+                        ]);
+                    }
+                    
+                    // Create or update ThirdPartyPayer record
+                    $payer = ThirdPartyPayer::firstOrCreate(
+                        [
+                            'business_id' => $business->id,
+                            'insurance_company_id' => $insuranceCompany->id,
+                            'type' => 'insurance_company',
+                            'client_id' => null, // Business-level account
+                        ],
+                        [
+                            'name' => $linkedInsuranceCompany['name'],
+                            'email' => $linkedInsuranceCompany['email'] ?? null,
+                            'phone_number' => $linkedInsuranceCompany['phone'] ?? null,
+                            'status' => 'active',
+                            'credit_limit' => $business->max_third_party_credit_limit ?? 10000.00,
+                        ]
+                    );
+                    
+                    Log::info('ThirdPartyPayer auto-created during company client registration', [
+                        'third_party_payer_id' => $payer->id,
+                        'vendor_code' => $validated['insurance_company_code'],
+                        'vendor_name' => $linkedInsuranceCompany['name'],
+                        'business_id' => $business->id,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to create ThirdPartyPayer during company client registration', [
+                        'vendor_code' => $validated['insurance_company_code'],
+                        'error' => $e->getMessage(),
+                    ]);
+                    // Don't fail the registration if ThirdPartyPayer creation fails
+                }
+            }
         }
         
         // Log connection for admin reference (no user-facing message)

@@ -193,6 +193,29 @@ class InsuranceCompanyController extends Controller
                     'name' => $insuranceCompany->name,
                 ]);
 
+                // Automatically create ThirdPartyPayer record for this vendor at business level
+                \App\Models\ThirdPartyPayer::firstOrCreate(
+                    [
+                        'business_id' => Auth::user()->business_id,
+                        'insurance_company_id' => $insuranceCompany->id,
+                        'type' => 'insurance_company',
+                        'client_id' => null, // Business-level account
+                    ],
+                    [
+                        'name' => $insuranceCompany->name,
+                        'email' => $insuranceCompany->email,
+                        'phone_number' => $insuranceCompany->phone,
+                        'status' => 'active',
+                        'credit_limit' => $kashtreBusiness->max_third_party_credit_limit ?? 10000.00,
+                    ]
+                );
+
+                Log::info('ThirdPartyPayer account auto-created for new vendor', [
+                    'insurance_company_id' => $insuranceCompany->id,
+                    'vendor_name' => $insuranceCompany->name,
+                    'business_id' => Auth::user()->business_id,
+                ]);
+
                 // Generate password reset token and send email (handled by third-party system)
                 $resetTokenResponse = null;
                 $emailMessage = '';

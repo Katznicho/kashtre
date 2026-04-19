@@ -124,6 +124,12 @@
                                         </dd>
                                     </div>
                                 </dl>
+                                <form action="{{ route('third-party-vendors.create-payer', $vendor['id']) }}" method="POST" class="mt-4">
+                                    @csrf
+                                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                                        + Create Payer Account
+                                    </button>
+                                </form>
                             @endif
                         </div>
                     </div>

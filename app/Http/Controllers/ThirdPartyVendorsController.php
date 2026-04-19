@@ -404,4 +404,109 @@ class ThirdPartyVendorsController extends Controller
             ->route('third-party-vendors.show', $vendorId)
             ->with('success', 'Vendor reactivated successfully.');
     }
+
+    /**
+     * Create a ThirdPartyPayer account for a vendor that doesn't have one
+     */
+    public function createPayer($vendorId)
+    {
+        $business = auth()->user()->business;
+        
+        if (!$business) {
+            return redirect()->route('dashboard')->with('error', 'No business associated with your account.');
+        }
+
+        try {
+            // Get vendor details from third-party API
+            $baseUrl = config('services.third_party.api_url', env('THIRD_PARTY_API_URL', 'http://127.0.0.1:8001'));
+            $response = \Illuminate\Support\Facades\Http::timeout(30)
+                ->get("{$baseUrl}/api/v1/businesses/{$business->id}/connected-vendors");
+
+            $vendor = null;
+            
+            if ($response->successful()) {
+                $data = $response->json();
+                $vendors = $data['data'] ?? [];
+                
+                // Find the specific vendor
+                foreach ($vendors as $v) {
+                    if ($v['id'] == $vendorId) {
+                        $vendor = $v;
+                        break;
+                    }
+                }
+            }
+
+            if (!$vendor) {
+                return redirect()->route('third-party-vendors.index')
+                    ->with('error', 'Third party vendor not found.');
+            }
+
+            // Check if payer account already exists
+            $existingPayer = \App\Models\ThirdPartyPayer::where('insurance_company_id', $vendorId)
+                ->where('business_id', $business->id)
+                ->where('type', 'insurance_company')
+                ->whereNull('client_id')
+                ->first();
+
+            if ($existingPayer) {
+                return redirect()->route('third-party-vendors.show', $vendorId)
+                    ->with('info', 'Payer account already exists for this vendor.');
+            }
+
+            // Find or create InsuranceCompany record
+            $insuranceCompany = \App\Models\InsuranceCompany::where('code', $vendor['code'])
+                ->first();
+
+            if (!$insuranceCompany) {
+                // Create insurance company record if it doesn't exist
+                $insuranceCompany = \App\Models\InsuranceCompany::create([
+                    'business_id' => $business->id,
+                    'name' => $vendor['name'],
+                    'code' => $vendor['code'],
+                    'email' => $vendor['email'] ?? null,
+                    'phone' => $vendor['phone'] ?? null,
+                    'third_party_business_id' => $vendorId,
+                ]);
+
+                Log::info('Created insurance company for vendor', [
+                    'insurance_company_id' => $insuranceCompany->id,
+                    'vendor_id' => $vendorId,
+                    'vendor_name' => $vendor['name'],
+                ]);
+            }
+
+            // Create ThirdPartyPayer account
+            $payer = \App\Models\ThirdPartyPayer::create([
+                'business_id' => $business->id,
+                'type' => 'insurance_company',
+                'insurance_company_id' => $insuranceCompany->id,
+                'name' => $vendor['name'],
+                'email' => $vendor['email'] ?? null,
+                'phone_number' => $vendor['phone'] ?? null,
+                'status' => 'active',
+                'credit_limit' => $business->max_third_party_credit_limit ?? 10000.00,
+            ]);
+
+            Log::info('Created third-party payer account', [
+                'third_party_payer_id' => $payer->id,
+                'vendor_id' => $vendorId,
+                'vendor_name' => $vendor['name'],
+                'business_id' => $business->id,
+            ]);
+
+            return redirect()->route('third-party-vendors.show', $vendorId)
+                ->with('success', 'Payer account created successfully for ' . $vendor['name'] . '. Financial data will now be available.');
+
+        } catch (\Exception $e) {
+            Log::error('Exception while creating payer account', [
+                'vendor_id' => $vendorId,
+                'business_id' => $business->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->route('third-party-vendors.show', $vendorId)
+                ->with('error', 'Failed to create payer account. Error: ' . $e->getMessage());
+        }
+    }
 }
