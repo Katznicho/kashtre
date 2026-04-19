@@ -315,7 +315,10 @@ class ClientController extends Controller
             'branch_id' => $currentBranch->id,
             'user_id' => Auth::id(),
             'payment_methods' => $request->input('payment_methods', []),
-            'insurance_company_ids' => $request->input('insurance_company_ids', []),
+            'insurance_company_ids_raw' => $request->input('insurance_company_ids'),
+            'insurance_company_ids_array' => $request->input('insurance_company_ids', []),
+            'insurance_company_ids_count' => count($request->input('insurance_company_ids', [])),
+            'all_request_data' => array_filter($request->all(), fn($key) => strpos($key, 'insurance') !== false, ARRAY_FILTER_USE_KEY),
             'data_open_enrollment' => $request->input('data_open_enrollment', false),
             'existing_client_id' => $request->input('existing_client_id'),
         ]);
@@ -332,10 +335,23 @@ class ClientController extends Controller
         $selectedVendorIds = $request->input('insurance_company_ids', []);
         $legacySingleVendorId = $request->input('insurance_company_id');
         
+        Log::debug('MULTI-VENDOR: After extracting from request', [
+            'selectedVendorIds' => $selectedVendorIds,
+            'selectedVendorIds_count' => count($selectedVendorIds),
+            'selectedVendorIds_type' => gettype($selectedVendorIds),
+            'legacySingleVendorId' => $legacySingleVendorId,
+            'raw_request_all_keys' => array_keys($request->all()),
+        ]);
+        
         // For backward compatibility, if no multi-vendor IDs but single ID exists, use it
         if (empty($selectedVendorIds) && !empty($legacySingleVendorId)) {
             $selectedVendorIds = [(int) $legacySingleVendorId];
         }
+        
+        Log::debug('MULTI-VENDOR: After backward compatibility check', [
+            'selectedVendorIds' => $selectedVendorIds,
+            'selectedVendorIds_count' => count($selectedVendorIds),
+        ]);
         
         if ($isInsuranceSelected && empty($selectedVendorIds)) {
             return redirect()->back()
@@ -370,10 +386,67 @@ class ClientController extends Controller
             ->where('date_of_birth', $request->date_of_birth)
             ->first();
 
-        // If existing client found, redirect to POS with that client (no new record needed)
+        // If existing client found, update their details and handle multi-vendor attachment
         if ($existingClient) {
+            Log::info('FLOW: Existing client found - will update vendors', [
+                'existing_client_id' => $existingClient->id,
+                'client_id' => $existingClient->client_id,
+                'isInsuranceSelected' => $isInsuranceSelected,
+                'selectedVendorIds' => $selectedVendorIds,
+            ]);
+            
+            // If insurance is selected with multi-vendor, handle vendor attachment
+            if ($isInsuranceSelected && !empty($selectedVendorIds)) {
+                Log::info('FLOW: Attaching vendors to existing client', [
+                    'existing_client_id' => $existingClient->id,
+                    'vendor_count' => count($selectedVendorIds),
+                    'selectedVendorIds' => $selectedVendorIds,
+                ]);
+                
+                try {
+                    $multiVendorService = new MultiVendorClientService();
+                    
+                    // Prepare vendor data from form submission
+                    $vendorData = [];
+                    $insuranceVendorData = $request->input('insurance_vendor_data', []);
+                    
+                    foreach ($selectedVendorIds as $vendorId) {
+                        if (isset($insuranceVendorData[$vendorId])) {
+                            $vendorData[$vendorId] = $insuranceVendorData[$vendorId];
+                        } else {
+                            $vendorData[$vendorId] = ['policy_number' => null];
+                        }
+                    }
+                    
+                    // Attach vendors to existing client
+                    $attachmentResult = $multiVendorService->attachMultipleVendors($existingClient, $vendorData);
+                    
+                    Log::info('FLOW: Vendors attached to existing client', [
+                        'existing_client_id' => $existingClient->id,
+                        'success_count' => count($attachmentResult['success'] ?? []),
+                        'failed_count' => count($attachmentResult['failed'] ?? []),
+                    ]);
+                    
+                    // Register authorized visits with each vendor
+                    $visitRegistrationResult = $multiVendorService->registerAuthorizedVisitsMultiVendor($existingClient);
+                    
+                    Log::info('FLOW: Authorized visits registered for existing client', [
+                        'existing_client_id' => $existingClient->id,
+                        'registered_vendors' => array_keys($visitRegistrationResult['registered'] ?? []),
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('FLOW: Error attaching vendors to existing client', [
+                        'existing_client_id' => $existingClient->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+            
+            // Issue new visit for this session
+            $existingClient->issueNewVisitId();
+            
             return redirect()->route('pos.item-selection', $existingClient)
-                ->with('success', 'Existing client found! Redirecting to ordering page. Client ID: ' . $existingClient->client_id);
+                ->with('success', 'Existing client found! Vendors updated and new visit started. Client ID: ' . $existingClient->client_id);
         }
 
         // Validate NIN for new clients
@@ -797,12 +870,27 @@ class ClientController extends Controller
                 $vendorData = [];
                 $insuranceVendorData = $request->input('insurance_vendor_data', []);
                 
+                Log::debug('MULTI-VENDOR: Attaching vendors to client', [
+                    'kashtre_client_id' => $client->client_id,
+                    'selectedVendorIds' => $selectedVendorIds,
+                    'selectedVendorIds_count' => count($selectedVendorIds),
+                    'insuranceVendorData_keys' => array_keys($insuranceVendorData),
+                    'insuranceVendorData' => $insuranceVendorData,
+                ]);
+                
                 foreach ($selectedVendorIds as $vendorId) {
                     if (isset($insuranceVendorData[$vendorId])) {
                         $vendorData[$vendorId] = $insuranceVendorData[$vendorId];
+                        Log::debug('MULTI-VENDOR: Added vendor to vendorData', [
+                            'vendorId' => $vendorId,
+                            'vendorData' => $vendorData[$vendorId],
+                        ]);
                     } else {
                         // Fallback if vendor data not provided
                         $vendorData[$vendorId] = ['policy_number' => null];
+                        Log::warning('MULTI-VENDOR: Vendor data not found, using fallback', [
+                            'vendorId' => $vendorId,
+                        ]);
                     }
                 }
                 

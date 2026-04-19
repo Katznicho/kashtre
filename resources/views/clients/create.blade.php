@@ -1384,6 +1384,53 @@
                 visit_authorization_period_days: 7
             };
 
+            // Track verification state per insurance company to prevent data loss when switching
+            let verificationStates = {};
+
+            // Save current verification state before switching
+            function saveCurrentVerificationState() {
+                if (!insuranceCompanySelect || !insuranceCompanySelect.value) return;
+                const companyId = insuranceCompanySelect.value;
+                verificationStates[companyId] = {
+                    policyNumber: policyNumberInput?.value || '',
+                    isVerified: policyVerifiedInput?.value === '1',
+                    resultHtml: policyVerificationResult?.innerHTML || '',
+                    buttonDisabled: verifyPolicyBtn?.disabled || false,
+                    buttonText: verifyPolicyBtn?.textContent || 'Verify',
+                    greenBorder: policyNumberInput?.classList.contains('border-green-300') || false,
+                    redBorder: policyNumberInput?.classList.contains('border-red-300') || false,
+                };
+            }
+
+            // Restore verification state for a company
+            function restoreVerificationState(companyId) {
+                if (!verificationStates[companyId]) {
+                    // No saved state, do a full reset
+                    resetInsuranceVerificationUI();
+                    return;
+                }
+
+                const state = verificationStates[companyId];
+                if (policyNumberInput) policyNumberInput.value = state.policyNumber;
+                if (policyVerifiedInput) policyVerifiedInput.value = state.isVerified ? '1' : '0';
+                if (policyVerificationResult) policyVerificationResult.innerHTML = state.resultHtml;
+                if (verifyPolicyBtn) {
+                    verifyPolicyBtn.disabled = state.buttonDisabled;
+                    verifyPolicyBtn.textContent = state.buttonText;
+                }
+                if (policyNumberInput) {
+                    if (state.greenBorder) {
+                        policyNumberInput.classList.add('border-green-300');
+                        policyNumberInput.classList.remove('border-red-300');
+                    } else if (state.redBorder) {
+                        policyNumberInput.classList.add('border-red-300');
+                        policyNumberInput.classList.remove('border-green-300');
+                    } else {
+                        policyNumberInput.classList.remove('border-green-300', 'border-red-300');
+                    }
+                }
+            }
+
             function resetInsuranceVerificationUI() {
                 // Reset policy verification UI when insurance company / policy context changes
                 if (policyVerifiedInput) {
@@ -1455,14 +1502,16 @@
             });
 
             // Fetch insurance company settings and show the right section
-            async function togglePolicyNumberSection() {
+            async function togglePolicyNumberSection(shouldRestore = false) {
                 if (!insuranceCompanySelect || !insuranceCompanySelect.value) {
                     policyNumberSection.style.display = 'none';
                     const oeCard = document.getElementById('open_enrollment_card');
                     if (oeCard) oeCard.remove();
                     if (policyNumberInput) policyNumberInput.value = '';
                     document.getElementById('policy_verified').value = '0';
-                    resetInsuranceVerificationUI();
+                    if (!shouldRestore) {
+                        resetInsuranceVerificationUI();
+                    }
                     return;
                 }
 
@@ -1538,7 +1587,10 @@
                     policyNumberSection.insertAdjacentElement('afterend', card);
                 } else {
                     policyNumberSection.style.display = 'block';
-                    resetInsuranceVerificationUI();
+                    // Only reset if not restoring from previous state
+                    if (!shouldRestore) {
+                        resetInsuranceVerificationUI();
+                    }
                 }
             }
 
@@ -2869,7 +2921,14 @@
             }
 
             if (insuranceCompanySelect) {
-                insuranceCompanySelect.addEventListener('change', togglePolicyNumberSection);
+                insuranceCompanySelect.addEventListener('change', async function() {
+                    saveCurrentVerificationState();  // Save current state before switching
+                    const companyId = insuranceCompanySelect.value;
+                    await togglePolicyNumberSection(true);  // Wait for toggle and pass true to skip reset
+                    if (companyId) {
+                        restoreVerificationState(companyId);  // Restore saved state after toggle completes
+                    }
+                });
             }
 
             if (verifyPolicyBtn) {
@@ -2960,6 +3019,12 @@
             // Cache for insurance company settings
             const settingsCache = {};
 
+            // Store verification state per vendor to prevent data loss during re-render
+            const vendorVerificationStates = {};
+            
+            // Track vendors with invalid verifications (service category mismatch)
+            const invalidVendors = new Set();
+
             // Get all available insurance companies from the checkboxes
             function getVendorInfo(vendorId) {
                 const checkbox = document.querySelector(`.vendor-checkbox[value="${vendorId}"]`);
@@ -2986,6 +3051,110 @@
                     console.error('Error fetching insurance settings:', error);
                 }
                 return null;
+            }
+
+            // Save verification state for all vendors before re-render
+            function saveAllVendorStates() {
+                vendorCheckboxes.forEach(checkbox => {
+                    if (checkbox.checked) {
+                        const vendorId = checkbox.value;
+                        const policyInput = document.querySelector(`[name="insurance_vendor_data[${vendorId}][policy_number]"]`);
+                        const resultDiv = document.querySelector(`.policy-verification-result[data-vendor-id="${vendorId}"]`);
+                        
+                        if (policyInput || resultDiv) {
+                            // Save current service category used during verification
+                            const currentServiceCategory = document.getElementById('services_category')?.value || '';
+                            
+                            vendorVerificationStates[vendorId] = {
+                                policyNumber: policyInput?.value || '',
+                                resultHtml: resultDiv?.innerHTML || '',
+                                inputClass: policyInput?.className || '',
+                                verifiedServiceCategory: currentServiceCategory,  // ← Store verified category
+                            };
+                        }
+                    }
+                });
+            }
+
+            // Invalidate all vendor verifications if service category changes
+            function invalidateVerificationsIfCategoryChanged() {
+                const currentCategory = document.getElementById('services_category')?.value || '';
+                let hasInvalidated = false;
+
+                // Check each vendor's verified category
+                Object.keys(vendorVerificationStates).forEach(vendorId => {
+                    const state = vendorVerificationStates[vendorId];
+                    
+                    // If service category has changed since verification
+                    if (state.verifiedServiceCategory && state.verifiedServiceCategory !== currentCategory) {
+                        const policyInput = document.querySelector(`[name="insurance_vendor_data[${vendorId}][policy_number]"]`);
+                        const resultDiv = document.querySelector(`.policy-verification-result[data-vendor-id="${vendorId}"]`);
+                        
+                        if (policyInput) {
+                            policyInput.classList.remove('border-green-400');
+                            policyInput.classList.add('border-red-400');
+                        }
+                        
+                        if (resultDiv) {
+                            resultDiv.innerHTML = `
+                                <div class="p-2 bg-red-50 border border-red-200 rounded">
+                                    <p class="text-sm text-red-700 font-medium">⚠ Verification invalid</p>
+                                    <p class="text-xs text-red-600 mt-1">Service category has changed. Please verify this policy again with the new category.</p>
+                                </div>`;
+                        }
+                        
+                        // Add to invalid set and disable submit button
+                        invalidVendors.add(vendorId);
+                        updateSubmitButtonState();
+                        
+                        hasInvalidated = true;
+                    }
+                });
+
+                return hasInvalidated;
+            }
+
+            // Update submit button state based on invalid vendors
+            function updateSubmitButtonState() {
+                const individualForm = document.getElementById('client-registration-form-individual');
+                const submitBtn = individualForm?.querySelector('button[type="submit"]');
+                
+                if (submitBtn) {
+                    if (invalidVendors.size > 0) {
+                        submitBtn.disabled = true;
+                        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                        submitBtn.title = `${invalidVendors.size} vendor verification(s) need to be re-verified with the current service category`;
+                    } else {
+                        submitBtn.disabled = false;
+                        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        submitBtn.title = '';
+                    }
+                }
+            }
+
+            // Restore verification state for a specific vendor after re-render
+            function restoreVendorState(vendorId) {
+                if (!vendorVerificationStates[vendorId]) return;
+
+                const state = vendorVerificationStates[vendorId];
+                const policyInput = document.querySelector(`[name="insurance_vendor_data[${vendorId}][policy_number]"]`);
+                const resultDiv = document.querySelector(`.policy-verification-result[data-vendor-id="${vendorId}"]`);
+
+                if (policyInput) {
+                    policyInput.value = state.policyNumber;
+                    // Restore styling (border colors for verified/failed states)
+                    if (state.inputClass.includes('border-green')) {
+                        policyInput.classList.add('border-green-400');
+                        policyInput.classList.remove('border-red-400');
+                    } else if (state.inputClass.includes('border-red')) {
+                        policyInput.classList.add('border-red-400');
+                        policyInput.classList.remove('border-green-400');
+                    }
+                }
+
+                if (resultDiv) {
+                    resultDiv.innerHTML = state.resultHtml;
+                }
             }
 
             // Get currently selected vendors
@@ -3039,6 +3208,10 @@
                                         <p class="text-xs text-green-700 mt-1">I confirm that the client has presented their physical insurance card for verification and I have verified it matches the client.</p>
                                     </div>
                                 </label>
+                                <!-- Hidden fields for policy details (for consistency, even if not used for OE) -->
+                                <input type="hidden" name="insurance_vendor_data[${vendor.id}][deductible_amount]" value="">
+                                <input type="hidden" name="insurance_vendor_data[${vendor.id}][copay_amount]" value="">
+                                <input type="hidden" name="insurance_vendor_data[${vendor.id}][coinsurance_percentage]" value="">
                             </div>
                         </div>
                     </div>`;
@@ -3087,6 +3260,10 @@
                                         <p class="text-xs text-green-700 mt-1">I confirm that the client has presented their physical insurance card for verification and I have verified it matches the client.</p>
                                     </div>
                                 </label>
+                                <!-- Hidden fields for policy details populated after verification -->
+                                <input type="hidden" name="insurance_vendor_data[${vendor.id}][deductible_amount]" value="">
+                                <input type="hidden" name="insurance_vendor_data[${vendor.id}][copay_amount]" value="">
+                                <input type="hidden" name="insurance_vendor_data[${vendor.id}][coinsurance_percentage]" value="">
                             </div>
                         </div>
                     </div>`;
@@ -3094,7 +3271,16 @@
 
             // Render vendor-specific policy forms (async: fetches OE settings per vendor)
             async function renderVendorPolicyForms() {
+                // Save all verification states BEFORE clearing the container
+                saveAllVendorStates();
+
                 const selectedVendors = getSelectedVendors();
+                
+                console.log('DEBUG: renderVendorPolicyForms called', {
+                    selectedVendorCount: selectedVendors.length,
+                    selectedVendorIds: selectedVendors.map(v => v.id),
+                    checkedCheckboxes: Array.from(vendorCheckboxes).filter(cb => cb.checked).map(cb => cb.value)
+                });
 
                 if (selectedVendors.length === 0) {
                     vendorPoliciesSection.style.display = 'none';
@@ -3116,6 +3302,11 @@
                 });
 
                 vendorPoliciesContainer.innerHTML = html;
+
+                // Restore verification states for each vendor
+                selectedVendors.forEach(vendor => {
+                    restoreVendorState(vendor.id);
+                });
 
                 // Attach event listeners to open-enrollment enroll buttons
                 document.querySelectorAll('.oe-enroll-btn').forEach(btn => {
@@ -3242,11 +3433,25 @@
                                     <div class="p-2 bg-green-50 border border-green-200 rounded">
                                         <p class="text-sm text-green-700 font-medium">Policy verified successfully</p>
                                         ${memberName ? `<p class="text-xs text-green-600">Policy holder: ${memberName}</p>` : ''}
-                                        ${policyStatus ? `<p class="text-xs text-green-600">Status: ${policyStatus}</p>` : ''}
                                         ${detailLines}
                                     </div>`;
                                 policyInput.classList.add('border-green-400');
                                 policyInput.classList.remove('border-red-400');
+                                
+                                // Store verified state including the service category used
+                                const currentServiceCategory = document.getElementById('services_category')?.value || '';
+                                vendorVerificationStates[vendorId] = {
+                                    policyNumber: policyInput.value,
+                                    resultHtml: resultDiv.innerHTML,
+                                    inputClass: 'border-green-400',
+                                    verifiedServiceCategory: currentServiceCategory,
+                                };
+                                
+                                // Remove from invalid set if it was there, and update button
+                                if (invalidVendors.has(vendorId)) {
+                                    invalidVendors.delete(vendorId);
+                                    updateSubmitButtonState();
+                                }
                             } else {
                                 const policyVerifiedInput = document.getElementById('policy_verified');
                                 if (policyVerifiedInput) policyVerifiedInput.value = '0';
@@ -3338,9 +3543,38 @@
             // Handle vendor checkbox changes
             vendorCheckboxes.forEach(checkbox => {
                 checkbox.addEventListener('change', async function() {
+                    const vendorId = this.value;
+                    console.log('DEBUG: Vendor checkbox changed', {
+                        vendorId: vendorId,
+                        isNowChecked: this.checked,
+                        allCheckedVendors: Array.from(vendorCheckboxes).filter(cb => cb.checked).map(cb => cb.value),
+                        totalChecked: Array.from(vendorCheckboxes).filter(cb => cb.checked).length
+                    });
                     await renderVendorPolicyForms();
                 });
             });
+
+            // Handle service category changes - invalidate verifications if changed
+            const servicesCategorySelect = document.getElementById('services_category');
+            if (servicesCategorySelect) {
+                servicesCategorySelect.addEventListener('change', function() {
+                    const hasInvalidated = invalidateVerificationsIfCategoryChanged();
+                    if (hasInvalidated) {
+                        // Show warning toast/notification
+                        const warningDiv = document.createElement('div');
+                        warningDiv.className = 'fixed top-4 right-4 bg-red-100 border border-red-400 text-red-800 px-4 py-3 rounded-lg shadow-lg z-50';
+                        warningDiv.innerHTML = `
+                            <p class="font-medium">⚠ Service Category Changed</p>
+                            <p class="text-sm mt-1">Policy verifications are invalid. Please re-verify them with the new service category.</p>
+                            <p class="text-sm mt-2 font-semibold">The Register button has been disabled until verifications are re-done.</p>
+                        `;
+                        document.body.appendChild(warningDiv);
+                        
+                        // Auto-remove after 7 seconds
+                        setTimeout(() => warningDiv.remove(), 7000);
+                    }
+                });
+            }
 
             // Initialize on page load
             if (getSelectedVendors().length > 0) {
@@ -3355,6 +3589,39 @@
                         vendorCheckboxes.forEach(checkbox => checkbox.checked = false);
                         renderVendorPolicyForms();
                     }
+                });
+            }
+
+            // Debug: Log vendor selection before form submission
+            const individualForm = document.getElementById('client-registration-form-individual');
+            if (individualForm) {
+                individualForm.addEventListener('submit', function(e) {
+                    const checkedVendors = [];
+                    const vendorWithoutData = [];
+                    
+                    vendorCheckboxes.forEach(checkbox => {
+                        if (checkbox.checked) {
+                            checkedVendors.push({
+                                id: checkbox.value,
+                                name: getVendorInfo(checkbox.value)?.name || 'Unknown'
+                            });
+                            
+                            // Check if vendor has the required form fields
+                            const policyNumberField = document.querySelector(`[name="insurance_vendor_data[${checkbox.value}][policy_number]"]`);
+                            if (!policyNumberField) {
+                                vendorWithoutData.push(checkbox.value);
+                            }
+                        }
+                    });
+                    
+                    console.log('DEBUG: Form submission check', {
+                        checkedVendors: checkedVendors,
+                        checkedVendorIds: checkedVendors.map(v => v.id),
+                        checkedCount: checkedVendors.length,
+                        vendorsWithoutFormData: vendorWithoutData,
+                        insuranceSelected: document.querySelector('input[name="payment_methods[]"][value="insurance"]')?.checked,
+                        insurancePaymentMethodChecked: Array.from(document.querySelectorAll('input[name="payment_methods[]"]:checked')).map(el => el.value)
+                    });
                 });
             }
         })();

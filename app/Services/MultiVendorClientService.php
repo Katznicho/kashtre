@@ -25,6 +25,14 @@ class MultiVendorClientService
      */
     public function attachMultipleVendors(Client $client, array $vendorData): array
     {
+        Log::info('SERVICE: attachMultipleVendors called', [
+            'client_id' => $client->id,
+            'client_client_id' => $client->client_id,
+            'vendorData_count' => count($vendorData),
+            'vendorData_keys' => array_keys($vendorData),
+            'vendorData' => $vendorData,
+        ]);
+
         $results = [
             'success' => [],
             'failed' => [],
@@ -44,8 +52,21 @@ class MultiVendorClientService
         $orderedVendorData = $nonOE + $oe;
         $priorityCounter   = 1;
 
+        Log::debug('SERVICE: Vendor ordering', [
+            'nonOE_count' => count($nonOE),
+            'oe_count' => count($oe),
+            'orderedVendorData_keys' => array_keys($orderedVendorData),
+        ]);
+
         foreach ($orderedVendorData as $insuranceCompanyId => $data) {
             $assignedPriority = $priorityCounter++;
+            
+            Log::debug('SERVICE: Processing vendor', [
+                'iteration' => $assignedPriority,
+                'insuranceCompanyId' => $insuranceCompanyId,
+                'data' => $data,
+            ]);
+            
             try {
                 // Resolve the local InsuranceCompany (keyed by insurance_companies.id)
                 $insuranceCompany = InsuranceCompany::find($insuranceCompanyId);
@@ -147,13 +168,26 @@ class MultiVendorClientService
                     $clientVendorData['coinsurance_contributes_to_deductible']  = $paymentResponsibility['coinsurance_contributes_to_deductible'] ?? false;
                 }
 
-                ClientVendor::updateOrCreate(
+                Log::debug('SERVICE: Creating ClientVendor record', [
+                    'client_id' => $client->id,
+                    'third_party_payer_id' => $thirdPartyPayer->id,
+                    'clientVendorData' => $clientVendorData,
+                ]);
+
+                $clientVendor = ClientVendor::updateOrCreate(
                     [
                         'client_id'           => $client->id,
                         'third_party_payer_id' => $thirdPartyPayer->id,
                     ],
                     $clientVendorData
                 );
+                
+                Log::info('SERVICE: ClientVendor record created/updated', [
+                    'client_vendor_id' => $clientVendor->id,
+                    'client_id' => $client->id,
+                    'third_party_payer_id' => $thirdPartyPayer->id,
+                    'insuranceCompanyId' => $insuranceCompanyId,
+                ]);
 
                 $results['success'][$insuranceCompanyId] = [
                     'insurance_company_id'    => $insuranceCompanyId,
@@ -184,6 +218,14 @@ class MultiVendorClientService
                 $results['failed'][$insuranceCompanyId] = "Error: {$e->getMessage()}";
             }
         }
+
+        Log::info('SERVICE: attachMultipleVendors finished', [
+            'client_id' => $client->id,
+            'success_count' => count($results['success']),
+            'failed_count' => count($results['failed']),
+            'success_vendor_ids' => array_keys($results['success']),
+            'failed_vendor_ids' => array_keys($results['failed']),
+        ]);
 
         return $results;
     }
@@ -222,16 +264,14 @@ class MultiVendorClientService
 
                 $thirdPartyBusinessId = (int) $insuranceCompany->third_party_business_id;
 
-                // For open enrollment vendors the client must exist on the third-party before
-                // a visit can be registered. Sync the client now if this is an OE vendor.
-                if ($clientVendor->is_open_enrollment) {
-                    $syncResult = $this->apiService->syncClientToVendor($client, $thirdPartyBusinessId);
-                    if (!$syncResult) {
-                        Log::warning('Multi-vendor OE: client sync returned null — visit registration may fail', [
-                            'client_id'               => $client->id,
-                            'third_party_business_id' => $thirdPartyBusinessId,
-                        ]);
-                    }
+                // The client must exist on the third-party system before we can register an authorized visit.
+                // Sync the client now for all vendors (both open enrollment and regular policy verification).
+                $syncResult = $this->apiService->syncClientToVendor($client, $thirdPartyBusinessId);
+                if (!$syncResult) {
+                    Log::warning('Multi-vendor: client sync returned null — visit registration may fail', [
+                        'client_id'               => $client->id,
+                        'third_party_business_id' => $thirdPartyBusinessId,
+                    ]);
                 }
 
                 $visitRegistrationResult = $this->apiService->registerAuthorizedVisit(
