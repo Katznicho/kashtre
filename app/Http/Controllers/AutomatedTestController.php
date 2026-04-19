@@ -285,31 +285,31 @@ class AutomatedTestController extends Controller
             $output[] = "   Phone: {$client->payment_phone_number}\n";
             $output[] = "   Amount: " . number_format($totalAmount) . " UGX\n";
             
+            // Format phone number for YoAPI (must be international format 256XXXXXXXXX)
+            $formattedPhone = $client->payment_phone_number;
+            
+            // Remove any non-numeric characters except + at the beginning
+            $formattedPhone = preg_replace('/[^0-9+]/', '', $formattedPhone);
+            
+            // Handle different phone number formats
+            if (str_starts_with($formattedPhone, '+256')) {
+                // Remove the + prefix for YoAPI
+                $formattedPhone = substr($formattedPhone, 1);
+            } elseif (str_starts_with($formattedPhone, '256')) {
+                // Already in correct format
+                $formattedPhone = $formattedPhone;
+            } elseif (str_starts_with($formattedPhone, '0')) {
+                // Convert from local format (0XXXXXXXXX) to international (256XXXXXXXXX)
+                $formattedPhone = '256' . substr($formattedPhone, 1);
+            } else {
+                // Assume it's already in international format without +
+                $formattedPhone = $formattedPhone;
+            }
+            
+            $output[] = "   Formatted Phone: {$formattedPhone}\n";
+            
             // Call actual payment gateway
             try {
-                // Format phone number for YoAPI (must be international format 256XXXXXXXXX)
-                $formattedPhone = $client->payment_phone_number;
-                
-                // Remove any non-numeric characters except + at the beginning
-                $formattedPhone = preg_replace('/[^0-9+]/', '', $formattedPhone);
-                
-                // Handle different phone number formats
-                if (str_starts_with($formattedPhone, '+256')) {
-                    // Remove the + prefix for YoAPI
-                    $formattedPhone = substr($formattedPhone, 1);
-                } elseif (str_starts_with($formattedPhone, '256')) {
-                    // Already in correct format
-                    $formattedPhone = $formattedPhone;
-                } elseif (str_starts_with($formattedPhone, '0')) {
-                    // Convert from local format (0XXXXXXXXX) to international (256XXXXXXXXX)
-                    $formattedPhone = '256' . substr($formattedPhone, 1);
-                } else {
-                    // Assume it's already in international format without +
-                    $formattedPhone = $formattedPhone;
-                }
-                
-                $output[] = "   Formatted Phone: {$formattedPhone}\n";
-                
                 $yoPayments = new \App\Payments\YoAPI(
                     config('payments.yo_username'),
                     config('payments.yo_password')
@@ -334,13 +334,13 @@ class AutomatedTestController extends Controller
                     $output[] = "✅ Payment Request Sent to Phone\n";
                     $output[] = "   Transaction Ref: {$paymentResult['TransactionReference']}\n";
                     $paymentReference = $paymentResult['TransactionReference'];
-                    $paymentStatus = 'completion_pending';
+                    $paymentStatus = 'pending'; // Status is 'pending' until CRON confirms with YoAPI
                 } else {
                     // Payment failed or not OK
                     $output[] = "⚠️ Payment Response: " . ($paymentResult['StatusMessage'] ?? 'Unknown response') . "\n";
                     Log::warning('YoAPI Payment Failed', ['result' => $paymentResult]);
                     $paymentReference = 'FAILED-' . now()->timestamp;
-                    $paymentStatus = 'pending';
+                    $paymentStatus = 'failed'; // Use 'failed' enum value
                 }
             } catch (\Exception $e) {
                 $output[] = "⚠️ Payment Gateway Error: " . $e->getMessage() . "\n";
@@ -361,16 +361,18 @@ class AutomatedTestController extends Controller
                 'reference' => $invoice->invoice_number,
                 'external_reference' => $paymentReference, // YoAPI transaction reference
                 'service' => 'healthcare',
-                'status' => $paymentStatus,
+                'status' => $paymentStatus, // 'pending' or 'failed'
+                'type' => 'credit', // Money coming in to the business
+                'origin' => 'web', // Payment initiated from web interface
                 'method' => 'mobile_money',
                 'provider' => 'yo',
-                'phone_number' => $client->payment_phone_number,
+                'phone_number' => $formattedPhone,
                 'description' => $paymentNarrative,
             ]);
 
             // Update invoice payment status
             $invoice->update([
-                'payment_status' => $paymentStatus === 'completion_pending' ? 'pending' : $paymentStatus,
+                'payment_status' => $paymentStatus === 'pending' ? 'pending' : 'failed',
             ]);
 
             $output[] = "✅ Payment Completed\n";
@@ -385,7 +387,7 @@ class AutomatedTestController extends Controller
             
             $queueCount = 0;
             
-            if ($paymentStatus === 'completion_pending') {
+            if ($paymentStatus === 'pending') {
                 $output[] = "✅ Payment Request Sent Successfully\n";
                 $output[] = "   Transaction Reference: {$paymentReference}\n";
                 $output[] = "   Status: Awaiting Payment Confirmation\n\n";
@@ -407,7 +409,7 @@ class AutomatedTestController extends Controller
                 $output[] = "   Next: Items will appear in queue after payment confirmed\n";
             } else {
                 $output[] = "⚠️ Payment Request Failed\n";
-                $output[] = "   Status: " . ($paymentStatus === 'pending' ? 'Initiation Failed' : 'Gateway Error') . "\n";
+                $output[] = "   Status: " . ($paymentStatus === 'failed' ? 'YoAPI Rejected' : 'Gateway Error') . "\n";
                 $output[] = "   Reference: {$paymentReference}\n";
                 $output[] = "   Items will NOT be queued\n";
                 $output[] = "   Action: Retry payment or contact support\n\n";
@@ -415,7 +417,7 @@ class AutomatedTestController extends Controller
 
             // SUMMARY
             $output[] = "====================================================\n";
-            if ($paymentStatus === 'completion_pending') {
+            if ($paymentStatus === 'pending') {
                 $output[] = "✅ AUTOMATED TEST INITIATED SUCCESSFULLY!\n";
                 $output[] = "====================================================\n\n";
                 $output[] = "🎯 TEST JOURNEY COMPLETED:\n";
