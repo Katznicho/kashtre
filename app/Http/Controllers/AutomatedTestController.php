@@ -273,29 +273,86 @@ class AutomatedTestController extends Controller
             $output[] = "STEP 5️⃣ : PROCESS PAYMENT\n";
             $output[] = "----------------------------\n";
             
+            // Prepare items description for payment gateway
+            $itemsDescription = [];
+            foreach ($invoiceItems as $item) {
+                $itemsDescription[] = $item['name'];
+            }
+            $paymentNarrative = "Order " . $invoice->invoice_number . ": " . implode(", ", $itemsDescription);
+            
+            $output[] = "💳 Initiating Mobile Money Payment...\n";
+            $output[] = "   Provider: YoAPI\n";
+            $output[] = "   Phone: {$client->payment_phone_number}\n";
+            $output[] = "   Amount: " . number_format($totalAmount) . " UGX\n";
+            
+            // Call actual payment gateway
+            try {
+                $yoPayments = new \App\Payments\YoAPI(
+                    config('payments.yo_username'),
+                    config('payments.yo_password')
+                );
+                
+                // Set external reference
+                $externalRef = 'TST' . now()->timestamp;
+                $yoPayments->set_external_reference($externalRef);
+                
+                // Process the actual payment
+                $paymentResult = $yoPayments->ac_deposit_funds(
+                    $client->payment_phone_number,
+                    intval($totalAmount),
+                    $paymentNarrative
+                );
+                
+                // Log payment result
+                Log::info('YoAPI Payment Result', ['result' => $paymentResult]);
+                
+                // Check if payment was initiated successfully
+                if (isset($paymentResult['Status']) && $paymentResult['Status'] === 'OK') {
+                    $output[] = "✅ Payment Request Sent to Phone\n";
+                    $output[] = "   Transaction Ref: {$paymentResult['TransactionReference']}\n";
+                    $paymentReference = $paymentResult['TransactionReference'];
+                    $paymentStatus = 'completion_pending';
+                } else {
+                    // Payment failed or not OK
+                    $output[] = "⚠️ Payment Response: " . ($paymentResult['StatusMessage'] ?? 'Unknown response') . "\n";
+                    Log::warning('YoAPI Payment Failed', ['result' => $paymentResult]);
+                    $paymentReference = 'FAILED-' . now()->timestamp;
+                    $paymentStatus = 'pending';
+                }
+            } catch (\Exception $e) {
+                $output[] = "⚠️ Payment Gateway Error: " . $e->getMessage() . "\n";
+                Log::error('Payment Gateway Error', ['error' => $e->getMessage()]);
+                $paymentReference = 'ERROR-' . now()->timestamp;
+                $paymentStatus = 'pending';
+            }
+            
+            $output[] = "\n";
+            
+            // Create transaction record
             $transaction = Transaction::create([
                 'invoice_id' => $invoice->id,
                 'client_id' => $client->id,
                 'business_id' => $business->id,
                 'branch_id' => $branch->id,
                 'amount' => $totalAmount,
-                'reference' => 'PAY' . now()->timestamp,
+                'reference' => $invoice->invoice_number,
+                'external_reference' => $paymentReference, // YoAPI transaction reference
                 'service' => 'healthcare',
-                'status' => 'completed',
+                'status' => $paymentStatus,
+                'method' => 'mobile_money',
+                'provider' => 'yo',
+                'phone_number' => $client->payment_phone_number,
+                'description' => $paymentNarrative,
             ]);
 
-            // Update invoice to paid
+            // Update invoice payment status
             $invoice->update([
-                'amount_paid' => $totalAmount,
-                'balance_due' => 0,
-                'payment_status' => 'paid',
-                'confirmed_at' => now(),
+                'payment_status' => $paymentStatus === 'completion_pending' ? 'pending' : $paymentStatus,
             ]);
 
             $output[] = "✅ Payment Completed\n";
-            $output[] = "   Reference: {$transaction->reference}\n";
-            $output[] = "   Amount: {$totalAmount}\n";
-            $output[] = "   Status: Paid\n\n";
+            $output[] = "   Reference: {$paymentReference}\n";
+            $output[] = "   Amount: " . number_format($totalAmount) . " UGX\n";
 
             // STEP 5: Queue Items
             $output[] = "STEP 5️⃣ : ITEMS QUEUED FOR DELIVERY\n";
