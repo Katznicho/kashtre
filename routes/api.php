@@ -37,3 +37,5 @@ Route::prefix('v1')->group(function () {
     // Callback from third-party insurer after authorization decision (approve/reject)
     Route::post('/insurance/authorization-decision', [\App\Http\Controllers\API\InvoiceController::class, 'receiveAuthorizationDecision']);
 });
+
+
