@@ -287,6 +287,29 @@ class AutomatedTestController extends Controller
             
             // Call actual payment gateway
             try {
+                // Format phone number for YoAPI (must be international format 256XXXXXXXXX)
+                $formattedPhone = $client->payment_phone_number;
+                
+                // Remove any non-numeric characters except + at the beginning
+                $formattedPhone = preg_replace('/[^0-9+]/', '', $formattedPhone);
+                
+                // Handle different phone number formats
+                if (str_starts_with($formattedPhone, '+256')) {
+                    // Remove the + prefix for YoAPI
+                    $formattedPhone = substr($formattedPhone, 1);
+                } elseif (str_starts_with($formattedPhone, '256')) {
+                    // Already in correct format
+                    $formattedPhone = $formattedPhone;
+                } elseif (str_starts_with($formattedPhone, '0')) {
+                    // Convert from local format (0XXXXXXXXX) to international (256XXXXXXXXX)
+                    $formattedPhone = '256' . substr($formattedPhone, 1);
+                } else {
+                    // Assume it's already in international format without +
+                    $formattedPhone = $formattedPhone;
+                }
+                
+                $output[] = "   Formatted Phone: {$formattedPhone}\n";
+                
                 $yoPayments = new \App\Payments\YoAPI(
                     config('payments.yo_username'),
                     config('payments.yo_password')
@@ -296,9 +319,9 @@ class AutomatedTestController extends Controller
                 $externalRef = 'TST' . now()->timestamp;
                 $yoPayments->set_external_reference($externalRef);
                 
-                // Process the actual payment
+                // Process the actual payment with formatted phone number
                 $paymentResult = $yoPayments->ac_deposit_funds(
-                    $client->payment_phone_number,
+                    $formattedPhone,
                     intval($totalAmount),
                     $paymentNarrative
                 );
