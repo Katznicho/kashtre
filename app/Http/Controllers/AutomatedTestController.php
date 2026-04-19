@@ -94,9 +94,10 @@ class AutomatedTestController extends Controller
                 ]);
             }
 
-            $output[] = "Business: {$business->name}\n";
-            $output[] = "Branch: {$branch->name}\n";
-            $output[] = "Service Point: {$servicePoint->name} (ID: {$servicePoint->id})\n";
+            $output[] = "=== COMPLETE CUSTOMER JOURNEY TEST ===\n\n";
+            $output[] = "Facility: {$business->name}\n";
+            $output[] = "Location: {$branch->name}\n";
+            $output[] = "Service Point: {$servicePoint->name}\n";
             $output[] = "====================================================\n\n";
 
             // Get payment phone, item count, item types, and max amount from request
@@ -140,18 +141,16 @@ class AutomatedTestController extends Controller
                 'balance' => 0,
             ]);
             
-            $output[] = "[OK] User Registered\n";
-            $output[] = "  Client ID: {$client->client_id}\n";
+            $output[] = "[OK] Customer registered successfully\n";
             $output[] = "  Name: {$client->name}\n";
-            $output[] = "  Phone: {$client->phone_number}\n";
-            $output[] = "  Payment Phone: {$client->payment_phone_number}\n";
-            $output[] = "  Email: {$client->email}\n\n";
+            $output[] = "  Contact: {$client->phone_number}\n";
+            $output[] = "  Payment method: {$client->payment_phone_number}\n\n";
 
             // STEP 2: User Orders Items (with budget constraint)
-            $output[] = "STEP 2: USER ORDERS ITEMS\n";
+            $output[] = "STEP 2: CUSTOMER PLACES ORDER\n";
             $output[] = "----------------------------\n";
-            $output[] = "Budget: " . number_format($maxAmount) . " UGX\n";
-            $output[] = "Items will be queued to: {$servicePoint->name} (ID: {$servicePoint->id})\n\n";
+            $output[] = "Budget available: " . number_format($maxAmount) . " UGX\n";
+            $output[] = "Items will be collected from: {$servicePoint->name}\n\n";
 
             // Get random items from business inventory with selected types
             $availableItems = Item::where('business_id', $business->id)
@@ -203,7 +202,7 @@ class AutomatedTestController extends Controller
                 $runningTotal = $cheapest->default_price ?? 10000;
             }
 
-            $output[] = "[OK] Items Selected for Order\n";
+            $output[] = "[OK] Items selected\n\n";
             
             $invoiceItems = [];
             $totalAmount = 0;
@@ -223,19 +222,18 @@ class AutomatedTestController extends Controller
                 ];
 
                 $itemType = ucfirst($item->type ?? 'unknown');
-                $output[] = "   • {$item->name} ({$itemType}) - Qty: {$quantity} × " . number_format($unitPrice) . " = " . number_format($itemTotal) . " UGX\n";
+                $output[] = "   • {$item->name} ({$itemType}) - {$quantity} × " . number_format($unitPrice) . " UGX = " . number_format($itemTotal) . " UGX\n";
             }
             
             $output[] = "\n";
-            $output[] = "ORDER SUMMARY\n";
-            $output[] = "  Budget Limit: " . number_format($maxAmount) . " UGX\n";
-            $output[] = "  Total Amount: " . number_format($totalAmount) . " UGX\n";
-            $output[] = "  Items Count: " . $items->count() . "\n";
-            $output[] = "  Remaining Budget: " . number_format($maxAmount - $totalAmount) . " UGX\n";
+            $output[] = "COST BREAKDOWN:\n";
+            $output[] = "  Items total: " . number_format($totalAmount) . " UGX\n";
+            $output[] = "  Number of items: " . $items->count() . "\n";
+            $output[] = "  Budget used: " . number_format($totalAmount) . " UGX of " . number_format($maxAmount) . " UGX\n";
             $output[] = "\n";
 
             // STEP 3: Create Invoice (Order)
-            $output[] = "STEP 3: ORDER CONFIRMATION\n";
+            $output[] = "STEP 3: REVIEW & CONFIRM ORDER\n";
             $output[] = "----------------------------\n";
 
             $invoice = Invoice::create([
@@ -260,10 +258,10 @@ class AutomatedTestController extends Controller
                 'currency' => 'UGX',
             ]);
 
-            $output[] = "[OK] Order Created\n";
-            $output[] = "  Invoice #: {$invoice->invoice_number}\n";
-            $output[] = "  Total Amount: " . number_format($totalAmount) . " UGX\n";
-            $output[] = "  Items: " . count($invoiceItems) . "\n";
+            $output[] = "[OK] Order confirmed\n";
+            $output[] = "  Order #: {$invoice->invoice_number}\n";
+            $output[] = "  Amount to pay: " . number_format($totalAmount) . " UGX\n";
+            $output[] = "  Items in order: " . count($invoiceItems) . "\n";
             
             // Calculate projected queue numbers for items
             $currentQueueNumber = ServiceQueue::where('service_point_id', $servicePoint->id)->max('queue_number') ?? 0;
@@ -273,11 +271,11 @@ class AutomatedTestController extends Controller
             }
             $queueNumbersStr = implode(", ", $projectedQueueNumbers);
             
-            $output[] = "  Service Point: {$servicePoint->name} (ID: {$servicePoint->id})\n";
-            $output[] = "  Projected Queue Numbers: {$queueNumbersStr}\n\n";
+            $output[] = "  Collection point: {$servicePoint->name}\n";
+            $output[] = "  Expected queue positions: {$queueNumbersStr}\n\n";
 
             // STEP 4: Process Payment (Call YoAPI)
-            $output[] = "STEP 4: PAYMENT PROCESSING\n";
+            $output[] = "STEP 4: SEND PAYMENT REQUEST\n";
             $output[] = "----------------------------\n";
             
             // Prepare items description for payment gateway
@@ -287,9 +285,10 @@ class AutomatedTestController extends Controller
             }
             $paymentNarrative = "Order " . $invoice->invoice_number . ": " . implode(", ", $itemsDescription);
             
-            $output[] = "Initiating Mobile Money Payment...\n";
-            $output[] = "  Phone: {$client->payment_phone_number}\n";
+            $output[] = "Sending payment prompt to customer...\n";
             $output[] = "  Amount: " . number_format($totalAmount) . " UGX\n";
+            $output[] = "  Phone: {$client->payment_phone_number}\n";
+            $output[] = "  Order: {$invoice->invoice_number}\n\n";
             
             // Format phone number for YoAPI (must be international format 256XXXXXXXXX)
             $formattedPhone = $client->payment_phone_number;
@@ -321,12 +320,13 @@ class AutomatedTestController extends Controller
                 Log::info('YoAPI Payment Result', ['result' => $paymentResult]);
                 
                 if (isset($paymentResult['Status']) && $paymentResult['Status'] === 'OK') {
-                    $output[] = "[OK] Payment Request Initiated\n";
+                    $output[] = "[OK] Payment prompt sent successfully\n";
+                    $output[] = "✓ Customer will receive payment request on their phone\n";
                     $paymentReference = $paymentResult['TransactionReference'] ?? 'YO' . now()->timestamp;
                     $paymentStatus = 'pending';
-                    $output[] = "  Status: Awaiting Customer Confirmation\n";
                 } else {
-                    $output[] = "[FAILED] Payment Failed: " . ($paymentResult['StatusMessage'] ?? 'Unknown error') . "\n";
+                    $output[] = "[FAILED] Could not send payment prompt\n";
+                    $output[] = "✗ Error: " . ($paymentResult['StatusMessage'] ?? 'Unknown error') . "\n";
                     $paymentReference = 'FAILED-' . now()->timestamp;
                     $paymentStatus = 'failed';
                 }
@@ -364,67 +364,64 @@ class AutomatedTestController extends Controller
             ]);
 
             // STEP 5: Awaiting Automatic Confirmation
-            $output[] = "STEP 5: AWAITING AUTOMATIC CONFIRMATION\n";
+            $output[] = "STEP 5: AWAITING AUTOMATIC PAYMENT CONFIRMATION\n";
             $output[] = "-------------------------------------\n";
             
             if ($paymentStatus === 'pending') {
-                $output[] = "Payment Pending Confirmation\n";
-                $output[] = "  Invoice: {$invoice->invoice_number}\n";
-                $output[] = "  Amount: " . number_format($totalAmount) . " UGX\n";
-                $output[] = "  Phone: {$client->payment_phone_number}\n";
-                $output[] = "  Service Point: {$servicePoint->name}\n\n";
+                $output[] = "[OK] Payment prompt sent to {$client->payment_phone_number}\n";
+                $output[] = "Customer will see the payment confirmation on their phone.\n\n";
                 
-                $output[] = "CRON JOB AUTOMATION:\n";
-                $output[] = "  - Runs every 5 minutes (payments:check-status)\n";
-                $output[] = "  - Checks YoAPI for payment confirmation\n";
-                $output[] = "  - When payment confirmed:\n";
-                $output[] = "    [OK] Transaction marked as 'completed'\n";
-                $output[] = "    [OK] Invoice marked as 'paid'\n";
-                $output[] = "    [OK] Items queued to: {$servicePoint->name}\n\n";
-                
-                $output[] = "Customer will receive prompt on: {$client->payment_phone_number}\n";
+                $output[] = "What happens next:\n";
+                $output[] = "  1. Customer confirms the payment on their phone\n";
+                $output[] = "  2. System checks for payment confirmation every 5 minutes\n";
+                $output[] = "  3. Once confirmed:\n";
+                $output[] = "     • Payment will be marked as completed\n";
+                $output[] = "     • Items will be queued to " . $servicePoint->name . "\n";
+                $output[] = "     • Customer's account will be updated\n\n";
             } else {
-                $output[] = "[FAILED] Payment Failed - Manual Review Needed\n";
-                $output[] = "  Invoice: {$invoice->invoice_number}\n";
+                $output[] = "[FAILED] Payment could not be sent\n";
                 $output[] = "  Status: " . ucfirst($paymentStatus) . "\n";
+                $output[] = "  Check YoAPI configuration and try again\n\n";
             }
 
             // SUMMARY
             $output[] = "====================================================\n";
             if ($paymentStatus === 'pending') {
-                $output[] = "[SUCCESS] AUTOMATED TEST COMPLETED!\n";
+                $output[] = "[SUCCESS] TEST COMPLETED - ORDER READY FOR PAYMENT\n";
                 $output[] = "====================================================\n\n";
-                $output[] = "ORDER SUBMITTED FOR PAYMENT:\n";
-                $output[] = "  User: {$client->name}\n";
-                $output[] = "  Client ID: {$client->client_id}\n";
-                $output[] = "  Invoice: {$invoice->invoice_number}\n";
-                $output[] = "  Amount: " . number_format($totalAmount) . " UGX\n";
-                $output[] = "  Items: " . count($invoiceItems) . "\n";
-                $output[] = "  Payment Phone: {$client->payment_phone_number}\n";
-                $output[] = "  Queue Destination: {$servicePoint->name} (ID: {$servicePoint->id})\n\n";
                 
-                $output[] = "AUTOMATIC PROCESSING (Every 5 minutes):\n";
-                $output[] = "  1. Confirm payment status with YoAPI\n";
-                $output[] = "  2. Mark transaction as 'completed'\n";
-                $output[] = "  3. Mark invoice as 'paid'\n";
-                $output[] = "  4. Queue items to: {$servicePoint->name}\n\n";
+                $output[] = "CUSTOMER INFORMATION:\n";
+                $output[] = "  Name: {$client->name}\n";
+                $output[] = "  Phone: {$client->phone_number}\n";
+                $output[] = "  Payment Phone: {$client->payment_phone_number}\n\n";
                 
-                $output[] = "MONITORING:\n";
-                $output[] = "  Invoice: {$invoice->invoice_number}\n";
+                $output[] = "ORDER SUMMARY:\n";
+                $output[] = "  Order #: {$invoice->invoice_number}\n";
+                $output[] = "  Total Amount: " . number_format($totalAmount) . " UGX\n";
+                $output[] = "  Items: " . count($invoiceItems) . " items\n";
+                $output[] = "  Where to collect: {$servicePoint->name}\n\n";
+                
+                $output[] = "NEXT STEPS:\n";
+                $output[] = "  ✓ Payment prompt sent to customer\n";
+                $output[] = "  → Waiting for customer to confirm payment\n";
+                $output[] = "  → Once confirmed, items will be queued automatically\n\n";
+                
+                $output[] = "TECHNICAL DETAILS (for monitoring):\n";
+                $output[] = "  Reference: {$invoice->invoice_number}\n";
                 $output[] = "  Transaction ID: {$transaction->id}\n";
-                $output[] = "  Service Point: {$servicePoint->name}\n";
-                $output[] = "  Check payment status in database\n";
+                $output[] = "  Client ID: {$client->client_id}\n";
+                $output[] = "  Collection Point: {$servicePoint->name}\n";
             } else {
                 $output[] = "[FAILURE] TEST FAILED - PAYMENT ERROR\n";
                 $output[] = "====================================================\n\n";
                 $output[] = "Order could not be submitted:\n";
-                $output[] = "  User: {$client->name}\n";
-                $output[] = "  Invoice: {$invoice->invoice_number}\n";
+                $output[] = "  Customer: {$client->name}\n";
+                $output[] = "  Order #: {$invoice->invoice_number}\n";
                 $output[] = "  Error: Payment initiation failed\n";
                 $output[] = "  Amount: " . number_format($totalAmount) . " UGX\n\n";
                 
                 $output[] = "ACTION REQUIRED:\n";
-                $output[] = "  Please check YoAPI configuration and try again\n";
+                $output[] = "  Please check payment configuration and try again\n";
             }
 
             DB::commit();
