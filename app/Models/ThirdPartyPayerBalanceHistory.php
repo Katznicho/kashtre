@@ -98,9 +98,6 @@ class ThirdPartyPayerBalanceHistory extends Model
         
         $newBalance = $previousBalance - $amount; // Debit from balance
 
-        // Update the third-party payer's current_balance
-        $thirdPartyPayer->update(['current_balance' => $newBalance]);
-
         return self::create([
             'third_party_payer_id' => $thirdPartyPayer->id,
             'business_id' => $thirdPartyPayer->business_id,
@@ -131,9 +128,6 @@ class ThirdPartyPayerBalanceHistory extends Model
             ->value('new_balance') ?? ($thirdPartyPayer->current_balance ?? 0);
         
         $newBalance = $previousBalance + $amount; // Credit to balance
-
-        // Update the third-party payer's current_balance
-        $thirdPartyPayer->update(['current_balance' => $newBalance]);
 
         return self::create([
             'third_party_payer_id' => $thirdPartyPayer->id,

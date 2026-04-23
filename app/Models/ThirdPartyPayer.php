@@ -23,6 +23,7 @@ class ThirdPartyPayer extends Model
         'email',
         'address',
         'credit_limit',
+        'current_balance',
         'status',
         'block_reason',
         'blocked_at',

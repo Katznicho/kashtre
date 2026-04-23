@@ -10,6 +10,7 @@ use App\Models\ThirdPartyPayer;
 use App\Models\ThirdPartyPayerBalanceHistory;
 use App\Services\MoneyTrackingService;
 use App\Services\InsuranceClientPortionThirdPartyNotifier;
+use App\Services\VendorTransactionSyncService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -86,10 +87,12 @@ class SimulateSuccessfulPayments extends Command
                             'payment_status' => $invoice->payment_status
                         ]);
 
-                        // Update invoice status to paid
+                        // Update invoice status to paid AND set amount_paid
                         $invoice->update([
                             'status' => 'paid',
-                            'payment_status' => 'paid'
+                            'payment_status' => 'paid',
+                            'amount_paid' => $transaction->amount,
+                            'balance_due' => 0
                         ]);
 
                         Log::info("Invoice status updated to paid (simulated)", [
@@ -148,8 +151,9 @@ class SimulateSuccessfulPayments extends Command
                                     'reference' => $ref
                                 ]);
                             }
-                            $this->createPackageTrackingRecords($invoice, $invoice->items);
-                            $queuedItems = $this->queueItemsAtServicePoints($invoice, $invoice->items);
+                            $invoiceItems = is_array($invoice->items) ? $invoice->items : json_decode($invoice->items, true) ?? [];
+                            $this->createPackageTrackingRecords($invoice, $invoiceItems);
+                            $queuedItems = $this->queueItemsAtServicePoints($invoice, $invoiceItems);
                         } else {
                             // Normal payment: credit client suspense then client account
                             Log::info("Processing simulated payment received to move money to suspense account", [
@@ -171,30 +175,32 @@ class SimulateSuccessfulPayments extends Command
                             );
                             Log::info("Creating balance statements after simulated payment completion", [
                                 'invoice_id' => $invoice->id,
-                                'items_count' => count($invoice->items ?? [])
+                                'items_count' => count(is_array($invoice->items) ? $invoice->items : json_decode($invoice->items, true) ?? [])
                             ]);
-                            $balanceStatements = $moneyTrackingService->processPaymentCompleted($invoice, $invoice->items);
+                            $items = is_array($invoice->items) ? $invoice->items : json_decode($invoice->items, true) ?? [];
+                            $balanceStatements = $moneyTrackingService->processPaymentCompleted($invoice, $items);
                             Log::info("Balance statements created after simulated payment completion", [
                                 'invoice_id' => $invoice->id,
-                                'balance_statements_count' => count($balanceStatements)
+                                'balance_statements_count' => count($balanceStatements ?? [])
                             ]);
+                            $invoiceItems = is_array($invoice->items) ? $invoice->items : json_decode($invoice->items, true) ?? [];
                             Log::info("Creating package tracking records (simulated)", [
                                 'invoice_id' => $invoice->id,
-                                'items_count' => count($invoice->items ?? [])
+                                'items_count' => count($invoiceItems)
                             ]);
-                            $this->createPackageTrackingRecords($invoice, $invoice->items);
+                            $this->createPackageTrackingRecords($invoice, $invoiceItems);
                             Log::info("Package tracking records created (simulated)", ['invoice_id' => $invoice->id]);
                             Log::info("🔄 PROCESSING SUSPENSE ACCOUNT MONEY MOVEMENT AFTER SIMULATED PAYMENT COMPLETION", [
                                 'invoice_id' => $invoice->id,
                                 'invoice_number' => $invoice->invoice_number,
-                                'items_count' => count($invoice->items ?? []),
-                                'items_data' => $invoice->items
+                                'items_count' => count($items ?? []),
+                                'items_data' => $items
                             ]);
                             try {
-                                $suspenseMovements = $moneyTrackingService->processSuspenseAccountMovements($invoice, $invoice->items);
+                                $suspenseMovements = $moneyTrackingService->processSuspenseAccountMovements($invoice, $items);
                                 Log::info("✅ SUSPENSE ACCOUNT MOVEMENTS COMPLETED (SIMULATED)", [
                                     'invoice_id' => $invoice->id,
-                                    'suspense_movements_count' => count($suspenseMovements),
+                                    'suspense_movements_count' => count($suspenseMovements ?? []),
                                     'suspense_movements' => $suspenseMovements
                                 ]);
                             } catch (\Exception $e) {
@@ -206,9 +212,9 @@ class SimulateSuccessfulPayments extends Command
                             }
                             Log::info("Starting to queue items at service points (simulated)", [
                                 'invoice_id' => $invoice->id,
-                                'items_count' => count($invoice->items ?? [])
+                                'items_count' => count($items ?? [])
                             ]);
-                            $queuedItems = $this->queueItemsAtServicePoints($invoice, $invoice->items);
+                            $queuedItems = $this->queueItemsAtServicePoints($invoice, $items);
                             Log::info("Items queued at service points completed (simulated)", [
                                 'invoice_id' => $invoice->id,
                                 'queued_items_count' => $queuedItems
@@ -252,6 +258,18 @@ class SimulateSuccessfulPayments extends Command
                     $invoice = Invoice::find($transaction->invoice_id);
                     if ($invoice) {
                         InsuranceClientPortionThirdPartyNotifier::notifyIfApplicable($invoice, $transaction);
+                        
+                        // Sync transaction to vendor system for tracking
+                        Log::info("Syncing completed transaction to vendor system", [
+                            'transaction_id' => $transaction->id,
+                            'invoice_id' => $invoice->id
+                        ]);
+                        $syncService = new VendorTransactionSyncService();
+                        $synced = $syncService->syncTransactionToVendor($transaction);
+                        Log::info("Vendor sync completed", [
+                            'transaction_id' => $transaction->id,
+                            'synced' => $synced
+                        ]);
                     }
                 }
 

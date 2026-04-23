@@ -44,4 +44,8 @@ return [
         'timeout' => env('THIRD_PARTY_API_TIMEOUT', 30),
     ],
 
+    'vendor' => [
+        'api_url' => env('VENDOR_API_URL', 'http://localhost:8001'),
+    ],
+
 ];

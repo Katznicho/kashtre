@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\Transaction;
 use App\Models\Invoice;
+use App\Services\VendorTransactionSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -158,7 +159,10 @@ class LocalPaymentController extends Controller
             $price = $item['price'] ?? 0;
             $descriptions[] = "{$name} (x{$quantity}) - UGX " . number_format($price, 0);
         }
-        return implode(', ', $descriptions);
+        $fullDescription = implode(', ', $descriptions);
+        
+        // Truncate to 255 chars to fit database column limit
+        return substr($fullDescription, 0, 255);
     }
     
     /**

@@ -35,7 +35,8 @@
                                         
                                         if ($recentInvoices->count() > 0) {
                                             $insuranceCount = $recentInvoices->filter(function($invoice) {
-                                                return in_array('insurance', $invoice->payment_methods ?? []);
+                                                $methods = is_array($invoice->payment_methods) ? $invoice->payment_methods : ($invoice->payment_methods ? json_decode($invoice->payment_methods, true) : []);
+                                                return in_array('insurance', $methods ?? []);
                                             })->count();
                                             
                                             // If most recent invoices are insurance, treat as insurance client

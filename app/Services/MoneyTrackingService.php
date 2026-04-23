@@ -703,7 +703,15 @@ class MoneyTrackingService
             ]);
 
             $invoiceItems = collect($invoice->items ?? []);
-            $isDepositItem = static function (array $item): bool {
+            $isDepositItem = static function ($item): bool {
+                // Ensure item is array, handle both array and string cases
+                if (!is_array($item)) {
+                    if (is_string($item)) {
+                        // If it's a string, it's not a valid item for checking
+                        return false;
+                    }
+                    return false;
+                }
                 $name = Str::lower(trim((string)($item['displayName'] ?? $item['name'] ?? $item['item_name'] ?? '')));
                 return $name === 'deposit';
             };
@@ -746,6 +754,113 @@ class MoneyTrackingService
                     'amount' => $invoice->account_balance_adjustment,
                     'balance_history_id' => $balanceCreditRecord->id ?? null
                 ]);
+            }
+
+            // Check if this is a multi-vendor insurance invoice
+            $authSnapshot = is_array($invoice->insurance_authorization_snapshot) 
+                ? $invoice->insurance_authorization_snapshot 
+                : json_decode($invoice->insurance_authorization_snapshot, true);
+            $isMultiVendorInsurance = $authSnapshot && ($authSnapshot['multi_vendor'] ?? false);
+            
+            if ($isMultiVendorInsurance && isset($authSnapshot['vendors'])) {
+                // For multi-vendor insurance, create informational BalanceHistory records for each vendor
+                // These don't affect client balance (change_amount=0) but show breakdown
+                Log::info("=== MULTI-VENDOR INSURANCE DETECTED - Creating vendor breakdown records ===", [
+                    'invoice_id' => $invoice->id,
+                    'vendor_count' => count($authSnapshot['vendors'])
+                ]);
+                
+                foreach ($authSnapshot['vendors'] as $vendor) {
+                    $vendorName = $vendor['vendor_name'] ?? $vendor['insurance_company_name'] ?? 'Unknown Insurance';
+                    $clientPortion = $vendor['client_total'] ?? $vendor['client_portion'] ?? 0;
+                    $insurancePortion = $vendor['insurance_total'] ?? $vendor['insurance_portion'] ?? 0;
+                    $totalVendorAmount = $clientPortion + $insurancePortion;
+                    
+                    $description = "{$vendorName}: Client UGX " . number_format($clientPortion, 2) . 
+                                   " + Insurance UGX " . number_format($insurancePortion, 2);
+                    
+                    // Create informational record (payment_method='insurance', change_amount=0 = doesn't affect balance)
+                    // Get current balance to pass as previous/new balance
+                    $currentBalance = BalanceHistory::where('client_id', $client->id)
+                        ->orderBy('created_at', 'desc')
+                        ->value('new_balance') ?? 0;
+                    
+                    BalanceHistory::create([
+                        'client_id' => $client->id,
+                        'business_id' => $business->id,
+                        'branch_id' => $client->branch_id,
+                        'invoice_id' => $invoice->id,
+                        'user_id' => auth()->id() ?? 1,
+                        'transaction_type' => 'debit',
+                        'payment_method' => 'insurance',
+                        'description' => $description,
+                        'previous_balance' => $currentBalance,
+                        'change_amount' => 0, // Informational only - doesn't affect balance
+                        'new_balance' => $currentBalance, // Balance unchanged for informational records
+                        'reference_number' => $invoice->invoice_number,
+                        'notes' => "Insurance authorization for {$vendorName}. Auth Ref: " . ($vendor['authorization_reference'] ?? 'N/A'),
+                        'payment_status' => 'Paid'
+                    ]);
+                    
+                    Log::info("Insurance vendor breakdown record created", [
+                        'invoice_id' => $invoice->id,
+                        'vendor_name' => $vendorName,
+                        'client_portion' => $clientPortion,
+                        'insurance_portion' => $insurancePortion,
+                        'total_amount' => $totalVendorAmount
+                    ]);
+                    
+                    // Also create vendor account entry (ThirdPartyPayerBalanceHistory)
+                    // Find the vendor by name (vendor_id in snapshot is unreliable)
+                    if ($vendorName && $insurancePortion > 0) {
+                        $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('name', $vendorName)
+                            ->where('business_id', $business->id)
+                            ->where('type', 'insurance_company')
+                            ->whereNull('client_id')
+                            ->first();
+                        
+                        if ($thirdPartyPayer && $invoice->amount_paid > 0) {
+                            // Create credit entry for the vendor (payment received)
+                            \App\Models\ThirdPartyPayerBalanceHistory::recordCredit(
+                                $thirdPartyPayer,
+                                $insurancePortion,
+                                "Insurance payment received",
+                                $invoice->invoice_number,
+                                "Payment for invoice {$invoice->invoice_number}",
+                                'insurance',
+                                $client->id,
+                                $invoice->id
+                            );
+                            
+                            Log::info("Vendor credit entry created", [
+                                'invoice_id' => $invoice->id,
+                                'vendor_id' => $thirdPartyPayer->id,
+                                'vendor_name' => $vendorName,
+                                'amount' => $insurancePortion
+                            ]);
+                        }
+                    }
+                }
+                
+                // For insurance invoices, skip individual item debits - instead create one debit for client portion
+                if ($invoice->amount_paid > 0) {
+                    $clientPortionRecord = BalanceHistory::recordDebit(
+                        $client,
+                        $invoice->amount_paid,
+                        "Client Portion Payment - Insurance Invoice",
+                        $invoice->invoice_number,
+                        "Client Portion"
+                    );
+                    
+                    Log::info("Client portion debit created for insurance invoice", [
+                        'invoice_id' => $invoice->id,
+                        'amount' => $invoice->amount_paid,
+                        'balance_history_id' => $clientPortionRecord->id ?? null
+                    ]);
+                }
+                
+                // Skip individual item processing for insurance invoices
+                $itemsToProcess = collect();
             }
 
             foreach ($itemsToProcess as $index => $itemData) {
@@ -1798,6 +1913,11 @@ class MoneyTrackingService
         if ($invoice && $invoice->client) {
             $client = $invoice->client;
             $paymentMethods = $invoice->payment_methods ?? [];
+            
+            // Ensure payment_methods is an array (handle JSON string case)
+            if (is_string($paymentMethods)) {
+                $paymentMethods = json_decode($paymentMethods, true) ?? [];
+            }
             
             // Check for insurance payments
             if (in_array('insurance', $paymentMethods)) {
