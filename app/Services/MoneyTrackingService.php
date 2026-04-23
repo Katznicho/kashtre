@@ -717,11 +717,19 @@ class MoneyTrackingService
             };
             $isDepositOnlyInvoice = $invoiceItems->isNotEmpty() && $invoiceItems->every($isDepositItem);
 
-            // First, create CREDIT record for payment received
-            if ($invoice->amount_paid > 0) {
+            // Check if this is an insurance invoice — client credits/debits are handled separately
+            $authSnapshotForGuard = is_array($invoice->insurance_authorization_snapshot)
+                ? $invoice->insurance_authorization_snapshot
+                : json_decode($invoice->insurance_authorization_snapshot, true);
+            $isInsuranceInvoice = !empty($authSnapshotForGuard) && (
+                isset($authSnapshotForGuard['vendors']) || isset($authSnapshotForGuard['insurance_total'])
+            );
+
+            // First, create CREDIT record for payment received (skip for insurance invoices)
+            if ($invoice->amount_paid > 0 && !$isInsuranceInvoice) {
                 $paymentMethods = $invoice->payment_methods ?? [];
                 $primaryMethod = !empty($paymentMethods) ? $paymentMethods[0] : 'cash';
-                
+
                 $creditRecord = BalanceHistory::recordCredit(
                     $client,
                     $invoice->amount_paid,
@@ -739,8 +747,8 @@ class MoneyTrackingService
                 ]);
             }
 
-            // Create CREDIT record for balance adjustment if used
-            if ($invoice->account_balance_adjustment > 0 && ! $isDepositOnlyInvoice) {
+            // Create CREDIT record for balance adjustment if used (skip for insurance invoices)
+            if ($invoice->account_balance_adjustment > 0 && ! $isDepositOnlyInvoice && !$isInsuranceInvoice) {
                 $balanceCreditRecord = BalanceHistory::recordCredit(
                     $client,
                     $invoice->account_balance_adjustment,
@@ -818,26 +826,51 @@ class MoneyTrackingService
                             ->where('type', 'insurance_company')
                             ->whereNull('client_id')
                             ->first();
-                        
-                        if ($thirdPartyPayer && $invoice->amount_paid > 0) {
-                            // Create credit entry for the vendor (payment received)
-                            \App\Models\ThirdPartyPayerBalanceHistory::recordCredit(
-                                $thirdPartyPayer,
-                                $insurancePortion,
-                                "Insurance payment received",
-                                $invoice->invoice_number,
-                                "Payment for invoice {$invoice->invoice_number}",
-                                'insurance',
-                                $client->id,
-                                $invoice->id
-                            );
-                            
-                            Log::info("Vendor credit entry created", [
-                                'invoice_id' => $invoice->id,
-                                'vendor_id' => $thirdPartyPayer->id,
-                                'vendor_name' => $vendorName,
-                                'amount' => $insurancePortion
-                            ]);
+
+                        if ($thirdPartyPayer) {
+                            // Create debit entry (insurance guarantee/invoice) if not already recorded
+                            $existingDebit = \App\Models\ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $thirdPartyPayer->id)
+                                ->where('invoice_id', $invoice->id)
+                                ->where('transaction_type', 'debit')
+                                ->first();
+                            if (!$existingDebit) {
+                                \App\Models\ThirdPartyPayerBalanceHistory::recordDebit(
+                                    $thirdPartyPayer,
+                                    $insurancePortion,
+                                    'Insurance guarantee for invoice ' . $invoice->invoice_number,
+                                    $invoice->invoice_number,
+                                    'Posted on payment completion',
+                                    'insurance',
+                                    $invoice->id,
+                                    $client->id
+                                );
+                                Log::info("Vendor debit entry created", [
+                                    'invoice_id' => $invoice->id,
+                                    'vendor_id' => $thirdPartyPayer->id,
+                                    'vendor_name' => $vendorName,
+                                    'amount' => $insurancePortion
+                                ]);
+                            }
+
+                            if ($invoice->amount_paid > 0) {
+                                // Create credit entry for the vendor (payment received)
+                                \App\Models\ThirdPartyPayerBalanceHistory::recordCredit(
+                                    $thirdPartyPayer,
+                                    $insurancePortion,
+                                    "Insurance payment received",
+                                    $invoice->invoice_number,
+                                    "Payment for invoice {$invoice->invoice_number}",
+                                    'insurance',
+                                    $client->id,
+                                    $invoice->id
+                                );
+                                Log::info("Vendor credit entry created", [
+                                    'invoice_id' => $invoice->id,
+                                    'vendor_id' => $thirdPartyPayer->id,
+                                    'vendor_name' => $vendorName,
+                                    'amount' => $insurancePortion
+                                ]);
+                            }
                         }
                     }
                 }

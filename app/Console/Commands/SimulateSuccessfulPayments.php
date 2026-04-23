@@ -103,6 +103,10 @@ class SimulateSuccessfulPayments extends Command
                         $client = $invoice->client;
                         $snapshot = is_array($invoice->insurance_authorization_snapshot ?? null) ? $invoice->insurance_authorization_snapshot : [];
                         $clientPortionAmount = isset($snapshot['client_total']) ? (float) $snapshot['client_total'] : (float) ($invoice->insurance_client_total ?? 0);
+                        // For multi-vendor snapshots that store client_total per vendor (not at root level)
+                        if ($clientPortionAmount <= 0 && isset($snapshot['vendors']) && is_array($snapshot['vendors'])) {
+                            $clientPortionAmount = (float) array_sum(array_column($snapshot['vendors'], 'client_total'));
+                        }
                         $isInsuranceClientPortion = $client && $client->insurance_company_id && $clientPortionAmount > 0 && $transaction->amount >= $clientPortionAmount * 0.99;
 
                         if ($isInsuranceClientPortion) {
@@ -150,6 +154,33 @@ class SimulateSuccessfulPayments extends Command
                                     'amount' => $transaction->amount,
                                     'reference' => $ref
                                 ]);
+                                // Post the insurer's guarantee as a debit (insurance obligation for invoice)
+                                $insurancePortion = isset($snapshot['insurance_total'])
+                                    ? (float) $snapshot['insurance_total']
+                                    : (float) ($invoice->insurance_insurance_total ?? 0);
+                                if ($insurancePortion > 0) {
+                                    $existingDebit = ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $thirdPartyPayer->id)
+                                        ->where('invoice_id', $invoice->id)
+                                        ->where('transaction_type', 'debit')
+                                        ->first();
+                                    if (!$existingDebit) {
+                                        ThirdPartyPayerBalanceHistory::recordDebit(
+                                            $thirdPartyPayer,
+                                            $insurancePortion,
+                                            'Insurance guarantee for invoice ' . $invoice->invoice_number,
+                                            $invoice->invoice_number,
+                                            'Posted after client portion payment confirmation',
+                                            'insurance',
+                                            $invoice->id,
+                                            $client->id
+                                        );
+                                        Log::info('Insurance guarantee debit created (simulated)', [
+                                            'invoice_id' => $invoice->id,
+                                            'third_party_payer_id' => $thirdPartyPayer->id,
+                                            'amount' => $insurancePortion,
+                                        ]);
+                                    }
+                                }
                             }
                             $invoiceItems = is_array($invoice->items) ? $invoice->items : json_decode($invoice->items, true) ?? [];
                             $this->createPackageTrackingRecords($invoice, $invoiceItems);

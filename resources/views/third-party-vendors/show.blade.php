@@ -323,52 +323,6 @@
                     </div>
                     @endif
 
-                    <!-- Synced Transactions from Vendor System -->
-                    @if($syncedTransactions && $syncedTransactions->count() > 0)
-                    <div class="mt-8 border-t pt-8">
-                        <h4 class="text-base font-semibold text-gray-900 mb-4">Synced Transactions (from Vendor System)</h4>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-blue-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Date</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Transaction #</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Kashtre Invoice</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Client</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Amount</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-blue-50 divide-y divide-gray-200">
-                                    @foreach($syncedTransactions as $tx)
-                                    <tr class="hover:bg-blue-100 transition-colors">
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ isset($tx['created_at']) ? \Carbon\Carbon::parse($tx['created_at'])->format('Y-m-d H:i') : 'N/A' }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {{ $tx['transaction_number'] ?? 'N/A' }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ $tx['kashtre_invoice_number'] ?? 'N/A' }}
-                                        </td>
-                                        <td class="px-6 py-4 text-sm text-gray-900">
-                                            {{ $tx['kashtre_client_name'] ?? 'N/A' }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-green-600">
-                                            UGX {{ number_format($tx['amount'] ?? 0, 2) }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                            <span class="px-2 py-1 text-xs rounded-full {{ ($tx['status'] ?? '') === 'cleared' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800' }}">
-                                                {{ ucfirst($tx['status'] ?? 'pending') }}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    @endif
                 </div>
 
                 <!-- Invoices Tab Content -->

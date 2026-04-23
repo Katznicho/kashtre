@@ -258,6 +258,10 @@ class CheckPaymentStatus extends Command
                                     $client = $invoice->client;
                                     $snapshot = is_array($invoice->insurance_authorization_snapshot ?? null) ? $invoice->insurance_authorization_snapshot : [];
                                     $clientPortionAmount = isset($snapshot['client_total']) ? (float) $snapshot['client_total'] : (float) ($invoice->insurance_client_total ?? 0);
+                                    // For multi-vendor snapshots that store client_total per vendor (not at root level)
+                                    if ($clientPortionAmount <= 0 && isset($snapshot['vendors']) && is_array($snapshot['vendors'])) {
+                                        $clientPortionAmount = (float) array_sum(array_column($snapshot['vendors'], 'client_total'));
+                                    }
                                     $isInsuranceClientPortion = $client && $client->insurance_company_id && $clientPortionAmount > 0 && $transaction->amount >= $clientPortionAmount * 0.99;
 
                                     if ($isInsuranceClientPortion) {

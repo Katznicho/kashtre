@@ -115,18 +115,35 @@ class ThirdPartyVendorsController extends Controller
                     ->with('error', 'Third party vendor not found.');
             }
 
-            // Find the insurance company in Kashtre database by code (optional - for display)
+            // Find the insurance company in Kashtre database scoped to this business
             $insuranceCompany = \App\Models\InsuranceCompany::where('code', $vendor['code'])
+                ->where('business_id', $business->id)
                 ->first();
 
-            // Find the third-party payer for this vendor
-            // The vendor ID from the third-party API is the insurance_company_id stored in third_party_payers
-            // This is because clients store the third-party system's insurance company ID, not Kashtre's
-            $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('insurance_company_id', $vendorId)
+            // Find the business-level ThirdPartyPayer for this vendor.
+            // Correct approach: resolve local InsuranceCompany IDs via third_party_business_id,
+            // then look up the payer by those local IDs (matching how payment flows work).
+            $localInsuranceCompanyIds = \App\Models\InsuranceCompany::where('third_party_business_id', $vendorId)
                 ->where('business_id', $business->id)
-                ->where('type', 'insurance_company')
-                ->whereNull('client_id') // Business-level
-                ->first();
+                ->pluck('id');
+
+            $thirdPartyPayer = null;
+            if ($localInsuranceCompanyIds->isNotEmpty()) {
+                $thirdPartyPayer = \App\Models\ThirdPartyPayer::whereIn('insurance_company_id', $localInsuranceCompanyIds)
+                    ->where('business_id', $business->id)
+                    ->where('type', 'insurance_company')
+                    ->whereNull('client_id')
+                    ->first();
+            }
+
+            // Fallback: some older records store the third-party vendor ID directly
+            if (!$thirdPartyPayer) {
+                $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('insurance_company_id', $vendorId)
+                    ->where('business_id', $business->id)
+                    ->where('type', 'insurance_company')
+                    ->whereNull('client_id')
+                    ->first();
+            }
 
             $balanceHistories = collect();
             $totalCredits = 0;
@@ -154,7 +171,9 @@ class ThirdPartyVendorsController extends Controller
                     ->where('transaction_type', 'debit')
                     ->sum('change_amount'));
 
-                $currentBalance = $thirdPartyPayer->current_balance ?? 0;
+                $currentBalance = \App\Models\ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $thirdPartyPayer->id)
+                    ->orderBy('created_at', 'desc')
+                    ->value('new_balance') ?? 0;
 
                 // Resolve excluded items for this third-party payer (service exclusions on Kashtre side)
                 $excludedItemIds = (array) ($thirdPartyPayer->excluded_items ?? []);
@@ -226,28 +245,6 @@ class ThirdPartyVendorsController extends Controller
                 }
             }
 
-            // Also fetch synced transactions from the vendor system
-            $syncedTransactions = collect();
-            try {
-                $vendorResponse = \Illuminate\Support\Facades\Http::timeout(10)
-                    ->get("{$baseUrl}/api/v1/transactions/by-vendor/{$vendorId}");
-                
-                if ($vendorResponse->successful()) {
-                    $syncedData = $vendorResponse->json();
-                    $syncedTransactions = collect($syncedData['data'] ?? []);
-                    
-                    Log::info('Fetched synced transactions from vendor system', [
-                        'vendor_id' => $vendorId,
-                        'count' => $syncedTransactions->count(),
-                    ]);
-                }
-            } catch (\Exception $e) {
-                Log::warning('Failed to fetch synced transactions from vendor system', [
-                    'vendor_id' => $vendorId,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
             return view('third-party-vendors.show', compact(
                 'vendor',
                 'business',
@@ -259,8 +256,7 @@ class ThirdPartyVendorsController extends Controller
                 'currentBalance',
                 'invoices',
                 'excludedItemsForPayer',
-                'items',
-                'syncedTransactions'
+                'items'
             ));
         } catch (\Exception $e) {
             Log::error('Exception while fetching vendor details', [
@@ -311,12 +307,26 @@ class ThirdPartyVendorsController extends Controller
                     ->with('error', 'Third party vendor not found.');
             }
 
-            // Find the third-party payer for this vendor
-            $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('insurance_company_id', $vendorId)
+            // Find the business-level ThirdPartyPayer using local InsuranceCompany IDs
+            $localInsuranceCompanyIds = \App\Models\InsuranceCompany::where('third_party_business_id', $vendorId)
                 ->where('business_id', $business->id)
-                ->where('type', 'insurance_company')
-                ->whereNull('client_id') // Business-level
-                ->first();
+                ->pluck('id');
+
+            $thirdPartyPayer = null;
+            if ($localInsuranceCompanyIds->isNotEmpty()) {
+                $thirdPartyPayer = \App\Models\ThirdPartyPayer::whereIn('insurance_company_id', $localInsuranceCompanyIds)
+                    ->where('business_id', $business->id)
+                    ->where('type', 'insurance_company')
+                    ->whereNull('client_id')
+                    ->first();
+            }
+            if (!$thirdPartyPayer) {
+                $thirdPartyPayer = \App\Models\ThirdPartyPayer::where('insurance_company_id', $vendorId)
+                    ->where('business_id', $business->id)
+                    ->where('type', 'insurance_company')
+                    ->whereNull('client_id')
+                    ->first();
+            }
 
             if (!$thirdPartyPayer) {
                 return redirect()->route('third-party-vendors.show', $vendorId)
@@ -338,7 +348,9 @@ class ThirdPartyVendorsController extends Controller
                 ->where('transaction_type', 'debit')
                 ->sum('change_amount'));
 
-            $currentBalance = $thirdPartyPayer->current_balance ?? 0;
+            $currentBalance = \App\Models\ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $thirdPartyPayer->id)
+                ->orderBy('created_at', 'desc')
+                ->value('new_balance') ?? 0;
 
             return view('third-party-vendors.balance-statement', compact(
                 'vendor',
@@ -477,8 +489,9 @@ class ThirdPartyVendorsController extends Controller
                     ->with('info', 'Payer account already exists for this vendor.');
             }
 
-            // Find or create InsuranceCompany record
+            // Find or create InsuranceCompany record scoped to this business
             $insuranceCompany = \App\Models\InsuranceCompany::where('code', $vendor['code'])
+                ->where('business_id', $business->id)
                 ->first();
 
             if (!$insuranceCompany) {
