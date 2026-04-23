@@ -226,6 +226,28 @@ class ThirdPartyVendorsController extends Controller
                 }
             }
 
+            // Also fetch synced transactions from the vendor system
+            $syncedTransactions = collect();
+            try {
+                $vendorResponse = \Illuminate\Support\Facades\Http::timeout(10)
+                    ->get("{$baseUrl}/api/v1/transactions/by-vendor/{$vendorId}");
+                
+                if ($vendorResponse->successful()) {
+                    $syncedData = $vendorResponse->json();
+                    $syncedTransactions = collect($syncedData['data'] ?? []);
+                    
+                    Log::info('Fetched synced transactions from vendor system', [
+                        'vendor_id' => $vendorId,
+                        'count' => $syncedTransactions->count(),
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to fetch synced transactions from vendor system', [
+                    'vendor_id' => $vendorId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             return view('third-party-vendors.show', compact(
                 'vendor',
                 'business',
@@ -237,7 +259,8 @@ class ThirdPartyVendorsController extends Controller
                 'currentBalance',
                 'invoices',
                 'excludedItemsForPayer',
-                'items'
+                'items',
+                'syncedTransactions'
             ));
         } catch (\Exception $e) {
             Log::error('Exception while fetching vendor details', [
