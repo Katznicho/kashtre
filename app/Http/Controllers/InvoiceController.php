@@ -1272,13 +1272,32 @@ class InvoiceController extends Controller
                     }
                     
                     // Update third-party payer balance (debit - they owe money)
-                    $previousPayerBalance = $thirdPartyPayer->current_balance ?? 0;
                     $amountToDebit = $invoice->balance_due > 0 ? $invoice->balance_due : $invoice->total_amount;
+
+                    // Create balance history debit record (shows in Invoices tab)
+                    $existingDebit = \App\Models\ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $thirdPartyPayer->id)
+                        ->where('invoice_id', $invoice->id)
+                        ->where('transaction_type', 'debit')
+                        ->first();
+                    if (!$existingDebit) {
+                        \App\Models\ThirdPartyPayerBalanceHistory::recordDebit(
+                            $thirdPartyPayer,
+                            $amountToDebit,
+                            'Invoice ' . $invoice->invoice_number,
+                            $invoice->invoice_number,
+                            null,
+                            'insurance',
+                            $invoice->id,
+                            $client->id
+                        );
+                        $thirdPartyPayer->refresh();
+                    }
+
+                    $previousPayerBalance = $thirdPartyPayer->current_balance ?? 0;
                     $newPayerBalance = $previousPayerBalance - $amountToDebit;
-                    
                     $thirdPartyPayer->update(['current_balance' => $newPayerBalance]);
                     $thirdPartyPayer->refresh();
-                    
+
                     Log::info("=== INSURANCE PAYER BALANCE UPDATED ===", [
                         'third_party_payer_id' => $thirdPartyPayer->id,
                         'previous_balance' => $previousPayerBalance,

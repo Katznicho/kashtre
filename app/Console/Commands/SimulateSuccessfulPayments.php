@@ -107,7 +107,9 @@ class SimulateSuccessfulPayments extends Command
                         if ($clientPortionAmount <= 0 && isset($snapshot['vendors']) && is_array($snapshot['vendors'])) {
                             $clientPortionAmount = (float) array_sum(array_column($snapshot['vendors'], 'client_total'));
                         }
-                        $isInsuranceClientPortion = $client && $client->insurance_company_id && $clientPortionAmount > 0 && $transaction->amount >= $clientPortionAmount * 0.99;
+                        $snapshotInsuranceTotal = (float) ($snapshot['insurance_total'] ?? $invoice->insurance_insurance_total ?? 0);
+                        // Only treat as insurance client portion when insurers actually pay something
+                        $isInsuranceClientPortion = $client && $client->insurance_company_id && $clientPortionAmount > 0 && $snapshotInsuranceTotal > 0 && $transaction->amount >= $clientPortionAmount * 0.99;
 
                         if ($isInsuranceClientPortion) {
                             // Client paid on behalf of insurer: credit insurance company internal account, not client account

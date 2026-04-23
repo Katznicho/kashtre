@@ -723,7 +723,7 @@ class MoneyTrackingService
                 : json_decode($invoice->insurance_authorization_snapshot, true);
             $isInsuranceInvoice = !empty($authSnapshotForGuard) && (
                 isset($authSnapshotForGuard['vendors']) || isset($authSnapshotForGuard['insurance_total'])
-            );
+            ) && (float) ($authSnapshotForGuard['insurance_total'] ?? 0) > 0;
 
             // First, create CREDIT record for payment received (skip for insurance invoices)
             if ($invoice->amount_paid > 0 && !$isInsuranceInvoice) {
