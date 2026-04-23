@@ -140,48 +140,45 @@ class SimulateSuccessfulPayments extends Command
                                         ['transaction_id' => $transaction->id]
                                     );
                                 }
-                                ThirdPartyPayerBalanceHistory::recordCredit(
-                                    $thirdPartyPayer,
-                                    $transaction->amount,
-                                    'Client portion received',
-                                    $ref,
-                                    null,
-                                    'mobile_money',
-                                    $client->id,
-                                    $invoice->id
-                                );
-                                Log::info("Insurance client-portion (simulated): credited insurer internal account", [
-                                    'invoice_id' => $invoice->id,
-                                    'third_party_payer_id' => $thirdPartyPayer->id,
-                                    'amount' => $transaction->amount,
-                                    'reference' => $ref
-                                ]);
-                                // Post the insurer's guarantee as a debit (insurance obligation for invoice)
-                                $insurancePortion = isset($snapshot['insurance_total'])
-                                    ? (float) $snapshot['insurance_total']
-                                    : (float) ($invoice->insurance_insurance_total ?? 0);
-                                if ($insurancePortion > 0) {
-                                    $existingDebit = ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $thirdPartyPayer->id)
-                                        ->where('invoice_id', $invoice->id)
-                                        ->where('transaction_type', 'debit')
-                                        ->first();
-                                    if (!$existingDebit) {
-                                        ThirdPartyPayerBalanceHistory::recordDebit(
-                                            $thirdPartyPayer,
-                                            $insurancePortion,
-                                            'Insurance guarantee for invoice ' . $invoice->invoice_number,
-                                            $invoice->invoice_number,
-                                            'Posted after client portion payment confirmation',
-                                            'insurance',
-                                            $invoice->id,
-                                            $client->id
+
+                                // Credit each vendor their specific insurance_total from snapshot
+                                $snapVendors = $snapshot['vendors'] ?? [];
+                                $isMultiVendorSnap = !empty($snapshot['multi_vendor']) && !empty($snapVendors);
+
+                                if ($isMultiVendorSnap) {
+                                    foreach ($snapVendors as $vData) {
+                                        $vName = $vData['vendor_name'] ?? $vData['insurance_company_name'] ?? null;
+                                        $vInsTotal = (float) ($vData['insurance_total'] ?? 0);
+                                        if (!$vName || $vInsTotal <= 0) continue;
+                                        $vPayer = ThirdPartyPayer::where('name', $vName)
+                                            ->where('business_id', $invoice->business_id)
+                                            ->where('type', 'insurance_company')
+                                            ->whereNull('client_id')
+                                            ->first();
+                                        if (!$vPayer) continue;
+                                        ThirdPartyPayerBalanceHistory::recordCredit(
+                                            $vPayer, $vInsTotal,
+                                            'Insurance settlement for invoice ' . $invoice->invoice_number,
+                                            $ref, null, 'insurance', $client->id, $invoice->id
                                         );
-                                        Log::info('Insurance guarantee debit created (simulated)', [
+                                        Log::info('Per-vendor insurance credit created (simulated)', [
                                             'invoice_id' => $invoice->id,
-                                            'third_party_payer_id' => $thirdPartyPayer->id,
-                                            'amount' => $insurancePortion,
+                                            'vendor' => $vName,
+                                            'amount' => $vInsTotal,
                                         ]);
                                     }
+                                } else {
+                                    // Single vendor: credit primary payer their insurance_total
+                                    ThirdPartyPayerBalanceHistory::recordCredit(
+                                        $thirdPartyPayer, $snapshotInsuranceTotal,
+                                        'Insurance settlement for invoice ' . $invoice->invoice_number,
+                                        $ref, null, 'insurance', $client->id, $invoice->id
+                                    );
+                                    Log::info('Insurance settlement credit created (simulated)', [
+                                        'invoice_id' => $invoice->id,
+                                        'third_party_payer_id' => $thirdPartyPayer->id,
+                                        'amount' => $snapshotInsuranceTotal,
+                                    ]);
                                 }
                             }
                             $invoiceItems = is_array($invoice->items) ? $invoice->items : json_decode($invoice->items, true) ?? [];

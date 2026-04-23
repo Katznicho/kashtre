@@ -1271,39 +1271,8 @@ class InvoiceController extends Controller
                         ]);
                     }
                     
-                    // Update third-party payer balance (debit - they owe money)
-                    $amountToDebit = $invoice->balance_due > 0 ? $invoice->balance_due : $invoice->total_amount;
-
-                    // Create balance history debit record (shows in Invoices tab)
-                    $existingDebit = \App\Models\ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $thirdPartyPayer->id)
-                        ->where('invoice_id', $invoice->id)
-                        ->where('transaction_type', 'debit')
-                        ->first();
-                    if (!$existingDebit) {
-                        \App\Models\ThirdPartyPayerBalanceHistory::recordDebit(
-                            $thirdPartyPayer,
-                            $amountToDebit,
-                            'Invoice ' . $invoice->invoice_number,
-                            $invoice->invoice_number,
-                            null,
-                            'insurance',
-                            $invoice->id,
-                            $client->id
-                        );
-                        $thirdPartyPayer->refresh();
-                    }
-
-                    $previousPayerBalance = $thirdPartyPayer->current_balance ?? 0;
-                    $newPayerBalance = $previousPayerBalance - $amountToDebit;
-                    $thirdPartyPayer->update(['current_balance' => $newPayerBalance]);
-                    $thirdPartyPayer->refresh();
-
-                    Log::info("=== INSURANCE PAYER BALANCE UPDATED ===", [
-                        'third_party_payer_id' => $thirdPartyPayer->id,
-                        'previous_balance' => $previousPayerBalance,
-                        'amount_debited' => $amountToDebit,
-                        'new_balance' => $newPayerBalance,
-                    ]);
+                    // Per-vendor balance history debits are created in the post-authorization
+                    // block below, once the snapshot with per-vendor amounts is available.
                     
                     // Create separate debit entry for each item
                     $itemsCollection = collect($invoice->items ?? []);
@@ -2125,6 +2094,56 @@ class InvoiceController extends Controller
                     $invoice->update(['payment_methods' => $paymentMethods]);
 
                     $insuranceAuthorization = $snapshot;
+                }
+
+                // Create per-vendor balance history debit entries now that snapshot is finalised
+                $authVendors = $insuranceAuthorization['vendors'] ?? [];
+                $isMultiVendorAuth = !empty($insuranceAuthorization['multi_vendor']) && !empty($authVendors);
+
+                if ($isMultiVendorAuth) {
+                    foreach ($authVendors as $vendorData) {
+                        $vendorName = $vendorData['vendor_name'] ?? $vendorData['insurance_company_name'] ?? null;
+                        $vendorInsTotal = (float) ($vendorData['insurance_total'] ?? 0);
+                        if (!$vendorName || $vendorInsTotal <= 0) continue;
+
+                        $vendorPayer = \App\Models\ThirdPartyPayer::where('name', $vendorName)
+                            ->where('business_id', $business->id)
+                            ->where('type', 'insurance_company')
+                            ->whereNull('client_id')
+                            ->first();
+                        if (!$vendorPayer) continue;
+
+                        $existingDebit = \App\Models\ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $vendorPayer->id)
+                            ->where('invoice_id', $invoice->id)
+                            ->where('transaction_type', 'debit')
+                            ->first();
+                        if (!$existingDebit) {
+                            \App\Models\ThirdPartyPayerBalanceHistory::recordDebit(
+                                $vendorPayer, $vendorInsTotal,
+                                'Invoice ' . $invoice->invoice_number,
+                                $invoice->invoice_number, null, 'insurance',
+                                $invoice->id, $client->id
+                            );
+                            $vendorPayer->decrement('current_balance', $vendorInsTotal);
+                        }
+                    }
+                } elseif ($thirdPartyPayer) {
+                    $singleInsTotal = (float) ($insuranceAuthorization['insurance_total'] ?? 0);
+                    if ($singleInsTotal > 0) {
+                        $existingDebit = \App\Models\ThirdPartyPayerBalanceHistory::where('third_party_payer_id', $thirdPartyPayer->id)
+                            ->where('invoice_id', $invoice->id)
+                            ->where('transaction_type', 'debit')
+                            ->first();
+                        if (!$existingDebit) {
+                            \App\Models\ThirdPartyPayerBalanceHistory::recordDebit(
+                                $thirdPartyPayer, $singleInsTotal,
+                                'Invoice ' . $invoice->invoice_number,
+                                $invoice->invoice_number, null, 'insurance',
+                                $invoice->id, $client->id
+                            );
+                            $thirdPartyPayer->decrement('current_balance', $singleInsTotal);
+                        }
+                    }
                 }
 
                 $responseData['authorization_status'] = $authStatus;
