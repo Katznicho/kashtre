@@ -38,8 +38,10 @@ class MultiVendorClientService
             'failed' => [],
         ];
 
-        // Assign cascade priority: non-OE vendors get lower numbers (go first),
-        // OE vendors go last. Within each group, preserve submission order.
+        // Assign cascade priority: 
+        // 1. If priority is explicitly provided in data, use that (form-specified)
+        // 2. Otherwise: non-OE vendors get lower numbers (go first),
+        //    OE vendors go last. Within each group, preserve submission order.
         $nonOE = [];
         $oe    = [];
         foreach ($vendorData as $id => $data) {
@@ -59,12 +61,14 @@ class MultiVendorClientService
         ]);
 
         foreach ($orderedVendorData as $insuranceCompanyId => $data) {
-            $assignedPriority = $priorityCounter++;
+            // Use priority from form if provided, otherwise auto-assign
+            $assignedPriority = isset($data['priority']) ? (int) $data['priority'] : $priorityCounter++;
             
             Log::debug('SERVICE: Processing vendor', [
                 'iteration' => $assignedPriority,
                 'insuranceCompanyId' => $insuranceCompanyId,
                 'data' => $data,
+                'priorityFromForm' => isset($data['priority']),
             ]);
             
             try {

@@ -409,12 +409,18 @@ class ClientController extends Controller
                     // Prepare vendor data from form submission
                     $vendorData = [];
                     $insuranceVendorData = $request->input('insurance_vendor_data', []);
+                    $insurancePriority = $request->input('insurance_priority', []);
                     
                     foreach ($selectedVendorIds as $vendorId) {
                         if (isset($insuranceVendorData[$vendorId])) {
                             $vendorData[$vendorId] = $insuranceVendorData[$vendorId];
                         } else {
                             $vendorData[$vendorId] = ['policy_number' => null];
+                        }
+                        
+                        // Add priority if provided
+                        if (isset($insurancePriority[$vendorId])) {
+                            $vendorData[$vendorId]['priority'] = (int) $insurancePriority[$vendorId];
                         }
                     }
                     
@@ -869,6 +875,7 @@ class ClientController extends Controller
                 // Prepare vendor data from form submission
                 $vendorData = [];
                 $insuranceVendorData = $request->input('insurance_vendor_data', []);
+                $insurancePriority = $request->input('insurance_priority', []);
                 
                 Log::debug('MULTI-VENDOR: Attaching vendors to client', [
                     'kashtre_client_id' => $client->client_id,
@@ -876,6 +883,7 @@ class ClientController extends Controller
                     'selectedVendorIds_count' => count($selectedVendorIds),
                     'insuranceVendorData_keys' => array_keys($insuranceVendorData),
                     'insuranceVendorData' => $insuranceVendorData,
+                    'insurancePriority' => $insurancePriority,
                 ]);
                 
                 foreach ($selectedVendorIds as $vendorId) {
@@ -890,6 +898,15 @@ class ClientController extends Controller
                         $vendorData[$vendorId] = ['policy_number' => null];
                         Log::warning('MULTI-VENDOR: Vendor data not found, using fallback', [
                             'vendorId' => $vendorId,
+                        ]);
+                    }
+                    
+                    // Add priority if provided
+                    if (isset($insurancePriority[$vendorId])) {
+                        $vendorData[$vendorId]['priority'] = (int) $insurancePriority[$vendorId];
+                        Log::debug('MULTI-VENDOR: Added priority to vendor', [
+                            'vendorId' => $vendorId,
+                            'priority' => $vendorData[$vendorId]['priority'],
                         ]);
                     }
                 }

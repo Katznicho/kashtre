@@ -377,7 +377,11 @@
                                         <label class="block text-sm font-medium text-gray-700 mb-3">
                                             Select Insurance Companies <span class="text-red-500">*</span>
                                         </label>
-                                        <p class="text-xs text-gray-500 mb-3">You can select multiple insurance companies. Each will be managed separately.</p>
+                                        <p class="text-xs text-gray-500 mb-3">You can select up to 3 insurance companies. Each will be managed separately.</p>
+                                        
+                                        <div id="insurance_selection_warning" style="display: none;" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                            <p class="text-sm text-red-800">Maximum 3 insurance companies can be selected.</p>
+                                        </div>
                                         
                                         @if(isset($insuranceCompanies) && !empty($insuranceCompanies))
                                             <div class="space-y-2 mb-4">
@@ -417,6 +421,25 @@
                                         @error('insurance_company_ids')
                                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                         @enderror
+                                    </div>
+
+                                    <!-- Priority Assignment Section (shown when multiple companies are selected) -->
+                                    <div id="insurance_priority_section" style="display: none;" class="bg-white p-4 rounded-lg border border-yellow-200">
+                                        <h5 class="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                                            <svg class="w-4 h-4 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                            </svg>
+                                            Assign Insurance Priority
+                                        </h5>
+                                        <p class="text-xs text-gray-600 mb-4">Since you've selected multiple insurance companies, assign them in order of preference. Primary insurance will be tried first.</p>
+                                        
+                                        <div id="priority_assignment_container" class="space-y-3">
+                                            <!-- Priority assignments will be dynamically inserted here -->
+                                        </div>
+                                        
+                                        <div id="priority_validation_error" style="display: none;" class="mt-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-800">
+                                            Please assign all selected insurance companies to a priority level.
+                                        </div>
                                     </div>
 
                                     <!-- Vendor-specific policy details -->
@@ -3285,8 +3308,17 @@
                 if (selectedVendors.length === 0) {
                     vendorPoliciesSection.style.display = 'none';
                     vendorPoliciesContainer.innerHTML = '';
+                    // Clear invalid vendors when insurance is unchecked
+                    invalidVendors.clear();
+                    updateSubmitButtonState();
                     return;
                 }
+
+                // Clear invalid vendors for vendors being re-rendered
+                // This allows users to re-verify when they re-check vendors
+                selectedVendors.forEach(vendor => {
+                    invalidVendors.delete(vendor.id);
+                });
 
                 vendorPoliciesSection.style.display = 'block';
 
@@ -3538,6 +3570,120 @@
                     });
                     input.addEventListener('blur', function() {});
                 });
+
+                // Update submit button state after rendering vendors
+                updateSubmitButtonState();
+            }
+
+            // Get selected vendors
+            function getSelectedVendorsList() {
+                return Array.from(vendorCheckboxes)
+                    .filter(cb => cb.checked)
+                    .map(cb => ({
+                        id: cb.value,
+                        name: getVendorInfo(cb.value)?.name || `Vendor ${cb.value}`
+                    }));
+            }
+
+            // Update priority assignment UI
+            function updatePriorityAssignment() {
+                const prioritySection = document.getElementById('insurance_priority_section');
+                const priorityContainer = document.getElementById('priority_assignment_container');
+                const selectedVendors = getSelectedVendorsList();
+                const warningDiv = document.getElementById('insurance_selection_warning');
+
+                // Enforce max 3 insurance companies limit
+                if (selectedVendors.length > 3) {
+                    // Uncheck the last checked vendor (revert to 3)
+                    const lastChecked = Array.from(vendorCheckboxes).find(cb => cb.checked);
+                    if (lastChecked) {
+                        lastChecked.checked = false;
+                    }
+                    warningDiv.style.display = 'block';
+                    // Recompute after unchecking
+                    updatePriorityAssignment();
+                    return;
+                } else {
+                    warningDiv.style.display = 'none';
+                }
+
+                // Show/hide priority section based on selection count
+                if (selectedVendors.length > 1) {
+                    prioritySection.style.display = 'block';
+                    
+                    // Generate priority assignment UI
+                    let priorityHtml = '';
+                    const priorityLabels = ['🥇 Primary (1st)', '🥈 Secondary (2nd)', '🥉 Tertiary (3rd)'];
+                    
+                    selectedVendors.forEach((vendor, index) => {
+                        priorityHtml += `
+                            <div class="p-3 bg-white border border-gray-200 rounded-lg">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    ${vendor.name}
+                                </label>
+                                <select name="insurance_priority[${vendor.id}]" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent insurance-priority-select" required data-vendor-id="${vendor.id}">
+                                    <option value="">Select priority...</option>
+                                    ${priorityLabels.map((label, i) => `<option value="${i + 1}">${label}</option>`).join('')}
+                                </select>
+                            </div>
+                        `;
+                    });
+                    
+                    priorityContainer.innerHTML = priorityHtml;
+                } else {
+                    prioritySection.style.display = 'none';
+                    // Clear priority assignments if reverting to single or no vendor
+                    vendorCheckboxes.forEach(checkbox => {
+                        const input = document.querySelector(`input[name="insurance_priority[${checkbox.value}]"]`);
+                        if (input) input.remove();
+                    });
+                }
+            }
+
+            // Validate priority assignments before form submission
+            function validatePriorityAssignments() {
+                const selectedVendors = getSelectedVendorsList();
+                
+                // Skip validation if 1 or fewer vendors selected
+                if (selectedVendors.length <= 1) {
+                    return true;
+                }
+
+                // Check if all vendors have a priority assigned
+                const assignedPriorities = new Set();
+                let allAssigned = true;
+                let priorityError = false;
+
+                selectedVendors.forEach(vendor => {
+                    const prioritySelect = document.querySelector(`select[name="insurance_priority[${vendor.id}]"]`);
+                    if (prioritySelect) {
+                        if (!prioritySelect.value) {
+                            allAssigned = false;
+                        } else {
+                            if (assignedPriorities.has(prioritySelect.value)) {
+                                priorityError = true; // Duplicate priority
+                            }
+                            assignedPriorities.add(prioritySelect.value);
+                        }
+                    }
+                });
+
+                const validationDiv = document.getElementById('priority_validation_error');
+                
+                if (!allAssigned) {
+                    validationDiv.textContent = 'Please assign all selected insurance companies to a priority level.';
+                    validationDiv.style.display = 'block';
+                    return false;
+                }
+
+                if (priorityError) {
+                    validationDiv.textContent = 'Each insurance company must have a unique priority level.';
+                    validationDiv.style.display = 'block';
+                    return false;
+                }
+
+                validationDiv.style.display = 'none';
+                return true;
             }
 
             // Handle vendor checkbox changes
@@ -3550,6 +3696,7 @@
                         allCheckedVendors: Array.from(vendorCheckboxes).filter(cb => cb.checked).map(cb => cb.value),
                         totalChecked: Array.from(vendorCheckboxes).filter(cb => cb.checked).length
                     });
+                    updatePriorityAssignment();
                     await renderVendorPolicyForms();
                 });
             });
@@ -3596,6 +3743,14 @@
             const individualForm = document.getElementById('client-registration-form-individual');
             if (individualForm) {
                 individualForm.addEventListener('submit', function(e) {
+                    // Validate priority assignments if multiple vendors selected
+                    if (!validatePriorityAssignments()) {
+                        e.preventDefault();
+                        // Scroll to priority section to show error
+                        document.getElementById('insurance_priority_section')?.scrollIntoView({ behavior: 'smooth' });
+                        return false;
+                    }
+
                     const checkedVendors = [];
                     const vendorWithoutData = [];
                     
