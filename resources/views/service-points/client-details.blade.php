@@ -1430,6 +1430,25 @@
                 const data = await response.json();
 
                 if (data.success) {
+                    // Explicitly stop serving to clear the display screen, as requested.
+                    try {
+                        await fetch('{{ route('calling.announce') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                            },
+                            body: JSON.stringify({
+                                client_id: {{ $client->id }},
+                                client_name: '{{ addslashes($client->name) }}',
+                                service_point_id: {{ $servicePoint->id ?? 'null' }},
+                                type: 'stop-serving'
+                            })
+                        });
+                    } catch (e) {
+                        console.error('Failed to stop serving on display:', e);
+                    }
+
                     // Clear cart
                     cart = [];
                     updateRequestOrderSummaryDisplay();
@@ -1954,7 +1973,23 @@
         }
 
         function cancelAndExit() {
-            window.location.href = '{{ route('service-points.show', $servicePoint) }}';
+            fetch('{{ route('calling.announce') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    client_id: {{ $client->id }},
+                    client_name: '{{ addslashes($client->name) }}',
+                    service_point_id: {{ $servicePoint->id ?? 'null' }},
+                    type: 'stop-serving'
+                })
+            }).then(() => {
+                window.location.href = '{{ route('service-points.show', $servicePoint) }}';
+            }).catch(() => {
+                window.location.href = '{{ route('service-points.show', $servicePoint) }}';
+            });
         }
 
         function saveAndExit() {

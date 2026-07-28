@@ -45,6 +45,11 @@ use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\LocalPaymentController;
 use App\Http\Controllers\ClientSpaceController;
 use App\Http\Controllers\HrModuleSettingsController;
+use App\Http\Controllers\ServicePointCallerController;
+use App\Http\Controllers\CallingController;
+use App\Http\Controllers\EmergencyController;
+use App\Http\Controllers\CallingModuleConfigController;
+use App\Http\Controllers\BroadcastAuthController;
 
 use App\Http\Controllers\PackageTrackingController;
 use App\Http\Controllers\PackageSalesController;
@@ -123,6 +128,14 @@ use Illuminate\Http\Request;
 
 Route::redirect('/', 'login');
 
+
+Route::match(['get', 'post'], '/reverb/auth', BroadcastAuthController::class)
+    ->middleware(['auth'])
+    ->withoutMiddleware([
+        \App\Http\Middleware\RequireTwoFactorForKashtre::class,
+        \App\Http\Middleware\VerifyCsrfToken::class,
+    ])
+    ->name('reverb.auth');
 
 // Third-party payer authentication routes (public)
 Route::prefix('third-party-payer')->name('third-party-payer.')->group(function () {
@@ -204,6 +217,41 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource("qualifications", QualificationController::class);
     Route::resource("rooms", RoomController::class);
     Route::resource("service-points", ServicePointController::class);
+    Route::get('/imaging-orders', [\App\Http\Controllers\ImagingOrderController::class, 'index'])->name('imaging-orders.index');
+    Route::get('/imaging-studies', [\App\Http\Controllers\ImagingStudyController::class, 'index'])->name('imaging-studies.index');
+    Route::get('/imaging-studies/{imagingStudy}', [\App\Http\Controllers\ImagingStudyController::class, 'show'])->name('imaging-studies.show');
+    Route::post('/imaging-studies/{imagingStudy}/open-images', [\App\Http\Controllers\ImagingStudyController::class, 'openImages'])->name('imaging-studies.open-images');
+    Route::post('/imaging-studies/{imagingStudy}/export-images', [\App\Http\Controllers\ImagingStudyController::class, 'exportImages'])->name('imaging-studies.export-images');
+    Route::post('/imaging-studies/{imagingStudy}/checklist', [\App\Http\Controllers\ImagingStudyController::class, 'updateChecklist'])->name('imaging-studies.checklist');
+    Route::post('/imaging-studies/{imagingStudy}/consent', [\App\Http\Controllers\ImagingStudyController::class, 'verifyConsent'])->name('imaging-studies.consent');
+    Route::post('/imaging-studies/{imagingStudy}/start-preparation', [\App\Http\Controllers\ImagingStudyController::class, 'startPreparation'])->name('imaging-studies.start-preparation');
+    Route::post('/imaging-studies/{imagingStudy}/complete-preparation', [\App\Http\Controllers\ImagingStudyController::class, 'completePreparation'])->name('imaging-studies.complete-preparation');
+    Route::post('/imaging-studies/{imagingStudy}/ready-for-study', [\App\Http\Controllers\ImagingStudyController::class, 'readyForStudy'])->name('imaging-studies.ready-for-study');
+    Route::post('/imaging-studies/{imagingStudy}/start', [\App\Http\Controllers\ImagingStudyController::class, 'start'])->name('imaging-studies.start');
+    Route::post('/imaging-studies/{imagingStudy}/image-acquired', [\App\Http\Controllers\ImagingStudyController::class, 'imageAcquired'])->name('imaging-studies.image-acquired');
+    Route::post('/imaging-studies/{imagingStudy}/report-pending', [\App\Http\Controllers\ImagingStudyController::class, 'reportPending'])->name('imaging-studies.report-pending');
+    Route::post('/imaging-studies/{imagingStudy}/report/draft', [\App\Http\Controllers\ImagingReportController::class, 'saveDraft'])->name('imaging-studies.report.draft');
+    Route::post('/imaging-studies/{imagingStudy}/report/submit', [\App\Http\Controllers\ImagingReportController::class, 'submit'])->name('imaging-studies.report.submit');
+    Route::post('/imaging-studies/{imagingStudy}/report/verify', [\App\Http\Controllers\ImagingReportController::class, 'verify'])->name('imaging-studies.report.verify');
+    Route::post('/imaging-studies/{imagingStudy}/report/amend', [\App\Http\Controllers\ImagingReportController::class, 'amend'])->name('imaging-studies.report.amend');
+    Route::get('/peer-review-cases', [\App\Http\Controllers\PeerReviewCaseController::class, 'index'])->name('peer-review-cases.index');
+    Route::post('/imaging-studies/{imagingStudy}/contrast-administrations', [\App\Http\Controllers\ContrastAdministrationController::class, 'store'])->name('imaging-studies.contrast.store');
+    Route::post('/imaging-studies/{imagingStudy}/radiation-exposure-logs', [\App\Http\Controllers\RadiationExposureLogController::class, 'store'])->name('imaging-studies.radiation.store');
+    Route::get('/imaging-my-queue', [\App\Http\Controllers\ImagingWorkflowQueueController::class, 'index'])->name('imaging-my-queue.index');
+    Route::get('/imaging-consumption-exceptions', [\App\Http\Controllers\ImagingConsumptionExceptionController::class, 'index'])->name('imaging-consumption-exceptions.index');
+    Route::post('/imaging-studies/{imagingStudy}/recovery', [\App\Http\Controllers\RecoveryRecordController::class, 'updateMonitoring'])->name('imaging-studies.recovery.update');
+    Route::post('/imaging-studies/{imagingStudy}/recovery/discharge', [\App\Http\Controllers\RecoveryRecordController::class, 'dischargeStore'])->name('imaging-studies.recovery.discharge');
+    Route::get('/imaging-audit-log', [\App\Http\Controllers\ImagingAuditLogController::class, 'index'])->name('imaging-audit-log.index');
+    Route::get('/imaging-analytics', [\App\Http\Controllers\ImagingAnalyticsController::class, 'index'])->name('imaging-analytics.index');
+    Route::get('/imaging-protocols', [\App\Http\Controllers\ImagingProtocolController::class, 'index'])->name('imaging-protocols.index');
+    Route::get('/imaging-protocols/{imagingProtocol}/workflow', [\App\Http\Controllers\ImagingProtocolWorkflowController::class, 'edit'])->name('imaging-protocols.workflow');
+    Route::get('/imaging-readiness-check-types', [\App\Http\Controllers\ImagingReadinessCheckTypeController::class, 'index'])->name('imaging-readiness-check-types.index');
+    Route::get('/imaging-critical-finding-types', [\App\Http\Controllers\ImagingCriticalFindingTypeController::class, 'index'])->name('imaging-critical-finding-types.index');
+    Route::get('/imaging-module-configs', [\App\Http\Controllers\ImagingModuleConfigController::class, 'index'])->name('imaging-module-configs.index');
+    Route::get('/imaging-service-point-configs', [\App\Http\Controllers\ImagingServicePointConfigController::class, 'index'])->name('imaging-service-point-configs.index');
+    Route::get('/imaging-modalities', [\App\Http\Controllers\ImagingModalityController::class, 'index'])->name('imaging-modalities.index');
+    Route::get('/imaging-workflow-steps', [\App\Http\Controllers\ImagingWorkflowStepController::class, 'index'])->name('imaging-workflow-steps.index');
+    Route::get('/contrast-vials', [\App\Http\Controllers\ContrastVialController::class, 'index'])->name('contrast-vials.index');
     Route::resource("service-queues", ServiceQueueController::class)->except(['create', 'store']);
     
     // Additional service queue routes
@@ -306,6 +354,12 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
     Route::resource('service-charge-maturation-periods', ServiceChargeMaturationPeriodController::class)->except(['index']);
     Route::post('service-charge-maturation-periods/{service_charge_maturation_period}/toggle-status', [ServiceChargeMaturationPeriodController::class, 'toggleStatus'])
         ->name('service-charge-maturation-periods.toggle-status');
+
+    // Calling Module Config (Kashtre admin only)
+    Route::resource("calling-module-configs", CallingModuleConfigController::class)->except(['show']);
+    Route::post("calling-module-configs/{callingModuleConfig}/toggle-status", [CallingModuleConfigController::class, 'toggleStatus'])->name('calling-module-configs.toggle-status');
+    Route::post("calling-module-configs/{callingModuleConfig}/toggle-audio", [CallingModuleConfigController::class, 'toggleAudio'])->name('calling-module-configs.toggle-audio');
+    Route::post("calling-module-configs/{callingModuleConfig}/toggle-video", [CallingModuleConfigController::class, 'toggleVideo'])->name('calling-module-configs.toggle-video');
 
     // Inventory Module Config (Kashtre admin only)
     Route::resource("inventory-module-configs", InventoryModuleConfigController::class);
@@ -628,6 +682,66 @@ Route::get('/service-delivery/statement/{invoice}', [ServiceDeliveryController::
 // Money Tracking routes
 Route::get('/money-tracking/dashboard', [MoneyTrackingController::class, 'dashboard'])->name('money-tracking.dashboard');
 Route::get('/money-tracking/client-account/{client}', [MoneyTrackingController::class, 'getClientAccount'])->name('money-tracking.client-account');
+
+// Calling Module — Named caller management (business admin, calling must be enabled)
+// NOTE: static nested routes must be before the resource to avoid {caller} capturing them
+Route::get('service-point-callers/call-settings/voices', [ServicePointCallerController::class, 'getVoices'])->name('service-point-callers.get-voices');
+Route::get('service-point-callers/call-settings/preview', [ServicePointCallerController::class, 'previewVoice'])->name('service-point-callers.preview-voice');
+Route::get('service-point-callers/call-settings', [ServicePointCallerController::class, 'callSettingsIndex'])->name('service-point-callers.call-settings-index');
+Route::post('service-point-callers/call-settings', [ServicePointCallerController::class, 'saveGlobalCallSettings'])->name('service-point-callers.save-global-call-settings');
+Route::get('service-point-callers/emergency-settings', [ServicePointCallerController::class, 'emergencySettingsIndex'])->name('service-point-callers.emergency-settings-index');
+Route::post('service-point-callers/emergency-settings', [ServicePointCallerController::class, 'saveEmergencySettings'])->name('service-point-callers.save-emergency-settings');
+Route::get('service-point-callers/p2p-settings', [ServicePointCallerController::class, 'p2pSettingsIndex'])->name('service-point-callers.p2p-settings');
+Route::post('service-point-callers/p2p-settings', [ServicePointCallerController::class, 'saveP2pSettings'])->name('service-point-callers.save-p2p-settings');
+Route::delete('service-point-callers/{caller}/service-points/{servicePoint}', [ServicePointCallerController::class, 'removeServicePoint'])->name('service-point-callers.remove-service-point');
+Route::post('service-point-callers/{caller}/generate-token', [ServicePointCallerController::class, 'generateToken'])->name('service-point-callers.generate-token');
+Route::post('service-point-callers/{caller}/call-settings', [ServicePointCallerController::class, 'updateCallSettings'])->name('service-point-callers.update-call-settings');
+Route::resource('service-point-callers', ServicePointCallerController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])->parameters(['service-point-callers' => 'caller']);
+
+// PA (Public Announcement) sections — settings
+Route::get('pa-sections', [\App\Http\Controllers\PaAnnouncementController::class, 'index'])->name('pa-sections.index');
+Route::post('pa-sections', [\App\Http\Controllers\PaAnnouncementController::class, 'store'])->name('pa-sections.store');
+Route::put('pa-sections/{paSection}', [\App\Http\Controllers\PaAnnouncementController::class, 'update'])->name('pa-sections.update');
+Route::delete('pa-sections/{paSection}', [\App\Http\Controllers\PaAnnouncementController::class, 'destroy'])->name('pa-sections.destroy');
+Route::get('pa/console', [\App\Http\Controllers\PaAnnouncementController::class, 'console'])->name('pa.console');
+
+// PA broadcasting — used from the calling page
+Route::post('pa/start', [\App\Http\Controllers\PaAnnouncementController::class, 'start'])->name('pa.start');
+Route::post('pa/stop', [\App\Http\Controllers\PaAnnouncementController::class, 'stop'])->name('pa.stop');
+Route::post('pa/chunk', [\App\Http\Controllers\PaAnnouncementController::class, 'chunk'])->name('pa.chunk');
+Route::post('pa/signal/caller', [\App\Http\Controllers\PaAnnouncementController::class, 'signalToCaller'])->name('pa.signal.caller');
+Route::get('pa/status', [\App\Http\Controllers\PaAnnouncementController::class, 'status'])->name('pa.status');
+
+// Calling Module — Staff calling page
+Route::get('/calling', [CallingController::class, 'index'])->name('calling.index');
+Route::post('/calling/select', [CallingController::class, 'selectCaller'])->name('calling.select');
+Route::post('/calling/deselect', [CallingController::class, 'deselectCaller'])->name('calling.deselect');
+Route::post('/calling/announce', [CallingController::class, 'announce'])->name('calling.announce');
+Route::get('/callers/log', [CallingController::class, 'log'])->name('callers.log');
+
+// Emergency alerts
+Route::post('/service-points/{servicePoint}/emergency', [EmergencyController::class, 'trigger'])->name('emergency.trigger');
+
+// P2P Audio Calling
+Route::prefix('calls')->name('calls.')->group(function () {
+    Route::post('/initiate', [\App\Http\Controllers\P2PCallController::class, 'initiateCall'])->name('initiate');
+    Route::post('/{callUuid}/accept', [\App\Http\Controllers\P2PCallController::class, 'acceptCall'])->name('accept');
+    Route::post('/{callUuid}/reject', [\App\Http\Controllers\P2PCallController::class, 'rejectCall'])->name('reject');
+    Route::post('/{callUuid}/cancel', [\App\Http\Controllers\P2PCallController::class, 'cancelCall'])->name('cancel');
+    Route::post('/{callUuid}/end', [\App\Http\Controllers\P2PCallController::class, 'endCall'])->name('end');
+    Route::post('/{callUuid}/signal', [\App\Http\Controllers\P2PCallController::class, 'signal'])->name('signal');
+    Route::get('/{callUuid}/signals', [\App\Http\Controllers\P2PCallController::class, 'pollSignals'])->name('signals');
+    Route::get('/{callUuid}/status', [\App\Http\Controllers\P2PCallController::class, 'callStatus'])->name('status');
+    Route::get('/incoming', [\App\Http\Controllers\P2PCallController::class, 'incomingCall'])->name('incoming');
+    Route::get('/history', [\App\Http\Controllers\P2PCallController::class, 'callHistory'])->name('history');
+    Route::get('/online-users', [\App\Http\Controllers\P2PCallController::class, 'onlineUsers'])->name('online-users');
+});
+
+Route::post('/service-points/{servicePoint}/emergency/resolve', [EmergencyController::class, 'resolve'])->name('emergency.resolve');
+Route::post('/emergency/trigger', [EmergencyController::class, 'triggerGlobal'])->name('emergency.trigger.global');
+Route::post('/emergency/resolve', [EmergencyController::class, 'resolveGlobal'])->name('emergency.resolve.global');
+Route::get('/emergency/status', [EmergencyController::class, 'status'])->name('emergency.status');
+Route::get('/emergency/log', [EmergencyController::class, 'log'])->name('emergency.log');
 
 // Payment Review routes (for reviewing third-party payer payments)
 Route::get('/payment-reviews', [PaymentReviewController::class, 'index'])->name('payment-reviews.index');

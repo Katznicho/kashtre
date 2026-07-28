@@ -96,6 +96,11 @@ trait AccessTrait
         "Refund Workflows" => ['View Credit Note Workflows', 'Edit Credit Note Workflows', 'Add Credit Note Workflows'],
     ];
 
+    public static $callers = [
+        "Calling Module" => ['View Calling Module', 'Add Calling Module', 'Edit Calling Module', 'Manage Calling Module', 'Delete Calling Module'],
+        "Callers" => ['View Callers', 'Add Callers', 'Edit Callers', 'Manage Callers', 'Broadcast Announcements'],
+    ];
+
     public static $inventoryModule = [
         "Inventory Module" => ['View Inventory Module', 'Add Inventory Module', 'Edit Inventory Module', 'Manage Inventory Module', 'Delete Inventory Module'],
         "Inventory" => [
@@ -197,6 +202,28 @@ trait AccessTrait
         "Package Sales" => ['View Package Sales', 'Edit Package Sales', 'Add Package Sales', 'View Package Sales History', 'Export Package Sales'],
     ];
 
+    public static $imagingModule = [
+        "Imaging Orders" => ['View Imaging Orders', 'Add Imaging Orders'],
+        "Imaging Studies" => ['View Imaging Studies', 'Progress Imaging Studies'],
+        "Imaging Reports" => ['Report Imaging Studies', 'Verify Imaging Reports'],
+        "Peer Review" => ['View Peer Review Cases', 'Complete Peer Review Cases'],
+        "Critical Findings" => ['Receive Critical Imaging Alerts'],
+        "My Imaging Queue" => ['View My Imaging Queue', 'Claim Imaging Studies', 'Release Imaging Studies', 'Transfer Imaging Studies'],
+        "Imaging Audit Log" => ['View Imaging Audit Log'],
+        "Imaging Analytics" => ['View Imaging Analytics'],
+        "Contrast Vials" => ['View Contrast Vials', 'Manage Contrast Vials'],
+        "Consumption Exceptions" => ['View Consumption Exceptions', 'Resolve Consumption Exceptions'],
+        "Imaging Settings" => [
+            'View Imaging Protocols', 'Manage Imaging Protocols',
+            'View Imaging Readiness Checks', 'Manage Imaging Readiness Checks',
+            'View Imaging Critical Findings', 'Manage Imaging Critical Findings',
+            'View Imaging Module', 'Manage Imaging Module',
+            'View Imaging Service Point Configs', 'Manage Imaging Service Point Configs',
+            'View Imaging Modalities', 'Manage Imaging Modalities',
+            'View Imaging Workflow Steps', 'Manage Imaging Workflow Steps',
+        ],
+    ];
+
 
     public static function spreadArrayKeys($assocArray)
     {
@@ -234,6 +261,7 @@ trait AccessTrait
                 static::$modules,
                 static::$stock,
                 static::$masters,
+                static::$callers,
                 static::$inventoryModule,
                 static::$adminAccess,
                 static::$businessAccess,
@@ -245,7 +273,8 @@ trait AccessTrait
                 static::$bulkUpload,
                 static::$finance,
                 static::$packageTracking,
-                static::$packageSales
+                static::$packageSales,
+                static::$imagingModule
             )
         );
         return $roles;
@@ -270,6 +299,7 @@ trait AccessTrait
         "Modules" => self::$modules,
         "Stock" => self::$stock,
         "Masters" => self::$masters,
+        "Callers" => self::$callers,
         "Inventory" => self::$inventoryModule,
         "Admin" => self::$adminAccess,
         "Business" => self::$businessAccess,
@@ -282,6 +312,7 @@ trait AccessTrait
         "Finance" => self::$finance,
         "Package Tracking" => self::$packageTracking,
         "Package Sales" => self::$packageSales,
+        "Imaging" => self::$imagingModule,
     ];
 
     if (!empty($exclude)) {

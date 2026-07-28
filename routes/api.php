@@ -1,6 +1,63 @@
 <?php
 
+use App\Http\Controllers\EmergencyController;
+use App\Http\Controllers\API\DisplayBoardController;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Route;
+
+// Queue display board — migrated to standalone Calling Service
+// API endpoints for TV are no longer served from the Kashtre monolith
+
+Route::withoutMiddleware([ThrottleRequests::class])
+    ->middleware('throttle:240,1')
+    ->group(function () {
+        // Public token-authenticated endpoint for the display board to get emergency color
+        Route::get('/display/emergency-status', [EmergencyController::class, 'displayEmergencyStatus']);
+        Route::get('/display/latest-calls', [DisplayBoardController::class, 'latestCalls']);
+        Route::get('/display/audio', [DisplayBoardController::class, 'streamAudio']);
+        Route::get('/display/emergency-audio', [DisplayBoardController::class, 'streamEmergencyAudio']);
+        Route::get('/display/announcement-audio', [DisplayBoardController::class, 'streamAnnouncementAudio']);
+        Route::options('/display/latest-calls', fn () => response()->noContent()->withHeaders([
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]));
+        Route::options('/display/audio', fn () => response()->noContent()->withHeaders([
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]));
+        Route::options('/display/emergency-audio', fn () => response()->noContent()->withHeaders([
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]));
+        Route::options('/display/announcement-audio', fn () => response()->noContent()->withHeaders([
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]));
+
+        // Public token-authenticated endpoint for the display board to get PA config (sections + Reverb details)
+        Route::get('/display/pa-config', [\App\Http\Controllers\PaAnnouncementController::class, 'displayPaConfig']);
+        Route::get('/display/pa-stream', [\App\Http\Controllers\PaAnnouncementController::class, 'displayPaStream']);
+        Route::post('/display/pa-signal', [\App\Http\Controllers\PaAnnouncementController::class, 'displaySignal']);
+        Route::options('/display/pa-config', fn () => response()->noContent()->withHeaders([
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]));
+        Route::options('/display/pa-stream', fn () => response()->noContent()->withHeaders([
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]));
+        Route::options('/display/pa-signal', fn () => response()->noContent()->withHeaders([
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'POST, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]));
+    });
 
 // Public API routes for client registration and open enrollment checks (no auth required)
 Route::get('/insurance-company/by-code/{code}', [\App\Http\Controllers\ClientController::class, 'getInsuranceCompanyByCode'])->name('api.insurance-company.by-code');
@@ -9,6 +66,13 @@ Route::get('/policies/verify/{insuranceCompanyId}/{policyNumber}', [\App\Http\Co
 Route::post('/policies/verify/{insuranceCompanyId}', [\App\Http\Controllers\ClientController::class, 'verifyPolicyNumber'])->name('api.policies.verify.post');
 
 
+
+// Orthanc PACS integration — Lua OnStableStudy callback (pacs integration
+// files/stable-study.lua). Gated by the shared secret inside the
+// controller, not route middleware — Orthanc and Laravel share localhost
+// in this environment.
+Route::post('/orthanc/stable-study', [\App\Http\Controllers\OrthancWebhookController::class, 'stableStudy'])
+    ->middleware('throttle:120,1');
 
 // Clinical Module Integration API (X-Service-Key or X-API-Key)
 Route::middleware('clinical.api')->group(function () {
@@ -55,10 +119,43 @@ Route::prefix('hr')->middleware('hr.api')->group(function () {
     Route::get('/cadres', [\App\Http\Controllers\API\HrIntegrationController::class, 'cadres']);
     Route::get('/designations', [\App\Http\Controllers\API\HrIntegrationController::class, 'designations']);
     Route::get('/client-spaces', [\App\Http\Controllers\API\HrIntegrationController::class, 'clientSpaces']);
+    
     Route::get('/users', [\App\Http\Controllers\API\HrIntegrationController::class, 'users']);
     Route::get('/users/{uuid}', [\App\Http\Controllers\API\HrIntegrationController::class, 'userShow']);
     Route::get('/employee-identities', [\App\Http\Controllers\API\HrIntegrationController::class, 'employeeIdentities']);
     Route::get('/employee-identities/{uuid}', [\App\Http\Controllers\API\HrIntegrationController::class, 'employeeIdentityShow']);
+});
+
+// RIS Amendment v2.6, Chunk 8 — Imaging Workflow Engine Integration API,
+// for the eventual Clinical Module (same shared-secret idiom as the HR
+// group above). Every endpoint is a thin wrapper over Chunks 1-6's
+// services/models — no logic lives here that doesn't already exist for
+// the web UI.
+Route::prefix('v1/imaging')->middleware('imaging.api')->group(function () {
+    Route::get('/workflow-steps', [\App\Http\Controllers\API\Imaging\WorkflowStepController::class, 'index']);
+    Route::get('/workflow-steps/{workflowStep}/users', [\App\Http\Controllers\API\Imaging\WorkflowStepController::class, 'users']);
+    Route::get('/workflow-steps/{workflowStep}/queue', [\App\Http\Controllers\API\Imaging\WorkflowStepController::class, 'queue']);
+    Route::get('/protocol-workflows', [\App\Http\Controllers\API\Imaging\ProtocolWorkflowController::class, 'index']);
+    Route::post('/studies/{study}/claim', [\App\Http\Controllers\API\Imaging\StudyController::class, 'claim']);
+    Route::post('/studies/{study}/complete-step', [\App\Http\Controllers\API\Imaging\StudyController::class, 'completeStep']);
+    Route::get('/consumption-exceptions', [\App\Http\Controllers\API\Imaging\ConsumptionExceptionController::class, 'index']);
+    Route::post('/consumption-exceptions/{consumptionException}/resolve', [\App\Http\Controllers\API\Imaging\ConsumptionExceptionController::class, 'resolve']);
+});
+
+// RIS Amendment v2.6, Chunk 8 — Imaging Workflow Engine Integration API,
+// for the eventual Clinical Module (same shared-secret idiom as the HR
+// group above). Every endpoint is a thin wrapper over Chunks 1-6's
+// services/models — no logic lives here that doesn't already exist for
+// the web UI.
+Route::prefix('v1/imaging')->middleware('imaging.api')->group(function () {
+    Route::get('/workflow-steps', [\App\Http\Controllers\API\Imaging\WorkflowStepController::class, 'index']);
+    Route::get('/workflow-steps/{workflowStep}/users', [\App\Http\Controllers\API\Imaging\WorkflowStepController::class, 'users']);
+    Route::get('/workflow-steps/{workflowStep}/queue', [\App\Http\Controllers\API\Imaging\WorkflowStepController::class, 'queue']);
+    Route::get('/protocol-workflows', [\App\Http\Controllers\API\Imaging\ProtocolWorkflowController::class, 'index']);
+    Route::post('/studies/{study}/claim', [\App\Http\Controllers\API\Imaging\StudyController::class, 'claim']);
+    Route::post('/studies/{study}/complete-step', [\App\Http\Controllers\API\Imaging\StudyController::class, 'completeStep']);
+    Route::get('/consumption-exceptions', [\App\Http\Controllers\API\Imaging\ConsumptionExceptionController::class, 'index']);
+    Route::post('/consumption-exceptions/{consumptionException}/resolve', [\App\Http\Controllers\API\Imaging\ConsumptionExceptionController::class, 'resolve']);
 });
 
 Route::prefix('v1')->group(function () {

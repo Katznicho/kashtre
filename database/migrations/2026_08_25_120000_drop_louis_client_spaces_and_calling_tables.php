@@ -15,15 +15,12 @@ return new class extends Migration
         }
 
         foreach ([
+            // Calling, P2P, PA, and emergency-alert tables are deliberately
+            // NOT in this list — that subsystem was restored (rebase onto
+            // the imaging module), so its tables must survive this cleanup.
+            // Only Client Spaces and the HR module bridge stay dropped.
             'client_space_store_assignments',
             'client_spaces',
-            'p2p_call_signals',
-            'p2p_calls',
-            'caller_logs',
-            'callers',
-            'emergency_alerts',
-            'pa_sections',
-            'calling_module_configs',
             'kashtre_hr_module_settings',
         ] as $table) {
             Schema::dropIfExists($table);

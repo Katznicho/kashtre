@@ -44,6 +44,11 @@ return [
         'timeout' => env('THIRD_PARTY_API_TIMEOUT', 30),
     ],
 
+    'calling_service' => [
+        'url'         => env('CALLING_SERVICE_URL', 'http://127.0.0.1:8001'),
+        'sync_secret' => env('CALLING_SERVICE_SYNC_SECRET', ''),
+    ],
+
     'clinical_module' => [
         // Prefer Settings → Clinical Module Settings (superadmin UI). Env seeds defaults only.
         'url' => rtrim((string) env('CLINICAL_MODULE_URL', ''), '/'),
@@ -55,6 +60,10 @@ return [
         'handoff_bypass_code' => env('INVENTORY_HANDOFF_BYPASS_CODE', '00000'),
     ],
 
+    'imaging_module' => [
+        'api_key' => env('IMAGING_MODULE_API_KEY'),
+    ],
+
     'vendor' => [
         'api_url' => env('VENDOR_API_URL', 'http://localhost:8001'),
     ],
@@ -63,6 +72,18 @@ return [
         'url' => rtrim((string) env('HR_MODULE_URL', ''), '/'),
         'api_key' => env('HR_MODULE_API_KEY', ''),
         'sync_enabled' => (bool) env('HR_MODULE_SYNC_ENABLED', true),
+    ],
+
+    // Pillars 1.1/7/8: Orthanc (PACS + DICOM Modality Worklist broker).
+    // OrthancDicomWorklistBroker / OrthancPacsClient talk to this; unset
+    // ORTHANC_URL falls back to LoggingDicomWorklistBroker/StubPacsClient
+    // only if AppServiceProvider's bindings are reverted to the stubs.
+    'orthanc' => [
+        'url' => env('ORTHANC_URL', 'http://127.0.0.1:8042'),
+        'username' => env('ORTHANC_USERNAME'),
+        'password' => env('ORTHANC_PASSWORD'),
+        'uid_root' => env('DICOM_UID_ROOT', '2.25'),
+        'webhook_secret' => env('ORTHANC_WEBHOOK_SECRET'),
     ],
 
 ];
