@@ -74,6 +74,39 @@ Route::post('/policies/verify/{insuranceCompanyId}', [\App\Http\Controllers\Clie
 Route::post('/orthanc/stable-study', [\App\Http\Controllers\OrthancWebhookController::class, 'stableStudy'])
     ->middleware('throttle:120,1');
 
+// Clinical-to-LIMS ICD's inbound webhook — the real endpoint a genuinely
+// separate LIMS calls back into. HMAC-verified inside the controller
+// (same pattern as the Orthanc webhook above: the signature check IS the
+// auth, not route middleware).
+Route::post('/v1/clinical/lab-proxy/{eventType}', [\App\Http\Controllers\API\Clinical\LimsWebhookController::class, 'handle'])
+    ->middleware('throttle:120,1');
+
+/*
+|--------------------------------------------------------------------------
+| Clinical Module → Main (inbound)
+|--------------------------------------------------------------------------
+|
+| What a separate CLINICAL_ORCHESTRATOR calls on us, per the Clinical Module
+| API Integration Guide. Authenticated with the mirror of the X-Service-Key
+| we present to them (§3.1), keyed off CLINICAL_INBOUND_SERVICE_KEYS.
+|
+| /events           §12 — the at-least-once event stream. De-duplicated on
+|                   event_id; a redelivery is normal and does no work.
+| /catalogue/*      §14 — the lookup that currently blocks ALL ordering.
+|                   Clinical cannot resolve a generic drug term into a SKU
+|                   without it, so nothing can be prescribed until this is
+|                   reachable and configured on both sides.
+|
+| The throttle is generous because a Clinical outbox draining a backlog after
+| an outage is exactly when we least want to start refusing deliveries.
+*/
+Route::prefix('v1')->middleware(['clinical.service', 'throttle:600,1'])->group(function () {
+    Route::post('/events', [\App\Http\Controllers\API\Clinical\ClinicalEventsController::class, 'store']);
+
+    Route::post('/catalogue/resolve', [\App\Http\Controllers\API\Clinical\CatalogueLookupController::class, 'resolve']);
+    Route::get('/catalogue/items/{code}', [\App\Http\Controllers\API\Clinical\CatalogueLookupController::class, 'show']);
+});
+
 // Clinical Module Integration API (X-Service-Key or X-API-Key)
 Route::middleware('clinical.api')->group(function () {
     Route::get('/catalogue/items', [\App\Http\Controllers\API\ClinicalIntegrationController::class, 'catalogueItems']);
@@ -120,6 +153,7 @@ Route::prefix('hr')->middleware('hr.api')->group(function () {
     Route::get('/designations', [\App\Http\Controllers\API\HrIntegrationController::class, 'designations']);
     Route::get('/client-spaces', [\App\Http\Controllers\API\HrIntegrationController::class, 'clientSpaces']);
     
+    
     Route::get('/users', [\App\Http\Controllers\API\HrIntegrationController::class, 'users']);
     Route::get('/users/{uuid}', [\App\Http\Controllers\API\HrIntegrationController::class, 'userShow']);
     Route::get('/employee-identities', [\App\Http\Controllers\API\HrIntegrationController::class, 'employeeIdentities']);
@@ -140,6 +174,11 @@ Route::prefix('v1/imaging')->middleware('imaging.api')->group(function () {
     Route::post('/studies/{study}/complete-step', [\App\Http\Controllers\API\Imaging\StudyController::class, 'completeStep']);
     Route::get('/consumption-exceptions', [\App\Http\Controllers\API\Imaging\ConsumptionExceptionController::class, 'index']);
     Route::post('/consumption-exceptions/{consumptionException}/resolve', [\App\Http\Controllers\API\Imaging\ConsumptionExceptionController::class, 'resolve']);
+
+    // Clinical Module — the real endpoint HttpModuleDispatcher posts to
+    // (DISPATCH_DRIVER=http) instead of the in-process local driver, once
+    // Imaging moves off this box. See ImagingFactsController.
+    Route::post('/facts/{factType}', [\App\Http\Controllers\API\Imaging\ImagingFactsController::class, 'handle']);
 });
 
 // RIS Amendment v2.6, Chunk 8 — Imaging Workflow Engine Integration API,
@@ -156,6 +195,11 @@ Route::prefix('v1/imaging')->middleware('imaging.api')->group(function () {
     Route::post('/studies/{study}/complete-step', [\App\Http\Controllers\API\Imaging\StudyController::class, 'completeStep']);
     Route::get('/consumption-exceptions', [\App\Http\Controllers\API\Imaging\ConsumptionExceptionController::class, 'index']);
     Route::post('/consumption-exceptions/{consumptionException}/resolve', [\App\Http\Controllers\API\Imaging\ConsumptionExceptionController::class, 'resolve']);
+
+    // Clinical Module — the real endpoint HttpModuleDispatcher posts to
+    // (DISPATCH_DRIVER=http) instead of the in-process local driver, once
+    // Imaging moves off this box. See ImagingFactsController.
+    Route::post('/facts/{factType}', [\App\Http\Controllers\API\Imaging\ImagingFactsController::class, 'handle']);
 });
 
 Route::prefix('v1')->group(function () {

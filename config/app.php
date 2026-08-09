@@ -147,4 +147,9 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    // Providers and aliases moved to bootstrap/providers.php (Laravel 11
+    // style) — this array is intentionally not used. Every provider that
+    // used to be listed here (including the Clinical Module gateway/
+    // integration providers) is registered there instead.
+
 ];
