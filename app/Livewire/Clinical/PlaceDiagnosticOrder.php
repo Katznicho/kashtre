@@ -8,6 +8,7 @@ use App\Models\ImagingProtocol;
 use App\Services\Clinical\Facts\DiagnosticOrderPlacedFact;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
+use App\Support\Clinical\ClinicalDriver;
 
 /**
  * Chunk 3: diagnostic ordering, wired to the real Imaging module through
@@ -35,6 +36,14 @@ class PlaceDiagnosticOrder extends Component
 
     public function render()
     {
+        // Reads Main's clinical_* tables, which do not exist under
+        // CLINICAL_DRIVER=api. Render an explanation instead of a 500.
+        if (ClinicalDriver::isApi()) {
+            return view('livewire.clinical.partials.driver-unavailable', [
+                'title' => 'Imaging Orders',
+                'detail' => 'Clinical can list work orders but publishes no endpoint to place one.',
+            ]);
+        }
         return view('livewire.clinical.place-diagnostic-order', [
             'protocols' => ImagingProtocol::query()
                 ->availableToBusiness(Auth::user()->business_id)

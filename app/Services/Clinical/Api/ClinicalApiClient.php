@@ -127,6 +127,25 @@ class ClinicalApiClient
     }
 
     /**
+     * DELETE counterpart to getEnvelope. Bulk retirement reports its outcome in
+     * `meta.message` and its refusals in `data.skipped`, and a caller that only
+     * saw `data` would tell a ward clerk "done" when a bed was left in place.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array{data: mixed, meta: array<string, mixed>}
+     */
+    public function deleteEnvelope(string $path, array $payload = [], array $options = []): array
+    {
+        $response = $this->execute('delete', $path, $payload, $options);
+        $body = $this->decode($response);
+
+        return [
+            'data' => $body['data'] ?? [],
+            'meta' => $body['meta'] ?? [],
+        ];
+    }
+
+    /**
      * Liveness probe (§2). The only public endpoint — deliberately
      * unauthenticated so load balancers can reach it — and the fastest way to
      * tell "Clinical is down" from "my service key is wrong".
@@ -136,7 +155,15 @@ class ClinicalApiClient
     public function health(): array
     {
         try {
-            $response = $this->request(withIdentity: false)->get($this->url('/health'));
+            // Deliberately not request(): that builder carries the standard
+            // clinical-action timeout with two retries, which can stack to
+            // ~30s of blocking. A status probe that takes that long to fail
+            // has already failed — this needs to answer fast, once, with no
+            // retry, or a page that checks health on load hangs with it.
+            $response = Http::timeout((int) config('services.clinical.health_timeout', 3))
+                ->asJson()
+                ->get($this->url('/health'));
+
             $data = $this->decode($response)['data'] ?? [];
 
             return [

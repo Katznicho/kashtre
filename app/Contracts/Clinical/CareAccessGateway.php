@@ -18,8 +18,12 @@ use App\Support\Clinical\ClinicalActor;
 interface CareAccessGateway
 {
     /**
-     * Does this clinician have a live care relationship with this patient,
-     * by individual, role, team or hybrid assignment?
+     * May this clinician open this patient's chart — by individual, role, team
+     * or hybrid assignment, or under an unexpired break-glass grant?
+     *
+     * The override is included deliberately: callers use this to decide whether
+     * to show the chart or the refusal screen, and a clinician who has just
+     * broken glass would otherwise be sent straight back to the refusal.
      */
     public function hasActiveRelationship(ClinicalActor $actor, string $patientId): bool;
 

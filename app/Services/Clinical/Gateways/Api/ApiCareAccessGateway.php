@@ -39,7 +39,10 @@ class ApiCareAccessGateway implements CareAccessGateway
                 'role_codes' => $this->context->rolesFor(),
             ], ['business_id' => $actor->businessId]);
 
-            return (bool) ($data['is_responsible'] ?? false);
+            // Clinical answers with has_care_relationship; is_responsible was
+            // the field this was written against and never arrives, which made
+            // every check fall through to false and every chart look forbidden.
+            return (bool) ($data['has_care_relationship'] ?? $data['is_responsible'] ?? false);
         } catch (ClinicalApiException $e) {
             Log::warning('Care relationship check failed; assuming no relationship.', $e->context());
 

@@ -6,6 +6,7 @@ use App\Models\ClinicalBreakGlassLog;
 use App\Models\ClinicalProcessStepExecution;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
+use App\Support\Clinical\ClinicalDriver;
 
 /**
  * Lean audit polish, mirroring ImagingAuditService/ListImagingAuditLog —
@@ -30,6 +31,14 @@ class AuditTrail extends Component
 
     public function render()
     {
+        // Reads Main's clinical_* tables, which do not exist under
+        // CLINICAL_DRIVER=api. Render an explanation instead of a 500.
+        if (ClinicalDriver::isApi()) {
+            return view('livewire.clinical.partials.driver-unavailable', [
+                'title' => 'Clinical Audit Trail',
+                'detail' => 'Clinical publishes GET /clinical/audit-trail, but it is restricted to the Medical Director.',
+            ]);
+        }
         $businessId = Auth::user()->business_id;
 
         return view('livewire.clinical.audit-trail', [

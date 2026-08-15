@@ -9,7 +9,10 @@ use App\Models\InventoryFulfillmentLine;
 use App\Models\InventoryHandoffToken;
 use App\Models\Item;
 use App\Models\KashtreClinicalModuleSetting;
+use App\Models\PackageTracking;
+use App\Models\PackageTrackingItem;
 use App\Models\ServiceDeliveryQueue;
+use App\Support\ItemStrengthParser;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -57,6 +60,7 @@ class ClinicalModuleIntegrationService
                 $q->where('name', 'like', "%{$query}%")
                     ->orWhere('generic_name', 'like', "%{$query}%")
                     ->orWhere('code', 'like', "%{$query}%")
+                    ->orWhere('strength', 'like', "%{$query}%")
                     ->orWhere('other_names', 'like', "%{$query}%");
             })
             ->orderBy('name')
@@ -84,21 +88,35 @@ class ClinicalModuleIntegrationService
             }
         }
 
-        $isOffer = in_array($item->type, ['package', 'bulk'], true);
-        $drugCode = $item->type === 'good'
-            ? Str::upper(Str::slug((string) ($item->generic_name ?: $item->code), '_'))
+        // "Offer item" means the Clinical Module may order it: an active,
+        // billable line in this business's catalogue. All four item types are
+        // sellable (goods and services directly, package/bulk as composites),
+        // so the only disqualifier is being retired — which for Item is a soft
+        // delete, and those never reach this method through the default scope.
+        $isOffer = $item->deleted_at === null;
+
+        // Ingredient identity drives duplicate-therapy and allergy checking on
+        // the Clinical side, and it must never be the SKU: two brands of the
+        // same drug have different SKUs, so a SKU here makes every safety check
+        // pass silently rather than fail loudly. Only a real generic name
+        // yields a code — otherwise null, which Clinical reads as "check
+        // unavailable" and surfaces to the clinician.
+        $drugCode = $item->type === 'good' && filled($item->generic_name)
+            ? Str::upper(Str::slug((string) $item->generic_name, '_'))
             : null;
 
         return [
             'sku' => $item->code,
             'item_name' => $item->name,
             'alternative_names' => array_values($alternatives),
-            'strength_descriptor' => $item->strength,
+            'strength_descriptor' => $item->strength ?: ItemStrengthParser::parse($item->name),
             'is_offer_item' => $isOffer,
             'service_code' => $item->type === 'service' ? $item->code : null,
             'drug_code' => $drugCode,
-            // Ingredient / class codes are not yet modelled in Main — empty until catalogue enrichment.
             'ingredient_codes' => $drugCode ? [$drugCode] : [],
+            // Chemical class (e.g. PENICILLIN_CLASS) is not modelled in Main.
+            // Empty means Clinical cannot block a class-level allergy — see the
+            // Clinical Module checklist §2.4; needs a catalogue enrichment pass.
             'drug_class_codes' => [],
             'uuid' => $item->uuid,
             'type' => $item->type,
@@ -150,6 +168,7 @@ class ClinicalModuleIntegrationService
             'visit_id' => $client->visit_id,
             'visit_expires_at' => $client->visit_expires_at?->toIso8601String(),
             'status' => $client->status,
+            'deceased_at' => $client->deceased_at?->toIso8601String(),
             'business' => $client->business ? [
                 'id' => $client->business->id,
                 'uuid' => $client->business->uuid,
@@ -232,8 +251,14 @@ class ClinicalModuleIntegrationService
             return $existing->response ?? ['status' => 'duplicate', 'event_id' => $eventId];
         }
 
-        if ($factToken === 'INFANT_REGISTRATION') {
+        // Clinical's published contract emits INFANT_REGISTRATION_REQUESTED
+        // (their checklist §5.1); the shorter form is what this service
+        // originally accepted. Accept both rather than reject a live delivery
+        // over naming — their outbox would retry it forever.
+        if (in_array($factToken, ['INFANT_REGISTRATION', 'INFANT_REGISTRATION_REQUESTED'], true)) {
             $response = $this->registerInfant($payload, $businessId);
+        } elseif ($factToken === 'PATIENT_DECEASED') {
+            $response = $this->recordPatientDeceased($payload, $businessId);
         } else {
             abort(422, 'Unsupported fact_token');
         }
@@ -276,9 +301,7 @@ class ClinicalModuleIntegrationService
             default => 'other',
         };
 
-        $deliveryAt = isset($payload['delivery_at'])
-            ? Carbon::parse($payload['delivery_at'])
-            : now();
+        $deliveryAt = $this->parseToAppTimezone($payload['delivery_at'] ?? null);
 
         $order = (int) ($payload['birth_order'] ?? 1);
         $surname = $mother->surname ?: $mother->name;
@@ -329,6 +352,118 @@ class ClinicalModuleIntegrationService
             'infant_visit_id' => $infant->visit_id,
             'client_code' => $infant->client_id,
         ];
+    }
+
+    /**
+     * Clinical sends ISO-8601 instants in UTC ("...Z"). Laravel writes a
+     * Carbon to a datetime column with format('Y-m-d H:i:s'), which drops the
+     * offset instead of converting it — so a bare Carbon::parse() of 14:30Z
+     * stores "14:30" and reads back as 14:30 Africa/Nairobi, three hours
+     * before the event actually happened. Convert first.
+     */
+    private function parseToAppTimezone(mixed $value): Carbon
+    {
+        if ($value === null || $value === '') {
+            return now();
+        }
+
+        return Carbon::parse($value)->setTimezone(config('app.timezone'));
+    }
+
+    /**
+     * SRD §13.3 end-of-life kill-switch. Clinical halts everything clinical;
+     * this side records the death so recurring billing can stop.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function recordPatientDeceased(array $payload, ?int $businessId): array
+    {
+        $patientId = (string) ($payload['patient_id'] ?? $payload['global_client_id'] ?? '');
+        $client = $this->findClient($patientId, $businessId);
+
+        if (! $client) {
+            abort(404, 'Patient not found');
+        }
+
+        $deceasedAt = $this->parseToAppTimezone($payload['deceased_at'] ?? null);
+
+        // Never move an already-recorded death: a redelivery or a correction
+        // arriving out of order must not rewrite the original timestamp that
+        // billing has already acted on.
+        if ($client->deceased_at === null) {
+            $client->forceFill(['deceased_at' => $deceasedAt])->save();
+        }
+
+        Log::info('Clinical PATIENT_DECEASED recorded', [
+            'client_id' => $client->id,
+            'deceased_at' => $client->deceased_at?->toIso8601String(),
+        ]);
+
+        return [
+            'status' => 'recorded',
+            'patient_id' => $client->uuid,
+            'client_code' => $client->client_id,
+            'deceased_at' => $client->deceased_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Tell Clinical what a package purchase entitles the patient to, so it can
+     * decrement on clinical use and intercept orders beyond the allocation
+     * (their checklist §6 / SRD §6.3).
+     *
+     * Called after the tracking rows are committed, never inside the sale's
+     * transaction: a Clinical outage must not roll back a paid-for package.
+     * postToClinical already swallows and logs transport failures.
+     */
+    public function notifyEntitlementsGranted(PackageTracking $tracking): void
+    {
+        $settings = KashtreClinicalModuleSetting::resolved();
+
+        if (! $settings->isConfiguredForOutbound()) {
+            return;
+        }
+
+        $tracking->loadMissing(['trackingItems.includedItem', 'client', 'packageItem']);
+
+        $allocations = $tracking->trackingItems
+            ->map(function (PackageTrackingItem $line) {
+                $item = $line->includedItem;
+
+                if (! $item) {
+                    return null;
+                }
+
+                return [
+                    // Must match the service_code the catalogue endpoint
+                    // reports for the same item, or Clinical cannot tie the
+                    // allocation to anything it can order.
+                    'service_code' => $item->type === 'service' ? $item->code : null,
+                    'sku' => $item->code,
+                    'item_name' => $item->name,
+                    'allocated_qty' => (float) $line->total_quantity,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        if ($allocations === []) {
+            return;
+        }
+
+        $this->postToClinical('/api/v1/clinical/entitlements', [
+            'patient_id' => $tracking->client?->uuid,
+            'client_code' => $tracking->client?->client_id,
+            'visit_id' => $tracking->client?->visit_id,
+            'package_id' => $tracking->packageItem?->code ?: (string) $tracking->package_item_id,
+            'package_name' => $tracking->packageItem?->name,
+            'tracking_number' => $tracking->tracking_number,
+            'valid_from' => $tracking->valid_from,
+            'valid_until' => $tracking->valid_until,
+            'allocations' => $allocations,
+        ], (string) $tracking->business_id);
     }
 
     /**
@@ -601,6 +736,15 @@ class ClinicalModuleIntegrationService
         $settings = KashtreClinicalModuleSetting::resolved();
 
         if (! $settings->isConfiguredForOutbound()) {
+            // Returning silently here is how the encounter webhook and the
+            // infant-registration callback disappear without a trace when the
+            // settings row is half-filled. Say which half is missing.
+            Log::warning('Clinical Module call skipped — outbound not configured', [
+                'path' => $path,
+                'has_url' => $settings->baseUrl() !== '',
+                'has_service_key' => $settings->serviceKey() !== '',
+            ]);
+
             return null;
         }
 

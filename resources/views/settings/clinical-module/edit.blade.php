@@ -9,6 +9,26 @@
                 </p>
             </div>
 
+            {{-- Two different things live under "Clinical settings": the connection
+                 below, and the module's clinical dictionaries. An administrator
+                 who came here to configure Clinical should not have to know the
+                 second one is somewhere else entirely. --}}
+            <div class="mb-6 flex flex-wrap gap-2 border-b border-gray-200 pb-4">
+                <span class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+                    Connection
+                </span>
+                @if(auth()->user()->business_id == 1 || in_array('View Clinical Dictionaries', (array) auth()->user()->permissions))
+                    <a href="{{ route('clinical.dictionaries.index') }}"
+                       class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-gray-600 border border-transparent hover:bg-gray-100 hover:text-gray-900">
+                        Clinical Dictionaries
+                    </a>
+                @endif
+            </div>
+
+            <div class="mb-6">
+                @livewire('clinical.clinical-module-health')
+            </div>
+
             @if(session('success'))
                 <div class="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
                     {{ session('success') }}

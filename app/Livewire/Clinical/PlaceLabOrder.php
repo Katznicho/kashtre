@@ -9,6 +9,7 @@ use App\Services\Clinical\Facts\LabOrderPlacedFact;
 use App\Services\Clinical\Integration\StubLimsClient;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
+use App\Support\Clinical\ClinicalDriver;
 
 /**
  * Chunk 7: lab ordering against the (stubbed) LIMS. The "Simulate Result"
@@ -38,6 +39,14 @@ class PlaceLabOrder extends Component
 
     public function render()
     {
+        // Reads Main's clinical_* tables, which do not exist under
+        // CLINICAL_DRIVER=api. Render an explanation instead of a 500.
+        if (ClinicalDriver::isApi()) {
+            return view('livewire.clinical.partials.driver-unavailable', [
+                'title' => 'Lab Orders',
+                'detail' => 'Clinical can list work orders but publishes no endpoint to place one.',
+            ]);
+        }
         return view('livewire.clinical.place-lab-order', [
             'workOrders' => ClinicalWorkOrder::where('business_id', Auth::user()->business_id)
                 ->where('client_id', $this->clientId)

@@ -53,7 +53,11 @@ return [
         // Prefer Settings → Clinical Module Settings (superadmin UI). Env seeds defaults only.
         'url' => rtrim((string) env('CLINICAL_MODULE_URL', ''), '/'),
         'service_key' => env('CLINICAL_MODULE_SERVICE_KEY'),
-        'inbound_api_key' => env('CLINICAL_MODULE_INBOUND_API_KEY'),
+        // CLINICAL_MODULE_API_KEY is the name used by the HR/imaging modules
+        // and the one already present in .env; accept it so a correctly-named
+        // env var does not silently leave the inbound guard unkeyed (which
+        // rejects every Clinical request with a bare 401).
+        'inbound_api_key' => env('CLINICAL_MODULE_INBOUND_API_KEY', env('CLINICAL_MODULE_API_KEY')),
         'encounter_webhook_enabled' => (bool) env('CLINICAL_MODULE_ENCOUNTER_WEBHOOK_ENABLED', true),
         // When Clinical outbound is not configured, allow a fixed 5-digit bypass for EndStore release.
         'handoff_bypass_enabled' => (bool) env('INVENTORY_HANDOFF_BYPASS_ENABLED', true),
@@ -130,6 +134,7 @@ return [
         'url' => env('CLINICAL_MODULE_URL'),
         'service_key' => env('CLINICAL_SERVICE_KEY'),
         'timeout' => (int) env('CLINICAL_TIMEOUT', 10),
+
         'retry_times' => (int) env('CLINICAL_RETRY_TIMES', 2),
         'retry_sleep_ms' => (int) env('CLINICAL_RETRY_SLEEP_MS', 250),
 
@@ -146,7 +151,22 @@ return [
         // Shared secret for the events Clinical POSTs back to us (§12) and
         // for the catalogue lookup it calls (§14). Comma-separated so keys
         // can be rotated without downtime.
-        'inbound_keys' => array_filter(array_map('trim', explode(',', (string) env('CLINICAL_INBOUND_SERVICE_KEYS', '')))),
+        // Falls back to the single inbound key the other Clinical guard uses.
+        // Main has two inbound guards (clinical.api for the integration
+        // endpoints, clinical.service for /v1/events and /v1/catalogue/*) and
+        // they read different config. When only one was set, the catalogue
+        // lookup 401'd and Clinical paused ALL ordering with
+        // CATALOGUE_UNAVAILABLE — a total outage that looked like a catalogue
+        // fault rather than a missing env var. One key configured anywhere now
+        // satisfies both; set CLINICAL_INBOUND_SERVICE_KEYS explicitly when
+        // rotating, since it accepts a comma-separated list and this does not.
+        'inbound_keys' => array_filter(array_map('trim', explode(
+            ',',
+            (string) env(
+                'CLINICAL_INBOUND_SERVICE_KEYS',
+                (string) env('CLINICAL_MODULE_INBOUND_API_KEY', (string) env('CLINICAL_MODULE_API_KEY', ''))
+            )
+        ))),
     ],
 
     // Per-module base URL + shared secret, only consulted by

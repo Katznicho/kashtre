@@ -2,11 +2,11 @@
 
 namespace App\Livewire\Clinical;
 
-use App\Contracts\Clinical\CareAccessGateway;
-use App\Models\ClinicalBed;
+use App\Contracts\Clinical\PatientWorklistGateway;
 use App\Models\Client;
 use App\Models\ServiceDeliveryQueue;
 use App\Support\Clinical\ClinicalActor;
+use App\Support\Clinical\PatientTask;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -34,12 +34,12 @@ class MyPatientTasksBoard extends Component
         $user = Auth::user();
         $businessId = $user->business_id;
 
-        // The "My Patients" set is the one thing here that comes from the
-        // Clinical Module. Everything below it — the enterprise queue, the
-        // bed occupancy — is Main's own data, filtered down by that set
-        // rather than duplicated. That division is why this board keeps
-        // working when the clinical data moves out of this database.
-        $myClientIds = app(CareAccessGateway::class)->myPatientIds(ClinicalActor::fromUser($user));
+        // The "My Patients" set and each patient's location come from the
+        // Clinical Module; the enterprise queue below is Main's own data,
+        // filtered down by that set rather than duplicated. That division is
+        // why this board keeps working with the clinical data moved out.
+        $worklist = app(PatientWorklistGateway::class)->myPatients(ClinicalActor::fromUser($user));
+        $myClientIds = array_map(fn (PatientTask $t) => $t->patient_id, $worklist);
 
         $numericIds = Client::where('business_id', $businessId)
             ->whereIn('client_id', $myClientIds)
@@ -50,14 +50,17 @@ class MyPatientTasksBoard extends Component
             ->get()
             ->groupBy('item_name');
 
-        $myWards = ClinicalBed::whereIn('current_client_id', $myClientIds)
-            ->where('operational_state', ClinicalBed::STATE_OCCUPIED)
-            ->with('ward')
-            ->get()
-            ->groupBy(fn (ClinicalBed $bed) => $bed->ward->ward_name ?? 'Unassigned');
+        // Outpatients have no ward and would otherwise vanish into an
+        // "Unassigned" bucket that looks like a data error; group them under a
+        // heading that says what they actually are.
+        $myWards = collect($worklist)->groupBy(
+            fn (PatientTask $t) => $t->is_admitted
+                ? ($t->ward_name ?: $t->ward_code ?: 'Unassigned')
+                : 'Outpatients'
+        );
 
         return view('livewire.clinical.my-patient-tasks-board', [
-            'myPatientCount' => count($myClientIds),
+            'myPatientCount' => count($worklist),
             'pendingTasks' => $pendingTasks,
             'myWards' => $myWards,
         ]);

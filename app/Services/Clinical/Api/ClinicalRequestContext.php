@@ -2,11 +2,9 @@
 
 namespace App\Services\Clinical\Api;
 
-use App\Models\Business;
 use App\Models\Client;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 
 /**
  * Translates this module's vocabulary into the Clinical Module's.
@@ -60,29 +58,14 @@ class ClinicalRequestContext
             return (string) config('services.clinical.default_tenant', 'DEFAULT');
         }
 
-        // Businesses change rarely and this is on the path of every clinical
-        // call; a short cache keeps the translation off the hot path without
-        // making a renamed entity_code take effect only after a deploy.
-        return Cache::remember(
-            "clinical:tenant:{$businessId}",
-            now()->addMinutes(10),
-            function () use ($businessId): string {
-                $business = Business::find($businessId);
-
-                if (! $business) {
-                    return (string) config('services.clinical.default_tenant', 'DEFAULT');
-                }
-
-                // entity_code is the human-meaningful facility identifier and
-                // is what an operator will recognise in Clinical's audit
-                // trail. Fall back to a synthetic but stable id rather than
-                // silently pooling an unmapped business into DEFAULT, which
-                // would let one facility read another's charts.
-                return $business->entity_code
-                    ? strtoupper((string) $business->entity_code)
-                    : "TENANT-{$businessId}";
-            }
-        );
+        // The tenant IS the business id. Nothing to look up, nothing to keep in
+        // step, and no way for a facility to become unmapped by an edit to some
+        // other field — which is exactly what a derived code allowed.
+        //
+        // It also round-trips: resolveBusinessId() on the inbound side reads a
+        // numeric tenant straight back to this business, so both directions
+        // agree without a translation table.
+        return (string) $businessId;
     }
 
     /**
@@ -148,7 +131,33 @@ class ClinicalRequestContext
             'X-User-Id' => (string) $user->id,
             'X-User-Name' => (string) $user->name,
             'X-User-Roles' => implode(',', $this->rolesFor($user)),
+            // Main authorises by permission, and most users hold no clinical
+            // duty role at all — a gate on roles alone refuses everybody. Send
+            // the permission column too so Clinical can grant on either.
+            // Comma-separated rather than the raw JSON array: header values are
+            // a poor place for JSON, and Clinical accepts both.
+            'X-User-Permissions' => implode(',', $this->permissionsFor($user)),
         ]);
+    }
+
+    /**
+     * The user's permission strings, de-duplicated. Main's `permissions` column
+     * repeats group headings alongside the capabilities under them, and sending
+     * the raw column would push several hundred bytes of duplicates into a
+     * header on every clinical call.
+     *
+     * @return array<int, string>
+     */
+    public function permissionsFor(?User $user = null): array
+    {
+        $user ??= Auth::user();
+
+        $permissions = array_filter(
+            (array) ($user?->permissions ?? []),
+            fn ($permission) => is_string($permission) && $permission !== '',
+        );
+
+        return array_values(array_unique($permissions));
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Models\Item;
 use App\Services\Clinical\ConsumptionEventBroker;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
+use App\Support\Clinical\ClinicalDriver;
 
 /**
  * Chunk 4 MVP point-of-care trigger — MAR (Chunk 6) will call
@@ -41,6 +42,16 @@ class RecordConsumption extends Component
 
     public function render()
     {
+        // clinical_consumption_events is Main's table and is absent under
+        // CLINICAL_DRIVER=api; Clinical publishes no consumption endpoint to
+        // read in its place.
+        if (ClinicalDriver::isApi()) {
+            return view('livewire.clinical.partials.driver-unavailable', [
+                'title' => 'Record Consumption',
+                'detail' => 'No consumption-event endpoint is published by the Clinical Module yet.',
+            ]);
+        }
+
         return view('livewire.clinical.record-consumption', [
             'items' => Item::where('business_id', Auth::user()->business_id)->orderBy('name')->limit(200)->get(),
             'recentEvents' => ClinicalConsumptionEvent::where('business_id', Auth::user()->business_id)

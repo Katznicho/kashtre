@@ -28,7 +28,11 @@ class LocalCareAccessGateway implements CareAccessGateway
 
     public function hasActiveRelationship(ClinicalActor $actor, string $patientId): bool
     {
-        return $this->careChecker->hasActiveRelationship(
+        // Via the guard rather than the checker directly, so an unexpired
+        // break-glass grant counts as access. Clinical folds its own override
+        // window into the same answer, and a clinician who has just broken
+        // glass must not be bounced straight back to the refusal screen.
+        return $this->ztnaGuard->hasAccess(
             $actor->userId,
             $patientId,
             $actor->businessId,

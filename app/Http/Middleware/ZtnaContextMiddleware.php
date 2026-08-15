@@ -2,7 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Contracts\Clinical\CareAccessGateway;
 use App\Services\Clinical\ZtnaAccessGuard;
+use App\Support\Clinical\ClinicalActor;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,8 +21,10 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class ZtnaContextMiddleware
 {
-    public function __construct(private readonly ZtnaAccessGuard $guard)
-    {
+    public function __construct(
+        private readonly ZtnaAccessGuard $guard,
+        private readonly CareAccessGateway $careAccess,
+    ) {
     }
 
     public function handle(Request $request, Closure $next): Response
@@ -32,7 +36,16 @@ class ZtnaContextMiddleware
         $user = $request->user();
         $clientId = $request->route('clientId');
 
-        if ($clientId && $user && ! $this->guard->hasAccess((int) $user->id, $clientId, (int) $user->business_id)) {
+        // Through the gateway, not ZtnaAccessGuard: the guard reads the local
+        // clinical_care_assignments table, which under CLINICAL_DRIVER=api does
+        // not exist here — the care relationship lives in the Clinical Module.
+        // (The guard is still the local *implementation* behind this gateway,
+        // so asking it directly would pin the check to one driver.)
+        $hasAccess = $clientId && $user
+            ? $this->careAccess->hasActiveRelationship(ClinicalActor::fromUser($user), $clientId)
+            : true;
+
+        if ($clientId && $user && ! $hasAccess) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'error' => 'REBAC_ACCESS_DENIED',

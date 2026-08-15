@@ -114,6 +114,12 @@ Route::middleware('clinical.api')->group(function () {
     Route::get('/queues', [\App\Http\Controllers\API\ClinicalIntegrationController::class, 'queues']);
     Route::post('/events', [\App\Http\Controllers\API\ClinicalIntegrationController::class, 'events']);
     Route::get('/pharmacy/totes/{ref}', [\App\Http\Controllers\API\ClinicalIntegrationController::class, 'toteShow']);
+
+    // Token introspection (§7 option b): Clinical asks "who is this Sanctum
+    // token" once and caches the answer, instead of trusting an X-User-Id
+    // header. Guarded by the shared module key, not auth:sanctum — the caller
+    // is the module, and the token being asked about belongs to someone else.
+    Route::post('/v1/auth/introspect', [\App\Http\Controllers\API\AuthController::class, 'introspect']);
 });
 
 // HR Module Integration API (X-API-Key or X-HR-API-Key)

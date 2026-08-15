@@ -2,24 +2,40 @@
 
 namespace App\Livewire\Clinical;
 
-use App\Models\ClinicalBed;
-use App\Models\ClinicalWard;
+use App\Contracts\Clinical\WardCensusGateway;
+use App\Services\Clinical\Api\Exceptions\ClinicalApiException;
+use App\Support\Clinical\ClinicalActor;
+use App\Support\Clinical\WardCensus;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 /**
- * SRD §5.1-5.3: Real-Time Ward Census Header Widget + interactive bed
- * grid + Overflow/Surge bed creation. Clicking an OCCUPIED bed opens the
- * patient's observation chart; clicking AVAILABLE opens an inline
- * occupy form.
+ * SRD §5.1-5.3: Real-Time Ward Census Header Widget + interactive bed grid +
+ * surge capacity. Reads and writes go through WardCensusGateway, so the same
+ * board works against the local tables or the Clinical Module.
+ *
+ * Every action re-reads the census rather than patching the touched bed into
+ * place: the action responses describe one bed, so the four header cards would
+ * otherwise drift out of step with the grid.
  */
 class WardCensusBoard extends Component
 {
-    public ?int $occupyingBedId = null;
+    /** Which bed's inline form is open, and whether it is a hold or an arrival. */
+    public ?int $actioningBedId = null;
 
-    public string $occupyClientId = '';
+    public string $bedAction = 'assign';
 
-    public string $occupyVisitId = '';
+    public string $patientId = '';
+
+    public string $visitId = '';
+
+    public ?string $actionError = null;
+
+    public ?string $actionMessage = null;
+
+    /** @var array<int, array<string, mixed>> */
+    public array $skippedBeds = [];
 
     public function mount(): void
     {
@@ -28,106 +44,171 @@ class WardCensusBoard extends Component
 
     public function render()
     {
-        $businessId = Auth::user()->business_id;
+        $wards = $this->gateway()->wards($this->actor());
 
-        $wards = ClinicalWard::query()
-            ->where('business_id', $businessId)
-            ->where('is_active', true)
-            ->with('beds')
-            ->orderBy('ward_name')
-            ->get();
-
-        $beds = $wards->flatMap->beds;
-
+        // Sum the per-ward totals rather than recounting the grids: the picker
+        // reports counts that are authoritative even where a grid is elided.
         $census = [
-            'total' => $beds->count(),
-            'occupied' => $beds->where('operational_state', ClinicalBed::STATE_OCCUPIED)->count(),
-            'reserved' => $beds->where('operational_state', ClinicalBed::STATE_RESERVED)->count(),
-            'available' => $beds->where('operational_state', ClinicalBed::STATE_AVAILABLE)->count(),
+            'total' => array_sum(array_map(fn (WardCensus $w) => $w->total, $wards)),
+            'occupied' => array_sum(array_map(fn (WardCensus $w) => $w->occupied, $wards)),
+            'reserved' => array_sum(array_map(fn (WardCensus $w) => $w->reserved, $wards)),
+            'available' => array_sum(array_map(fn (WardCensus $w) => $w->available, $wards)),
         ];
 
+        // The picker carries headline counts but no bed grid, so pull the full
+        // census per ward for the interactive part of the board.
+        $detailed = [];
+        foreach ($wards as $ward) {
+            $detailed[] = $this->gateway()->census($this->actor(), $ward->ward_code) ?? $ward;
+        }
+
         return view('livewire.clinical.ward-census-board', [
-            'wards' => $wards,
+            'wards' => $detailed,
             'census' => $census,
         ]);
     }
 
-    public function addOverflowBed(int $wardId): void
+    public function startReserve(int $bedId): void
     {
-        abort_unless(in_array('Add Overflow Beds', Auth::user()->permissions ?? []), 403);
-
-        $ward = ClinicalWard::where('business_id', Auth::user()->business_id)->findOrFail($wardId);
-
-        $nextNumber = $ward->beds()->count() + 1;
-
-        ClinicalBed::create([
-            'ward_id' => $ward->id,
-            'bed_code' => "BED-{$nextNumber}-EXTRA",
-            'operational_state' => ClinicalBed::STATE_AVAILABLE,
-            'is_overflow' => true,
-        ]);
+        $this->openForm($bedId, 'reserve');
     }
 
-    public function startOccupy(int $bedId): void
+    public function startAssign(int $bedId): void
     {
-        $this->occupyingBedId = $bedId;
-        $this->occupyClientId = '';
-        $this->occupyVisitId = '';
+        $this->openForm($bedId, 'assign');
     }
 
-    public function cancelOccupy(): void
+    public function cancelAction(): void
     {
-        $this->occupyingBedId = null;
+        $this->actioningBedId = null;
+        $this->actionError = null;
     }
 
-    public function confirmOccupy(): void
+    public function confirmBedAction(): void
     {
-        abort_unless(in_array('Manage Ward Census', Auth::user()->permissions ?? []), 403);
+        $this->authorizeManage();
 
+        // Clinical requires visit_id on both transitions — a bed is held or
+        // filled for a specific visit, not for a patient in the abstract.
+        // Catching it here saves a round trip and a generic 422.
         $this->validate([
-            'occupyClientId' => ['required', 'string'],
-            'occupyVisitId' => ['nullable', 'string'],
-        ]);
+            'patientId' => ['required', 'string'],
+            'visitId' => ['required', 'string'],
+        ], [], ['patientId' => 'patient ID', 'visitId' => 'visit ID']);
 
-        $bed = $this->bedForCurrentBusiness($this->occupyingBedId);
+        $this->run(function () {
+            $bedId = (int) $this->actioningBedId;
+            $visitId = $this->visitId;
 
-        $bed->update([
-            'operational_state' => ClinicalBed::STATE_OCCUPIED,
-            'current_client_id' => $this->occupyClientId,
-            'current_visit_id' => $this->occupyVisitId ?: null,
-        ]);
+            if ($this->bedAction === 'reserve') {
+                $this->gateway()->reserveBed($this->actor(), $bedId, $this->patientId, $visitId);
+            } else {
+                $this->gateway()->assignBed($this->actor(), $bedId, $this->patientId, $visitId);
+            }
 
-        $this->occupyingBedId = null;
+            $this->actioningBedId = null;
+        });
+    }
+
+    public function releaseBed(int $bedId): void
+    {
+        $this->authorizeManage();
+
+        $this->run(fn () => $this->gateway()->releaseBed($this->actor(), $bedId));
     }
 
     /**
-     * SRD §5.3 auto-retirement: releasing an overflow bed removes the
-     * temporary slot entirely rather than leaving it AVAILABLE, resetting
-     * the ward back to its baseline capacity.
+     * Releasing a surge bed is the moment to stand it down; leaving it
+     * AVAILABLE quietly inflates the ward's capacity figure.
      */
-    public function releaseBed(int $bedId): void
+    public function retireBed(int $bedId): void
     {
-        abort_unless(in_array('Manage Ward Census', Auth::user()->permissions ?? []), 403);
+        $this->authorizeManage();
 
-        $bed = $this->bedForCurrentBusiness($bedId);
-
-        if ($bed->is_overflow) {
-            $bed->delete();
-
-            return;
-        }
-
-        $bed->update([
-            'operational_state' => ClinicalBed::STATE_AVAILABLE,
-            'current_client_id' => null,
-            'current_visit_id' => null,
-        ]);
+        $this->run(fn () => $this->gateway()->retireBed($this->actor(), $bedId));
     }
 
-    private function bedForCurrentBusiness(int $bedId): ClinicalBed
+    public function addOverflowBed(int $clientSpaceId): void
     {
-        return ClinicalBed::whereHas('ward', function ($query) {
-            $query->where('business_id', Auth::user()->business_id);
-        })->findOrFail($bedId);
+        abort_unless(in_array('Add Overflow Beds', Auth::user()->permissions ?? []), 403);
+
+        $this->run(fn () => $this->gateway()->addOverflowBed($this->actor(), $clientSpaceId));
+    }
+
+    public function clearSurgeBeds(string $wardCode): void
+    {
+        $this->authorizeManage();
+
+        $this->run(function () use ($wardCode) {
+            $result = $this->gateway()->retireVacantOverflowBeds($this->actor(), $wardCode);
+
+            // A bare "done" would be misleading when a bed was left in place;
+            // say which stayed and why.
+            $this->actionMessage = $result['message']
+                ?? "Retired {$result['retired_count']} overflow bed(s).";
+            $this->skippedBeds = $result['skipped'];
+        });
+    }
+
+    private function openForm(int $bedId, string $action): void
+    {
+        $this->authorizeManage();
+
+        $this->actioningBedId = $bedId;
+        $this->bedAction = $action;
+        $this->patientId = '';
+        $this->visitId = '';
+        $this->actionError = null;
+    }
+
+    /**
+     * Bed rules are enforced by whichever side owns the data, and its refusal
+     * message is written for a clinician — surface it rather than a generic
+     * failure.
+     *
+     * Clinical returns two different 422 shapes and they need opposite
+     * handling. A bed-rule refusal puts the readable text in `message` and
+     * machine context in `errors` ("Bed [ICU-01] is already occupied." with
+     * `current_patient_id: CL-…`), so showing `errors` there would print a
+     * patient id at a clinician. A field validation failure inverts it: a
+     * generic `message` with the useful text in `errors`. Validation errors
+     * are arrays of strings, refusal context is scalar — that is the tell.
+     */
+    private function run(callable $action): void
+    {
+        $this->actionError = null;
+        $this->actionMessage = null;
+        $this->skippedBeds = [];
+
+        try {
+            $action();
+        } catch (ValidationException $e) {
+            $this->actionError = collect($e->errors())->flatten()->first() ?: $e->getMessage();
+        } catch (ClinicalApiException $e) {
+            $fieldErrors = collect($e->errors())
+                ->filter(fn ($value) => is_array($value))
+                ->flatten();
+
+            $this->actionError = $fieldErrors->isNotEmpty()
+                ? $fieldErrors->first()
+                : $e->getMessage();
+        } catch (\Throwable $e) {
+            $this->actionError = $e->getMessage();
+        }
+    }
+
+    private function authorizeManage(): void
+    {
+        abort_unless(in_array('Manage Ward Census', Auth::user()->permissions ?? []), 403);
+    }
+
+    private function gateway(): WardCensusGateway
+    {
+        return app(WardCensusGateway::class);
+    }
+
+    private function actor(): ClinicalActor
+    {
+        return ClinicalActor::fromUser(Auth::user());
     }
 }

@@ -4,22 +4,34 @@ namespace App\Providers;
 
 use App\Contracts\Clinical\CareAccessGateway;
 use App\Contracts\Clinical\ClinicalDictionaryGateway;
+use App\Contracts\Clinical\ClinicalSettingsGateway;
+use App\Contracts\Clinical\DiagnosesGateway;
 use App\Contracts\Clinical\MarGateway;
 use App\Contracts\Clinical\MedicationOrdersGateway;
 use App\Contracts\Clinical\ObservationsGateway;
+use App\Contracts\Clinical\PatientWorklistGateway;
 use App\Contracts\Clinical\ScratchpadGateway;
+use App\Contracts\Clinical\WardCensusGateway;
 use App\Services\Clinical\Gateways\Api\ApiCareAccessGateway;
+use App\Services\Clinical\Gateways\Api\ApiClinicalSettingsGateway;
+use App\Services\Clinical\Gateways\Api\ApiDiagnosesGateway;
 use App\Services\Clinical\Gateways\Api\ApiDictionaryGateway;
 use App\Services\Clinical\Gateways\Api\ApiMarGateway;
 use App\Services\Clinical\Gateways\Api\ApiMedicationOrdersGateway;
 use App\Services\Clinical\Gateways\Api\ApiObservationsGateway;
+use App\Services\Clinical\Gateways\Api\ApiPatientWorklistGateway;
 use App\Services\Clinical\Gateways\Api\ApiScratchpadGateway;
+use App\Services\Clinical\Gateways\Api\ApiWardCensusGateway;
 use App\Services\Clinical\Gateways\Local\LocalCareAccessGateway;
+use App\Services\Clinical\Gateways\Local\LocalClinicalSettingsGateway;
+use App\Services\Clinical\Gateways\Local\LocalDiagnosesGateway;
 use App\Services\Clinical\Gateways\Local\LocalDictionaryGateway;
 use App\Services\Clinical\Gateways\Local\LocalMarGateway;
 use App\Services\Clinical\Gateways\Local\LocalMedicationOrdersGateway;
 use App\Services\Clinical\Gateways\Local\LocalObservationsGateway;
+use App\Services\Clinical\Gateways\Local\LocalPatientWorklistGateway;
 use App\Services\Clinical\Gateways\Local\LocalScratchpadGateway;
+use App\Services\Clinical\Gateways\Local\LocalWardCensusGateway;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 
@@ -69,6 +81,22 @@ class ClinicalGatewayServiceProvider extends ServiceProvider
         ScratchpadGateway::class => [
             'local' => LocalScratchpadGateway::class,
             'api' => ApiScratchpadGateway::class,
+        ],
+        ClinicalSettingsGateway::class => [
+            'local' => LocalClinicalSettingsGateway::class,
+            'api' => ApiClinicalSettingsGateway::class,
+        ],
+        DiagnosesGateway::class => [
+            'local' => LocalDiagnosesGateway::class,
+            'api' => ApiDiagnosesGateway::class,
+        ],
+        PatientWorklistGateway::class => [
+            'local' => LocalPatientWorklistGateway::class,
+            'api' => ApiPatientWorklistGateway::class,
+        ],
+        WardCensusGateway::class => [
+            'local' => LocalWardCensusGateway::class,
+            'api' => ApiWardCensusGateway::class,
         ],
     ];
 

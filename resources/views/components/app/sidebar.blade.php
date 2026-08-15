@@ -400,7 +400,7 @@
                     @endif
 
                     <!-- Clinical Group -->
-                    @if(in_array('View Ward Census', $permissions) || in_array('View Clinical Process Registry', $permissions) || in_array('View Clinical Audit Trail', $permissions))
+                    @if(in_array('View Ward Census', $permissions) || in_array('View Clinical Process Registry', $permissions) || in_array('View Clinical Audit Trail', $permissions) || in_array('View Clinical Dictionaries', $permissions))
                     <li>
                         <button @click="openGroup === 'clinical' ? openGroup = '' : openGroup = 'clinical'" :class="openGroup === 'clinical' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
                             <span class="flex items-center">
@@ -810,6 +810,19 @@
                             <li><a href="{{ route('client-spaces.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Client Spaces</a></li>
                             @endif
 
+                            {{-- A facility with the permission administers its own
+                                 dictionaries. Kept above the business_id==1 block —
+                                 the unconditional Kashtre-wide entry lives there,
+                                 next to Kashtre/HR/Clinical Module Settings. --}}
+                            @if(Auth::user()->business_id != 1 && in_array('View Clinical Dictionaries', (array) $permissions))
+                            <li>
+                                <a href="{{ route('clinical.dictionaries.index') }}"
+                                   class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Clinical Dictionaries
+                                </a>
+                            </li>
+                            @endif
+
                             <!-- Settings only for business_id == 1 (Kashtre) -->
                             @if(Auth::user()->business_id == 1)
                             @if(in_array('View Service Points', $permissions))
@@ -951,6 +964,12 @@
                                 <a href="{{ route('settings.clinical-module.edit') }}"
                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
                                     Clinical Module Settings
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('clinical.dictionaries.index') }}"
+                                   class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Clinical Dictionaries
                                 </a>
                             </li>
                             @endif

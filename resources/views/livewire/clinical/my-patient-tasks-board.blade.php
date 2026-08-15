@@ -34,9 +34,14 @@
                     <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">{{ $wardName }} &mdash; {{ $beds->count() }} Patients</div>
                     <div class="flex flex-wrap gap-2">
                         @foreach ($beds as $bed)
-                            <a href="{{ route('clinical.observations.show', $bed->current_client_id) }}"
-                                class="text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 text-blue-700 dark:text-blue-300 hover:underline">
-                                {{ $bed->bed_code }} &middot; {{ $bed->current_client_id }}
+                            <a href="{{ route('clinical.observations.show', ['clientId' => $bed->patient_id, 'visit_id' => $bed->visit_id]) }}"
+                                class="text-xs px-2 py-1 rounded border hover:underline
+                                    @if ($bed->needsAttention()) border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300
+                                    @else border-gray-200 dark:border-gray-600 text-blue-700 dark:text-blue-300 @endif">
+                                @if ($bed->bed_code){{ $bed->bed_code }} &middot; @endif{{ $bed->patient_id }}
+                                @if ($bed->unacknowledged_alerts > 0)
+                                    <span class="ml-1 text-[10px] font-semibold">{{ $bed->unacknowledged_alerts }}!</span>
+                                @endif
                             </a>
                         @endforeach
                     </div>

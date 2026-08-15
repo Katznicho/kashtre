@@ -9,6 +9,7 @@ use App\Services\Clinical\ClinicalProcessEngine;
 use Exception;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
+use App\Support\Clinical\ClinicalDriver;
 
 /**
  * SRD §4.2/§4.3: "Decision to Admit" is just starting the ADMISSION
@@ -43,6 +44,16 @@ class ClinicalProcessPanel extends Component
 
     public function render()
     {
+        // The process registry lives in Main's clinical_process* tables, which
+        // do not exist under CLINICAL_DRIVER=api, and Clinical exposes no
+        // process endpoint to read instead. Say so rather than 500 the chart.
+        if (ClinicalDriver::isApi()) {
+            return view('livewire.clinical.partials.driver-unavailable', [
+                'title' => 'Clinical Process Registry',
+                'detail' => 'No process-registry endpoint is published by the Clinical Module yet.',
+            ]);
+        }
+
         $businessId = Auth::user()->business_id;
 
         $activeExecution = ClinicalProcessExecution::where('business_id', $businessId)

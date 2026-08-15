@@ -12,26 +12,39 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('inventory_stock_levels', function (Blueprint $table) {
-            $table->foreignId('store_id')->nullable()->after('business_id')->constrained('stores')->nullOnDelete();
-        });
+        // Every step is guarded: on databases where the store_id rollout was
+        // already applied out-of-band this migration must be a no-op rather
+        // than fail on a duplicate column or index.
+        if (! Schema::hasColumn('inventory_stock_levels', 'store_id')) {
+            Schema::table('inventory_stock_levels', function (Blueprint $table) {
+                $table->foreignId('store_id')->nullable()->after('business_id')->constrained('stores')->nullOnDelete();
+            });
+        }
 
-        Schema::table('inventory_stock_movements', function (Blueprint $table) {
-            $table->foreignId('store_id')->nullable()->after('item_id')->constrained('stores')->nullOnDelete();
-        });
+        if (! Schema::hasColumn('inventory_stock_movements', 'store_id')) {
+            Schema::table('inventory_stock_movements', function (Blueprint $table) {
+                $table->foreignId('store_id')->nullable()->after('item_id')->constrained('stores')->nullOnDelete();
+            });
+        }
 
         $this->backfillStoreIds();
 
-        Schema::table('inventory_stock_levels', function (Blueprint $table) {
-            $table->unique(
-                ['business_id', 'store_id', 'item_id'],
-                'inventory_stock_levels_business_store_item_unique'
-            );
-        });
+        $indexes = collect(Schema::getIndexes('inventory_stock_levels'))->pluck('name');
 
-        Schema::table('inventory_stock_levels', function (Blueprint $table) {
-            $table->dropUnique('inventory_stock_levels_business_id_item_id_unique');
-        });
+        if (! $indexes->contains('inventory_stock_levels_business_store_item_unique')) {
+            Schema::table('inventory_stock_levels', function (Blueprint $table) {
+                $table->unique(
+                    ['business_id', 'store_id', 'item_id'],
+                    'inventory_stock_levels_business_store_item_unique'
+                );
+            });
+        }
+
+        if ($indexes->contains('inventory_stock_levels_business_id_item_id_unique')) {
+            Schema::table('inventory_stock_levels', function (Blueprint $table) {
+                $table->dropUnique('inventory_stock_levels_business_id_item_id_unique');
+            });
+        }
     }
 
     public function down(): void

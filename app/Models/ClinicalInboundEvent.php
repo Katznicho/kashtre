@@ -30,6 +30,7 @@ class ClinicalInboundEvent extends Model
         'global_client_id',
         'visit_id',
         'payload',
+        'response',
         'status',
         'error_message',
         'processed_at',
@@ -37,6 +38,7 @@ class ClinicalInboundEvent extends Model
 
     protected $casts = [
         'payload' => 'array',
+        'response' => 'array',
         'business_id' => 'integer',
         'processed_at' => 'datetime',
     ];
