@@ -14,7 +14,9 @@ use App\Domain\Units\Services\InventoryUnitGateway;
 use App\Domain\Units\Services\UnitCatalogService;
 use App\Domain\Units\Services\UnitGovernanceService;
 use App\Models\Item;
+use App\Models\ItemUnit;
 use App\Support\InventoryBusinessContext;
+use Database\Seeders\Units\CoreUnitSeedPackSeeder;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -83,11 +85,90 @@ class UnitEngineConsole extends Component
 
     public ?string $govError = null;
 
+    public ?string $installMessage = null;
+
+    public ?string $installError = null;
+
     public function mount(): void
     {
         $catalog = app(UnitCatalogService::class);
         $this->compositeNumeratorPublicId = $catalog->findByCode('SYSTEM', 'MG')?->public_id ?? '';
         $this->compositeDenominatorPublicId = $catalog->findByCode('SYSTEM', 'ML')?->public_id ?? '';
+    }
+
+    /**
+     * Seed SYSTEM catalog (packaging, count, composites, scale rules) and map this business’s Item Units.
+     */
+    public function installSeedPack(): void
+    {
+        $this->installMessage = null;
+        $this->installError = null;
+
+        if (! config('units.enabled')) {
+            $this->installError = 'Unit engine is disabled. Set UNIT_ENGINE_ENABLED=true first.';
+
+            return;
+        }
+
+        try {
+            (new CoreUnitSeedPackSeeder())->run();
+
+            $businessId = InventoryBusinessContext::effectiveBusinessId();
+            $gateway = app(InventoryUnitGateway::class);
+            $mapped = 0;
+            $linked = 0;
+            $rules = 0;
+
+            ItemUnit::query()
+                ->where('business_id', $businessId)
+                ->orderBy('id')
+                ->each(function (ItemUnit $unit) use ($gateway, &$mapped) {
+                    $gateway->mapLegacyName((string) $unit->business_id, (string) $unit->name);
+                    $mapped++;
+                });
+
+            Item::query()
+                ->where('business_id', $businessId)
+                ->where('type', 'good')
+                ->orderBy('id')
+                ->each(function (Item $item) use ($gateway, &$linked, &$rules) {
+                    $before = [$item->sale_unit_public_id, $item->order_unit_public_id, $item->packaging_rule_public_id];
+                    $gateway->ensureItemUnitLinks($item->fresh());
+                    $item->refresh();
+                    if ($item->sale_unit_public_id && $item->order_unit_public_id
+                        && $item->sale_unit_public_id !== $item->order_unit_public_id
+                        && (float) ($item->suom_per_ouom ?? 0) > 0) {
+                        $gateway->ensurePackagingRule($item);
+                        $item->refresh();
+                    }
+                    if ($before[0] !== $item->sale_unit_public_id
+                        || $before[1] !== $item->order_unit_public_id
+                        || $before[2] !== $item->packaging_rule_public_id) {
+                        $linked++;
+                    }
+                    if ($item->packaging_rule_public_id) {
+                        $rules++;
+                    }
+                });
+
+            $catalog = app(UnitCatalogService::class);
+            $this->compositeNumeratorPublicId = $catalog->findByCode('SYSTEM', 'MG')?->public_id ?? '';
+            $this->compositeDenominatorPublicId = $catalog->findByCode('SYSTEM', 'ML')?->public_id ?? '';
+
+            $unitCount = CoreUnit::query()->forTenant('SYSTEM')->active()->count();
+            $this->installMessage = "Seeded {$unitCount} system units. Mapped {$mapped} Item Unit name(s); updated {$linked} item link(s); {$rules} packaging rule(s) present for this business.";
+
+            app(UnitGovernanceService::class)->record(
+                $this->tenantKey(),
+                'SEED_PACK_INSTALLED',
+                'CoreUnitSeedPack',
+                'KASHTRE_CORE_UNITS',
+                null,
+                ['business_id' => $businessId, 'mapped' => $mapped, 'linked' => $linked]
+            );
+        } catch (\Throwable $e) {
+            $this->installError = $e->getMessage();
+        }
     }
 
     public function setTab(string $tab): void

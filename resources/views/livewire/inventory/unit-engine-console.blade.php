@@ -40,6 +40,21 @@
                 <h2 class="text-base font-semibold text-gray-900">Unit catalog</h2>
                 <p class="mt-1 text-sm text-gray-500">System + organisation units. Packaging is still set on each item (sale unit, order unit, factor).</p>
 
+                <div class="mt-4 flex flex-wrap items-center gap-3">
+                    <button type="button"
+                            wire:click="installSeedPack"
+                            wire:loading.attr="disabled"
+                            class="inline-flex items-center rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="installSeedPack">Install / refresh unit seed pack</span>
+                        <span wire:loading wire:target="installSeedPack">Seeding…</span>
+                    </button>
+                    <p class="text-xs text-gray-500 max-w-xl">
+                        Loads SYSTEM catalog (g, mg, box, carton, mg/mL, …), maps this organisation’s Item Unit names, and creates packaging rules where sale ≠ order unit.
+                    </p>
+                </div>
+                @if($installMessage) <p class="mt-2 text-sm text-green-800">{{ $installMessage }}</p> @endif
+                @if($installError) <p class="mt-2 text-sm text-red-700">{{ $installError }}</p> @endif
+
                 <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
                     <div class="rounded-md bg-slate-50 px-3 py-2">
                         <p class="text-xs uppercase tracking-wide text-gray-500">Units</p>

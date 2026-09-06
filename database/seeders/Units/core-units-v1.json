@@ -44,7 +44,12 @@
     {"code": "BOX", "name": "box", "symbol": "box", "class": "PACKAGING_CONTEXTUAL", "quantityKind": "COUNT", "dimension": {"COUNT": 1}, "scale": "1", "ucum": "{box}"},
     {"code": "CARTON", "name": "carton", "symbol": "carton", "class": "PACKAGING_CONTEXTUAL", "quantityKind": "COUNT", "dimension": {"COUNT": 1}, "scale": "1", "ucum": "{carton}"},
     {"code": "BOTTLE", "name": "bottle", "symbol": "btl", "class": "PACKAGING_CONTEXTUAL", "quantityKind": "COUNT", "dimension": {"COUNT": 1}, "scale": "1", "ucum": "{bottle}"},
+    {"code": "STRIP", "name": "strip", "symbol": "strip", "class": "PACKAGING_CONTEXTUAL", "quantityKind": "COUNT", "dimension": {"COUNT": 1}, "scale": "1", "ucum": "{strip}"},
+    {"code": "BLISTER", "name": "blister", "symbol": "blister", "class": "PACKAGING_CONTEXTUAL", "quantityKind": "COUNT", "dimension": {"COUNT": 1}, "scale": "1", "ucum": "{blister}"},
+    {"code": "DOZEN", "name": "dozen", "symbol": "doz", "class": "COUNT_CONTEXTUAL", "quantityKind": "COUNT", "dimension": {"COUNT": 1}, "scale": "12", "ucum": "{dozen}", "reference": "EACH"},
     {"code": "MG_PER_ML", "name": "milligram per millilitre", "symbol": "mg/mL", "class": "COMPOSITE_RATIO", "quantityKind": "CONCENTRATION", "dimension": {"M": 1, "L": -3}, "scale": "1", "ucum": "mg/mL", "components": [{"operator": "NUMERATOR", "unit": "MG", "exponent": 1}, {"operator": "DENOMINATOR", "unit": "ML", "exponent": 1}]},
+    {"code": "MG_PER_DL", "name": "milligram per decilitre", "symbol": "mg/dL", "class": "COMPOSITE_RATIO", "quantityKind": "CONCENTRATION", "dimension": {"M": 1, "L": -3}, "scale": "1", "ucum": "mg/dL", "components": [{"operator": "NUMERATOR", "unit": "MG", "exponent": 1}, {"operator": "DENOMINATOR", "unit": "DL", "exponent": 1}]},
+    {"code": "UG_PER_ML", "name": "microgram per millilitre", "symbol": "ug/mL", "class": "COMPOSITE_RATIO", "quantityKind": "CONCENTRATION", "dimension": {"M": 1, "L": -3}, "scale": "1", "ucum": "ug/mL", "components": [{"operator": "NUMERATOR", "unit": "UG", "exponent": 1}, {"operator": "DENOMINATOR", "unit": "ML", "exponent": 1}]},
     {"code": "G_PER_L", "name": "gram per litre", "symbol": "g/L", "class": "COMPOSITE_RATIO", "quantityKind": "CONCENTRATION", "dimension": {"M": 1, "L": -3}, "scale": "1", "ucum": "g/L", "components": [{"operator": "NUMERATOR", "unit": "G", "exponent": 1}, {"operator": "DENOMINATOR", "unit": "L", "exponent": 1}]}
   ],
   "scaleRules": [
@@ -69,7 +74,14 @@
     "PACK": ["pack", "packs", "packet"],
     "VIAL": ["vial", "vials"],
     "BOTTLE": ["bottle", "bottles", "btl"],
+    "STRIP": ["strip", "strips"],
+    "BLISTER": ["blister", "blisters"],
+    "DOZEN": ["dozen", "doz", "dozens"],
+    "AMPOULE": ["ampoule", "ampoules", "amp", "amps"],
     "ML": ["ml", "mL", "millilitre", "milliliter"],
-    "MG": ["mg", "milligram", "milligrams"]
+    "MG": ["mg", "milligram", "milligrams"],
+    "MG_PER_ML": ["mg/ml", "mg/mL", "mg per ml"],
+    "MG_PER_DL": ["mg/dl", "mg/dL", "mg per dl"],
+    "UG_PER_ML": ["ug/ml", "ug/mL", "mcg/ml"]
   }
 }
