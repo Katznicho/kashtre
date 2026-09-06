@@ -78,6 +78,13 @@ Route::prefix('v1')->group(function () {
         Route::get('/items', [\App\Http\Controllers\API\ItemController::class, 'list']);
         Route::get('/items/{uuid}', [\App\Http\Controllers\API\ItemController::class, 'show']);
 
+        Route::prefix('unit-engine')->group(function () {
+            Route::get('/units', [\App\Http\Controllers\API\V1\Units\UnitEngineController::class, 'index']);
+            Route::get('/units/{unit}', [\App\Http\Controllers\API\V1\Units\UnitEngineController::class, 'show']);
+            Route::post('/conversions/execute', [\App\Http\Controllers\API\V1\Units\UnitEngineController::class, 'convert']);
+            Route::post('/conversions/preview', [\App\Http\Controllers\API\V1\Units\UnitEngineController::class, 'convert']);
+        });
+
         Route::get('/businesses', [\App\Http\Controllers\API\BusinessController::class, 'index']);
         Route::get('/businesses/{uuid}', [\App\Http\Controllers\API\BusinessController::class, 'show']);
         Route::get('/businesses/{business}/branches', [\App\Http\Controllers\API\BusinessController::class, 'branches']);

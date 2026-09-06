@@ -30,6 +30,9 @@ class Item extends Model
         'uom_id',
         'order_unit_id',
         'suom_per_ouom',
+        'sale_unit_public_id',
+        'order_unit_public_id',
+        'packaging_rule_public_id',
         'default_price',
         'purchase_price',
         'vat_rate',
@@ -304,5 +307,25 @@ class Item extends Model
             : 1.0;
 
         return round($this->purchasePricePerSuom() * $conversion, 2);
+    }
+
+    /**
+     * Convert an order/packaging quantity into sale units.
+     * Dual-runs Shared Unit Engine when UNIT_ENGINE_ENABLED=true.
+     */
+    public function convertOrderQuantityToSale(string|float|int $orderQuantity): float
+    {
+        if (config('units.enabled')) {
+            $result = app(\App\Domain\Units\Services\InventoryUnitGateway::class)
+                ->orderToSale($this, $orderQuantity);
+
+            return (float) $result['quantity'];
+        }
+
+        $factor = (float) ($this->suom_per_ouom ?? 0);
+
+        return $factor > 0
+            ? round(((float) $orderQuantity) * $factor, 4)
+            : (float) $orderQuantity;
     }
 }

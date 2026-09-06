@@ -43,6 +43,15 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\Inventory\InventoryStockAgingService::class);
         $this->app->singleton(\App\Services\Inventory\InventoryStockCountShrinkageService::class);
         $this->app->singleton(\App\Services\FinancialYearService::class);
+
+        $this->app->singleton(
+            \App\Domain\Units\Contracts\DecimalMath::class,
+            \App\Domain\Units\Services\BcMathDecimalMath::class
+        );
+        $this->app->singleton(\App\Domain\Units\Services\UnitCatalogService::class);
+        $this->app->singleton(\App\Domain\Units\Services\NamedAlgorithmRegistry::class);
+        $this->app->singleton(\App\Domain\Units\Services\ConversionEngine::class);
+        $this->app->singleton(\App\Domain\Units\Services\InventoryUnitGateway::class);
     }
 
     /**
