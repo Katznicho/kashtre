@@ -126,7 +126,26 @@ trait AccessTrait
         "Business" => ['View Business', 'Edit Business', 'Add Business'],
         "Branches" => ['View Branches', 'Edit Branches', 'Add Branches'],
         "Client Spaces" => ['View Client Spaces', 'Add Client Spaces', 'Edit Client Spaces', 'Delete Client Spaces'],
-        "Business Settings" => ['View Business Settings', 'Edit Business Settings'],
+        "Business Settings" => [
+            'View Business Settings',
+            'Edit Business Settings',
+            'View Time Settings',
+            'Edit Time Settings',
+        ],
+    ];
+
+    public static $timeEngineAccess = [
+        "Time Engine" => [
+            'View Time Engine',
+            'Manage Time Catalogue',
+            'Manage Time Policies',
+            'Approve Time Policies',
+            'Manage Time Periods',
+            'Manage Time Schedules',
+            'Manage Device Time',
+            'View Time Audit',
+            'Resolve Time Reconciliation',
+        ],
     ];
 
     public static $clientAccess = [
@@ -218,6 +237,7 @@ trait AccessTrait
                 static::$inventoryModule,
                 static::$adminAccess,
                 static::$businessAccess,
+                static::$timeEngineAccess,
                 static::$clientAccess,
                 static::$staffAccess,
                 static::$hrModule,
@@ -253,6 +273,7 @@ trait AccessTrait
         "Inventory" => self::$inventoryModule,
         "Admin" => self::$adminAccess,
         "Business" => self::$businessAccess,
+        "Time Engine" => self::$timeEngineAccess,
         "Client" => self::$clientAccess,
         "Staff Access" => self::$staffAccess,
         "HR Module" => self::$hrModule,

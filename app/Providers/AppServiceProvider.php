@@ -56,6 +56,28 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Domain\Units\Services\InventoryUnitGateway::class);
         $this->app->singleton(\App\Domain\Units\Services\ClinicalUnitGateway::class);
         $this->app->singleton(\App\Domain\Units\Services\LimsUnitGateway::class);
+
+        $this->app->singleton(
+            \App\Domain\Time\Contracts\Clock::class,
+            \App\Domain\Time\Services\SystemClock::class
+        );
+        $this->app->singleton(\App\Domain\Time\Services\ClockHealthService::class);
+        $this->app->singleton(\App\Domain\Time\Services\TimeZoneCatalogueService::class);
+        $this->app->singleton(\App\Domain\Time\Services\TimePolicyCacheService::class);
+        $this->app->singleton(\App\Domain\Time\Services\TimeZonePolicyService::class);
+        $this->app->singleton(\App\Domain\Time\Services\TimeZoneResolutionService::class);
+        $this->app->singleton(\App\Domain\Time\Services\CivilTimeService::class);
+        $this->app->singleton(\App\Domain\Time\Services\ProvenanceService::class);
+        $this->app->singleton(\App\Domain\Time\Services\BusinessDateService::class);
+        $this->app->singleton(\App\Domain\Time\Services\ScheduleService::class);
+        $this->app->singleton(\App\Domain\Time\Services\CalendarService::class);
+        $this->app->singleton(\App\Domain\Time\Services\FinancialPeriodService::class);
+        $this->app->singleton(\App\Domain\Time\Services\LeapSecondService::class);
+        $this->app->singleton(\App\Domain\Time\Services\DeviceTimeService::class);
+        $this->app->singleton(\App\Domain\Time\Services\TemporalSnapshotService::class);
+        $this->app->singleton(\App\Domain\Time\Services\TzdbHealthService::class);
+        $this->app->singleton(\App\Domain\Time\Services\MonotonicClock::class);
+        $this->app->singleton(\App\Domain\Time\Services\SharedTimeGateway::class);
     }
 
     /**

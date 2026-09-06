@@ -85,6 +85,18 @@ Route::prefix('v1')->group(function () {
             Route::post('/conversions/preview', [\App\Http\Controllers\API\V1\Units\UnitEngineController::class, 'convert']);
         });
 
+        Route::prefix('time-engine')->group(function () {
+            Route::get('/now', [\App\Http\Controllers\API\V1\Time\TimeEngineController::class, 'now']);
+            Route::get('/timezones', [\App\Http\Controllers\API\V1\Time\TimeEngineController::class, 'timezones']);
+            Route::post('/resolve', [\App\Http\Controllers\API\V1\Time\TimeEngineController::class, 'resolve']);
+            Route::post('/snapshot', [\App\Http\Controllers\API\V1\Time\TimeEngineController::class, 'snapshot']);
+            Route::post('/business-date', [\App\Http\Controllers\API\V1\Time\TimeEngineController::class, 'businessDate']);
+            Route::post('/day-window', [\App\Http\Controllers\API\V1\Time\TimeEngineController::class, 'dayWindow']);
+            Route::post('/convert/local-to-utc', [\App\Http\Controllers\API\V1\Time\TimeEngineController::class, 'convertLocal']);
+            Route::post('/devices/observe', [\App\Http\Controllers\API\V1\Time\TimeEngineController::class, 'observeDevice']);
+            Route::post('/snapshots/capture', [\App\Http\Controllers\API\V1\Time\TimeEngineController::class, 'captureSnapshot']);
+        });
+
         Route::get('/businesses', [\App\Http\Controllers\API\BusinessController::class, 'index']);
         Route::get('/businesses/{uuid}', [\App\Http\Controllers\API\BusinessController::class, 'show']);
         Route::get('/businesses/{business}/branches', [\App\Http\Controllers\API\BusinessController::class, 'branches']);

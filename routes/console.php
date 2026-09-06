@@ -21,3 +21,7 @@ Schedule::command('service-charge:release-matured')->hourly();
 // Keep the HR sidebar submenu in sync with the HR module's navigation
 // manifest (cache TTL is 5 minutes — see App\Console\Commands\RefreshHrNavigation).
 Schedule::command('hr:refresh-navigation')->everyFourMinutes();
+
+Schedule::command('time:day-boundary')->dailyAt('00:05');
+Schedule::command('time:materialize-schedules --days=14')->hourly();
+Schedule::command('time:cutover --check')->dailyAt('03:00');

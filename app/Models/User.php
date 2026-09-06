@@ -32,6 +32,7 @@ class User extends Authenticatable
         'p2p_display_name',
         'p2p_ringtone',
         'email',
+        'presentation_timezone',
         'password',
         'status',
         'business_id',

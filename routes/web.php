@@ -75,6 +75,7 @@ use App\Http\Controllers\InventoryPickRouteController;
 use App\Http\Controllers\InventoryInternalReplenishmentController;
 use App\Http\Controllers\InventorySettingsController;
 use App\Http\Controllers\InventoryUnitEngineController;
+use App\Http\Controllers\PlatformTimeEngineController;
 use App\Http\Controllers\InventoryDailyConsumptionController;
 use App\Http\Controllers\InventoryOrderController;
 use App\Http\Controllers\InventoryIncomingRfqController;
@@ -171,6 +172,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Route::get('/json-data-feed', [DataFeedController::class, 'getDataFeed'])->name('json_data_feed');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/platform/time', [PlatformTimeEngineController::class, 'index'])->name('platform.time.index');
     Route::get('/hr-module/open', [\App\Http\Controllers\HrSsoController::class, 'redirect'])->name('hr-module.open');
     Route::post('/dashboard/testing-environment-reset', [DashboardController::class, 'clearTestingEnvironment'])
         ->name('dashboard.testing-environment-reset')

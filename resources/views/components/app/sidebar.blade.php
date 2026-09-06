@@ -668,7 +668,7 @@
                                 </a>
                             </li>
                             <li>
-                                <a href="{{ route('business-settings.edit') }}#document-letterhead" class="block text-sm text-gray-600 hover:text-blue-700 py-1.5 pl-2 border-l-2 border-transparent hover:border-blue-400" @click.stop>
+                                <a href="{{ route('business-settings.edit', ['tab' => 'general']) }}#document-letterhead" class="block text-sm text-gray-600 hover:text-blue-700 py-1.5 pl-2 border-l-2 border-transparent hover:border-blue-400" @click.stop>
                                     Document letterhead preview
                                 </a>
                             </li>
@@ -781,6 +781,12 @@
                             @endif
 
                             @if((int) Auth::user()->business_id === 1)
+                            <li>
+                                <a href="{{ route('platform.time.index') }}"
+                                   class="block text-sm text-gray-700 hover:text-blue-700 py-1.5 {{ request()->routeIs('platform.time*') ? 'text-blue-700 font-medium' : '' }}" @click.stop>
+                                    Time Engine
+                                </a>
+                            </li>
                             <li>
                                 <a href="{{ route('settings.kashtre.edit') }}"
                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>

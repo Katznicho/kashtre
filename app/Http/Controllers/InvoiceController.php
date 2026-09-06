@@ -320,6 +320,16 @@ class InvoiceController extends Controller
             $business = $user->business;
             $moneyTrackingService = new MoneyTrackingService();
 
+            try {
+                \App\Support\SharedTime::assertPeriodOpen((string) ($request->input('business_id') ?: $business?->id));
+            } catch (\App\Domain\Time\Exceptions\TimeEngineException $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'error_code' => $e->errorCode,
+                ], 422);
+            }
+
             // Validate request
             $validated = $request->validate([
                 'invoice_number' => 'nullable|string|max:64',
@@ -837,7 +847,7 @@ class InvoiceController extends Controller
                         'amount_due' => $invoice->total_amount, // Total invoice amount
                         'amount_paid' => $arAmountPaid, // Always 0 for credit clients (they owe the full amount)
                         'balance' => $arBalance, // Full amount owed
-                        'invoice_date' => now()->toDateString(),
+                        'invoice_date' => \App\Support\SharedTime::businessToday((string) $business->id),
                         'due_date' => $dueDate,
                         'status' => $arStatus,
                         'payer_type' => 'first_party',
@@ -1321,7 +1331,7 @@ class InvoiceController extends Controller
                             'amount_due' => $invoice->total_amount,
                             'amount_paid' => $arAmountPaid,
                             'balance' => $arBalance,
-                            'invoice_date' => now()->toDateString(),
+                            'invoice_date' => \App\Support\SharedTime::businessToday((string) $business->id),
                             'due_date' => $dueDate,
                             'status' => $arStatus,
                             'payer_type' => 'third_party',

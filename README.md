@@ -118,3 +118,5 @@ SET two_factor_secret = NULL,
     two_factor_recovery_codes = NULL,
     two_factor_confirmed_at = NULL,
     security_questions_enabled_at = NULL;
+
+    php artisan time:install

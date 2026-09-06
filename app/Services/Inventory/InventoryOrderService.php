@@ -31,7 +31,7 @@ class InventoryOrderService
     public function generateOrderNumber(int $businessId, string $orderType = InventoryOrder::TYPE_EXTERNAL): string
     {
         $docPrefix = $orderType === InventoryOrder::TYPE_INTERNAL ? 'INT' : 'RFQ';
-        $prefix = $docPrefix.'-'.now()->format('Ymd');
+        $prefix = $docPrefix.'-'.\App\Support\SharedTime::now()->format('Ymd');
         $count = InventoryOrder::query()
             ->where('business_id', $businessId)
             ->where('order_number', 'like', $prefix.'%')

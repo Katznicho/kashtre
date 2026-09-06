@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\SharedTime;
 use App\Models\Business;
 use Carbon\Carbon;
 
@@ -13,7 +14,7 @@ class FinancialYearService
     public function periodStart(Business|int $business, ?Carbon $asOf = null): Carbon
     {
         $business = $this->resolveBusiness($business);
-        $asOf = ($asOf ?? Carbon::today())->copy()->startOfDay();
+        $asOf = ($asOf ?? $this->asOfToday($business))->copy()->startOfDay();
 
         $month = max(1, min(12, (int) ($business->financial_year_start_month ?? 1)));
         $day = max(1, min(31, (int) ($business->financial_year_start_day ?? 1)));
@@ -55,6 +56,17 @@ class FinancialYearService
         $end = $this->periodEnd($business, $asOf);
 
         return $start->format('M j, Y').' – '.$end->format('M j, Y');
+    }
+
+    private function asOfToday(Business $business): Carbon
+    {
+        if (SharedTime::enabled()) {
+            $date = SharedTime::businessToday((string) $business->id);
+
+            return Carbon::parse($date)->startOfDay();
+        }
+
+        return Carbon::today();
     }
 
     private function resolveBusiness(Business|int $business): Business
