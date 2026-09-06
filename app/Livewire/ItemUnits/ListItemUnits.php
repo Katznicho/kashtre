@@ -107,14 +107,26 @@ class ListItemUnits extends Component implements HasForms, HasTable
                     ->visible(fn (): bool => (bool) config('units.enabled'))
                     ->modalHeading(fn (ItemUnit $record): string => 'Map "'.$record->name.'" to core unit')
                     ->modalDescription('Link this Item Unit name to a Shared Unit Engine catalog unit so packaging dual-run can resolve it.')
-                    ->form(fn (ItemUnit $record): array => [
-                        Forms\Components\Select::make('core_unit_id')
-                            ->label('Core unit')
-                            ->options(fn (): array => $this->coreUnitOptionsForBusiness((int) $record->business_id))
-                            ->searchable()
-                            ->required()
-                            ->default(fn () => $this->currentMappedUnitId($record)),
-                    ])
+                    ->form(function (ItemUnit $record): array {
+                        // Evaluate options when the modal opens. Nested option closures
+                        // break Filament/Livewire rehydration (empty select / broken search UI).
+                        $options = $this->coreUnitOptionsForBusiness((int) $record->business_id);
+                        $default = $this->currentMappedUnitId($record);
+
+                        return [
+                            Forms\Components\Select::make('core_unit_id')
+                                ->label('Core unit')
+                                ->options($options)
+                                ->searchable()
+                                ->preload()
+                                ->native(false)
+                                ->required()
+                                ->default($default)
+                                ->helperText(count($options) === 0
+                                    ? 'No catalog units found. Run: php artisan units:install'
+                                    : 'Search by code, name, or symbol (e.g. BOX, Carton, ea).'),
+                        ];
+                    })
                     ->action(function (ItemUnit $record, array $data): void {
                         $tenant = app(UnitCatalogService::class)
                             ->tenantKeyForBusiness((int) $record->business_id);
@@ -138,6 +150,9 @@ class ListItemUnits extends Component implements HasForms, HasTable
                         if (! $mapping || ! $unit) {
                             Notification::make()
                                 ->title('Could not map unit.')
+                                ->body(count($this->coreUnitOptionsForBusiness((int) $record->business_id)) === 0
+                                    ? 'Catalog is empty. Run php artisan units:install first.'
+                                    : 'Mapping row or core unit was not found.')
                                 ->danger()
                                 ->send();
 
@@ -145,6 +160,20 @@ class ListItemUnits extends Component implements HasForms, HasTable
                         }
 
                         $gateway->assignMapping($mapping, $unit, Auth::id());
+
+                        // Refresh item sale/order public IDs that use this Item Unit.
+                        \App\Models\Item::query()
+                            ->where('business_id', $record->business_id)
+                            ->where(function ($q) use ($record) {
+                                $q->where('uom_id', $record->id)
+                                    ->orWhere('order_unit_id', $record->id);
+                            })
+                            ->orderBy('id')
+                            ->chunkById(100, function ($items) use ($gateway) {
+                                foreach ($items as $item) {
+                                    $gateway->ensureItemUnitLinks($item);
+                                }
+                            });
 
                         Notification::make()
                             ->title('Mapped to '.$unit->code.' ('.$unit->symbol.').')
@@ -322,7 +351,7 @@ class ListItemUnits extends Component implements HasForms, HasTable
             ->orderBy('canonical_name')
             ->get(['id', 'code', 'canonical_name', 'symbol'])
             ->mapWithKeys(fn (CoreUnit $u) => [
-                $u->id => $u->code.' — '.$u->canonical_name.' ('.$u->symbol.')',
+                (string) $u->id => trim($u->code.' — '.$u->canonical_name.' ('.$u->symbol.')'),
             ])
             ->all();
     }
