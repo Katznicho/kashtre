@@ -234,7 +234,13 @@ class InventoryStockAnalyticsService
             ->first();
 
         if ($line && (float) $line->sale_units_per_purchase_unit > 0) {
-            return round((float) $line->purchase_price / (float) $line->sale_units_per_purchase_unit, 4);
+            $qty = max((float) $line->quantity, 0.0001);
+            $saleUnits = (float) ($line->sale_units_purchased ?: 0);
+            $factor = $saleUnits > 0
+                ? max($saleUnits / $qty, 0.0001)
+                : (float) $line->sale_units_per_purchase_unit;
+
+            return round((float) $line->purchase_price / $factor, 4);
         }
 
         return (float) (
@@ -911,7 +917,14 @@ class InventoryStockAnalyticsService
                     });
                 }
             })
-            ->select(['grn.store_id', 'lines.item_id', 'lines.purchase_price', 'lines.sale_units_per_purchase_unit'])
+            ->select([
+                'grn.store_id',
+                'lines.item_id',
+                'lines.purchase_price',
+                'lines.quantity',
+                'lines.sale_units_per_purchase_unit',
+                'lines.sale_units_purchased',
+            ])
             ->get();
 
         foreach ($lineRows as $line) {
@@ -922,7 +935,12 @@ class InventoryStockAnalyticsService
             }
 
             if ((float) $line->sale_units_per_purchase_unit > 0) {
-                $prices[$key] = round((float) $line->purchase_price / (float) $line->sale_units_per_purchase_unit, 4);
+                $qty = max((float) $line->quantity, 0.0001);
+                $saleUnits = (float) ($line->sale_units_purchased ?: 0);
+                $factor = $saleUnits > 0
+                    ? max($saleUnits / $qty, 0.0001)
+                    : (float) $line->sale_units_per_purchase_unit;
+                $prices[$key] = round((float) $line->purchase_price / $factor, 4);
             }
         }
 

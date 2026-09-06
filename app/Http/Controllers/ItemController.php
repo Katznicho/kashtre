@@ -214,6 +214,10 @@ class ItemController extends Controller
         // Create the item
         $item = Item::create($validated);
 
+        if (config('units.enabled')) {
+            app(\App\Domain\Units\Services\InventoryUnitGateway::class)->syncItem($item->fresh());
+        }
+
         // Handle branch item prices only if custom pricing is selected
         if ($validated['pricing_type'] === 'custom' && isset($validated['branch_prices'])) {
             foreach ($validated['branch_prices'] as $branchPrice) {
@@ -476,6 +480,10 @@ class ItemController extends Controller
 
         // Update the item
         $item->update($validated);
+
+        if (config('units.enabled')) {
+            app(\App\Domain\Units\Services\InventoryUnitGateway::class)->syncItem($item->fresh());
+        }
 
         // Handle branch item prices - delete existing and create new ones only if custom pricing is selected
         $item->branchPrices()->delete();

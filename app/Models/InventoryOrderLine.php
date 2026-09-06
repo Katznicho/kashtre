@@ -83,6 +83,11 @@ class InventoryOrderLine extends Model
             $suom = (float) ($this->order_quantity_suom ?? 0);
             $perPack = (float) ($item->suom_per_ouom ?? 0);
             if ($suom > 0 && $perPack > 0) {
+                if (config('units.enabled')) {
+                    return (float) app(\App\Domain\Units\Services\InventoryUnitGateway::class)
+                        ->saleToOrder($item, $suom, $perPack)['quantity'];
+                }
+
                 return round($suom / $perPack, 4);
             }
         }

@@ -74,6 +74,7 @@ use App\Http\Controllers\InventoryCrashCartController;
 use App\Http\Controllers\InventoryPickRouteController;
 use App\Http\Controllers\InventoryInternalReplenishmentController;
 use App\Http\Controllers\InventorySettingsController;
+use App\Http\Controllers\InventoryUnitEngineController;
 use App\Http\Controllers\InventoryDailyConsumptionController;
 use App\Http\Controllers\InventoryOrderController;
 use App\Http\Controllers\InventoryIncomingRfqController;
@@ -403,6 +404,7 @@ Route::post('/package-bulk-upload/import', [PackageBulkUploadController::class, 
         Route::put('/settings/approvers', [InventorySettingsController::class, 'updateApprovers'])->name('settings.approvers.update');
         Route::put('/settings/evaluation-committee', [InventorySettingsController::class, 'updateEvaluationCommittee'])->name('settings.evaluation-committee.update');
         Route::put('/settings/capabilities', [InventorySettingsController::class, 'updateCapabilities'])->name('settings.capabilities.update');
+        Route::get('/units', [InventoryUnitEngineController::class, 'index'])->name('units.index');
         Route::get('/approvers', fn () => redirect()->route('inventory.settings.edit', ['tab' => 'approvers']))->name('approvers');
         Route::put('/approvers', [InventorySettingsController::class, 'updateApprovers'])->name('approvers.update');
         Route::get('/transfers', [InventoryStockTransferController::class, 'index'])->name('transfers.index');

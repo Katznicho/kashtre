@@ -169,6 +169,11 @@
                                 </a>
                             </li>
                             <li>
+                                <a href="{{ route('inventory.units.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5 {{ request()->routeIs('inventory.units*') ? 'text-blue-700 font-medium' : '' }}" @click.stop>
+                                    Units
+                                </a>
+                            </li>
+                            <li>
                                 <a href="{{ route('inventory.settings.edit') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5 {{ request()->routeIs('inventory.settings*') || request()->routeIs('inventory.approvers') ? 'text-blue-700 font-medium' : '' }}" @click.stop>
                                     Settings
                                 </a>

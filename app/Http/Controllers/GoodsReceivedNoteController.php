@@ -484,7 +484,10 @@ class GoodsReceivedNoteController extends Controller
 
             $quantity = (float) $line['quantity'];
             $conversion = (float) $line['sale_units_per_purchase_unit'];
-            $saleUnits = GoodsReceivedNoteLine::calculateSaleUnitsPurchased($quantity, $conversion);
+            $saleUnits = config('units.enabled')
+                ? (float) app(\App\Domain\Units\Services\InventoryUnitGateway::class)
+                    ->orderToSale($item, $quantity, $conversion)['quantity']
+                : GoodsReceivedNoteLine::calculateSaleUnitsPurchased($quantity, $conversion);
             $ordered = isset($line['ordered_quantity']) ? (float) $line['ordered_quantity'] : null;
             $variance = $ordered !== null ? round($quantity - $ordered, 4) : null;
 

@@ -1658,11 +1658,17 @@ class InventoryOrderService
 
     private function toOuom(Item $item, float $orderQtySuom): ?float
     {
-        if ($item->suom_per_ouom && (float) $item->suom_per_ouom > 0) {
-            return round($orderQtySuom / (float) $item->suom_per_ouom, 4);
+        $factor = (float) ($item->suom_per_ouom ?? 0);
+        if ($factor <= 0) {
+            return null;
         }
 
-        return null;
+        if (config('units.enabled')) {
+            return (float) app(\App\Domain\Units\Services\InventoryUnitGateway::class)
+                ->saleToOrder($item, $orderQtySuom, $factor)['quantity'];
+        }
+
+        return round($orderQtySuom / $factor, 4);
     }
 
     private function itemPassesOrderFilters(Item $item, InventoryOrder $order): bool

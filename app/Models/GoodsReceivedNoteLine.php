@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\Units\Services\InventoryUnitGateway;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -44,9 +45,24 @@ class GoodsReceivedNoteLine extends Model
             $quantity = (float) $line->quantity;
             $conversion = (float) $line->sale_units_per_purchase_unit;
 
-            if ($quantity > 0 && $conversion > 0) {
-                $line->sale_units_purchased = self::calculateSaleUnitsPurchased($quantity, $conversion);
+            if ($quantity <= 0 || $conversion <= 0) {
+                return;
             }
+
+            if (config('units.enabled')) {
+                $item = $line->relationLoaded('item')
+                    ? $line->item
+                    : ($line->item_id ? Item::query()->find($line->item_id) : null);
+
+                if ($item) {
+                    $line->sale_units_purchased = (float) app(InventoryUnitGateway::class)
+                        ->orderToSale($item, $quantity, $conversion)['quantity'];
+
+                    return;
+                }
+            }
+
+            $line->sale_units_purchased = self::calculateSaleUnitsPurchased($quantity, $conversion);
         });
     }
 

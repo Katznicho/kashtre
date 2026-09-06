@@ -20,6 +20,7 @@ final class ConversionEngine
         private readonly UnitCatalogService $units,
         private readonly DecimalMath $math,
         private readonly NamedAlgorithmRegistry $algorithms,
+        private readonly CompositionService $composition,
     ) {}
 
     public function convert(Quantity $quantity, string $targetUnitPublicId, ConversionContext $context): ConversionResult
@@ -41,10 +42,27 @@ final class ConversionEngine
             );
         }
 
-        $sameDimension = DimensionVector::from($from->dimension_vector)
-            ->equals(DimensionVector::from($to->dimension_vector));
+        $sameDimension = $this->composition->computeDimension($from)
+            ->equals($this->composition->computeDimension($to));
 
         $candidates = $this->effectiveCandidates($context->tenantKey, $from, $to, $at);
+
+        if ($candidates->isEmpty() && $sameDimension) {
+            $via = $this->composition->convertViaCanonical($quantity->value, $from, $to);
+            if ($via !== null) {
+                return new ConversionResult(
+                    sourceValue: $quantity->value,
+                    sourceUnitPublicId: $from->public_id,
+                    targetValue: $via,
+                    targetUnitPublicId: $to->public_id,
+                    rulePublicId: 'COMPOSITION_CANONICAL',
+                    ruleVersion: 1,
+                    displayPrecision: 4,
+                    roundingMode: 'HALF_UP',
+                );
+            }
+        }
+
         $rule = $this->selectRule($candidates, $context, $sameDimension, $from, $to);
         $reverse = (int) $rule->from_unit_id === (int) $to->id
             && (int) $rule->to_unit_id === (int) $from->id;

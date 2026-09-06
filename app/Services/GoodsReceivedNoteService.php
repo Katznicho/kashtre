@@ -263,7 +263,10 @@ class GoodsReceivedNoteService
             );
 
             $conversion = max((float) $line->sale_units_per_purchase_unit, 0.0001);
-            $pricePerSuom = (float) $line->purchase_price / $conversion;
+            // Prefer effective factor from posted sale units (engine dual-run) over the raw line field.
+            $qty = max((float) $line->quantity, 0.0001);
+            $effectiveFactor = $saleUnits > 0 ? max($saleUnits / $qty, 0.0001) : $conversion;
+            $pricePerSuom = (float) $line->purchase_price / $effectiveFactor;
             $unitPrice = $pricePerSuom;
             $balanceBefore = (float) $stock->quantity_suom;
             $balanceAfter = $balanceBefore + $saleUnits;
@@ -384,11 +387,10 @@ class GoodsReceivedNoteService
 
     private function ensureLineSaleUnits(GoodsReceivedNote $grn): void
     {
+        $grn->loadMissing('lines.item');
+
         foreach ($grn->lines as $line) {
-            $expected = GoodsReceivedNoteLine::calculateSaleUnitsPurchased(
-                (float) $line->quantity,
-                (float) $line->sale_units_per_purchase_unit
-            );
+            $expected = $this->computeSaleUnitsForLine($line);
 
             if ((float) $line->sale_units_purchased !== $expected) {
                 $line->update(['sale_units_purchased' => $expected]);
@@ -406,10 +408,20 @@ class GoodsReceivedNoteService
             return $stored;
         }
 
-        return GoodsReceivedNoteLine::calculateSaleUnitsPurchased(
-            (float) $line->quantity,
-            (float) $line->sale_units_per_purchase_unit
-        );
+        return $this->computeSaleUnitsForLine($line);
+    }
+
+    private function computeSaleUnitsForLine(GoodsReceivedNoteLine $line): float
+    {
+        $quantity = (float) $line->quantity;
+        $conversion = (float) $line->sale_units_per_purchase_unit;
+
+        if (config('units.enabled') && $line->item) {
+            return (float) app(\App\Domain\Units\Services\InventoryUnitGateway::class)
+                ->orderToSale($line->item, $quantity, $conversion)['quantity'];
+        }
+
+        return GoodsReceivedNoteLine::calculateSaleUnitsPurchased($quantity, $conversion);
     }
 
     private function movementExistsForLine(GoodsReceivedNoteLine $line): bool
@@ -544,7 +556,9 @@ class GoodsReceivedNoteService
                 'code' => $item->code,
                 'suom' => $item->itemUnit?->name,
                 'order_unit' => $item->orderUnit?->name,
-                'suom_per_ouom' => (float) ($item->suom_per_ouom ?? 0),
+                'suom_per_ouom' => config('units.enabled')
+                    ? app(\App\Domain\Units\Services\InventoryUnitGateway::class)->packagingFactor($item)
+                    : (float) ($item->suom_per_ouom ?? 0),
                 'default_price' => (float) ($item->default_price ?? 0),
                 'purchase_price_per_ouom' => $item->purchasePricePerOuom(),
                 'default_purchase_price_per_ouom' => $fromLastGrn

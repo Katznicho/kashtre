@@ -106,6 +106,46 @@ class CoreUnitSeedPackSeeder extends Seeder
                 $units[$unit['code']] = $row;
             }
 
+            // Second pass: composite component rows (need all units present).
+            foreach ($manifest['units'] as $unit) {
+                $components = $unit['components'] ?? null;
+                if (! is_array($components) || $components === []) {
+                    continue;
+                }
+
+                $row = $units[$unit['code']] ?? null;
+                if (! $row) {
+                    continue;
+                }
+
+                $version = UnitVersion::query()
+                    ->where('unit_id', $row->id)
+                    ->where('version_no', 1)
+                    ->first();
+                if (! $version) {
+                    continue;
+                }
+
+                foreach ($components as $i => $component) {
+                    $componentUnit = $units[$component['unit']] ?? null;
+                    if (! $componentUnit) {
+                        continue;
+                    }
+
+                    \App\Domain\Units\Models\UnitComponent::query()->updateOrCreate(
+                        [
+                            'unit_version_id' => $version->id,
+                            'sequence' => $i + 1,
+                        ],
+                        [
+                            'operator' => $component['operator'],
+                            'component_unit_id' => $componentUnit->id,
+                            'exponent' => (int) ($component['exponent'] ?? 1),
+                        ]
+                    );
+                }
+            }
+
             foreach ($manifest['scaleRules'] as $rule) {
                 $from = $units[$rule['from']] ?? null;
                 $to = $units[$rule['to']] ?? null;

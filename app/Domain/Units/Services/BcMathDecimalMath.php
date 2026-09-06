@@ -35,6 +35,27 @@ final class BcMathDecimalMath implements DecimalMath
         return bccomp($this->assertDecimal($a), $this->assertDecimal($b), 18);
     }
 
+    public function pow(string $base, string $exponent, int $scale): string
+    {
+        $exp = (int) $this->assertDecimal($exponent);
+        if ($exp === 0) {
+            return '1';
+        }
+
+        if ($exp < 0) {
+            $positive = $this->pow($base, (string) abs($exp), $scale);
+
+            return $this->divide('1', $positive, $scale);
+        }
+
+        $result = '1';
+        for ($i = 0; $i < $exp; $i++) {
+            $result = $this->multiply($result, $base, $scale);
+        }
+
+        return $result;
+    }
+
     public function round(string $value, int $scale, string $mode): string
     {
         return $this->normalize($this->assertDecimal($value), $scale, $mode);

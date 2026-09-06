@@ -50,8 +50,12 @@ class AppServiceProvider extends ServiceProvider
         );
         $this->app->singleton(\App\Domain\Units\Services\UnitCatalogService::class);
         $this->app->singleton(\App\Domain\Units\Services\NamedAlgorithmRegistry::class);
+        $this->app->singleton(\App\Domain\Units\Services\CompositionService::class);
+        $this->app->singleton(\App\Domain\Units\Services\UnitGovernanceService::class);
         $this->app->singleton(\App\Domain\Units\Services\ConversionEngine::class);
         $this->app->singleton(\App\Domain\Units\Services\InventoryUnitGateway::class);
+        $this->app->singleton(\App\Domain\Units\Services\ClinicalUnitGateway::class);
+        $this->app->singleton(\App\Domain\Units\Services\LimsUnitGateway::class);
     }
 
     /**

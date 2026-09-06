@@ -10,6 +10,7 @@
     {"code": "TEMPERATURE", "name": "Temperature", "dimension": {"TEMP": 1}},
     {"code": "AMOUNT", "name": "Amount of substance", "dimension": {"N": 1}},
     {"code": "COUNT", "name": "Count", "dimension": {"COUNT": 1}},
+    {"code": "CONCENTRATION", "name": "Mass concentration", "dimension": {"M": 1, "L": -3}},
     {"code": "DIMENSIONLESS", "name": "Dimensionless", "dimension": {}}
   ],
   "prefixes": [
@@ -42,7 +43,9 @@
     {"code": "PACK", "name": "pack", "symbol": "pack", "class": "PACKAGING_CONTEXTUAL", "quantityKind": "COUNT", "dimension": {"COUNT": 1}, "scale": "1", "ucum": "{pack}"},
     {"code": "BOX", "name": "box", "symbol": "box", "class": "PACKAGING_CONTEXTUAL", "quantityKind": "COUNT", "dimension": {"COUNT": 1}, "scale": "1", "ucum": "{box}"},
     {"code": "CARTON", "name": "carton", "symbol": "carton", "class": "PACKAGING_CONTEXTUAL", "quantityKind": "COUNT", "dimension": {"COUNT": 1}, "scale": "1", "ucum": "{carton}"},
-    {"code": "BOTTLE", "name": "bottle", "symbol": "btl", "class": "PACKAGING_CONTEXTUAL", "quantityKind": "COUNT", "dimension": {"COUNT": 1}, "scale": "1", "ucum": "{bottle}"}
+    {"code": "BOTTLE", "name": "bottle", "symbol": "btl", "class": "PACKAGING_CONTEXTUAL", "quantityKind": "COUNT", "dimension": {"COUNT": 1}, "scale": "1", "ucum": "{bottle}"},
+    {"code": "MG_PER_ML", "name": "milligram per millilitre", "symbol": "mg/mL", "class": "COMPOSITE_RATIO", "quantityKind": "CONCENTRATION", "dimension": {"M": 1, "L": -3}, "scale": "1", "ucum": "mg/mL", "components": [{"operator": "NUMERATOR", "unit": "MG", "exponent": 1}, {"operator": "DENOMINATOR", "unit": "ML", "exponent": 1}]},
+    {"code": "G_PER_L", "name": "gram per litre", "symbol": "g/L", "class": "COMPOSITE_RATIO", "quantityKind": "CONCENTRATION", "dimension": {"M": 1, "L": -3}, "scale": "1", "ucum": "g/L", "components": [{"operator": "NUMERATOR", "unit": "G", "exponent": 1}, {"operator": "DENOMINATOR", "unit": "L", "exponent": 1}]}
   ],
   "scaleRules": [
     {"from": "G", "to": "MG", "scale": "1000", "bidirectional": true},

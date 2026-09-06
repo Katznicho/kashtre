@@ -72,4 +72,71 @@ final class UnitCatalogService
 
         return $query->get()->all();
     }
+
+    /**
+     * Create a tenant-scoped DRAFT packaging/count unit (not SYSTEM).
+     */
+    public function createTenantDraftUnit(
+        string $tenantKey,
+        string $code,
+        string $name,
+        string $symbol,
+        string $unitClass = 'PACKAGING_CONTEXTUAL',
+        string $quantityKindCode = 'COUNT',
+    ): CoreUnit {
+        $system = (string) config('units.system_tenant_key', 'SYSTEM');
+        $kind = \App\Domain\Units\Models\QuantityKind::query()
+            ->whereIn('tenant_key', [$tenantKey, $system])
+            ->where('code', strtoupper($quantityKindCode))
+            ->first();
+
+        if (! $kind) {
+            throw new \InvalidArgumentException('Quantity kind not found: '.$quantityKindCode);
+        }
+
+        $unit = CoreUnit::query()->create([
+            'public_id' => (string) \Illuminate\Support\Str::ulid(),
+            'tenant_key' => $tenantKey,
+            'code' => strtoupper($code),
+            'unit_class' => $unitClass,
+            'canonical_name' => $name,
+            'symbol' => $symbol,
+            'ascii_symbol' => $symbol,
+            'standard_verification_status' => 'LOCAL',
+            'quantity_kind_id' => $kind->id,
+            'dimension_vector' => $kind->dimension_vector ?? ['COUNT' => 1],
+            'allows_prefix' => false,
+            'allows_composition' => true,
+            'is_system' => false,
+            'status' => UnitStatus::DRAFT->value,
+        ]);
+
+        \App\Domain\Units\Models\UnitVersion::query()->create([
+            'public_id' => (string) \Illuminate\Support\Str::ulid(),
+            'unit_id' => $unit->id,
+            'version_no' => 1,
+            'scale_decimal' => '1',
+            'offset_decimal' => '0',
+            'calculation_scale' => 18,
+            'display_precision' => 4,
+            'rounding_mode' => 'HALF_UP',
+            'effective_from' => now(),
+            'status' => UnitStatus::DRAFT->value,
+        ]);
+
+        return $unit;
+    }
+
+    public function activateTenantUnit(CoreUnit $unit): void
+    {
+        if ($unit->is_system) {
+            throw new \InvalidArgumentException('SYSTEM units cannot be changed here.');
+        }
+
+        $unit->update(['status' => UnitStatus::ACTIVE->value]);
+        $unit->versions()->where('version_no', 1)->update([
+            'status' => UnitStatus::ACTIVE->value,
+            'approved_at' => now(),
+        ]);
+    }
 }

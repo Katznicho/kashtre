@@ -302,9 +302,13 @@ class Item extends Model
      */
     public function purchasePricePerOuom(): float
     {
-        $conversion = (float) ($this->suom_per_ouom ?? 0) > 0
-            ? (float) $this->suom_per_ouom
-            : 1.0;
+        $conversion = config('units.enabled')
+            ? app(\App\Domain\Units\Services\InventoryUnitGateway::class)->packagingFactor($this)
+            : (float) ($this->suom_per_ouom ?? 0);
+
+        if ($conversion <= 0) {
+            $conversion = 1.0;
+        }
 
         return round($this->purchasePricePerSuom() * $conversion, 2);
     }
@@ -313,19 +317,42 @@ class Item extends Model
      * Convert an order/packaging quantity into sale units.
      * Dual-runs Shared Unit Engine when UNIT_ENGINE_ENABLED=true.
      */
-    public function convertOrderQuantityToSale(string|float|int $orderQuantity): float
+    public function convertOrderQuantityToSale(string|float|int $orderQuantity, string|float|int|null $factorOverride = null): float
     {
         if (config('units.enabled')) {
             $result = app(\App\Domain\Units\Services\InventoryUnitGateway::class)
-                ->orderToSale($this, $orderQuantity);
+                ->orderToSale($this, $orderQuantity, $factorOverride);
 
             return (float) $result['quantity'];
         }
 
-        $factor = (float) ($this->suom_per_ouom ?? 0);
+        $factor = $factorOverride !== null && (float) $factorOverride > 0
+            ? (float) $factorOverride
+            : (float) ($this->suom_per_ouom ?? 0);
 
         return $factor > 0
             ? round(((float) $orderQuantity) * $factor, 4)
             : (float) $orderQuantity;
+    }
+
+    /**
+     * Convert sale units into order/packaging quantity.
+     */
+    public function convertSaleQuantityToOrder(string|float|int $saleQuantity, string|float|int|null $factorOverride = null): float
+    {
+        if (config('units.enabled')) {
+            $result = app(\App\Domain\Units\Services\InventoryUnitGateway::class)
+                ->saleToOrder($this, $saleQuantity, $factorOverride);
+
+            return (float) $result['quantity'];
+        }
+
+        $factor = $factorOverride !== null && (float) $factorOverride > 0
+            ? (float) $factorOverride
+            : (float) ($this->suom_per_ouom ?? 0);
+
+        return $factor > 0
+            ? round(((float) $saleQuantity) / $factor, 4)
+            : (float) $saleQuantity;
     }
 }

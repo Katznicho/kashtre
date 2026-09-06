@@ -104,7 +104,10 @@ class InventoryOrderFulfillmentService
                 ? (float) $item->suom_per_ouom
                 : 1.0;
 
-            $duomQty = max(0.0001, round($remaining / $conversion, 4));
+            $duomQty = config('units.enabled')
+                ? max(0.0001, (float) app(\App\Domain\Units\Services\InventoryUnitGateway::class)
+                    ->saleToOrder($item, $remaining, $conversion)['quantity'])
+                : max(0.0001, round($remaining / $conversion, 4));
 
             $lines[] = [
                 'inventory_order_line_id' => $line->id,

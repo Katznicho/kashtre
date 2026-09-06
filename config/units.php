@@ -7,6 +7,12 @@ return [
     */
     'enabled' => (bool) env('UNIT_ENGINE_ENABLED', false),
 
+    /*
+    | When true, Inventory/Clinical/LIMS gateways rethrow ConversionException
+    | instead of silently falling back to legacy multiply/identity.
+    */
+    'strict' => (bool) env('UNIT_ENGINE_STRICT', false),
+
     'calculation_scale' => (int) env('UNIT_ENGINE_CALCULATION_SCALE', 18),
 
     'max_composite_components' => (int) env('UNIT_ENGINE_MAX_COMPOSITE_COMPONENTS', 12),
