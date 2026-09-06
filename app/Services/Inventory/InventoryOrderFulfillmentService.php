@@ -104,10 +104,16 @@ class InventoryOrderFulfillmentService
                 ? (float) $item->suom_per_ouom
                 : 1.0;
 
-            $duomQty = config('units.enabled')
-                ? max(0.0001, (float) app(\App\Domain\Units\Services\InventoryUnitGateway::class)
-                    ->saleToOrder($item, $remaining, $conversion)['quantity'])
-                : max(0.0001, round($remaining / $conversion, 4));
+            $duomQty = max(0.0001, round($remaining / $conversion, 4));
+            if (config('units.enabled')) {
+                try {
+                    $duomQty = max(0.0001, (float) app(\App\Domain\Units\Services\InventoryUnitGateway::class)
+                        ->saleToOrder($item, $remaining, $conversion)['quantity']);
+                } catch (\App\Domain\Units\Exceptions\ConversionException) {
+                    // Prefill/list must not 500 when UNIT_ENGINE_STRICT and item unit links are missing.
+                    $duomQty = max(0.0001, round($remaining / $conversion, 4));
+                }
+            }
 
             $lines[] = [
                 'inventory_order_line_id' => $line->id,
