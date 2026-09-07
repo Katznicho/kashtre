@@ -417,6 +417,8 @@
                             @if(in_array('View Ward Census', $permissions))
                             <li><a href="{{ route('clinical.ward-census.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Ward Census</a></li>
                             <li><a href="{{ route('clinical.my-tasks.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>My Patient Tasks</a></li>
+                            <li><a href="{{ route('clinical.handover.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Shift Handover</a></li>
+                            <li><a href="{{ route('clinical.recalls.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Recall Worklist</a></li>
                             @endif
                         </ul>
                     </li>

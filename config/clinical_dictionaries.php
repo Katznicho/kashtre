@@ -213,14 +213,15 @@ return [
         'group' => 'Workflow',
         'label' => 'Clinical transitions',
         'path' => 'settings/process-registry',
-        'about' => 'Admission, transfer, discharge, referral and death certification. Steps are ordered and role-owned, and some carry real effects like allocating a bed or locking a chart. Clinical ships five reference workflows under its own DEFAULT tenant — a real facility starts with none and needs its own created here.',
+        'about' => 'Admission, transfer, discharge, referral and death certification. Steps are ordered and role-owned, and some carry real effects like allocating a bed or locking a chart. A facility gets its own copy of the five reference workflows the moment it is provisioned — see Settings → Clinical Module for the provisioning status.',
         'columns' => ['id' => 'ID', 'process_code' => 'Code', 'process_name' => 'Name', 'description' => 'Description', 'is_active' => 'Active'],
-        // Not a flat create/update-by-id resource — POST creates the header,
-        // a separate PUT wholesale-replaces its steps, and there is no way to
-        // edit a header field or delete a process afterward (confirmed by
-        // probing directly: PATCH/PUT/DELETE on the header all 404). The
-        // generic form below can't represent that, so this dictionary defers
-        // to a dedicated component instead.
+        // Still not a flat create/update-by-id resource — POST creates the
+        // header, a separate PUT wholesale-replaces its steps. Header
+        // GET-by-id + PATCH + activate/deactivate now work (re-confirmed
+        // 2026-08-15; they 404'd when this was first probed), but the steps
+        // array still can't go through a flat field=>value form, so create
+        // stays on the dedicated component below. Editing an existing
+        // process's header/steps still has no UI — only create.
         'custom_form' => 'clinical.process-registry-form',
     ],
 

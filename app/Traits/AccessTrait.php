@@ -242,7 +242,43 @@ trait AccessTrait
         "Clinical Role Gates" => ['Act As Ward Nurse (Clinical)', 'Act As Consultant (Clinical)'],
         "Medication Orders" => ['View Medication Orders', 'Prescribe Medication Orders', 'Override CDSS Safety Block'],
         "Medication Administration" => ['View MAR', 'Administer MAR Doses'],
-        "Break Glass" => ['Trigger Break Glass Override'],
+        "Break Glass" => [
+            'Trigger Break Glass Override',
+            // Unlike every other permission in this file, this one has to be
+            // the literal string Clinical checks. v6.1 Volume 9's
+            // SecurityController::reviewBreakGlass() calls
+            // ClinicalIdentity::hasPermission('clinical.break_glass.review')
+            // directly against whatever Main sends in X-User-Permissions —
+            // there is no translation layer, only a case-insensitive string
+            // compare (confirmed live 2026-09-06: "Review Break-Glass
+            // Override" does not pass Clinical's own gate no matter what
+            // Main-side abort_unless() says). A nicer display label would be
+            // cosmetic and would break the one thing that has to work.
+            'clinical.break_glass.review',
+        ],
+        "Patient Messaging (v6.1)" => [
+            'clinical.patient_message.respond',
+        ],
+        "AI Governance (v6.1)" => [
+            // Literal string Clinical checks (AiUseCaseController), same
+            // reason as clinical.break_glass.review above.
+            'clinical.ai.govern',
+        ],
+        "Content Governance (v6.1)" => [
+            'clinical.content.create',
+            'clinical.content.validate',
+        ],
+        "Care Transitions (v6.1)" => [
+            // Main-only — no equivalent gate on Clinical's side for a read.
+            'View Care Transitions',
+            // These three must be the literal strings v6.1 Volume 8's
+            // ProcessWorkflow/CareTransitions controllers check via
+            // ClinicalIdentity::hasPermission() — same reason as
+            // clinical.break_glass.review above.
+            'clinical.transition.initiate',
+            'clinical.transition.authorize',
+            'clinical.discharge.attest',
+        ],
         "Clinical Settings" => [
             'View Clinical Dictionaries', 'Manage Clinical Dictionaries',
             'View Clinical Module', 'Manage Clinical Module',

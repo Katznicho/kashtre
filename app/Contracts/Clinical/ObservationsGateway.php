@@ -66,4 +66,36 @@ interface ObservationsGateway
         ?string $cdeCode = null,
         ?int $displayUomId = null,
     ): array;
+
+    /**
+     * A server-computed clinical indicator (BMI, eGFR, NEWS2, GCS, ...) —
+     * SRD §1.3/§12.1. Every bound, weight and coefficient lives in Clinical's
+     * own scoring dictionary (clinical_scoring_dictionaries /
+     * ScoreCalculationService) — never reimplement a formula in a caller.
+     *
+     * $inputs is keyed exactly as that scoring model's own dictionary names
+     * them, which is *not* always the same as the contributing CDE's own
+     * code or unit — confirmed against ScoringDictionariesSeeder 2026-08-26:
+     *   BMI          — weight_kg (from BODY_WEIGHT, kg), height_m (from
+     *                   BODY_HEIGHT — already stored in metres, no conversion).
+     *   EGFR_CKD_EPI — Scr in mg/dL (CREATININE_SERUM's own base unit is
+     *                   umol/L — divide by 88.4 before calling), age (years),
+     *                   sex ('MALE'|'FEMALE', from the patient's own record,
+     *                   not a CDE at all).
+     * A required input missing or out of range refuses rather than guessing.
+     *
+     * @param  array<string, mixed>  $inputs
+     * @return array<string, mixed> always includes 'score'; shape beyond that
+     *                               varies by score (risk tier, classification
+     *                               band, breakdown, ...).
+     *
+     * @throws \App\Services\Clinical\Api\Exceptions\ClinicalRuleRefusedException on the API driver
+     * @throws \Exception on the local driver, or for any score this driver does not implement
+     */
+    public function calculateScore(
+        ClinicalActor $actor,
+        string $scoreCode,
+        array $inputs,
+        ?string $version = null,
+    ): array;
 }

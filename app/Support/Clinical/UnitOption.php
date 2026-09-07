@@ -16,12 +16,18 @@ class UnitOption
     public function __construct(
         public readonly int $id,
         public readonly string $unit_label,
+        // e.g. 'Mass / Weight', 'Cellular Counts & Hematology' — the tenant's
+        // own grouping (UnitsOfMeasureSeeder), not invented here. Lets a
+        // caller narrow a global unit list to the ones that actually make
+        // sense for its context (a drug strength/dose has no business
+        // offering 'cells/uL', a lab result unit, as a choice).
+        public readonly ?string $category = null,
     ) {
     }
 
     public static function fromModel(ClinicalUomMaster $unit): self
     {
-        return new self((int) $unit->id, (string) $unit->unit_label);
+        return new self((int) $unit->id, (string) $unit->unit_label, $unit->category);
     }
 
     /**
@@ -32,6 +38,7 @@ class UnitOption
         return new self(
             id: (int) $payload['id'],
             unit_label: (string) ($payload['unit_label'] ?? $payload['label'] ?? ''),
+            category: $payload['category'] ?? null,
         );
     }
 }

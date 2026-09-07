@@ -101,4 +101,31 @@ class WardsResource extends ClinicalResource
             $this->idempotent("work-order-{$workOrderId}-{$status}", $options),
         );
     }
+
+    /**
+     * Where a clinician's patients physically are — the location half of
+     * the task board, cheaper than the full taskVisibility() rollup.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function myPatientLocations(?int $userId = null, array $options = []): array
+    {
+        return $this->client->get('clinical/tasks/my-patients', $this->filled(['user_id' => $userId]), $options);
+    }
+
+    /**
+     * SRD §2.2 Handover Task Routing: every patient the clinician (or their
+     * team, or a named ward) owns, sickest first, with what is outstanding.
+     *
+     * @param  string  $scope  MY_PATIENTS | MY_TEAM | MY_WARD
+     * @return array<string, mixed>
+     */
+    public function handover(string $scope, ?int $userId = null, ?string $wardCode = null, array $options = []): array
+    {
+        return $this->client->get('clinical/handover', $this->filled([
+            'scope' => $scope,
+            'user_id' => $userId,
+            'ward_code' => $wardCode,
+        ]), $options);
+    }
 }

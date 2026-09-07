@@ -39,6 +39,26 @@ interface ClinicalSettingsGateway
      */
     public function update(ClinicalActor $actor, string $path, int|string $id, array $attributes): array;
 
+    /**
+     * Dictionaries are never deleted — a row is toggled out of clinician
+     * drop-downs instead, which keeps every historical record that
+     * references it intact and readable.
+     *
+     * @return array<string, mixed>
+     */
+    public function activate(ClinicalActor $actor, string $path, int|string $id): array;
+
+    /**
+     * Five dictionaries refuse this when something still depends on the row
+     * (an active CDE's base unit, a care team with live assignments, an
+     * occupied bed's space, a process with instances in progress, or
+     * CRITICAL_PANIC on escalation rules, which can never be silenced) — that
+     * refusal arrives as a normal 422 with a message naming the blocker.
+     *
+     * @return array<string, mixed>
+     */
+    public function deactivate(ClinicalActor $actor, string $path, int|string $id): array;
+
     /** Whether this driver can reach the dictionaries at all. */
     public function isAvailable(): bool;
 }

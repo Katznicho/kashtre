@@ -17,6 +17,13 @@ namespace App\Services\Clinical\Api\Exceptions;
  *   PHYSIOLOGICAL_RANGE_EXCEEDED  — the value is outside what is compatible
  *                                   with life. Almost always a unit error;
  *                                   re-prompt rather than offering an override.
+ *   PROCESS_STEP_BLOCKED          — a transition step's rules were not met
+ *                                   (mandatory skip, wrong role, an unmet
+ *                                   completion_rule). Resend with
+ *                                   override_reason_code (category
+ *                                   PROCESS_OVERRIDE) + override_note to
+ *                                   proceed anyway; both are written to the
+ *                                   audit trail. blockedBy() names why.
  */
 class ClinicalRuleRefusedException extends ClinicalApiException
 {
@@ -28,6 +35,22 @@ class ClinicalRuleRefusedException extends ClinicalApiException
     public function isPhysiologicallyImplausible(): bool
     {
         return $this->errorCode() === 'PHYSIOLOGICAL_RANGE_EXCEEDED';
+    }
+
+    public function isProcessStepBlocked(): bool
+    {
+        return $this->errorCode() === 'PROCESS_STEP_BLOCKED';
+    }
+
+    /**
+     * Human-readable reasons the step was blocked, present on
+     * PROCESS_STEP_BLOCKED.
+     *
+     * @return array<int, string>
+     */
+    public function blockedBy(): array
+    {
+        return $this->errors()['blocked_by'] ?? [];
     }
 
     /**

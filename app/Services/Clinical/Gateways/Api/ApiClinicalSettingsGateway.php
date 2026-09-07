@@ -56,6 +56,24 @@ class ApiClinicalSettingsGateway implements ClinicalSettingsGateway
         );
     }
 
+    public function activate(ClinicalActor $actor, string $path, int|string $id): array
+    {
+        return $this->client->post(
+            rtrim($path, '/')."/{$id}/activate",
+            [],
+            ['business_id' => $actor->businessId],
+        );
+    }
+
+    public function deactivate(ClinicalActor $actor, string $path, int|string $id): array
+    {
+        return $this->client->post(
+            rtrim($path, '/')."/{$id}/deactivate",
+            [],
+            ['business_id' => $actor->businessId],
+        );
+    }
+
     public function isAvailable(): bool
     {
         return $this->client->isConfigured();

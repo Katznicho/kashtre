@@ -123,4 +123,94 @@ class LocalObservationsGateway implements ObservationsGateway
             ->map(fn (CdeObservation $observation) => ObservationRecord::fromModel($observation))
             ->all();
     }
+
+    /**
+     * Local has no clinical_scoring_dictionaries table — a tenant cannot
+     * revise a guideline's bounds/coefficients here the way they can under
+     * the API driver. Only the two closed-form formulas that need no
+     * configurable matrix at all are implemented, mirroring Clinical's own
+     * ScoreCalculationService::bodyMassIndex()/renalClearance() (CKD-EPI 2021,
+     * confirmed against clinical_module's ScoringDictionariesSeeder
+     * 2026-08-26) so the two drivers agree on the arithmetic. Anything band-
+     * or option-based (NEWS2, GCS, APGAR, SATS) needs that dictionary and is
+     * refused outright rather than silently reimplemented with invented bounds.
+     */
+    public function calculateScore(
+        ClinicalActor $actor,
+        string $scoreCode,
+        array $inputs,
+        ?string $version = null,
+    ): array {
+        return match ($scoreCode) {
+            'BMI' => $this->bodyMassIndex($inputs),
+            'EGFR_CKD_EPI' => $this->renalClearance($inputs),
+            default => throw new \Exception(
+                "Score calculation for [{$scoreCode}] needs Clinical Module's own scoring dictionary — not available under CLINICAL_DRIVER=local."
+            ),
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $inputs
+     * @return array<string, mixed>
+     */
+    private function bodyMassIndex(array $inputs): array
+    {
+        if (! isset($inputs['weight_kg'], $inputs['height_m'])) {
+            throw new \Exception('BMI requires weight_kg and height_m.');
+        }
+
+        $height = (float) $inputs['height_m'];
+
+        if ($height <= 0) {
+            throw new \Exception('Height must be greater than zero.');
+        }
+
+        return ['score' => round((float) $inputs['weight_kg'] / ($height ** 2), 1)];
+    }
+
+    /**
+     * CKD-EPI 2021 race-free equation — same coefficients as Clinical's own
+     * seeded EGFR_CKD_EPI matrix (base=142, k: F=0.7/M=0.9, alpha: F=-0.241/
+     * M=-0.302, max_exponent=-1.200, age_factor=0.9938, sex_multiplier:
+     * F=1.012/M=1.000). Duplicated here rather than shared because the two
+     * drivers have no common dependency to hold it — if Clinical's tenant
+     * settings ever revise these, only the API driver picks that up.
+     *
+     * @param  array<string, mixed>  $inputs
+     * @return array<string, mixed>
+     */
+    private function renalClearance(array $inputs): array
+    {
+        if (! isset($inputs['Scr'], $inputs['age'], $inputs['sex'])) {
+            throw new \Exception('eGFR requires Scr, age and sex.');
+        }
+
+        $sex = strtoupper((string) $inputs['sex']);
+        $coefficients = [
+            'k' => ['FEMALE' => 0.7, 'MALE' => 0.9],
+            'alpha' => ['FEMALE' => -0.241, 'MALE' => -0.302],
+            'sex_multiplier' => ['FEMALE' => 1.012, 'MALE' => 1.000],
+        ];
+
+        if (! isset($coefficients['k'][$sex])) {
+            throw new \Exception("No renal coefficients configured for sex [{$sex}].");
+        }
+
+        $creatinine = (float) $inputs['Scr'];
+
+        if ($creatinine <= 0) {
+            throw new \Exception('Serum creatinine must be greater than zero.');
+        }
+
+        $ratio = $creatinine / $coefficients['k'][$sex];
+
+        $result = 142
+            * min($ratio, 1) ** $coefficients['alpha'][$sex]
+            * max($ratio, 1) ** -1.200
+            * 0.9938 ** (float) $inputs['age']
+            * $coefficients['sex_multiplier'][$sex];
+
+        return ['score' => round($result, 1)];
+    }
 }

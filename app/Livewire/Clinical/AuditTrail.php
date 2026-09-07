@@ -2,11 +2,11 @@
 
 namespace App\Livewire\Clinical;
 
-use App\Models\ClinicalBreakGlassLog;
-use App\Models\ClinicalProcessStepExecution;
+use App\Contracts\Clinical\AuditTrailGateway;
+use App\Support\Clinical\ClinicalActor;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Lazy;
 use Livewire\Component;
-use App\Support\Clinical\ClinicalDriver;
 
 /**
  * Lean audit polish, mirroring ImagingAuditService/ListImagingAuditLog —
@@ -17,9 +17,19 @@ use App\Support\Clinical\ClinicalDriver;
  * ClinicalConsumptionEvent, ClinicalMedicationOrder, ...) already IS an
  * audit trail by construction — this view just makes the two most
  * security-relevant ones reviewable in one place.
+ *
+ * Talks only to AuditTrailGateway, so it works unchanged under either
+ * CLINICAL_DRIVER. Clinical's own trail is a single hash-chained stream that
+ * already covers both event kinds the local driver tracks separately.
  */
+#[Lazy]
 class AuditTrail extends Component
 {
+    public function placeholder(): \Illuminate\Contracts\View\View
+    {
+        return view('livewire.clinical._lazy-placeholder');
+    }
+
     public string $clientId;
 
     public function mount(string $clientId): void
@@ -31,29 +41,15 @@ class AuditTrail extends Component
 
     public function render()
     {
-        // Reads Main's clinical_* tables, which do not exist under
-        // CLINICAL_DRIVER=api. Render an explanation instead of a 500.
-        if (ClinicalDriver::isApi()) {
-            return view('livewire.clinical.partials.driver-unavailable', [
-                'title' => 'Clinical Audit Trail',
-                'detail' => 'Clinical publishes GET /clinical/audit-trail, but it is restricted to the Medical Director.',
-            ]);
-        }
-        $businessId = Auth::user()->business_id;
-
         return view('livewire.clinical.audit-trail', [
-            'breakGlassLogs' => ClinicalBreakGlassLog::where('business_id', $businessId)
-                ->where('client_id', $this->clientId)
-                ->orderByDesc('created_at')
-                ->limit(20)
-                ->get(),
-            'stepExecutions' => ClinicalProcessStepExecution::whereHas('execution', function ($query) use ($businessId) {
-                $query->where('business_id', $businessId)->where('client_id', $this->clientId);
-            })
-                ->with('step')
-                ->orderByDesc('completed_at')
-                ->limit(20)
-                ->get(),
+            'entries' => collect(
+                app(AuditTrailGateway::class)->forPatient($this->actor(), $this->clientId)
+            ),
         ]);
+    }
+
+    private function actor(): ClinicalActor
+    {
+        return ClinicalActor::fromUser(Auth::user());
     }
 }

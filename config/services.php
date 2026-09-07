@@ -135,7 +135,16 @@ return [
         'service_key' => env('CLINICAL_SERVICE_KEY'),
         'timeout' => (int) env('CLINICAL_TIMEOUT', 10),
 
-        'retry_times' => (int) env('CLINICAL_RETRY_TIMES', 2),
+        // Worst case is (retry_times + 1) full timeouts back-to-back, since a
+        // ConnectionException (a hung/unresponsive Clinical, not a refusal)
+        // is retried at the full timeout each time. With the old default of
+        // 2 retries that was 3 x 10s = 30s — landing almost exactly on PHP's
+        // own default max_execution_time and surfacing as a raw fatal
+        // "Maximum execution time exceeded" instead of the clean
+        // ClinicalUnavailableException this client is supposed to throw.
+        // 1 retry keeps worst case at 2 x 10s = 20s, with real headroom
+        // before that ceiling.
+        'retry_times' => (int) env('CLINICAL_RETRY_TIMES', 1),
         'retry_sleep_ms' => (int) env('CLINICAL_RETRY_SLEEP_MS', 250),
 
         // §4: falls back to the DEFAULT tenant when a business has no

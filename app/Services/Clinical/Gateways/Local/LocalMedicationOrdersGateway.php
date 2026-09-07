@@ -121,6 +121,7 @@ class LocalMedicationOrdersGateway implements MedicationOrdersGateway
             'visit_id' => $visitId,
             'ordering_user_id' => $actor->userId,
             'dose_amount' => $draft['dose_amount'],
+            'dose_uom_id' => $draft['dose_uom_id'] ?? null,
             'route_code' => $draft['route_code'],
             'frequency_code' => $draft['frequency_code'],
             'start_at' => now(),

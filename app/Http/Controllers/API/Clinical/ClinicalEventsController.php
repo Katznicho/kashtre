@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\API\Clinical;
 
 use App\Http\Controllers\Controller;
-use App\Models\Business;
 use App\Models\ClinicalInboundEvent;
+use App\Support\Clinical\ClinicalTenantResolver;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +26,20 @@ use Throwable;
  *    fails, that is our problem to retry from the ledger — making Clinical
  *    redeliver forever because a Main-side handler is broken helps nobody, and
  *    the event would be lost entirely if we 500'd and they eventually gave up.
+ *
+ * Confirmed 2026-08-18 against the running Clinical Module's own config
+ * (`MAIN_MODULE_URL=http://.../api`, event path `/events` relative to it):
+ * Clinical actually posts events to `POST /api/events`, which routes to
+ * ClinicalIntegrationController@events — an older, separately-built inbound
+ * handler that already implements INFANT_REGISTRATION and PATIENT_DECEASED
+ * via ClinicalModuleIntegrationService, not this controller. This route
+ * (`POST /api/v1/events`) matches the newer API Integration Guide's §12
+ * documented path but is not the one Clinical is actually configured to
+ * call, so flagForInfantRegistration() below never fires in practice. Left
+ * in place rather than deleted — the guide says this should be the path,
+ * and a future cutover of MAIN_MODULE_URL's event path would make it live —
+ * but do not assume events are landing here without checking which URL
+ * Clinical is actually configured with.
  */
 class ClinicalEventsController extends Controller
 {
@@ -59,7 +73,7 @@ class ClinicalEventsController extends Controller
                 'event_id' => $validated['event_id'],
                 'fact_token' => $validated['fact_token'],
                 'tenant_id' => $validated['tenant_id'] ?? null,
-                'business_id' => $this->resolveBusinessId($validated['tenant_id'] ?? null),
+                'business_id' => ClinicalTenantResolver::resolveBusinessId($validated['tenant_id'] ?? null),
                 'global_client_id' => $validated['global_client_id'] ?? null,
                 'visit_id' => $validated['visit_id'] ?? null,
                 'payload' => $request->all(),
@@ -144,28 +158,5 @@ class ClinicalEventsController extends Controller
             'status' => ClinicalInboundEvent::STATUS_PROCESSED,
             'processed_at' => now(),
         ]);
-    }
-
-    /**
-     * Maps Clinical's tenant back onto our business. The reverse of
-     * ClinicalRequestContext::tenantId(), including its TENANT-{id} fallback.
-     */
-    private function resolveBusinessId(?string $tenantId): ?int
-    {
-        if (! $tenantId) {
-            return null;
-        }
-
-        // The tenant is the business id. The other two forms are only kept so a
-        // delivery queued before the change still lands.
-        if (ctype_digit($tenantId)) {
-            return (int) $tenantId;
-        }
-
-        if (preg_match('/^TENANT-(\d+)$/', $tenantId, $matches)) {
-            return (int) $matches[1];
-        }
-
-        return Business::whereRaw('UPPER(entity_code) = ?', [strtoupper($tenantId)])->value('id');
     }
 }

@@ -51,7 +51,7 @@ class BreakGlassRequest extends Component
             return;
         }
 
-        app(CareAccessGateway::class)->grantBreakGlass(
+        $episodeId = app(CareAccessGateway::class)->grantBreakGlass(
             ClinicalActor::fromUser(Auth::user()),
             $this->clientId,
             $this->visitId,
@@ -59,7 +59,14 @@ class BreakGlassRequest extends Component
             $this->justificationNote ?: null,
         );
 
-        return redirect()->route('clinical.observations.show', ['clientId' => $this->clientId, 'visit_id' => $this->visitId]);
+        // v6.1 Volume 9's independent review needs this id, and this grant
+        // is the only moment it is ever produced — flashed through the
+        // redirect so the destination page can show it (BreakGlassEpisode
+        // has no list/lookup endpoint of its own, confirmed against the API
+        // guide 2026-09-05).
+        return redirect()
+            ->route('clinical.observations.show', ['clientId' => $this->clientId, 'visit_id' => $this->visitId])
+            ->with('break_glass_episode_id', $episodeId);
     }
 
     /**

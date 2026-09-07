@@ -137,6 +137,19 @@ class ApiObservationsGateway implements ObservationsGateway
         );
     }
 
+    public function calculateScore(
+        ClinicalActor $actor,
+        string $scoreCode,
+        array $inputs,
+        ?string $version = null,
+    ): array {
+        return $this->client->post(
+            "clinical/scores/{$scoreCode}/calculate",
+            array_filter(['inputs' => $inputs, 'version' => $version], fn ($v) => $v !== null),
+            ['business_id' => $actor->businessId],
+        );
+    }
+
     /**
      * Collection endpoints return `data` as a bare array; a few nest it under
      * a named key. Tolerating both keeps us honest about §2's instruction to

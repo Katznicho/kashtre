@@ -146,6 +146,15 @@ class CatalogueLookupController extends Controller
             'alternative_names' => $item->other_names,
             'description' => $item->description,
             'type' => $item->type,
+            // ClinicalTranslatorEngine reads this key straight off this
+            // response to decide what to pass EntitlementConsumptionEngine
+            // (SRD §6.3) — it was never here, so no order placed through
+            // this endpoint could ever consume a package entitlement,
+            // regardless of item type. Same rule
+            // ClinicalModuleIntegrationService::notifyEntitlementsGranted()
+            // already uses when a package is *sold*, so an order matches
+            // the exact code that allocation was registered against.
+            'service_code' => $item->type === 'service' ? $item->code : null,
             'base_uom_id' => $item->uom_id,
             // See the class docblock: there is no is_offer_item flag on Item,
             // so this reports the closest fact we actually hold rather than

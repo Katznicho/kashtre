@@ -46,13 +46,28 @@ class MarDoseRecord
      */
     public static function fromApi(array $payload): self
     {
-        $order = $payload['order'] ?? $payload['medication_order'] ?? null;
+        // Confirmed against MarController::index() 2026-08-26: it JSON-encodes
+        // MarSchedule models directly (App\Support\ApiResponse::success($doses)),
+        // eager-loaded with the orderItem relation — which Laravel's default
+        // serialization keys as `order_item`, not `order`/`medication_order`
+        // (neither ever existed; every dose's medicationOrder came back null).
+        // That row is also a flat order *item* — requested_term,
+        // resolved_item_name, resolved_sku, route_code, id — not the nested
+        // `{items: [...]}` order shape MedicationOrderRecord::fromApi()
+        // expects from the real order-placement/list endpoints, so it is
+        // built directly here instead of routed through that method.
+        $orderItem = $payload['order_item'] ?? null;
 
         return new self(
             id: $payload['dose_id'] ?? $payload['id'] ?? '',
             scheduled_at: isset($payload['scheduled_at']) ? Carbon::parse($payload['scheduled_at']) : null,
             status: (string) ($payload['state'] ?? $payload['status'] ?? 'DUE'),
-            medicationOrder: is_array($order) ? MedicationOrderRecord::fromApi($order) : null,
+            medicationOrder: is_array($orderItem) ? new MedicationOrderRecord(
+                id: $orderItem['id'] ?? '',
+                drug_display_name: (string) ($orderItem['resolved_item_name'] ?? $orderItem['requested_term'] ?? ''),
+                drug_code: $orderItem['resolved_sku'] ?? null,
+                route_code: $orderItem['route_code'] ?? null,
+            ) : null,
             reason_code: $payload['reason_code'] ?? null,
         );
     }

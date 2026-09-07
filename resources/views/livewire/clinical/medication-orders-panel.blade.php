@@ -60,18 +60,46 @@
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
         <div class="sm:col-span-2">
             <label class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Drug</label>
-            <input type="text" wire:model="drugSearch" placeholder="Generic or trade name"
+            <input type="text" wire:model="drugSearch" list="stocked-drugs" placeholder="Generic or trade name — pick from the store or type any drug"
                 class="w-full text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600" />
+            {{-- Dropdown of this business's own store items — still a free-text
+                 field underneath, so a drug the store doesn't stock can still be
+                 typed and goes through the external-referral flow above. --}}
+            <datalist id="stocked-drugs">
+                @foreach ($stockedDrugs as $drug)
+                    <option value="{{ $drug->name }}"></option>
+                @endforeach
+            </datalist>
             @error('drugSearch') <div class="text-[10px] text-red-600">{{ $message }}</div> @enderror
         </div>
         <div>
             <label class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Strength</label>
-            <input type="text" wire:model="strength" placeholder="e.g. 500mg"
-                class="w-full text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600" />
+            <div class="flex gap-1">
+                <input type="text" wire:model="strength" placeholder="e.g. 500"
+                    class="w-full text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600" />
+                {{-- Clinical has no separate strength-unit field — the unit
+                     picked here is folded into strength_descriptor as text
+                     (e.g. "500 mg") when prescribing. --}}
+                <select wire:model="strengthUnitId" class="w-24 text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600">
+                    <option value="">Unit&hellip;</option>
+                    @foreach ($units as $unit)
+                        <option value="{{ $unit->id }}">{{ $unit->unit_label }}</option>
+                    @endforeach
+                </select>
+            </div>
         </div>
         <div>
-            <label class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Dose (mg)</label>
-            <input type="number" step="any" wire:model="doseAmount" class="w-full text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600" />
+            <label class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Dose</label>
+            <div class="flex gap-1">
+                <input type="number" step="any" wire:model="doseAmount"
+                    class="w-full text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600" />
+                <select wire:model="doseUnitId" class="w-24 text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600">
+                    <option value="">Unit&hellip;</option>
+                    @foreach ($units as $unit)
+                        <option value="{{ $unit->id }}">{{ $unit->unit_label }}</option>
+                    @endforeach
+                </select>
+            </div>
             @error('doseAmount') <div class="text-[10px] text-red-600">{{ $message }}</div> @enderror
         </div>
         <div>
@@ -136,11 +164,19 @@
             <table class="min-w-full text-sm">
                 <tbody>
                     @foreach ($dueDoses as $dose)
-                        <tr wire:key="dose-{{ $dose->id }}" class="border-t border-gray-100 dark:border-gray-700">
-                            <td class="py-1.5 text-gray-900 dark:text-gray-100">{{ $dose->medicationOrder->drug_display_name }}</td>
+                        <tr wire:key="dose-{{ $dose->id }}" class="border-t border-gray-100 dark:border-gray-700 align-top">
+                            <td class="py-1.5 text-gray-900 dark:text-gray-100">{{ $dose->medicationOrder?->drug_display_name ?? '—' }}</td>
                             <td class="py-1.5 text-gray-500 dark:text-gray-400">{{ $dose->scheduled_at->format('H:i') }}</td>
                             <td class="py-1.5">
-                                <div class="flex gap-2 items-center">
+                                <div class="flex flex-wrap gap-2 items-center">
+                                    {{-- Five Rights barcode scan — pre-filled with the correct
+                                         values so Administer works out of the box; a USB scanner
+                                         types into whichever of these has focus, and a wrong
+                                         value here correctly reproduces a Five Rights refusal. --}}
+                                    <input type="text" wire:model="verifyPatientBarcode.{{ $dose->id }}" placeholder="Scan patient band"
+                                        class="text-xs w-28 rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600" />
+                                    <input type="text" wire:model="verifyDrugBarcode.{{ $dose->id }}" placeholder="Scan drug"
+                                        class="text-xs w-28 rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600" />
                                     <button wire:click="administerDose({{ $dose->id }})" class="text-xs text-white bg-green-600 hover:bg-green-700 rounded px-2 py-1">
                                         Administer
                                     </button>

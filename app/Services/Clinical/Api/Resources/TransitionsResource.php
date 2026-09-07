@@ -96,4 +96,65 @@ class TransitionsResource extends ClinicalResource
             'transitions'
         );
     }
+
+    // ---------------------------------------------------------------- v6.1 Volume 8
+    // Care Transitions — API_GUIDE_V6.1_VOLUMES §1. A new governance layer
+    // sitting alongside everything above, not replacing it: the methods
+    // above still do the actual bed allocation, order halting and chart
+    // locking; these add a readiness gate, attested discharge documents,
+    // and observation-plan re-anchoring.
+
+    /**
+     * Starts a transition and runs its readiness check in one call. The
+     * response's `status` does not carry why — follow with
+     * `showCareTransition()` for the readiness detail.
+     *
+     * @return array<string, mixed>
+     */
+    public function startCareTransition(array $payload, array $options = []): array
+    {
+        return $this->client->post('clinical/care-transitions', $this->filled($payload), $options);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function showCareTransition(string $transitionPublicId, array $options = []): array
+    {
+        return $this->client->get("clinical/care-transitions/{$transitionPublicId}", [], $options);
+    }
+
+    /**
+     * Does not move the bed — accepts the BedMovement id from the existing
+     * `WardsResource::assignBed()` call as evidence it happened.
+     *
+     * @return array<string, mixed>
+     */
+    public function completeInternalTransfer(string $transitionPublicId, array $payload, array $options = []): array
+    {
+        return $this->client->post(
+            "clinical/care-transitions/{$transitionPublicId}/internal-transfer/complete",
+            $this->filled($payload),
+            $options,
+        );
+    }
+
+    /**
+     * Immutable once attested — there is no correction endpoint.
+     *
+     * @return array<string, mixed>
+     */
+    public function issueDischargeDocument(string $transitionPublicId, array $payload, array $options = []): array
+    {
+        return $this->client->post(
+            "clinical/care-transitions/{$transitionPublicId}/discharge-document",
+            $this->filled($payload),
+            $options,
+        );
+    }
+
+    public function downloadDischargeDocument(string $documentPublicId, array $options = []): string
+    {
+        return $this->client->download("clinical/care-transitions/documents/{$documentPublicId}/pdf", [], $options);
+    }
 }

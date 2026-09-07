@@ -38,6 +38,11 @@ class ClinicalDictionaries extends Component
     /** @var array<string, string> */
     public array $fieldErrors = [];
 
+    public string $search = '';
+
+    /** '' (all) | 'ACTIVE' | 'INACTIVE' */
+    public string $statusFilter = '';
+
     public function mount(string $dictionary = ''): void
     {
         abort_unless(
@@ -69,7 +74,14 @@ class ClinicalDictionaries extends Component
 
         $this->statusMessage = null;
         $this->errorMessage = null;
+        $this->search = '';
+        $this->statusFilter = '';
         $this->resetForm();
+
+        // FacilityProvisioning sits on the same page reading the same
+        // session-held context; it has no other way to know the facility
+        // picker here just moved.
+        $this->dispatch('facility-context-changed');
     }
 
     public function render()
@@ -79,8 +91,16 @@ class ClinicalDictionaries extends Component
 
         $needsBusiness = ClinicalBusinessContext::requiresSelection();
 
+        // %/_ are matched literally by Clinical's search, not as wildcards —
+        // a stray one from a search box returns nothing rather than every row,
+        // so nothing needs escaping here.
+        $filters = array_filter([
+            'search' => $this->search !== '' ? $this->search : null,
+            'status' => $this->statusFilter !== '' ? $this->statusFilter : null,
+        ]);
+
         $rows = $definition && $gateway->isAvailable() && ! $needsBusiness
-            ? $gateway->list($this->actor(), $definition['path'])
+            ? $gateway->list($this->actor(), $definition['path'], $filters)
             : [];
 
         return view('livewire.clinical.clinical-dictionaries', [
@@ -126,6 +146,10 @@ class ClinicalDictionaries extends Component
         $this->resetForm();
         $this->statusMessage = null;
         $this->errorMessage = null;
+        // A search/filter left over from the previous dictionary would look
+        // like this one silently has no data.
+        $this->search = '';
+        $this->statusFilter = '';
     }
 
     public function edit(int|string $id, array $row): void
@@ -153,6 +177,63 @@ class ClinicalDictionaries extends Component
     public function cancel(): void
     {
         $this->resetForm();
+    }
+
+    public function clearFilters(): void
+    {
+        $this->search = '';
+        $this->statusFilter = '';
+    }
+
+    public function activate(int|string $id): void
+    {
+        $this->toggleActive($id, activate: true);
+    }
+
+    public function deactivate(int|string $id): void
+    {
+        $this->toggleActive($id, activate: false);
+    }
+
+    /**
+     * A row is never deleted, only toggled out of clinician drop-downs — the
+     * historical record it's referenced by stays intact either way. Five
+     * dictionaries refuse a deactivate when something still depends on the
+     * row (an active CDE's base unit, a care team with live assignments, …)
+     * and that refusal is a normal 422 naming the blocker, surfaced the same
+     * way save() surfaces one.
+     */
+    private function toggleActive(int|string $id, bool $activate): void
+    {
+        $this->authorizeManage();
+
+        $definition = $this->definition();
+
+        if (! $definition || ($definition['readonly'] ?? false)) {
+            abort(403, 'This dictionary is read-only.');
+        }
+
+        $this->errorMessage = null;
+        $this->statusMessage = null;
+
+        try {
+            $gateway = app(ClinicalSettingsGateway::class);
+            $activate
+                ? $gateway->activate($this->actor(), $definition['path'], $id)
+                : $gateway->deactivate($this->actor(), $definition['path'], $id);
+        } catch (ClinicalApiException $e) {
+            $this->errorMessage = $e->getMessage();
+
+            return;
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage();
+
+            return;
+        }
+
+        $this->statusMessage = $activate
+            ? $definition['label'].' entry activated.'
+            : $definition['label'].' entry deactivated.';
     }
 
     public function save(): void

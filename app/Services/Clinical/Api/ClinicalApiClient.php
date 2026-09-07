@@ -146,6 +146,27 @@ class ClinicalApiClient
     }
 
     /**
+     * POST counterpart to getEnvelope. A bed assign reports the BedMovement id
+     * this way (`meta.movement_id`) rather than in `data`, which is the bed
+     * itself — same shape as `retirement_prompt` on release. Goes through
+     * `execute()` directly, same as the other two envelope readers, so
+     * idempotency headers still apply.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array{data: mixed, meta: array<string, mixed>}
+     */
+    public function postEnvelope(string $path, array $payload = [], array $options = []): array
+    {
+        $response = $this->execute('post', $path, $payload, $options);
+        $body = $this->decode($response);
+
+        return [
+            'data' => $body['data'] ?? [],
+            'meta' => $body['meta'] ?? [],
+        ];
+    }
+
+    /**
      * Liveness probe (§2). The only public endpoint — deliberately
      * unauthenticated so load balancers can reach it — and the fastest way to
      * tell "Clinical is down" from "my service key is wrong".
@@ -235,6 +256,7 @@ class ClinicalApiClient
             businessId: $options['business_id'] ?? null,
             requestId: $requestId,
             accept: $options['accept'] ?? 'application/json',
+            timeout: $options['timeout'] ?? null,
         );
 
         // §3.3: the diagnostic-engine callbacks authenticate by signature
@@ -293,6 +315,7 @@ class ClinicalApiClient
         ?int $businessId = null,
         ?string $requestId = null,
         string $accept = 'application/json',
+        ?int $timeout = null,
     ): PendingRequest {
         $headers = [
             'Accept' => $accept,
@@ -312,7 +335,13 @@ class ClinicalApiClient
         }
 
         return Http::withHeaders($headers)
-            ->timeout((int) config('services.clinical.timeout', 10))
+            // Facility provisioning is the one call that needs its own
+            // number here — the guide clocks a real run at 47s and tells
+            // callers to allow 180s; the ordinary clinical-action default
+            // would abort a request that then finishes successfully on
+            // Clinical's side anyway, leaving the UI reporting a failure
+            // that didn't happen.
+            ->timeout($timeout ?? (int) config('services.clinical.timeout', 10))
             // Retries transport failures only. A 4xx refusal is never retried
             // — the answer will not change, and replaying a CDSS block or a
             // ReBAC denial just burns the clinician's time.

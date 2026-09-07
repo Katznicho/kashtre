@@ -1956,6 +1956,45 @@ class InvoiceController extends Controller
 
             DB::commit();
 
+            // Any package-type item in this sale needs its tracking rows and
+            // Clinical entitlement notification created here — the only
+            // other caller of PackageTrackingService::createPackageTracking()
+            // is the async mobile-money confirmation commands
+            // (SimulateSuccessfulPayments/CheckPaymentStatus), so a package
+            // sold via any other path (cash, an already-paid mobile money
+            // amount, credit, insurance) previously created no tracking at
+            // all and notified Clinical of nothing — confirmed live 2026-08-26
+            // by selling a real package on this exact path and finding zero
+            // PackageTracking rows afterward. Past DB::commit(), same
+            // reasoning those callers already use: a failure in here must
+            // never roll back an invoice that is already paid for and
+            // written.
+            foreach ($validated['items'] as $soldItem) {
+                $soldItemId = $soldItem['id'] ?? null;
+                if (! $soldItemId) {
+                    continue;
+                }
+
+                $soldItemModel = \App\Models\Item::find($soldItemId);
+                if (! $soldItemModel || $soldItemModel->type !== 'package') {
+                    continue;
+                }
+
+                try {
+                    app(\App\Services\PackageTrackingService::class)->createPackageTracking(
+                        $invoice,
+                        $soldItem,
+                        (int) ($soldItem['quantity'] ?? 1),
+                    );
+                } catch (\Throwable $e) {
+                    Log::warning('Package tracking creation failed for a sold package item.', [
+                        'invoice_id' => $invoice->id,
+                        'item_id' => $soldItemId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             // Final verification: Check client balance one more time after commit
             if ($isCreditTransaction) {
                 $finalClientCheck = \App\Models\Client::find($client->id);
@@ -4078,13 +4117,23 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Queue items at their respective service points
+     * Queue items at their respective service points.
+     *
+     * Public (not private): store() itself only calls this automatically for
+     * a credit transaction, a fully-paid cash/mobile-money transaction, or a
+     * zero-amount transaction — a plain pending/unpaid invoice created any
+     * other way (e.g. a clinical order billed to the account without going
+     * through POS checkout) is never queued at all by store() on its own,
+     * even when the item has a real service-point mapping. Exposed so a
+     * caller in that situation can queue the same invoice explicitly right
+     * after creating it, instead of it silently never reaching a service
+     * point.
      *
      * @param  \App\Models\Invoice  $invoice
      * @param  array  $items
      * @param  int|null  $insuranceCompanyId  Optional insurance company ID to mark items as insurance items
      */
-    private function queueItemsAtServicePoints($invoice, $items, $insuranceCompanyId = null)
+    public function queueItemsAtServicePoints($invoice, $items, $insuranceCompanyId = null)
     {
         $filteredItems = collect($items)->reject(function ($item) {
             $name = Str::lower(trim((string) ($item['displayName'] ?? $item['name'] ?? $item['item_name'] ?? '')));

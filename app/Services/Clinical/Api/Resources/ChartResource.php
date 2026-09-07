@@ -84,6 +84,25 @@ class ChartResource extends ClinicalResource
         return $this->rows($this->client->get("clinical/patients/{$patientId}/care-team", [], $options), 'members');
     }
 
+    // ---------------------------------------------------------------- triage
+
+    /**
+     * SRD §4.1.1: scores whatever is already charted (capture vitals via
+     * createObservation() first) and, when $announce is true, pushes the
+     * resulting priority colour to the universal queue. $announce=false
+     * previews the score without announcing.
+     *
+     * @return array<string, mixed>
+     */
+    public function assessTriage(string $patientId, string $visitId, bool $announce = true, array $options = []): array
+    {
+        return $this->client->post(
+            "clinical/patients/{$patientId}/triage",
+            ['visit_id' => $visitId, 'announce' => $announce],
+            $options,
+        );
+    }
+
     // ---------------------------------------------------------------- allergies
 
     /**

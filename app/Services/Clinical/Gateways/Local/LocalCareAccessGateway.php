@@ -3,9 +3,12 @@
 namespace App\Services\Clinical\Gateways\Local;
 
 use App\Contracts\Clinical\CareAccessGateway;
+use App\Models\ClinicalCareAssignment;
+use App\Models\ClinicalCareTeam;
 use App\Services\Clinical\CareRelationshipChecker;
 use App\Services\Clinical\ZtnaAccessGuard;
 use App\Support\Clinical\ClinicalActor;
+use RuntimeException;
 
 /**
  * CLINICAL_DRIVER=local: ReBAC and break-glass against the local
@@ -62,7 +65,7 @@ class LocalCareAccessGateway implements CareAccessGateway
         ?string $visitId,
         string $reasonCode,
         ?string $justificationNote = null,
-    ): void {
+    ): ?string {
         $this->ztnaGuard->grantBreakGlass(
             $actor->userId,
             $actor->businessId,
@@ -71,6 +74,10 @@ class LocalCareAccessGateway implements CareAccessGateway
             $reasonCode,
             $justificationNote,
         );
+
+        // BreakGlassEpisode (v6.1 Volume 9) is Clinical-owned; there is no
+        // local equivalent, so there is nothing to review under this driver.
+        return null;
     }
 
     public function canMutateFromCurrentLocation(): bool
@@ -83,5 +90,109 @@ class LocalCareAccessGateway implements CareAccessGateway
         }
 
         return $this->ztnaGuard->isOnPremises(request());
+    }
+
+    /**
+     * The schema behind this driver (clinical_care_assignments) has no
+     * participation column and only ever holds one active row per patient —
+     * there is no local concept of CO_MANAGING, only whoever currently
+     * "is" the assignment. This shapes what it has into the same fields the
+     * API's richer response carries, leaving team/co-managing empty rather
+     * than inventing data the local schema does not track.
+     */
+    public function teamFor(ClinicalActor $actor, string $patientId, ?string $visitId = null): array
+    {
+        $assignment = ClinicalCareAssignment::where('business_id', $actor->businessId)
+            ->where('client_id', $patientId)
+            ->where('is_active', true)
+            ->with('assignedTeam.members')
+            ->first();
+
+        if (! $assignment) {
+            return ['patient_id' => $patientId, 'assignment' => null, 'members' => [], 'co_managing_count' => 0, 'is_unassigned' => true];
+        }
+
+        $members = [];
+
+        if ($assignment->primary_doctor_user_id) {
+            $members[] = ['user_id' => $assignment->primary_doctor_user_id, 'role_code' => 'PRIMARY_DOCTOR', 'participation' => 'PRIMARY'];
+        }
+
+        if ($assignment->primary_nurse_user_id) {
+            $members[] = ['user_id' => $assignment->primary_nurse_user_id, 'role_code' => 'PRIMARY_NURSE', 'participation' => 'PRIMARY'];
+        }
+
+        foreach ($assignment->assignedTeam?->members ?? [] as $teamMember) {
+            $members[] = ['user_id' => $teamMember->user_id, 'role_code' => $teamMember->role_code, 'participation' => 'PRIMARY'];
+        }
+
+        return [
+            'patient_id' => $patientId,
+            'assignment' => $assignment->toArray(),
+            'team' => $assignment->assignedTeam?->team_name,
+            'members' => $members,
+            'co_managing_count' => 0,
+            'is_unassigned' => false,
+        ];
+    }
+
+    public function assign(ClinicalActor $actor, array $attributes): void
+    {
+        if (($attributes['participation'] ?? 'PRIMARY') === 'CO_MANAGING') {
+            // A second, non-displacing responsible clinician has nowhere to
+            // live in this schema — clinical_care_assignments has no
+            // participation column and is a single active row per patient.
+            // Refusing loudly here is more honest than silently overwriting
+            // the primary assignment, which is what create-or-update would
+            // otherwise do.
+            throw new RuntimeException('CO_MANAGING assignments are not supported under the local clinical driver.');
+        }
+
+        $patientId = (string) ($attributes['patient_id'] ?? '');
+
+        ClinicalCareAssignment::where('business_id', $actor->businessId)
+            ->where('client_id', $patientId)
+            ->where('is_active', true)
+            ->update(['is_active' => false]);
+
+        $teamId = $attributes['assigned_team_id'] ?? null;
+
+        if ($teamId && ! ClinicalCareTeam::where('business_id', $actor->businessId)->whereKey($teamId)->exists()) {
+            throw new RuntimeException("Care team {$teamId} was not found for this business.");
+        }
+
+        ClinicalCareAssignment::create([
+            'business_id' => $actor->businessId,
+            'branch_id' => $actor->branchId,
+            'client_id' => $patientId,
+            'visit_id' => $attributes['visit_id'] ?? null,
+            'assignment_model' => $attributes['assignment_model'] ?? ClinicalCareAssignment::MODEL_INDIVIDUAL,
+            'primary_doctor_user_id' => $attributes['primary_doctor_id'] ?? null,
+            'primary_nurse_user_id' => $attributes['primary_nurse_id'] ?? null,
+            'assigned_team_id' => $teamId,
+            'assigned_role_code' => $attributes['assigned_role_code'] ?? null,
+            'is_active' => true,
+        ]);
+    }
+
+    public function endAssignment(ClinicalActor $actor, int|string $assignmentId): void
+    {
+        ClinicalCareAssignment::where('business_id', $actor->businessId)
+            ->whereKey($assignmentId)
+            ->update(['is_active' => false]);
+    }
+
+    public function reviewBreakGlass(
+        ClinicalActor $actor,
+        string $episodePublicId,
+        string $outcome,
+        string $finding,
+    ): void {
+        // BreakGlassEpisode (v6.1 Volume 9) is Clinical-owned; grantBreakGlass()
+        // above already returns null under this driver, so no caller should
+        // ever have a real episode id to review here.
+        throw new \RuntimeException(
+            'Break-glass independent review (v6.1 Volume 9) is only available under CLINICAL_DRIVER=api.'
+        );
     }
 }

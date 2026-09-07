@@ -103,7 +103,14 @@ class WardCensusBoard extends Component
             if ($this->bedAction === 'reserve') {
                 $this->gateway()->reserveBed($this->actor(), $bedId, $this->patientId, $visitId);
             } else {
-                $this->gateway()->assignBed($this->actor(), $bedId, $this->patientId, $visitId);
+                $movementId = $this->gateway()->assignBed($this->actor(), $bedId, $this->patientId, $visitId);
+
+                // Care Transitions (v6.1 §1) needs this id as evidence an
+                // internal transfer's bed move happened — shown here since
+                // this is the only screen that ever sees it.
+                if ($movementId !== null) {
+                    $this->actionMessage = "Bed assigned — movement #{$movementId} (needed to complete an internal transfer).";
+                }
             }
 
             $this->actioningBedId = null;

@@ -27,7 +27,16 @@
                 @livewire('clinical.clinical-module-health')
             </div>
 
+            @livewire('clinical.facility-provisioning')
+
             @livewire('clinical.clinical-dictionaries', ['dictionary' => $dictionary])
+
+            {{-- v6.1 EDD volumes with facility-wide (not per-patient) scope. --}}
+            <div class="mt-6 space-y-6">
+                @livewire('clinical.ai-use-cases-panel')
+                @livewire('clinical.content-governance-panel')
+                @livewire('clinical.interoperability-panel')
+            </div>
         </div>
     </div>
 </x-app-layout>

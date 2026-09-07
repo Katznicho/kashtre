@@ -50,6 +50,7 @@ class ClinicalEndpointCatalog
             self::webhooks(),
             self::settings(),
             self::fhir(),
+            self::careTransitionsV61(),
         );
     }
 
@@ -101,7 +102,8 @@ class ClinicalEndpointCatalog
                 'display_uom_id re-scales alert boundaries along with the values.'),
             self::e('GET', 'clinical/patients/{patientId}/observation-compliance', $g, self::AUTH_PATIENT, true),
             self::e('POST', 'clinical/patients/{patientId}/observation-compliance/refresh', $g, self::AUTH_PATIENT, false),
-            self::e('GET', 'clinical/patients/{patientId}/care-team', $g, self::AUTH_PATIENT, true),
+            self::e('GET', 'clinical/patients/{patientId}/care-team', $g, self::AUTH_PATIENT, true,
+                'Who currently holds responsibility — assignment, all active rows, flattened members.'),
             self::e('GET', 'clinical/patients/{patientId}/allergies', $g, self::AUTH_PATIENT, true,
                 'Feeds the CDSS DRUG_ALLERGY hard block.'),
             self::e('POST', 'clinical/patients/{patientId}/allergies', $g, self::AUTH_PATIENT, false),
@@ -175,6 +177,11 @@ class ClinicalEndpointCatalog
             self::e('DELETE', 'clinical/beds/{bed}', $g, self::AUTH_ZTNA, false),
             self::e('GET', 'clinical/tasks/visibility', $g, self::AUTH_ZTNA, true,
                 'scope=MY_PATIENTS | MY_WARD | MY_TEAM'),
+            self::e('GET', 'clinical/tasks/my-patients', $g, self::AUTH_ZTNA, true),
+            self::e('GET', 'clinical/handover', $g, self::AUTH_ZTNA, true,
+                'scope=MY_PATIENTS | MY_TEAM | MY_WARD, sickest first — the end-of-shift rollup.'),
+            self::e('POST', 'clinical/patients/{patientId}/triage', $g, self::AUTH_PATIENT, false,
+                'Scores whatever is already charted; announce=false previews without pushing to the queue.'),
             self::e('POST', 'clinical/work-orders/{workOrder}/transition', $g, self::AUTH_ZTNA, false),
             self::e('POST', 'clinical/transitions/{processCode}/start', $g, self::AUTH_ZTNA, false),
             self::e('POST', 'clinical/transitions/execute', $g, self::AUTH_ZTNA, false,
@@ -293,7 +300,8 @@ class ClinicalEndpointCatalog
             self::e('GET', 'clinical/audit-trail/verify', $g, self::AUTH_ZTNA, true,
                 'A failure here is a governance incident, not a bug.'),
             self::e('GET', 'clinical/care-assignments', $g, self::AUTH_ZTNA, true),
-            self::e('POST', 'clinical/care-assignments', $g, self::AUTH_ZTNA, false),
+            self::e('POST', 'clinical/care-assignments', $g, self::AUTH_ZTNA, false,
+                'participation defaults to PRIMARY (supersedes); CO_MANAGING adds alongside.'),
             self::e('POST', 'clinical/care-assignments/check', $g, self::AUTH_ZTNA, false,
                 'Advisory only — Clinical re-runs the gate on every call regardless.'),
             self::e('DELETE', 'clinical/care-assignments/{careAssignment}', $g, self::AUTH_ZTNA, false),
@@ -419,6 +427,32 @@ class ClinicalEndpointCatalog
         }
 
         return $entries;
+    }
+
+    /**
+     * API_GUIDE_V6.1_VOLUMES §1 (Care Transitions, Volume 8) — the only v6.1
+     * EDD volume with a fully live, Main-callable endpoint group. Base path
+     * `/api/v1/clinical/care-transitions`, gated by service key + ZTNA only
+     * (no automatic care-relationship/chart-lock check at the route layer,
+     * unlike the older `clinical/transitions/*` group above).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private static function careTransitionsV61(): array
+    {
+        $g = 'Care Transitions (v6.1 Volume 8)';
+
+        return [
+            self::e('POST', 'clinical/care-transitions', $g, self::AUTH_SERVICE, false,
+                'Starts a transition and runs its readiness check in one call; status does not carry why — call show for that.'),
+            self::e('GET', 'clinical/care-transitions/{transition}', $g, self::AUTH_SERVICE, true,
+                'readiness_history carries the detail the start response omits.'),
+            self::e('POST', 'clinical/care-transitions/{transition}/internal-transfer/complete', $g, self::AUTH_SERVICE, false,
+                'Does not move the bed — accepts the BedMovement id from the existing assign() call as evidence it happened.'),
+            self::e('POST', 'clinical/care-transitions/{transition}/discharge-document', $g, self::AUTH_SERVICE, false,
+                'Immutable once attested — no correction endpoint exists.'),
+            self::e('GET', 'clinical/care-transitions/documents/{document}/pdf', $g, self::AUTH_SERVICE, true),
+        ];
     }
 
     /**

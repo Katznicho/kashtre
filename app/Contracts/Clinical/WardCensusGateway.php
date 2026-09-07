@@ -40,8 +40,13 @@ interface WardCensusGateway
     /**
      * The patient physically arrives. Valid on an AVAILABLE bed, or one already
      * RESERVED for that same patient.
+     *
+     * @return int|null the BedMovement id this assign created — API_GUIDE_V6.1
+     *                   §1's "Complete an internal transfer" needs it as
+     *                   evidence the bed move happened. Null under the local
+     *                   driver, which has no such row.
      */
-    public function assignBed(ClinicalActor $actor, int $bedId, string $patientId, ?string $visitId = null): void;
+    public function assignBed(ClinicalActor $actor, int $bedId, string $patientId, ?string $visitId = null): ?int;
 
     /** The patient leaves; the bed returns to AVAILABLE. */
     public function releaseBed(ClinicalActor $actor, int $bedId): void;

@@ -4,11 +4,13 @@ namespace App\Livewire\Clinical;
 
 use App\Contracts\Clinical\CareAccessGateway;
 use App\Contracts\Clinical\ObservationsGateway;
+use App\Models\Client;
 use App\Services\Clinical\Api\Exceptions\ClinicalApiException;
 use App\Support\Clinical\CdeDefinition;
 use App\Support\Clinical\ClinicalActor;
 use Exception;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Lazy;
 use Livewire\Component;
 
 /**
@@ -23,8 +25,33 @@ use Livewire\Component;
  * real authority is Clinical's ReBAC gate, which re-runs on every call — a
  * check performed here is a courtesy to the user, not a security control.
  */
+#[Lazy]
 class CaptureObservations extends Component
 {
+    public function placeholder(): \Illuminate\Contracts\View\View
+    {
+        return view('livewire.clinical._lazy-placeholder');
+    }
+
+    /**
+     * CDEs whose value is computed from other CDEs on this same form rather
+     * than typed in directly — confirmed against clinical_module's
+     * CdeRegistrySeeder/ScoringDictionariesSeeder 2026-08-26. Populated by
+     * recalculateDerivedFields(), never editable by hand: a clinician editing
+     * BMI directly could silently disagree with the weight/height it was
+     * just computed from.
+     *
+     * NEWS2_TOTAL, GCS_TOTAL, APGAR_TOTAL and TRIAGE_VITAL_SCORE are *not*
+     * in this list even though they are calculated indicators too — their
+     * scoring models need CODE-type inputs (e.g. SUPPLEMENTAL_O2,
+     * CONSCIOUSNESS_CVPU, GCS's eye/verbal/motor components) this form does
+     * not render at all (data_type=NUMERIC only, see activeCdes()). Wiring
+     * those up would mean rendering option fields this component has never
+     * supported, not just adding a formula call — left as manual entry
+     * rather than silently claiming to compute something it cannot.
+     */
+    private const DERIVED_CDE_CODES = ['BMI_CALCULATED', 'EGFR_CALCULATED'];
+
     public string $clientId;
 
     public ?string $visitId = null;
@@ -50,6 +77,32 @@ class CaptureObservations extends Component
                 $this->inputUnits[$cde->cde_code] = $cde->base_uom_id;
             }
         }
+
+        // Already on record — asking the clinician to retype it invites a
+        // transcription mismatch against the same patient's own chart.
+        // Still an ordinary editable field afterward (a documented age can
+        // legitimately be an estimate the clinician corrects at the bedside).
+        $client = $this->client();
+
+        if ($client && $client->date_of_birth) {
+            $this->values['AGE_YEARS'] = (string) $client->age;
+        }
+
+        $this->recalculateDerivedFields();
+    }
+
+    /**
+     * Livewire's own lifecycle hook — fires after any public property update,
+     * including a nested one like values.BODY_WEIGHT. Recomputing on every
+     * relevant keystroke (rather than only at Save) is what makes a
+     * clinician trust the derived number actually reflects what they just
+     * typed, instead of a stale value from whatever was on screen at mount.
+     */
+    public function updated(string $name): void
+    {
+        if (str_starts_with($name, 'values.')) {
+            $this->recalculateDerivedFields();
+        }
     }
 
     public function render()
@@ -61,7 +114,10 @@ class CaptureObservations extends Component
         $unitOptions = [];
 
         foreach ($cdes as $cde) {
-            $unitOptions[$cde->cde_code] = $observations->unitsForCde($actor, $cde->cde_code);
+            // unitsForCde() returns a plain array (interface-typed); wrap it
+            // here so the view can use ->count()/->first() uniformly, same as
+            // $cdes below.
+            $unitOptions[$cde->cde_code] = collect($observations->unitsForCde($actor, $cde->cde_code));
         }
 
         return view('livewire.clinical.capture-observations', [
@@ -136,6 +192,96 @@ class CaptureObservations extends Component
         // far. TEXT/BOOLEAN/CODE/MULTI_COMPONENT rendering waits until such
         // CDEs are actually registered.
         return $this->gateway()->activeCdes($this->actor(), 'NUMERIC');
+    }
+
+    private function recalculateDerivedFields(): void
+    {
+        $this->recalculateBmi();
+        $this->recalculateEgfr();
+    }
+
+    /**
+     * BMI = weight_kg / height_m² — both of BODY_WEIGHT/BODY_HEIGHT's own
+     * base units already match what the formula wants, so no unit
+     * conversion is needed before calling it.
+     */
+    private function recalculateBmi(): void
+    {
+        $weight = $this->values['BODY_WEIGHT'] ?? null;
+        $height = $this->values['BODY_HEIGHT'] ?? null;
+
+        if (! is_numeric($weight) || ! is_numeric($height) || (float) $height <= 0) {
+            // A stale BMI from before one of these was cleared is worse than
+            // no BMI at all — it would silently disagree with what is now on
+            // screen.
+            unset($this->values['BMI_CALCULATED']);
+
+            return;
+        }
+
+        try {
+            $result = $this->gateway()->calculateScore($this->actor(), 'BMI', [
+                'weight_kg' => (float) $weight,
+                'height_m' => (float) $height,
+            ]);
+
+            $this->values['BMI_CALCULATED'] = isset($result['score']) ? (string) $result['score'] : '';
+        } catch (Exception $e) {
+            // A failed derivation should not block charting the raw vitals
+            // that are still valid on their own — leave BMI blank rather
+            // than show a stale or guessed number.
+            unset($this->values['BMI_CALCULATED']);
+        }
+    }
+
+    /**
+     * eGFR (CKD-EPI 2021) needs serum creatinine in mg/dL, but
+     * CREATININE_SERUM's own base unit here is umol/L (see
+     * CdeRegistrySeeder) — 1 mg/dL = 88.4 umol/L. Also needs age (already
+     * on this form, prefilled from the patient's own record in mount()) and
+     * sex, which is not a CDE at all — it comes from the patient's own
+     * record in Main, same as the age prefill.
+     */
+    private function recalculateEgfr(): void
+    {
+        $creatinineUmolPerL = $this->values['CREATININE_SERUM'] ?? null;
+        $age = $this->values['AGE_YEARS'] ?? null;
+
+        if (! is_numeric($creatinineUmolPerL) || ! is_numeric($age)) {
+            unset($this->values['EGFR_CALCULATED']);
+
+            return;
+        }
+
+        $client = $this->client();
+
+        if (! $client || ! $client->sex) {
+            // Nothing on screen says *why* it is blank, but there is nowhere
+            // in this form to say so either — this is the same fail-soft
+            // posture as a Clinical-side calculation failure just below.
+            unset($this->values['EGFR_CALCULATED']);
+
+            return;
+        }
+
+        try {
+            $result = $this->gateway()->calculateScore($this->actor(), 'EGFR_CKD_EPI', [
+                'Scr' => round((float) $creatinineUmolPerL / 88.4, 3),
+                'age' => (float) $age,
+                'sex' => strtoupper($client->sex),
+            ]);
+
+            $this->values['EGFR_CALCULATED'] = isset($result['score']) ? (string) $result['score'] : '';
+        } catch (Exception $e) {
+            unset($this->values['EGFR_CALCULATED']);
+        }
+    }
+
+    private function client(): ?Client
+    {
+        return Client::where('business_id', $this->actor()->businessId)
+            ->where('client_id', $this->clientId)
+            ->first();
     }
 
     private function gateway(): ObservationsGateway

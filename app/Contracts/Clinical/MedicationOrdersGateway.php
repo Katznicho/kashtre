@@ -43,7 +43,7 @@ interface MedicationOrdersGateway
     /**
      * Places a prescription.
      *
-     * @param  array{requested_term: string, strength_descriptor?: ?string, dose_amount: float, route_code: string, frequency_code: string, clinical_indication?: ?string, duration_days?: ?int, urgency?: string, is_nephrotoxic?: bool, max_mg_per_kg?: ?float, age_years?: ?int}  $draft
+     * @param  array{requested_term: string, strength_descriptor?: ?string, dose_amount: float, dose_uom_id?: ?int, route_code: string, frequency_code: string, clinical_indication?: ?string, duration_days?: ?int, urgency?: string, is_nephrotoxic?: bool, max_mg_per_kg?: ?float, age_years?: ?int}  $draft
      * @param  string|null  $overrideReasonCode  supplied on the retry after a CDSS block
      * @param  bool  $confirmExternalFulfilment  supplied on the retry after an unmatched item
      * @param  string|null  $idempotencyKey  one key per *logical prescription*, held

@@ -37,6 +37,16 @@ class LocalClinicalSettingsGateway implements ClinicalSettingsGateway
         return $this->create($actor, $path, $attributes);
     }
 
+    public function activate(ClinicalActor $actor, string $path, int|string $id): array
+    {
+        return $this->create($actor, $path, []);
+    }
+
+    public function deactivate(ClinicalActor $actor, string $path, int|string $id): array
+    {
+        return $this->create($actor, $path, []);
+    }
+
     public function isAvailable(): bool
     {
         return false;

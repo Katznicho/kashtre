@@ -64,9 +64,15 @@ class ClinicalApiCoverageTest extends TestCase
 
     public function test_the_catalog_matches_the_documented_endpoint_count(): void
     {
-        // The guide states 194 endpoints. If this drifts, either the guide was
-        // revised or the catalog gained a typo — both are worth noticing.
-        $this->assertSame(194, ClinicalEndpointCatalog::count());
+        // The guide stated 194; three routes it never mentioned were found
+        // live against the real service 2026-08-18 (clinical/tasks/my-
+        // patients, clinical/handover, clinical/patients/{id}/triage) and
+        // added deliberately. 197 -> 202: API_GUIDE_V6.1_VOLUMES §1 added
+        // Care Transitions (v6.1 Volume 8), the one v6.1 EDD volume with a
+        // real endpoint group, 5 routes. If this drifts again, either the
+        // guide was revised or the catalog gained a typo — both are worth
+        // noticing.
+        $this->assertSame(202, ClinicalEndpointCatalog::count());
     }
 
     public function test_the_catalog_has_no_duplicate_routes(): void

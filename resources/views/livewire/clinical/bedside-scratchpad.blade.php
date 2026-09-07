@@ -1,11 +1,6 @@
 <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
     <div class="flex items-center justify-between mb-4">
         <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">Bedside Scratchpad</h4>
-        @if ($aiAvailable)
-            <span class="text-[10px] px-2 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">AI Gateway Available</span>
-        @else
-            <span class="text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">AI Gateway Unavailable — Manual Entry Only</span>
-        @endif
     </div>
 
     @if ($resultMessage)
@@ -26,7 +21,7 @@
         </button>
         @if ($aiAvailable)
             <button wire:click="extractWithAi" class="text-sm text-white bg-purple-600 hover:bg-purple-700 rounded px-4 py-2">
-                Extract Observations with AI
+                Extract Observations
             </button>
         @endif
     </div>

@@ -16,7 +16,11 @@
             @endif
         </div>
 
-        <div class="mt-4 bg-white border border-gray-200 shadow-sm sm:rounded-lg p-6">
+        <div class="mt-4">
+            @livewire('inventory.pending-clinical-floor-stock-usage')
+        </div>
+
+        <div class="bg-white border border-gray-200 shadow-sm sm:rounded-lg p-6">
             @livewire('inventory.record-usage-table')
         </div>
     </div>

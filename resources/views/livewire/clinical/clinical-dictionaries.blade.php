@@ -153,14 +153,44 @@
                 </p>
             @endif
 
+            {{-- Search + status filter — every dictionary supports both the
+                 same way (?search=, ?status=), so this is generic rather than
+                 something each manifest entry has to declare. --}}
+            @if ($available)
+                <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4 flex flex-wrap items-end gap-3">
+                    <div class="flex-1 min-w-[12rem]">
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Search</label>
+                        <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search this dictionary…"
+                            class="w-full text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Status</label>
+                        <select wire:model.live="statusFilter"
+                            class="text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600">
+                            <option value="">All</option>
+                            <option value="ACTIVE">Active</option>
+                            <option value="INACTIVE">Inactive</option>
+                        </select>
+                    </div>
+                    @if ($search !== '' || $statusFilter !== '')
+                        <button wire:click="clearFilters"
+                            class="text-xs text-gray-500 dark:text-gray-400 hover:underline pb-1.5">
+                            Clear
+                        </button>
+                    @endif
+                </div>
+            @endif
+
             {{-- Rows --}}
             <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
                 @if (empty($rows))
                     <p class="p-6 text-sm text-gray-500 dark:text-gray-400">
-                        @if ($available)
-                            Nothing configured yet.
-                        @else
+                        @if (! $available)
                             Unavailable.
+                        @elseif ($search !== '' || $statusFilter !== '')
+                            No entries match this search.
+                        @else
+                            Nothing configured yet.
                         @endif
                     </p>
                 @else
@@ -171,13 +201,20 @@
                                     @foreach ($definition['columns'] as $heading)
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{{ $heading }}</th>
                                     @endforeach
-                                    @if ($canManage && ! $isReadonly && ! empty($definition['fields']))
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                                    @if ($canManage && ! $isReadonly)
                                         <th class="px-4 py-2"></th>
                                     @endif
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                                 @foreach ($rows as $row)
+                                    @php
+                                        // Clinical's own status field wins; is_active is the
+                                        // fallback for anything that only carries the boolean.
+                                        $rowStatus = $row['status'] ?? (($row['is_active'] ?? true) ? 'ACTIVE' : 'INACTIVE');
+                                        $rowActive = $rowStatus === 'ACTIVE';
+                                    @endphp
                                     <tr wire:key="row-{{ $dictionary }}-{{ $row['id'] ?? $loop->index }}">
                                         @foreach ($definition['columns'] as $field => $heading)
                                             <td class="px-4 py-2 text-gray-900 dark:text-gray-100 whitespace-nowrap">
@@ -191,10 +228,30 @@
                                                 @endif
                                             </td>
                                         @endforeach
-                                        @if ($canManage && ! $isReadonly && ! empty($definition['fields']))
-                                            <td class="px-4 py-2 text-right">
-                                                <button wire:click="edit('{{ $row['id'] ?? '' }}', {{ \Illuminate\Support\Js::from($row) }})"
-                                                    class="text-xs text-blue-700 dark:text-blue-300 hover:underline">Edit</button>
+                                        <td class="px-4 py-2 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase
+                                                {{ $rowActive
+                                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                                                    : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' }}">
+                                                {{ $rowStatus }}
+                                            </span>
+                                        </td>
+                                        @if ($canManage && ! $isReadonly)
+                                            <td class="px-4 py-2 text-right whitespace-nowrap">
+                                                <span class="inline-flex gap-3">
+                                                    @if (! empty($definition['fields']))
+                                                        <button wire:click="edit('{{ $row['id'] ?? '' }}', {{ \Illuminate\Support\Js::from($row) }})"
+                                                            class="text-xs text-blue-700 dark:text-blue-300 hover:underline">Edit</button>
+                                                    @endif
+                                                    @if ($rowActive)
+                                                        <button wire:click="deactivate('{{ $row['id'] ?? '' }}')"
+                                                            wire:confirm="Deactivate this entry? It disappears from clinician drop-downs but every existing record that references it is unaffected."
+                                                            class="text-xs text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:underline">Deactivate</button>
+                                                    @else
+                                                        <button wire:click="activate('{{ $row['id'] ?? '' }}')"
+                                                            class="text-xs text-green-700 dark:text-green-400 hover:underline">Activate</button>
+                                                    @endif
+                                                </span>
                                             </td>
                                         @endif
                                     </tr>

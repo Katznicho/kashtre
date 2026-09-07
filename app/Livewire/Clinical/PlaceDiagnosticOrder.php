@@ -7,6 +7,7 @@ use App\Models\ClinicalWorkOrder;
 use App\Models\ImagingProtocol;
 use App\Services\Clinical\Facts\DiagnosticOrderPlacedFact;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Lazy;
 use Livewire\Component;
 use App\Support\Clinical\ClinicalDriver;
 
@@ -16,8 +17,14 @@ use App\Support\Clinical\ClinicalDriver;
  * directly (a plain cross-connection read, not a join) to populate the
  * protocol picker.
  */
+#[Lazy]
 class PlaceDiagnosticOrder extends Component
 {
+    public function placeholder(): \Illuminate\Contracts\View\View
+    {
+        return view('livewire.clinical._lazy-placeholder');
+    }
+
     public string $clientId;
 
     public ?string $visitId = null;

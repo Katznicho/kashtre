@@ -435,11 +435,26 @@ class ClinicalModuleIntegrationService
                     return null;
                 }
 
+                // Clinical's own endpoint requires service_code on every
+                // allocation line (confirmed live 2026-08-26: a single
+                // package with any non-service line — i.e. every real
+                // package in this business, which all mix drugs/supplies
+                // with a couple of billable services — got its *entire*
+                // POST rejected 422, silently, because this used to send
+                // every included line with service_code left null for any
+                // 'good'/'bulk' item instead of dropping it). Only a
+                // service-type line can ever be consumed against by a
+                // clinical order anyway (CatalogueLookupController::present()
+                // only reports service_code for type==='service'), so a
+                // 'good' line here was always going to be rejected — it was
+                // just taking every other line in the same package down
+                // with it.
+                if ($item->type !== 'service') {
+                    return null;
+                }
+
                 return [
-                    // Must match the service_code the catalogue endpoint
-                    // reports for the same item, or Clinical cannot tie the
-                    // allocation to anything it can order.
-                    'service_code' => $item->type === 'service' ? $item->code : null,
+                    'service_code' => $item->code,
                     'sku' => $item->code,
                     'item_name' => $item->name,
                     'allocated_qty' => (float) $line->total_quantity,
@@ -454,7 +469,19 @@ class ClinicalModuleIntegrationService
         }
 
         $this->postToClinical('/api/v1/clinical/entitlements', [
-            'patient_id' => $tracking->client?->uuid,
+            // Every other read/write against this patient elsewhere in the
+            // integration (MAR, observations, EntitlementBalancesPanel's own
+            // read via ApiEntitlementGateway::balancesFor()) keys off this
+            // business-scoped client_id string, e.g. "ETJFA27HU" — never the
+            // client's UUID. Clinical's own EntitlementController treats
+            // patient_id as an opaque string with no cross-check against any
+            // patient record, so a mismatch here was never going to surface
+            // as an error; it silently registered every allocation under an
+            // identifier nothing ever reads by (confirmed live 2026-08-26 —
+            // a real package sale registered 3 real entitlements, findable
+            // only by the client's uuid, invisible to this patient's own
+            // balances panel).
+            'patient_id' => $tracking->client?->client_id,
             'client_code' => $tracking->client?->client_id,
             'visit_id' => $tracking->client?->visit_id,
             'package_id' => $tracking->packageItem?->code ?: (string) $tracking->package_item_id,

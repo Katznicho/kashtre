@@ -1,35 +1,37 @@
 <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
     <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Audit Trail</h4>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <div>
-            <h5 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">Break Glass Grants</h5>
-            @if ($breakGlassLogs->isEmpty())
-                <p class="text-xs text-gray-500 dark:text-gray-400">None.</p>
-            @else
-                @foreach ($breakGlassLogs as $log)
-                    <div wire:key="bg-{{ $log->id }}" class="text-xs text-gray-600 dark:text-gray-300 py-1 border-b border-gray-50 dark:border-gray-700">
-                        {{ $log->created_at }} — user #{{ $log->user_id }} — {{ $log->reason_code }}
-                        <span class="text-gray-400">(until {{ $log->granted_until }})</span>
+    @if ($entries->isEmpty())
+        <p class="text-xs text-gray-500 dark:text-gray-400">No compliance-sensitive events recorded for this patient.</p>
+    @else
+        <div class="space-y-1">
+            @foreach ($entries as $entry)
+                <div wire:key="audit-{{ $entry->id }}" class="text-xs text-gray-600 dark:text-gray-300 py-1.5 border-b border-gray-50 dark:border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <span>
+                            <span class="font-medium text-gray-800 dark:text-gray-100">{{ str_replace('_', ' ', $entry->action) }}</span>
+                            @if ($entry->actorName)
+                                — {{ $entry->actorName }}
+                            @elseif ($entry->actorUserId)
+                                — user #{{ $entry->actorUserId }}
+                            @endif
+                            @if (! empty($entry->actorRoles))
+                                <span class="text-gray-400">({{ implode(', ', $entry->actorRoles) }})</span>
+                            @endif
+                        </span>
+                        <span class="text-gray-400 whitespace-nowrap ml-2">{{ $entry->createdAt }}</span>
                     </div>
-                @endforeach
-            @endif
-        </div>
 
-        <div>
-            <h5 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">Major Transition Steps</h5>
-            @if ($stepExecutions->isEmpty())
-                <p class="text-xs text-gray-500 dark:text-gray-400">None.</p>
-            @else
-                @foreach ($stepExecutions as $execution)
-                    <div wire:key="step-{{ $execution->id }}" class="text-xs text-gray-600 dark:text-gray-300 py-1 border-b border-gray-50 dark:border-gray-700">
-                        {{ $execution->completed_at }} — {{ $execution->step?->step_name }} — {{ $execution->status }}
-                        @if ($execution->override_reason)
-                            <span class="text-amber-500">(override: {{ $execution->override_reason }})</span>
-                        @endif
-                    </div>
-                @endforeach
-            @endif
+                    @if (! empty($entry->context))
+                        <div class="text-gray-400 mt-0.5">
+                            @foreach ($entry->context as $key => $value)
+                                @continue(is_null($value) || $value === '')
+                                <span class="mr-2">{{ str_replace('_', ' ', $key) }}: {{ is_scalar($value) ? $value : json_encode($value) }}</span>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            @endforeach
         </div>
-    </div>
+    @endif
 </div>

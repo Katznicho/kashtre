@@ -45,10 +45,19 @@ class ObservationRecord
      */
     public static function fromApi(array $payload): self
     {
+        // GET clinical/patients/{id}/observations (confirmed live 2026-08-15)
+        // returns the captured number as `value`, not `value_numeric` — that
+        // name only appears in the *capture* request body, a different
+        // endpoint. This list response also has no base_value_normalized at
+        // all, only `value` + `display_unit_id`; the Clinical Module doesn't
+        // hand back a base-unit figure here, so base_value_numeric stays
+        // null rather than guessing at a conversion the caller can't verify.
+        $value = $payload['value'] ?? $payload['value_numeric'] ?? null;
+
         return new self(
             id: $payload['observation_id'] ?? $payload['id'] ?? 0,
             cde_code: (string) ($payload['cde_code'] ?? ''),
-            captured_value_numeric: isset($payload['value_numeric']) ? (float) $payload['value_numeric'] : null,
+            captured_value_numeric: $value !== null ? (float) $value : null,
             base_value_numeric: isset($payload['base_value_normalized']) ? (float) $payload['base_value_normalized'] : null,
             captured_at: isset($payload['captured_at']) ? Carbon::parse($payload['captured_at']) : null,
             is_panic_high: (bool) ($payload['is_panic_high'] ?? false),

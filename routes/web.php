@@ -257,13 +257,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/clinical/ward-census', [\App\Http\Controllers\ClinicalWardCensusController::class, 'index'])->name('clinical.ward-census.index');
     Route::get('/clinical/patients/{clientId}/observations', [\App\Http\Controllers\ClinicalObservationsController::class, 'show'])->middleware('clinical.ztna')->name('clinical.observations.show');
     Route::get('/clinical/patients/{clientId}/fhir-export', [\App\Http\Controllers\ClinicalFhirExportController::class, 'show'])->name('clinical.fhir-export');
+    Route::get('/clinical/care-transitions/documents/{document}/pdf', [\App\Http\Controllers\CareTransitionDocumentController::class, 'download'])->name('clinical.care-transitions.document-pdf');
     Route::get('/clinical/my-tasks', [\App\Http\Controllers\ClinicalMyTasksController::class, 'index'])->name('clinical.my-tasks.index');
-
-    // Clinical Module (Chunk 2) — bedside charting MVP.
-    Route::get('/clinical/ward-census', [\App\Http\Controllers\ClinicalWardCensusController::class, 'index'])->name('clinical.ward-census.index');
-    Route::get('/clinical/patients/{clientId}/observations', [\App\Http\Controllers\ClinicalObservationsController::class, 'show'])->middleware('clinical.ztna')->name('clinical.observations.show');
-    Route::get('/clinical/patients/{clientId}/fhir-export', [\App\Http\Controllers\ClinicalFhirExportController::class, 'show'])->name('clinical.fhir-export');
-    Route::get('/clinical/my-tasks', [\App\Http\Controllers\ClinicalMyTasksController::class, 'index'])->name('clinical.my-tasks.index');
+    Route::get('/clinical/handover', [\App\Http\Controllers\ClinicalHandoverController::class, 'index'])->name('clinical.handover.index');
+    Route::get('/clinical/recalls', [\App\Http\Controllers\ClinicalRecallController::class, 'index'])->name('clinical.recalls.index');
     Route::get('/clinical/dictionaries', [\App\Http\Controllers\ClinicalDictionariesController::class, 'index'])->name('clinical.dictionaries.index');
     Route::resource("service-queues", ServiceQueueController::class)->except(['create', 'store']);
     

@@ -6,10 +6,17 @@ use App\Contracts\Clinical\DiagnosesGateway;
 use App\Services\Clinical\Api\Exceptions\ClinicalApiException;
 use App\Support\Clinical\ClinicalActor;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Lazy;
 use Livewire\Component;
 
+#[Lazy]
 class DiagnosesPanel extends Component
 {
+    public function placeholder(): \Illuminate\Contracts\View\View
+    {
+        return view('livewire.clinical._lazy-placeholder');
+    }
+
     public string $clientId;
 
     public ?string $visitId = null;

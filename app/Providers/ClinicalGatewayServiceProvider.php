@@ -2,36 +2,96 @@
 
 namespace App\Providers;
 
+use App\Contracts\Clinical\AiUseCaseGateway;
+use App\Contracts\Clinical\AuditTrailGateway;
 use App\Contracts\Clinical\CareAccessGateway;
+use App\Contracts\Clinical\ContentGovernanceGateway;
+use App\Contracts\Clinical\EngagementGateway;
+use App\Contracts\Clinical\InteroperabilityGateway;
+use App\Contracts\Clinical\CareTransitionsGateway;
 use App\Contracts\Clinical\ClinicalDictionaryGateway;
 use App\Contracts\Clinical\ClinicalSettingsGateway;
+use App\Contracts\Clinical\ConsumptionGateway;
+use App\Contracts\Clinical\CrashCartReconciliationGateway;
+use App\Contracts\Clinical\CriticalAlertsGateway;
+use App\Contracts\Clinical\EncounterSectionGateway;
+use App\Contracts\Clinical\EntitlementGateway;
+use App\Contracts\Clinical\FhirExportGateway;
+use App\Contracts\Clinical\HandoverGateway;
+use App\Contracts\Clinical\TriageGateway;
 use App\Contracts\Clinical\DiagnosesGateway;
 use App\Contracts\Clinical\MarGateway;
+use App\Contracts\Clinical\MaternityGateway;
 use App\Contracts\Clinical\MedicationOrdersGateway;
 use App\Contracts\Clinical\ObservationsGateway;
 use App\Contracts\Clinical\PatientWorklistGateway;
+use App\Contracts\Clinical\ProcessExecutionGateway;
+use App\Contracts\Clinical\ProvisioningGateway;
+use App\Contracts\Clinical\RecallGateway;
 use App\Contracts\Clinical\ScratchpadGateway;
+use App\Contracts\Clinical\TaskVisibilityGateway;
 use App\Contracts\Clinical\WardCensusGateway;
+use App\Contracts\Clinical\WorkOrderGateway;
+use App\Services\Clinical\Gateways\Api\ApiAiUseCaseGateway;
+use App\Services\Clinical\Gateways\Api\ApiAuditTrailGateway;
 use App\Services\Clinical\Gateways\Api\ApiCareAccessGateway;
+use App\Services\Clinical\Gateways\Api\ApiContentGovernanceGateway;
+use App\Services\Clinical\Gateways\Api\ApiEngagementGateway;
+use App\Services\Clinical\Gateways\Api\ApiInteroperabilityGateway;
+use App\Services\Clinical\Gateways\Api\ApiCareTransitionsGateway;
 use App\Services\Clinical\Gateways\Api\ApiClinicalSettingsGateway;
+use App\Services\Clinical\Gateways\Api\ApiConsumptionGateway;
+use App\Services\Clinical\Gateways\Api\ApiCrashCartReconciliationGateway;
+use App\Services\Clinical\Gateways\Api\ApiCriticalAlertsGateway;
+use App\Services\Clinical\Gateways\Api\ApiEncounterSectionGateway;
+use App\Services\Clinical\Gateways\Api\ApiEntitlementGateway;
+use App\Services\Clinical\Gateways\Api\ApiFhirExportGateway;
+use App\Services\Clinical\Gateways\Api\ApiHandoverGateway;
+use App\Services\Clinical\Gateways\Api\ApiTriageGateway;
 use App\Services\Clinical\Gateways\Api\ApiDiagnosesGateway;
 use App\Services\Clinical\Gateways\Api\ApiDictionaryGateway;
 use App\Services\Clinical\Gateways\Api\ApiMarGateway;
+use App\Services\Clinical\Gateways\Api\ApiMaternityGateway;
 use App\Services\Clinical\Gateways\Api\ApiMedicationOrdersGateway;
 use App\Services\Clinical\Gateways\Api\ApiObservationsGateway;
 use App\Services\Clinical\Gateways\Api\ApiPatientWorklistGateway;
+use App\Services\Clinical\Gateways\Api\ApiProcessExecutionGateway;
+use App\Services\Clinical\Gateways\Api\ApiProvisioningGateway;
+use App\Services\Clinical\Gateways\Api\ApiRecallGateway;
 use App\Services\Clinical\Gateways\Api\ApiScratchpadGateway;
+use App\Services\Clinical\Gateways\Api\ApiTaskVisibilityGateway;
 use App\Services\Clinical\Gateways\Api\ApiWardCensusGateway;
+use App\Services\Clinical\Gateways\Api\ApiWorkOrderGateway;
+use App\Services\Clinical\Gateways\Local\LocalAiUseCaseGateway;
+use App\Services\Clinical\Gateways\Local\LocalAuditTrailGateway;
 use App\Services\Clinical\Gateways\Local\LocalCareAccessGateway;
+use App\Services\Clinical\Gateways\Local\LocalContentGovernanceGateway;
+use App\Services\Clinical\Gateways\Local\LocalEngagementGateway;
+use App\Services\Clinical\Gateways\Local\LocalInteroperabilityGateway;
+use App\Services\Clinical\Gateways\Local\LocalCareTransitionsGateway;
 use App\Services\Clinical\Gateways\Local\LocalClinicalSettingsGateway;
+use App\Services\Clinical\Gateways\Local\LocalConsumptionGateway;
+use App\Services\Clinical\Gateways\Local\LocalCrashCartReconciliationGateway;
+use App\Services\Clinical\Gateways\Local\LocalCriticalAlertsGateway;
+use App\Services\Clinical\Gateways\Local\LocalEncounterSectionGateway;
+use App\Services\Clinical\Gateways\Local\LocalEntitlementGateway;
+use App\Services\Clinical\Gateways\Local\LocalFhirExportGateway;
+use App\Services\Clinical\Gateways\Local\LocalHandoverGateway;
+use App\Services\Clinical\Gateways\Local\LocalTriageGateway;
 use App\Services\Clinical\Gateways\Local\LocalDiagnosesGateway;
 use App\Services\Clinical\Gateways\Local\LocalDictionaryGateway;
 use App\Services\Clinical\Gateways\Local\LocalMarGateway;
+use App\Services\Clinical\Gateways\Local\LocalMaternityGateway;
 use App\Services\Clinical\Gateways\Local\LocalMedicationOrdersGateway;
 use App\Services\Clinical\Gateways\Local\LocalObservationsGateway;
 use App\Services\Clinical\Gateways\Local\LocalPatientWorklistGateway;
+use App\Services\Clinical\Gateways\Local\LocalProcessExecutionGateway;
+use App\Services\Clinical\Gateways\Local\LocalProvisioningGateway;
+use App\Services\Clinical\Gateways\Local\LocalRecallGateway;
 use App\Services\Clinical\Gateways\Local\LocalScratchpadGateway;
+use App\Services\Clinical\Gateways\Local\LocalTaskVisibilityGateway;
 use App\Services\Clinical\Gateways\Local\LocalWardCensusGateway;
+use App\Services\Clinical\Gateways\Local\LocalWorkOrderGateway;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 
@@ -62,9 +122,37 @@ class ClinicalGatewayServiceProvider extends ServiceProvider
             'local' => LocalObservationsGateway::class,
             'api' => ApiObservationsGateway::class,
         ],
+        EntitlementGateway::class => [
+            'local' => LocalEntitlementGateway::class,
+            'api' => ApiEntitlementGateway::class,
+        ],
+        CrashCartReconciliationGateway::class => [
+            'local' => LocalCrashCartReconciliationGateway::class,
+            'api' => ApiCrashCartReconciliationGateway::class,
+        ],
         CareAccessGateway::class => [
             'local' => LocalCareAccessGateway::class,
             'api' => ApiCareAccessGateway::class,
+        ],
+        CareTransitionsGateway::class => [
+            'local' => LocalCareTransitionsGateway::class,
+            'api' => ApiCareTransitionsGateway::class,
+        ],
+        ContentGovernanceGateway::class => [
+            'local' => LocalContentGovernanceGateway::class,
+            'api' => ApiContentGovernanceGateway::class,
+        ],
+        AiUseCaseGateway::class => [
+            'local' => LocalAiUseCaseGateway::class,
+            'api' => ApiAiUseCaseGateway::class,
+        ],
+        InteroperabilityGateway::class => [
+            'local' => LocalInteroperabilityGateway::class,
+            'api' => ApiInteroperabilityGateway::class,
+        ],
+        EngagementGateway::class => [
+            'local' => LocalEngagementGateway::class,
+            'api' => ApiEngagementGateway::class,
         ],
         MedicationOrdersGateway::class => [
             'local' => LocalMedicationOrdersGateway::class,
@@ -97,6 +185,58 @@ class ClinicalGatewayServiceProvider extends ServiceProvider
         WardCensusGateway::class => [
             'local' => LocalWardCensusGateway::class,
             'api' => ApiWardCensusGateway::class,
+        ],
+        ProcessExecutionGateway::class => [
+            'local' => LocalProcessExecutionGateway::class,
+            'api' => ApiProcessExecutionGateway::class,
+        ],
+        AuditTrailGateway::class => [
+            'local' => LocalAuditTrailGateway::class,
+            'api' => ApiAuditTrailGateway::class,
+        ],
+        ConsumptionGateway::class => [
+            'local' => LocalConsumptionGateway::class,
+            'api' => ApiConsumptionGateway::class,
+        ],
+        HandoverGateway::class => [
+            'local' => LocalHandoverGateway::class,
+            'api' => ApiHandoverGateway::class,
+        ],
+        TriageGateway::class => [
+            'local' => LocalTriageGateway::class,
+            'api' => ApiTriageGateway::class,
+        ],
+        CriticalAlertsGateway::class => [
+            'local' => LocalCriticalAlertsGateway::class,
+            'api' => ApiCriticalAlertsGateway::class,
+        ],
+        FhirExportGateway::class => [
+            'local' => LocalFhirExportGateway::class,
+            'api' => ApiFhirExportGateway::class,
+        ],
+        ProvisioningGateway::class => [
+            'local' => LocalProvisioningGateway::class,
+            'api' => ApiProvisioningGateway::class,
+        ],
+        TaskVisibilityGateway::class => [
+            'local' => LocalTaskVisibilityGateway::class,
+            'api' => ApiTaskVisibilityGateway::class,
+        ],
+        EncounterSectionGateway::class => [
+            'local' => LocalEncounterSectionGateway::class,
+            'api' => ApiEncounterSectionGateway::class,
+        ],
+        WorkOrderGateway::class => [
+            'local' => LocalWorkOrderGateway::class,
+            'api' => ApiWorkOrderGateway::class,
+        ],
+        RecallGateway::class => [
+            'local' => LocalRecallGateway::class,
+            'api' => ApiRecallGateway::class,
+        ],
+        MaternityGateway::class => [
+            'local' => LocalMaternityGateway::class,
+            'api' => ApiMaternityGateway::class,
         ],
     ];
 

@@ -73,12 +73,14 @@ class ApiWardCensusGateway implements WardCensusGateway
         ]));
     }
 
-    public function assignBed(ClinicalActor $actor, int $bedId, string $patientId, ?string $visitId = null): void
+    public function assignBed(ClinicalActor $actor, int $bedId, string $patientId, ?string $visitId = null): ?int
     {
-        $this->bedAction($actor, $bedId, 'assign', array_filter([
+        $meta = $this->bedAction($actor, $bedId, 'assign', array_filter([
             'patient_id' => $patientId,
             'visit_id' => $visitId,
         ]));
+
+        return isset($meta['movement_id']) ? (int) $meta['movement_id'] : null;
     }
 
     public function releaseBed(ClinicalActor $actor, int $bedId): void
@@ -128,10 +130,13 @@ class ApiWardCensusGateway implements WardCensusGateway
 
     /**
      * @param  array<string, mixed>  $payload
+     * @return array<string, mixed> the response's meta — assign()'s
+     *                              movement_id lives there, same convention
+     *                              as release()'s retirement_prompt.
      */
-    private function bedAction(ClinicalActor $actor, int $bedId, string $action, array $payload): void
+    private function bedAction(ClinicalActor $actor, int $bedId, string $action, array $payload): array
     {
-        $this->client->post(
+        $envelope = $this->client->postEnvelope(
             "clinical/beds/{$bedId}/{$action}",
             $payload,
             [
@@ -149,6 +154,8 @@ class ApiWardCensusGateway implements WardCensusGateway
         );
 
         $this->forgetCensus($actor);
+
+        return (array) ($envelope['meta'] ?? []);
     }
 
     private function censusKey(ClinicalActor $actor, string $wardCode): string

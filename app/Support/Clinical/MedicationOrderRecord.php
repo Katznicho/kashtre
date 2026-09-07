@@ -58,7 +58,14 @@ class MedicationOrderRecord
         $item = $payload['items'][0] ?? [];
 
         return new self(
-            id: $payload['order_uuid'] ?? $payload['id'] ?? '',
+            // The real primary key, not order_uuid — confirmed against a live
+            // `GET .../orders` response 2026-08-22: both fields are present
+            // (id: 10, order_uuid: "MEDORD-2026-000009"), but cancel() and any
+            // other by-id route are implicit-bound on ClinicalOrder's actual
+            // id column. Preferring order_uuid here made every round-tripped
+            // cancel() 404 ("Resource not found") since that string was never
+            // a valid route key.
+            id: $payload['id'] ?? $payload['order_uuid'] ?? '',
             drug_display_name: (string) ($item['display_name'] ?? $item['requested_term'] ?? $payload['display_label'] ?? ''),
             drug_code: $item['inventory_sku'] ?? $item['item_code'] ?? null,
             dose_amount: isset($item['dose_quantity']) ? (float) $item['dose_quantity'] : null,

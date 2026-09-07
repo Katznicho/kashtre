@@ -8,6 +8,7 @@ use App\Models\ClinicalWorkOrder;
 use App\Services\Clinical\Facts\LabOrderPlacedFact;
 use App\Services\Clinical\Integration\StubLimsClient;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Lazy;
 use Livewire\Component;
 use App\Support\Clinical\ClinicalDriver;
 
@@ -17,8 +18,14 @@ use App\Support\Clinical\ClinicalDriver;
  * — they disappear automatically once a real LIMS is wired in, without
  * needing a separate feature flag.
  */
+#[Lazy]
 class PlaceLabOrder extends Component
 {
+    public function placeholder(): \Illuminate\Contracts\View\View
+    {
+        return view('livewire.clinical._lazy-placeholder');
+    }
+
     public string $clientId;
 
     public ?string $visitId = null;

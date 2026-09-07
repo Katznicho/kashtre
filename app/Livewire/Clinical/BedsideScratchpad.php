@@ -8,6 +8,7 @@ use App\Support\Clinical\ClinicalActor;
 use App\Support\Clinical\SuggestedObservation;
 use Exception;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Lazy;
 use Livewire\Component;
 
 /**
@@ -26,8 +27,14 @@ use Livewire\Component;
  * `id` on each is opaque — a Clinical suggestion-item id under the API driver,
  * an array index under the local one — and is only ever passed back.
  */
+#[Lazy]
 class BedsideScratchpad extends Component
 {
+    public function placeholder(): \Illuminate\Contracts\View\View
+    {
+        return view('livewire.clinical._lazy-placeholder');
+    }
+
     public string $clientId;
 
     public ?string $visitId = null;

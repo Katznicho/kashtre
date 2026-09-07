@@ -62,7 +62,7 @@ class LocalWardCensusGateway implements WardCensusGateway
         ]);
     }
 
-    public function assignBed(ClinicalActor $actor, int $bedId, string $patientId, ?string $visitId = null): void
+    public function assignBed(ClinicalActor $actor, int $bedId, string $patientId, ?string $visitId = null): ?int
     {
         $bed = $this->bed($actor, $bedId);
 
@@ -81,6 +81,12 @@ class LocalWardCensusGateway implements WardCensusGateway
             'current_client_id' => $patientId,
             'current_visit_id' => $visitId,
         ]);
+
+        // No BedMovement-equivalent row exists under this driver — Volume 8's
+        // "Complete an internal transfer" is API-driver only (see
+        // LocalCareTransitionsGateway), so there is nothing meaningful to
+        // return here.
+        return null;
     }
 
     public function releaseBed(ClinicalActor $actor, int $bedId): void

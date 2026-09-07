@@ -1,27 +1,22 @@
 <div class="space-y-6">
 
-    <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Patient {{ $clientId }}</h3>
-                @if ($visitId)
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Visit {{ $visitId }}</p>
+    {{-- Patient/visit identity dropped here — the page-level banner above
+         every clinical panel (clinical/observations/show.blade.php) already
+         shows it; this block's only remaining job is the care-assignment
+         notice, so it renders nothing at all once a relationship exists. --}}
+    @unless ($hasActiveRelationship)
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
+            <div class="flex items-center justify-end gap-2">
+                <span class="text-xs text-amber-600 dark:text-amber-400">No active care assignment for you on this patient.</span>
+                @if (in_array('Act As Ward Nurse (Clinical)', auth()->user()->permissions ?? []))
+                    <button wire:click="claim('nurse')" class="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600">Claim as Nurse</button>
+                @endif
+                @if (in_array('Act As Consultant (Clinical)', auth()->user()->permissions ?? []))
+                    <button wire:click="claim('doctor')" class="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600">Claim as Doctor</button>
                 @endif
             </div>
-
-            @unless ($hasActiveRelationship)
-                <div class="flex items-center gap-2">
-                    <span class="text-xs text-amber-600 dark:text-amber-400">No active care assignment for you on this patient.</span>
-                    @if (in_array('Act As Ward Nurse (Clinical)', auth()->user()->permissions ?? []))
-                        <button wire:click="claim('nurse')" class="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600">Claim as Nurse</button>
-                    @endif
-                    @if (in_array('Act As Consultant (Clinical)', auth()->user()->permissions ?? []))
-                        <button wire:click="claim('doctor')" class="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600">Claim as Doctor</button>
-                    @endif
-                </div>
-            @endunless
         </div>
-    </div>
+    @endunless
 
     <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
         <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Record Observations</h4>
@@ -37,12 +32,40 @@
         @endif
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            @php
+                // BMI/eGFR are computed from other fields on this same form
+                // (CaptureObservations::recalculateDerivedFields()) — never
+                // hand-typed, so the field is locked and visibly says why.
+                // The four drivers behind them get .live binding so a
+                // clinician sees the derived value update as they type,
+                // instead of only after Save.
+                $derivedCdeCodes = ['BMI_CALCULATED', 'EGFR_CALCULATED'];
+                $derivedInputCdeCodes = ['BODY_WEIGHT', 'BODY_HEIGHT', 'CREATININE_SERUM', 'AGE_YEARS'];
+            @endphp
             @foreach ($cdes as $cde)
+                @php
+                    $isDerived = in_array($cde->cde_code, $derivedCdeCodes, true);
+                    $feedsADerivedField = in_array($cde->cde_code, $derivedInputCdeCodes, true);
+                @endphp
                 <div wire:key="cde-{{ $cde->cde_code }}">
-                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">{{ $cde->cde_name }}</label>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                        {{ $cde->cde_name }}
+                        @if ($isDerived)
+                            <span class="text-[10px] text-gray-400 dark:text-gray-500 font-normal">(calculated)</span>
+                        @endif
+                    </label>
                     <div class="flex gap-1">
-                        <input type="number" step="any" wire:model="values.{{ $cde->cde_code }}"
-                            class="flex-1 text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600" />
+                        @if ($isDerived)
+                            <input type="text" readonly tabindex="-1" wire:model="values.{{ $cde->cde_code }}"
+                                placeholder="Awaiting inputs&hellip;"
+                                class="flex-1 text-sm rounded border-gray-200 bg-gray-50 text-gray-600 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-400 cursor-not-allowed" />
+                        @elseif ($feedsADerivedField)
+                            <input type="number" step="any" wire:model.live.debounce.500ms="values.{{ $cde->cde_code }}"
+                                class="flex-1 text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600" />
+                        @else
+                            <input type="number" step="any" wire:model="values.{{ $cde->cde_code }}"
+                                class="flex-1 text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600" />
+                        @endif
                         @if ($unitOptionsByCde[$cde->cde_code]->count() > 1)
                             <select wire:model="inputUnits.{{ $cde->cde_code }}"
                                 class="text-sm rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600">
@@ -82,8 +105,8 @@
                     @foreach ($recentObservations as $observation)
                         <tr wire:key="obs-{{ $observation->id }}" class="border-t border-gray-100 dark:border-gray-700">
                             <td class="py-1.5 text-gray-900 dark:text-gray-100">{{ $observation->cde_code }}</td>
-                            <td class="py-1.5 text-gray-700 dark:text-gray-300">{{ $observation->captured_value_numeric }}</td>
-                            <td class="py-1.5 text-gray-700 dark:text-gray-300">{{ $observation->base_value_numeric }}</td>
+                            <td class="py-1.5 text-gray-700 dark:text-gray-300">{{ $observation->captured_value_numeric ?? '—' }}</td>
+                            <td class="py-1.5 text-gray-700 dark:text-gray-300">{{ $observation->base_value_numeric ?? '—' }}</td>
                             <td class="py-1.5 text-gray-500 dark:text-gray-400">{{ $observation->captured_at }}</td>
                         </tr>
                     @endforeach
