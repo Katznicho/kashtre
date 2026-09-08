@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Support\BusinessBranding;
+use App\Support\BusinessEntityCode;
 
 class Business extends Model
 {
@@ -89,6 +90,14 @@ class Business extends Model
     {
         static::creating(function ($user) {
             $user->uuid = (string) Str::uuid();
+
+            // Generated like the uuid above, not typed in later: an entity code
+            // is the tenant this business presents to the Clinical Module, and
+            // a missing one silently unmaps the facility rather than failing
+            // loudly. Still editable afterwards from Businesses → Entity code.
+            if (blank($user->entity_code)) {
+                $user->entity_code = BusinessEntityCode::generate((string) $user->name);
+            }
         });
     }
 

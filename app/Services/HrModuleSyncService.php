@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\KashtreHrModuleSetting;
 use App\Models\User;
+use App\Services\Clinical\Api\ClinicalRequestContext;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -47,6 +48,12 @@ class HrModuleSyncService
             'employee_code' => $user->employee_code,
             'nin' => $user->nin,
             'marital_status' => $user->marital_status,
+            // Duty roles the Clinical Module gates on (their checklist §1).
+            // Main has no separate roles table by design — a duty role IS a
+            // permission granted on the staff form, and ClinicalRequestContext
+            // owns the one mapping from those permission strings to Clinical's
+            // role codes. Derive here rather than duplicating the map.
+            'roles' => app(ClinicalRequestContext::class)->rolesFor($user),
             'business' => $user->business ? [
                 'id' => $user->business->id,
                 'uuid' => $user->business->uuid,

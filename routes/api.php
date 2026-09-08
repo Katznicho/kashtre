@@ -1,6 +1,63 @@
 <?php
 
+use App\Http\Controllers\EmergencyController;
+use App\Http\Controllers\API\DisplayBoardController;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Route;
+
+// Queue display board — migrated to standalone Calling Service
+// API endpoints for TV are no longer served from the Kashtre monolith
+
+Route::withoutMiddleware([ThrottleRequests::class])
+    ->middleware('throttle:240,1')
+    ->group(function () {
+        // Public token-authenticated endpoint for the display board to get emergency color
+        Route::get('/display/emergency-status', [EmergencyController::class, 'displayEmergencyStatus']);
+        Route::get('/display/latest-calls', [DisplayBoardController::class, 'latestCalls']);
+        Route::get('/display/audio', [DisplayBoardController::class, 'streamAudio']);
+        Route::get('/display/emergency-audio', [DisplayBoardController::class, 'streamEmergencyAudio']);
+        Route::get('/display/announcement-audio', [DisplayBoardController::class, 'streamAnnouncementAudio']);
+        Route::options('/display/latest-calls', fn () => response()->noContent()->withHeaders([
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]));
+        Route::options('/display/audio', fn () => response()->noContent()->withHeaders([
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]));
+        Route::options('/display/emergency-audio', fn () => response()->noContent()->withHeaders([
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]));
+        Route::options('/display/announcement-audio', fn () => response()->noContent()->withHeaders([
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]));
+
+        // Public token-authenticated endpoint for the display board to get PA config (sections + Reverb details)
+        Route::get('/display/pa-config', [\App\Http\Controllers\PaAnnouncementController::class, 'displayPaConfig']);
+        Route::get('/display/pa-stream', [\App\Http\Controllers\PaAnnouncementController::class, 'displayPaStream']);
+        Route::post('/display/pa-signal', [\App\Http\Controllers\PaAnnouncementController::class, 'displaySignal']);
+        Route::options('/display/pa-config', fn () => response()->noContent()->withHeaders([
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]));
+        Route::options('/display/pa-stream', fn () => response()->noContent()->withHeaders([
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]));
+        Route::options('/display/pa-signal', fn () => response()->noContent()->withHeaders([
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'POST, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]));
+    });
 
 // Public API routes for client registration and open enrollment checks (no auth required)
 Route::get('/insurance-company/by-code/{code}', [\App\Http\Controllers\ClientController::class, 'getInsuranceCompanyByCode'])->name('api.insurance-company.by-code');
@@ -10,6 +67,46 @@ Route::post('/policies/verify/{insuranceCompanyId}', [\App\Http\Controllers\Clie
 
 
 
+// Orthanc PACS integration — Lua OnStableStudy callback (pacs integration
+// files/stable-study.lua). Gated by the shared secret inside the
+// controller, not route middleware — Orthanc and Laravel share localhost
+// in this environment.
+Route::post('/orthanc/stable-study', [\App\Http\Controllers\OrthancWebhookController::class, 'stableStudy'])
+    ->middleware('throttle:120,1');
+
+// Clinical-to-LIMS ICD's inbound webhook — the real endpoint a genuinely
+// separate LIMS calls back into. HMAC-verified inside the controller
+// (same pattern as the Orthanc webhook above: the signature check IS the
+// auth, not route middleware).
+Route::post('/v1/clinical/lab-proxy/{eventType}', [\App\Http\Controllers\API\Clinical\LimsWebhookController::class, 'handle'])
+    ->middleware('throttle:120,1');
+
+/*
+|--------------------------------------------------------------------------
+| Clinical Module → Main (inbound)
+|--------------------------------------------------------------------------
+|
+| What a separate CLINICAL_ORCHESTRATOR calls on us, per the Clinical Module
+| API Integration Guide. Authenticated with the mirror of the X-Service-Key
+| we present to them (§3.1), keyed off CLINICAL_INBOUND_SERVICE_KEYS.
+|
+| /events           §12 — the at-least-once event stream. De-duplicated on
+|                   event_id; a redelivery is normal and does no work.
+| /catalogue/*      §14 — the lookup that currently blocks ALL ordering.
+|                   Clinical cannot resolve a generic drug term into a SKU
+|                   without it, so nothing can be prescribed until this is
+|                   reachable and configured on both sides.
+|
+| The throttle is generous because a Clinical outbox draining a backlog after
+| an outage is exactly when we least want to start refusing deliveries.
+*/
+Route::prefix('v1')->middleware(['clinical.service', 'throttle:600,1'])->group(function () {
+    Route::post('/events', [\App\Http\Controllers\API\Clinical\ClinicalEventsController::class, 'store']);
+
+    Route::post('/catalogue/resolve', [\App\Http\Controllers\API\Clinical\CatalogueLookupController::class, 'resolve']);
+    Route::get('/catalogue/items/{code}', [\App\Http\Controllers\API\Clinical\CatalogueLookupController::class, 'show']);
+});
+
 // Clinical Module Integration API (X-Service-Key or X-API-Key)
 Route::middleware('clinical.api')->group(function () {
     Route::get('/catalogue/items', [\App\Http\Controllers\API\ClinicalIntegrationController::class, 'catalogueItems']);
@@ -17,6 +114,12 @@ Route::middleware('clinical.api')->group(function () {
     Route::get('/queues', [\App\Http\Controllers\API\ClinicalIntegrationController::class, 'queues']);
     Route::post('/events', [\App\Http\Controllers\API\ClinicalIntegrationController::class, 'events']);
     Route::get('/pharmacy/totes/{ref}', [\App\Http\Controllers\API\ClinicalIntegrationController::class, 'toteShow']);
+
+    // Token introspection (§7 option b): Clinical asks "who is this Sanctum
+    // token" once and caches the answer, instead of trusting an X-User-Id
+    // header. Guarded by the shared module key, not auth:sanctum — the caller
+    // is the module, and the token being asked about belongs to someone else.
+    Route::post('/v1/auth/introspect', [\App\Http\Controllers\API\AuthController::class, 'introspect']);
 });
 
 // HR Module Integration API (X-API-Key or X-HR-API-Key)
@@ -55,10 +158,54 @@ Route::prefix('hr')->middleware('hr.api')->group(function () {
     Route::get('/cadres', [\App\Http\Controllers\API\HrIntegrationController::class, 'cadres']);
     Route::get('/designations', [\App\Http\Controllers\API\HrIntegrationController::class, 'designations']);
     Route::get('/client-spaces', [\App\Http\Controllers\API\HrIntegrationController::class, 'clientSpaces']);
+    
+    
     Route::get('/users', [\App\Http\Controllers\API\HrIntegrationController::class, 'users']);
     Route::get('/users/{uuid}', [\App\Http\Controllers\API\HrIntegrationController::class, 'userShow']);
     Route::get('/employee-identities', [\App\Http\Controllers\API\HrIntegrationController::class, 'employeeIdentities']);
     Route::get('/employee-identities/{uuid}', [\App\Http\Controllers\API\HrIntegrationController::class, 'employeeIdentityShow']);
+});
+
+// RIS Amendment v2.6, Chunk 8 — Imaging Workflow Engine Integration API,
+// for the eventual Clinical Module (same shared-secret idiom as the HR
+// group above). Every endpoint is a thin wrapper over Chunks 1-6's
+// services/models — no logic lives here that doesn't already exist for
+// the web UI.
+Route::prefix('v1/imaging')->middleware('imaging.api')->group(function () {
+    Route::get('/workflow-steps', [\App\Http\Controllers\API\Imaging\WorkflowStepController::class, 'index']);
+    Route::get('/workflow-steps/{workflowStep}/users', [\App\Http\Controllers\API\Imaging\WorkflowStepController::class, 'users']);
+    Route::get('/workflow-steps/{workflowStep}/queue', [\App\Http\Controllers\API\Imaging\WorkflowStepController::class, 'queue']);
+    Route::get('/protocol-workflows', [\App\Http\Controllers\API\Imaging\ProtocolWorkflowController::class, 'index']);
+    Route::post('/studies/{study}/claim', [\App\Http\Controllers\API\Imaging\StudyController::class, 'claim']);
+    Route::post('/studies/{study}/complete-step', [\App\Http\Controllers\API\Imaging\StudyController::class, 'completeStep']);
+    Route::get('/consumption-exceptions', [\App\Http\Controllers\API\Imaging\ConsumptionExceptionController::class, 'index']);
+    Route::post('/consumption-exceptions/{consumptionException}/resolve', [\App\Http\Controllers\API\Imaging\ConsumptionExceptionController::class, 'resolve']);
+
+    // Clinical Module — the real endpoint HttpModuleDispatcher posts to
+    // (DISPATCH_DRIVER=http) instead of the in-process local driver, once
+    // Imaging moves off this box. See ImagingFactsController.
+    Route::post('/facts/{factType}', [\App\Http\Controllers\API\Imaging\ImagingFactsController::class, 'handle']);
+});
+
+// RIS Amendment v2.6, Chunk 8 — Imaging Workflow Engine Integration API,
+// for the eventual Clinical Module (same shared-secret idiom as the HR
+// group above). Every endpoint is a thin wrapper over Chunks 1-6's
+// services/models — no logic lives here that doesn't already exist for
+// the web UI.
+Route::prefix('v1/imaging')->middleware('imaging.api')->group(function () {
+    Route::get('/workflow-steps', [\App\Http\Controllers\API\Imaging\WorkflowStepController::class, 'index']);
+    Route::get('/workflow-steps/{workflowStep}/users', [\App\Http\Controllers\API\Imaging\WorkflowStepController::class, 'users']);
+    Route::get('/workflow-steps/{workflowStep}/queue', [\App\Http\Controllers\API\Imaging\WorkflowStepController::class, 'queue']);
+    Route::get('/protocol-workflows', [\App\Http\Controllers\API\Imaging\ProtocolWorkflowController::class, 'index']);
+    Route::post('/studies/{study}/claim', [\App\Http\Controllers\API\Imaging\StudyController::class, 'claim']);
+    Route::post('/studies/{study}/complete-step', [\App\Http\Controllers\API\Imaging\StudyController::class, 'completeStep']);
+    Route::get('/consumption-exceptions', [\App\Http\Controllers\API\Imaging\ConsumptionExceptionController::class, 'index']);
+    Route::post('/consumption-exceptions/{consumptionException}/resolve', [\App\Http\Controllers\API\Imaging\ConsumptionExceptionController::class, 'resolve']);
+
+    // Clinical Module — the real endpoint HttpModuleDispatcher posts to
+    // (DISPATCH_DRIVER=http) instead of the in-process local driver, once
+    // Imaging moves off this box. See ImagingFactsController.
+    Route::post('/facts/{factType}', [\App\Http\Controllers\API\Imaging\ImagingFactsController::class, 'handle']);
 });
 
 Route::prefix('v1')->group(function () {

@@ -27,6 +27,17 @@ use App\Models\Client;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
+use App\Observers\ImagingReportObserver;
+use App\Models\ImagingReport;
+use App\Models\ImagingOrder;
+use App\Models\ImagingStudy;
+use App\Models\PeerReviewCase;
+use App\Models\ContrastAdministration;
+use App\Models\RecoveryRecord;
+use App\Models\RadiationExposureLog;
+use App\Models\CallingModuleConfig;
+use App\Models\Caller;
+use App\Services\EmergencyAlertService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
@@ -78,6 +89,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Domain\Time\Services\TzdbHealthService::class);
         $this->app->singleton(\App\Domain\Time\Services\MonotonicClock::class);
         $this->app->singleton(\App\Domain\Time\Services\SharedTimeGateway::class);
+
+        // Pillars 1.1/7/8: real Orthanc-backed implementations — no caller
+        // (BroadcastModalityWorklist, ImagingStudyController) changes.
+        // Revert to LoggingDicomWorklistBroker/StubPacsClient here if
+        // Orthanc isn't reachable in a given environment.
+        $this->app->bind(\App\Contracts\DicomWorklistBroker::class, \App\Services\Imaging\OrthancDicomWorklistBroker::class);
+        $this->app->bind(\App\Contracts\PacsClient::class, \App\Services\Imaging\OrthancPacsClient::class);
     }
 
     /**
@@ -104,7 +122,7 @@ class AppServiceProvider extends ServiceProvider
             static $sharedKey = null;
 
             $user = Auth::user();
-            $key = ($user?->id ?? 0).'|'.(string) session(InventoryBusinessContext::SESSION_KEY, '');
+            $key = ($user?->id ?? 0).'|'.(string) session(InventoryBusinessContext::SESSION_KEY, '').'|'.(string) session('caller_id', '');
 
             if ($shared === null || $sharedKey !== $key) {
                 $sharedKey = $key;
@@ -130,6 +148,19 @@ class AppServiceProvider extends ServiceProvider
          InventorySupplierQuotation::observe(ModelActivityObserver::class);
          GoodsReceivedNote::observe(ModelActivityObserver::class);
          StockTransfer::observe(ModelActivityObserver::class);
+         ImagingReport::observe(ImagingReportObserver::class);
+
+         // Pillar 19: Security & Audit Trail — generic CRUD coverage for
+         // every patient-care-relevant Imaging model. Non-mutation actions
+         // (View Study, Open Images, Export Images) go through
+         // ImagingAuditService instead, since there's no model event for those.
+         ImagingOrder::observe(ModelActivityObserver::class);
+         ImagingStudy::observe(ModelActivityObserver::class);
+         ImagingReport::observe(ModelActivityObserver::class);
+         PeerReviewCase::observe(ModelActivityObserver::class);
+         ContrastAdministration::observe(ModelActivityObserver::class);
+         RecoveryRecord::observe(ModelActivityObserver::class);
+         RadiationExposureLog::observe(ModelActivityObserver::class);
     }
 
     /**
@@ -137,11 +168,30 @@ class AppServiceProvider extends ServiceProvider
      */
     private function sharedLayoutViewData(?User $user): array
     {
+        $callingModuleEnabled = false;
+        $callingModuleConfig = null;
+        $userIsACaller = false;
         $inventoryModuleEnabled = false;
         $inventoryModuleConfig = null;
         $inventoryAdminContextBusiness = null;
+        $activeEmergencyAlert = null;
 
         if ($user) {
+            $callingModuleConfig = CallingModuleConfig::query()
+                ->where('business_id', $user->business_id)
+                ->where('is_active', true)
+                ->first();
+            $callingModuleEnabled = (bool) $callingModuleConfig;
+
+            if ($callingModuleEnabled) {
+                $sessionCallerId = session('caller_id');
+                $userIsACaller = $sessionCallerId && Caller::query()
+                    ->where('id', $sessionCallerId)
+                    ->where('business_id', $user->business_id)
+                    ->where('status', 'active')
+                    ->exists();
+            }
+
             $inventoryBusinessId = InventoryBusinessContext::isKashtreAdmin() && InventoryBusinessContext::hasContext()
                 ? InventoryBusinessContext::effectiveBusinessId()
                 : (int) $user->business_id;
@@ -156,6 +206,10 @@ class AppServiceProvider extends ServiceProvider
                 $inventoryAdminContextBusiness = InventoryBusinessContext::contextBusiness();
             }
 
+            if ($callingModuleEnabled) {
+                $activeEmergencyAlert = app(EmergencyAlertService::class)
+                    ->resolveActiveAlertForBusiness((int) $user->business_id);
+            }
         }
 
         $hrModuleUrl     = rtrim(config('services.hr_module.url', ''), '/');
@@ -185,14 +239,14 @@ class AppServiceProvider extends ServiceProvider
             'business' => $user?->business,
             'businessBranding' => BusinessBranding::for($user?->business),
             'permissions' => (array) ($user?->permissions ?? []),
-            'callingModuleEnabled' => false,
-            'callingModuleConfig' => null,
-            'userIsACaller' => false,
+            'callingModuleEnabled' => $callingModuleEnabled,
+            'callingModuleConfig' => $callingModuleConfig,
+            'userIsACaller' => $userIsACaller,
             'inventoryModuleEnabled' => $inventoryModuleEnabled,
             'inventoryModuleConfig' => $inventoryModuleConfig,
             'inventoryAdminContextBusiness' => $inventoryAdminContextBusiness,
-            'globalActiveEmergency' => false,
-            'activeEmergencyAlert' => null,
+            'globalActiveEmergency' => (bool) $activeEmergencyAlert,
+            'activeEmergencyAlert' => $activeEmergencyAlert,
             'cashTraySettings' => KashtreCashTraySetting::resolved(),
             'hrModuleUrl' => $hrModuleUrl,
             'hrModuleEnabled' => $hrModuleEnabled,

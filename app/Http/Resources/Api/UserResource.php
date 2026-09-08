@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api;
 
+use App\Services\Clinical\Api\ClinicalRequestContext;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -25,6 +26,11 @@ class UserResource extends JsonResource
             'branch_id' => $this->branch_id,
             'default_store_id' => $this->default_store_id,
             'profile_photo_url' => $this->profile_photo_url,
+            // Duty roles the Clinical Module gates on (their checklist §1).
+            // A duty role in Main is a permission granted on the staff form,
+            // not a row in `roles`; ClinicalRequestContext owns the single
+            // mapping from those permission strings to Clinical's role codes.
+            'roles' => app(ClinicalRequestContext::class)->rolesFor($this->resource),
             'business' => $this->whenLoaded('business', fn () => [
                 'id' => $this->business?->id,
                 'name' => $this->business?->name,

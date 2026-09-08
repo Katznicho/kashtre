@@ -67,6 +67,59 @@
                     </li>
                     @endif
 
+                    <!-- Callers dropdown: for business admins with calling module enabled -->
+                    @php
+                        $callerPerms = ['View Callers', 'Add Callers', 'Edit Callers', 'Manage Callers'];
+                        $canBroadcastAnnouncements = in_array('Broadcast Announcements', (array) $permissions);
+                        $hasAnyCallerPerm = count(array_intersect($callerPerms, (array) $permissions)) > 0 || $canBroadcastAnnouncements;
+                    @endphp
+                    @if(Auth::user()->business_id != 1 && isset($callingModuleEnabled) && $callingModuleEnabled && $hasAnyCallerPerm)
+                    <li>
+                        <button @click="openGroup === 'callers' ? openGroup = '' : openGroup = 'callers'"
+                                :class="openGroup === 'callers' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'"
+                                class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.129a11.042 11.042 0 005.516 5.516l1.129-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                                </svg>
+                                <span class="ml-3 text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">Calling Service</span>
+                            </span>
+                            <svg class="w-4 h-4 transform transition-transform duration-200 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100" :class="{ 'rotate-180': openGroup === 'callers' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <ul x-show="openGroup === 'callers'" x-collapse class="mt-1 space-y-1 pl-10">
+                            <li>
+                                <a href="{{ route('service-point-callers.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Manage Callers
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('service-point-callers.call-settings-index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Call Settings
+                                </a>
+                            </li>
+                            @if($canBroadcastAnnouncements)
+                            <li>
+                                <a href="{{ route('pa.console') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Public Announcements
+                                </a>
+                            </li>
+                            @endif
+                            <li>
+                                <a href="{{ route('service-point-callers.p2p-settings') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    P2P Calling
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('service-point-callers.emergency-settings-index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Emergency Calling
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    @endif
+
                     @if($inventoryModuleEnabled)
                     <li>
                         <button @click="openGroup === 'inventory' ? openGroup = '' : openGroup = 'inventory'"
@@ -298,6 +351,74 @@
                             @endif
                             @if(in_array('View Branches', (array) $permissions))
                             <li><a href="{{ route('branches.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Branches</a></li>
+                            @endif
+                        </ul>
+                    </li>
+                    @endif
+
+                    <!-- Imaging Group -->
+                    @if(in_array('View Imaging Orders', $permissions) || in_array('View Imaging Studies', $permissions) || in_array('View Peer Review Cases', $permissions) || in_array('View My Imaging Queue', $permissions) || in_array('View Imaging Audit Log', $permissions) || in_array('View Imaging Analytics', $permissions) || in_array('View Contrast Vials', $permissions) || in_array('View Consumption Exceptions', $permissions))
+                    <li>
+                        <button @click="openGroup === 'imaging' ? openGroup = '' : openGroup = 'imaging'" :class="openGroup === 'imaging' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7l9-4 9 4M4 10v9a1 1 0 001 1h4a1 1 0 001-1v-4h4v4a1 1 0 001 1h4a1 1 0 001-1v-9"></path>
+                                </svg>
+                                <span class="ml-3">Imaging</span>
+                            </span>
+                            <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'imaging' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <ul x-show="openGroup === 'imaging'" x-collapse class="mt-1 space-y-1 pl-10">
+                            @if(in_array('View Imaging Orders', $permissions))
+                            <li><a href="{{ route('imaging-orders.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Imaging Orders</a></li>
+                            @endif
+                            @if(in_array('View Imaging Studies', $permissions))
+                            <li><a href="{{ route('imaging-studies.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Imaging Worklist</a></li>
+                            @endif
+                            @if(in_array('View Peer Review Cases', $permissions))
+                            <li><a href="{{ route('peer-review-cases.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Peer Review</a></li>
+                            @endif
+                            @if(in_array('View My Imaging Queue', $permissions))
+                            <li><a href="{{ route('imaging-my-queue.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>My Queue</a></li>
+                            @endif
+                            @if(in_array('View Imaging Audit Log', $permissions))
+                            <li><a href="{{ route('imaging-audit-log.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Audit Log</a></li>
+                            @endif
+                            @if(in_array('View Imaging Analytics', $permissions))
+                            <li><a href="{{ route('imaging-analytics.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Analytics</a></li>
+                            @endif
+                            @if(in_array('View Contrast Vials', $permissions))
+                            <li><a href="{{ route('contrast-vials.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Contrast Vials</a></li>
+                            @endif
+                            @if(in_array('View Consumption Exceptions', $permissions))
+                            <li><a href="{{ route('imaging-consumption-exceptions.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Consumption Exceptions</a></li>
+                            @endif
+                        </ul>
+                    </li>
+                    @endif
+
+                    <!-- Clinical Group -->
+                    @if(in_array('View Ward Census', $permissions) || in_array('View Clinical Process Registry', $permissions) || in_array('View Clinical Audit Trail', $permissions) || in_array('View Clinical Dictionaries', $permissions))
+                    <li>
+                        <button @click="openGroup === 'clinical' ? openGroup = '' : openGroup = 'clinical'" :class="openGroup === 'clinical' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20l7.682-7.318a4.5 4.5 0 00-6.364-6.364L12 7.5l-1.318-1.182a4.5 4.5 0 00-6.364 0z"></path>
+                                </svg>
+                                <span class="ml-3">Clinical</span>
+                            </span>
+                            <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'clinical' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <ul x-show="openGroup === 'clinical'" x-collapse class="mt-1 space-y-1 pl-10">
+                            @if(in_array('View Ward Census', $permissions))
+                            <li><a href="{{ route('clinical.ward-census.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Ward Census</a></li>
+                            <li><a href="{{ route('clinical.my-tasks.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>My Patient Tasks</a></li>
+                            <li><a href="{{ route('clinical.handover.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Shift Handover</a></li>
+                            <li><a href="{{ route('clinical.recalls.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Recall Worklist</a></li>
                             @endif
                         </ul>
                     </li>
@@ -619,6 +740,9 @@
                         </button>
                         <ul x-show="openGroup === 'reports'" x-collapse class="mt-1 space-y-1 pl-10">
                             <li><a href="{{ route('dashboard') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>View Reports</a></li>
+                            @if(Auth::user()->business_id != 1 && isset($callingModuleEnabled) && $callingModuleEnabled)
+                            <li><a href="{{ route('callers.log') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Called List</a></li>
+                            @endif
                         </ul>
                     </li>
                     @endif
@@ -686,6 +810,19 @@
                             @endphp
                             @if($canAccessClientSpaces)
                             <li><a href="{{ route('client-spaces.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Client Spaces</a></li>
+                            @endif
+
+                            {{-- A facility with the permission administers its own
+                                 dictionaries. Kept above the business_id==1 block —
+                                 the unconditional Kashtre-wide entry lives there,
+                                 next to Kashtre/HR/Clinical Module Settings. --}}
+                            @if(Auth::user()->business_id != 1 && in_array('View Clinical Dictionaries', (array) $permissions))
+                            <li>
+                                <a href="{{ route('clinical.dictionaries.index') }}"
+                                   class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Clinical Dictionaries
+                                </a>
+                            </li>
                             @endif
 
                             <!-- Settings only for business_id == 1 (Kashtre) -->
@@ -766,6 +903,32 @@
                             <li><a href="{{ route('item-importance-categories.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Item Categories</a></li>
                             @endif
 
+                            {{-- Imaging settings, kept clustered together rather than
+                                 interleaved alphabetically with the rest of Settings. --}}
+                            @if(in_array('View Imaging Protocols', $permissions) || in_array('View Imaging Readiness Checks', $permissions) || in_array('View Imaging Critical Findings', $permissions) || in_array('View Imaging Module', $permissions) || in_array('View Imaging Service Point Configs', $permissions) || in_array('View Imaging Modalities', $permissions) || in_array('View Imaging Workflow Steps', $permissions))
+                            <li class="pt-2 pb-1 pl-0 text-xs font-semibold text-gray-400 uppercase tracking-wide">Imaging</li>
+                            @if(in_array('View Imaging Protocols', $permissions))
+                            <li><a href="{{ route('imaging-protocols.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Imaging Protocols</a></li>
+                            @endif
+                            @if(in_array('View Imaging Readiness Checks', $permissions))
+                            <li><a href="{{ route('imaging-readiness-check-types.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Imaging Readiness Checks</a></li>
+                            @endif
+                            @if(in_array('View Imaging Critical Findings', $permissions))
+                            <li><a href="{{ route('imaging-critical-finding-types.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Critical Findings</a></li>
+                            @endif
+                            @if(in_array('View Imaging Module', $permissions))
+                            <li><a href="{{ route('imaging-module-configs.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Imaging Module</a></li>
+                            @endif
+                            @if(in_array('View Imaging Service Point Configs', $permissions))
+                            <li><a href="{{ route('imaging-service-point-configs.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Imaging Rooms</a></li>
+                            @endif
+                            @if(in_array('View Imaging Modalities', $permissions))
+                            <li><a href="{{ route('imaging-modalities.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Imaging Modalities</a></li>
+                            @endif
+                            @if(in_array('View Imaging Workflow Steps', $permissions))
+                            <li><a href="{{ route('imaging-workflow-steps.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Workflow Steps</a></li>
+                            @endif
+                            @endif
 
                             @if(in_array('View Insurance Companies', $permissions))
                             <li><a href="{{ route('settings.index', ['tab' => 'insurance-companies']) }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>Manage Third Party Vendors</a></li>
@@ -803,6 +966,12 @@
                                 <a href="{{ route('settings.clinical-module.edit') }}"
                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
                                     Clinical Module Settings
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('clinical.dictionaries.index') }}"
+                                   class="block text-sm text-gray-700 hover:text-blue-700 py-1.5" @click.stop>
+                                    Clinical Dictionaries
                                 </a>
                             </li>
                             @endif
