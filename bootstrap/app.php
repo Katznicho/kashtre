@@ -5,8 +5,10 @@ use App\Http\Middleware\EnsureCashier;
 use App\Http\Middleware\NormalizeTwoFactorChallengeInput;
 use App\Http\Middleware\RequireTwoFactorForKashtre;
 use App\Http\Middleware\VerifyClinicalApiKey;
+use App\Http\Middleware\VerifyClinicalServiceKey;
 use App\Http\Middleware\VerifyHrApiKey;
 use App\Http\Middleware\VerifyImagingApiKey;
+use App\Http\Middleware\ZtnaContextMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -43,6 +45,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'cashier' => EnsureCashier::class,
             'hr.api' => VerifyHrApiKey::class,
             'clinical.api' => VerifyClinicalApiKey::class,
+            'clinical.service' => VerifyClinicalServiceKey::class,
+            'clinical.ztna' => ZtnaContextMiddleware::class,
             'imaging.api' => VerifyImagingApiKey::class,
         ]);
     })
