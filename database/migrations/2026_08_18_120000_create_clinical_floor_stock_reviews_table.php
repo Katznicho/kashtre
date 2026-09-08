@@ -18,6 +18,15 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Guarded like every other table-creating migration touching Clinical
+        // integration in this stretch — 2026_08_05_100000's own conflict with
+        // 2026_08_08_140000 (two migrations independently creating
+        // clinical_inbound_events on divergent deploy histories) confirmed
+        // this exact failure mode is real, not theoretical, for this codebase.
+        if (Schema::hasTable('clinical_floor_stock_reviews')) {
+            return;
+        }
+
         Schema::create('clinical_floor_stock_reviews', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('business_id')->index();
