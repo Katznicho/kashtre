@@ -28,4 +28,19 @@ class LocalCriticalAlertsGateway implements CriticalAlertsGateway
     {
         throw new RuntimeException('Critical alerts are not available under the local clinical driver.');
     }
+
+    public function review(ClinicalActor $actor, int|string $alertId, string $reviewNotes): array
+    {
+        throw new RuntimeException('Critical alerts are not available under the local clinical driver.');
+    }
+
+    public function action(ClinicalActor $actor, int|string $alertId, string $actionTaken): array
+    {
+        throw new RuntimeException('Critical alerts are not available under the local clinical driver.');
+    }
+
+    public function close(ClinicalActor $actor, int|string $alertId, string $closureReason): array
+    {
+        throw new RuntimeException('Critical alerts are not available under the local clinical driver.');
+    }
 }

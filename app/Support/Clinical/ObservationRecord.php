@@ -25,6 +25,12 @@ class ObservationRecord
         public readonly bool $is_panic_high = false,
         public readonly bool $is_panic_low = false,
         public readonly ?string $captured_value_text = null,
+        // SRD v6.1 Phase 7 — the clinical-standing lifecycle layered on top
+        // of the capture above. Null on every pre-Phase-7 caller (capture(),
+        // the flowsheet list) — this codebase doesn't retrofit every row,
+        // only what correct()/markEnteredInError()/cancel() actually return.
+        public readonly ?string $status = null,
+        public readonly int|string|null $supersedesObservationId = null,
     ) {
     }
 
@@ -69,5 +75,25 @@ class ObservationRecord
     public function isPanic(): bool
     {
         return $this->is_panic_high || $this->is_panic_low;
+    }
+
+    /**
+     * POST clinical/observations/{id}/correct|entered-in-error|cancel — a
+     * much thinner response than the capture/flowsheet shapes above (no
+     * base-unit conversion is relevant to a status change).
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public static function fromStatusChangeApi(array $payload): self
+    {
+        return new self(
+            id: $payload['id'] ?? $payload['observation_id'] ?? 0,
+            cde_code: (string) ($payload['cde_code'] ?? ''),
+            captured_value_numeric: isset($payload['value_numeric']) ? (float) $payload['value_numeric'] : null,
+            base_value_numeric: null,
+            captured_at: isset($payload['captured_at']) ? Carbon::parse($payload['captured_at']) : null,
+            status: $payload['status'] ?? null,
+            supersedesObservationId: $payload['supersedes_observation_id'] ?? null,
+        );
     }
 }

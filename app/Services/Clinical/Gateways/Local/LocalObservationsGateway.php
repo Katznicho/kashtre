@@ -213,4 +213,31 @@ class LocalObservationsGateway implements ObservationsGateway
 
         return ['score' => round($result, 1)];
     }
+
+    /**
+     * SRD v6.1 Phase 7's 8-state clinical-standing lifecycle is Clinical-
+     * owned, with no local equivalent — cde_observations here has no status
+     * column beyond the pre-existing validation_status (device-import
+     * review, a different concept, unchanged). Refused outright rather than
+     * fabricated.
+     */
+    public function correct(ClinicalActor $actor, string $observationId, string $reason, array $correctedValues = []): ObservationRecord
+    {
+        $this->refuseStatusChange();
+    }
+
+    public function markEnteredInError(ClinicalActor $actor, string $observationId, string $reason): ObservationRecord
+    {
+        $this->refuseStatusChange();
+    }
+
+    public function cancel(ClinicalActor $actor, string $observationId, string $reason): ObservationRecord
+    {
+        $this->refuseStatusChange();
+    }
+
+    private function refuseStatusChange(): never
+    {
+        throw new \RuntimeException('Observation status corrections (SRD v6.1 Phase 7) are only available under CLINICAL_DRIVER=api.');
+    }
 }

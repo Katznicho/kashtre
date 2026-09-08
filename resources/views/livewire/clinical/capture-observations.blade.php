@@ -87,7 +87,19 @@
     </div>
 
     <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
-        <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Flowsheet</h4>
+        <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Flowsheet</h4>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            v6.1 Phase 7 — a captured value can be corrected, marked entered-in-error, or cancelled. The original
+            row is always preserved (marked amended); a correction never rewrites it in place. Each action is
+            terminal — a row already actioned once cannot be actioned again.
+        </p>
+
+        @if ($correctionError)
+            <div class="mb-4 bg-red-50 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 text-sm rounded p-3">{{ $correctionError }}</div>
+        @endif
+        @if ($correctionMessage)
+            <div class="mb-4 text-xs rounded p-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">{{ $correctionMessage }}</div>
+        @endif
 
         @if ($recentObservations->isEmpty())
             <p class="text-sm text-gray-500 dark:text-gray-400">No observations recorded yet.</p>
@@ -99,6 +111,7 @@
                         <th class="pb-2">Value</th>
                         <th class="pb-2">Base Value</th>
                         <th class="pb-2">Captured At</th>
+                        <th class="pb-2"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -108,7 +121,39 @@
                             <td class="py-1.5 text-gray-700 dark:text-gray-300">{{ $observation->captured_value_numeric ?? '—' }}</td>
                             <td class="py-1.5 text-gray-700 dark:text-gray-300">{{ $observation->base_value_numeric ?? '—' }}</td>
                             <td class="py-1.5 text-gray-500 dark:text-gray-400">{{ $observation->captured_at }}</td>
+                            <td class="py-1.5 text-right space-x-2">
+                                @if ($correctingObservationId === $observation->id)
+                                    {{-- inline form rendered below the table --}}
+                                @else
+                                    <button wire:click="beginCorrection('{{ $observation->id }}', 'correct')" class="text-[11px] text-blue-700 hover:underline">Correct</button>
+                                    <button wire:click="beginCorrection('{{ $observation->id }}', 'entered-in-error')" class="text-[11px] text-amber-700 hover:underline">Entered-in-error</button>
+                                    <button wire:click="beginCorrection('{{ $observation->id }}', 'cancel')" class="text-[11px] text-red-700 hover:underline">Cancel</button>
+                                @endif
+                            </td>
                         </tr>
+                        @if ($correctingObservationId === $observation->id)
+                            <tr class="bg-gray-50 dark:bg-gray-900/40">
+                                <td colspan="5" class="py-3 px-2">
+                                    <div class="flex flex-wrap items-end gap-2">
+                                        @if ($correctionAction === 'correct')
+                                            <div>
+                                                <label class="block text-[10px] font-medium text-gray-500 mb-1">Corrected value</label>
+                                                <input type="number" step="any" wire:model="correctionValue" class="w-28 text-xs rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600" />
+                                            </div>
+                                        @endif
+                                        <div class="flex-1 min-w-[10rem]">
+                                            <label class="block text-[10px] font-medium text-gray-500 mb-1">Reason</label>
+                                            <input type="text" wire:model="correctionReason" class="w-full text-xs rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600" />
+                                            @error('correctionReason') <div class="text-[10px] text-red-600">{{ $message }}</div> @enderror
+                                        </div>
+                                        <button wire:click="submitCorrection" class="text-xs text-white bg-blue-600 hover:bg-blue-700 rounded px-3 py-1.5">
+                                            Confirm {{ str_replace('-', ' ', $correctionAction) }}
+                                        </button>
+                                        <button wire:click="cancelCorrection" class="text-xs text-gray-500 hover:underline">Dismiss</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endif
                     @endforeach
                 </tbody>
             </table>

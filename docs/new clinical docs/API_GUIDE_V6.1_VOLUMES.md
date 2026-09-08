@@ -16,7 +16,7 @@ EDD engagement added or changed.
 > endpoint at all yet** — there is nothing for a UI to call. Building screens against those now
 > would mean building against nothing.
 >
-> **This is a second, separate body of work from the "15 EDD Volumes" above — read [§6](#6-srd-v61-phases-1-to-5-live-now)
+> **This is a second, separate body of work from the "15 EDD Volumes" above — read [§6](#6-srd-v61-phases-1-to-10-complete)
 > if that's what you're here for.** The KashTre Clinical Module v6.1 SRD (a different, larger
 > document than the EDD volume packages — 10 "Phases" covering the whole functional baseline) is
 > being implemented phase by phase, separately from the 15 Volumes. Unlike most of the Volumes
@@ -32,7 +32,7 @@ EDD engagement added or changed.
 - [3. Internal-only changes: you cannot see them, but should know about them](#3-internal-only-changes-you-cannot-see-them-but-should-know-about-them)
 - [4. What "not yet exposed" means, concretely](#4-what-not-yet-exposed-means-concretely)
 - [5. Installed, not yet exposed](#5-installed-not-yet-exposed)
-- [6. SRD v6.1 Phases 1 to 5 (live now)](#6-srd-v61-phases-1-to-5-live-now)
+- [6. SRD v6.1 Phases 1 to 10 (complete)](#6-srd-v61-phases-1-to-10-complete)
 - [Getting help](#getting-help)
 
 ---
@@ -331,14 +331,14 @@ Two volumes deserve a specific note beyond "no route yet":
 
 ---
 
-## 6. SRD v6.1 Phases 1 to 5 (live now)
+## 6. SRD v6.1 Phases 1 to 10 (complete)
 
 A **second, separate body of work from the 15 EDD Volumes above.** The KashTre Clinical Module SRD
 v6.1 is a different, larger document than the EDD volume packages — 10 "Phases" covering the whole
 functional baseline (Foundation/Authorization, Patient/Encounter Context, Clinical Documentation,
 Problems/Care Planning, Orders, Medication, Observations, Diagnostics, Transitions, and a
-consolidated cross-cutting Phase 10) — being implemented phase by phase. Phases 1–5 have been
-audited so far. **Unlike most of the Volumes above, everything in this section is live and
+consolidated cross-cutting Phase 10) — implemented phase by phase; all 10 have now been audited.
+**Unlike most of the Volumes above, everything in this section is live and
 callable today**, at the ordinary `/api/v1/clinical/*` paths alongside everything already in
 **[API_GUIDE.md](API_GUIDE.md#1012-governance-client-space-eligibility-privileges-delegation-sensitivity)**
 — that's the canonical reference for exact request/response shapes; this section is the map of
@@ -427,12 +427,238 @@ This does **not** place an order itself — it records the communication and its
 Linking `order_id` at authentication time is how you connect it to an order placed through the
 ordinary `POST /orders/medications` flow (or any other family), once one exists.
 
-### What's next
+### Phase 6 — Medication reconciliation and adverse events
 
-Phases 6–10 (Medication/MAR, Observations, Diagnostics, Transitions, and the consolidated Phase 10)
-haven't been audited yet. Expect the same pattern to continue: genuine new capability gets built
-and documented here; anywhere the SRD's model conflicts with a live, mature v6.0 system, the
-conflict gets flagged rather than silently resolved by breaking what's running today.
+The eMAR administration/consumption pipeline itself (§4–§14 of the Phase — MAR schedules,
+administrations, wastage, the consumption broker) is already live and mature and was **not**
+rebuilt. Two genuinely new capabilities sit alongside it:
+
+| Capability | Endpoints | Status |
+| --- | --- | --- |
+| Medication reconciliation at admission/transfer/discharge | `/clinical/medication-reconciliations*`, `/clinical/medication-reconciliation-items/{id}/decision` | Live |
+| Adverse drug reaction / error / near-miss reporting | `/clinical/medication-adverse-events*` | Live |
+
+```http
+POST /api/v1/clinical/medication-reconciliations
+{ "patient_id": "CL-00001234", "visit_id": "VIS-2026-001245",
+  "reconciliation_type": "ADMISSION",          // ADMISSION | TRANSFER | DISCHARGE
+  "performed_by_user_id": 104 }
+→ 201 { "data": { "status": "IN_PROGRESS", ... } }
+
+POST /api/v1/clinical/medication-reconciliations/{id}/items
+{ "source": "PATIENT_REPORT", "medication_name": "Amlodipine", "dose": "5mg" }
+
+POST /api/v1/clinical/medication-reconciliation-items/{itemId}/decision
+{ "decision": "CONTINUE", "decided_by_user_id": 104 }   // CONTINUE|MODIFY|HOLD|STOP|SUBSTITUTE|DEFER_REVIEW|NOT_CURRENT
+
+POST /api/v1/clinical/medication-reconciliations/{id}/complete
+// 422 RECONCILIATION_ITEMS_UNDECIDED if any item still has decision: null
+```
+
+```http
+POST /api/v1/clinical/medication-adverse-events
+{ "patient_id": "CL-00001234", "visit_id": "VIS-2026-001245",
+  "event_type": "ADVERSE_DRUG_REACTION",   // ADVERSE_DRUG_REACTION|SIDE_EFFECT|MEDICATION_ERROR|NEAR_MISS|THERAPEUTIC_FAILURE
+  "description": "Widespread urticaria within 10 minutes of ceftriaxone infusion.",
+  "severity": "MODERATE", "reported_by_user_id": 208 }
+→ 201 { "data": { "status": "OPEN", "escalated": false, ... } }
+
+POST /api/v1/clinical/medication-adverse-events/{id}/response   { "clinical_response": "...", "outcome": "RESOLVED" }
+POST /api/v1/clinical/medication-adverse-events/{id}/escalate   // → status: UNDER_REVIEW, escalated: true
+POST /api/v1/clinical/medication-adverse-events/{id}/close      { "outcome": "RESOLVED_NO_SEQUELAE" }
+```
+
+Deliberately not built this pass: an independent-double-check requirement for high-alert
+medications as its own workflow — `MarAdministration.witnessed_by_user_id` already exists on the
+live administration record for this purpose, so no new capability was needed there.
+
+**Main-side UI:** `MedicationReconciliationPanel` and `MedicationAdverseEventsPanel`
+(`resources/views/livewire/clinical/medication-reconciliation-panel.blade.php` /
+`medication-adverse-events-panel.blade.php`), both on the patient chart page.
+
+### Phase 7 — Observations
+
+The existing CDE/Template/Schedule pipeline (`Cde`, `CdeGroup`, `CdeTemplate`, `CdeObservation`,
+`ObservationSchedule`, `CdeDeviceReading`, plus the Unit Engine and `CdeExecutionEngine`) already
+covers most of this phase's structural requirements — the CDE registry, groups/flowsheets, unit
+conversion and manual/device capture were **not** rebuilt. One genuine, well-specified gap was
+found and closed: `CdeObservation` had only a 2-state `validation_status` (VALIDATED/UNVALIDATED —
+a device-import review concept, still unchanged), not the SRD's 8-state clinical-standing
+lifecycle.
+
+| Capability | Endpoints | Status |
+| --- | --- | --- |
+| Observation status lifecycle (REGISTERED/PRELIMINARY/FINAL/AMENDED/CORRECTED/CANCELLED/ENTERED_IN_ERROR/UNKNOWN) | `/clinical/observations/{id}/correct`, `/entered-in-error`, `/cancel` | Live |
+
+```http
+POST /api/v1/clinical/observations/{id}/correct
+{ "reason": "Transcription error, actual reading was 7.4", "value_numeric": 7.4 }
+→ 201 { "data": { "status": "CORRECTED", "supersedes_observation_id": <original id>, ... } }
+// the original observation is preserved unchanged and marked AMENDED — never overwritten in place
+
+POST /api/v1/clinical/observations/{id}/entered-in-error   { "reason": "Captured against the wrong patient chart." }
+POST /api/v1/clinical/observations/{id}/cancel             { "reason": "Ordered in error; patient was never drawn." }
+// both are terminal — a second status change on an already-terminal observation returns
+// 422 OBSERVATION_STATUS_TERMINAL
+```
+
+Every new observation still defaults to `FINAL` on capture (the existing manual/device flow
+already commits a complete, clinically-available value atomically, so no caller needed to change).
+`GET /clinical/patients/{patientId}/observations` (the flowsheet/trend view) now excludes
+`ENTERED_IN_ERROR`/`CANCELLED` records, satisfying the SRD's "shall not drive ... trends"
+requirement for that view. Retrofitting every other consumer (scoring, alerts, decision support,
+the FHIR mappers) to the same exclusion is **not** done this pass — no existing row can carry
+either status except through this new workflow, so nothing already running is affected; it's
+flagged here rather than silently left unstated.
+
+Two more of the Phase's own correction rules (§17, CLN-P7-COR-004/005) are genuine, larger
+integration work deliberately not attempted this pass, and are called out rather than silently
+skipped: automatically placing dependent calculated observations, alerts and care-plan outcomes
+"into review" after a material correction (no "review" state exists yet on those other models to
+place them into), and emitting an idempotent downstream correction event through the outbox for
+external consumers. Both would mean touching several other mature subsystems' own models, not
+just this one's.
+
+**Main-side UI:** folded into the existing `CaptureObservations` panel's flowsheet — each row now
+carries Correct / Entered-in-error / Cancel actions, opening an inline reason (and, for a
+correction, a new value) form.
+
+### Phase 8 — Results, diagnostic reports and closed-loop follow-up
+
+The live LIMS/RIS webhook ingestion pipeline (`LimsIntegrationProxyService`,
+`RisIntegrationProxyService` — schema validation, patient/order matching, unit resolution) is
+mature and was **not** rebuilt; it already covers most of this Phase's ingestion-pipeline concepts.
+Two genuine gaps in what happens *after* a result lands were found and closed:
+
+| Capability | Endpoints | Status |
+| --- | --- | --- |
+| Diagnostic report status lifecycle (Clinical's own review layer, distinct from the source report) | `/clinical/diagnostic-reports/{id}/correct`, `/entered-in-error`, `/cancel` | Live |
+| Closed-loop critical-alert follow-up: acknowledgement → review → action → closure as distinct, separately-recorded states | `/clinical/critical-alerts/{id}/review`, `/action`, `/close` (alongside the existing `/acknowledge`) | Live |
+
+```http
+POST /api/v1/clinical/diagnostic-reports/{id}/correct   { "reason": "Wrong lung field described; corrected impression issued." }
+→ 201 { "data": { "status": "CORRECTED", "supersedes_report_id": <original id>, "report_version": 2, ... } }
+// the original report is preserved unchanged and marked AMENDED
+
+POST /api/v1/clinical/diagnostic-reports/{id}/entered-in-error   { "reason": "..." }
+POST /api/v1/clinical/diagnostic-reports/{id}/cancel              { "reason": "..." }
+// both terminal — a second change returns 422 REPORT_STATUS_TERMINAL
+```
+
+```http
+POST /api/v1/clinical/critical-alerts/{id}/acknowledge   {}
+POST /api/v1/clinical/critical-alerts/{id}/review        { "review_notes": "Repeat sample sent; renal team notified." }
+// 422 ALERT_NOT_ACKNOWLEDGED if called before acknowledgement (CLN-P8-GOV-002:
+// technical receipt is not clinical review)
+POST /api/v1/clinical/critical-alerts/{id}/action        { "action_taken": "IV calcium gluconate given per protocol." }
+POST /api/v1/clinical/critical-alerts/{id}/close         { "closure_reason": "Potassium normalized on repeat." }
+// 422 ALERT_NOT_REVIEWED if called before review — closure always needs a documented rationale
+```
+
+Lab results that arrive as atomic values are ingested straight into `cde_observations`
+(`CdeExecutionEngine::captureObservation`, called from `LimsIntegrationProxyService`), so they
+already inherit the Phase 7 observation status lifecycle above — no separate report-status
+handling was needed for that path. Deliberately not attempted this pass, and flagged rather than
+silently left undone: automatically placing dependent calculations/alerts/care-plan outcomes "into
+review" after a material correction (CLN-P8-GOV-007-equivalent), and breaking the ingestion
+pipeline's existing validation/rejection handling out into the SRD's own named
+RECEIVED→…→QUARANTINED/REJECTED stage labels — today's webhook-level HTTP validation and logging
+already perform the equivalent job without those exact state names, and relabelling a live,
+integrated pipeline is a bigger rework than this pass's scope.
+
+**Main-side UI:** a new `DiagnosticReportCorrectionsPanel` (operates on a report id already known
+from elsewhere on the chart — no new "list reports" endpoint exists in this pass, same shape as
+Care Transitions' discharge-document flow). The critical-alert closed-loop steps are folded into
+the existing `CriticalAlertsFeed` dashboard badge.
+
+### Phase 9 — Handover, transitions, discharge and continuity of care
+
+Internal transfer, discharge readiness and attested discharge documents are already substantially
+covered by the earlier EDD Volume 8 binding pass — `POST /care-transitions*` above ([§1](#1-live-now-care-transitions-volume-8))
+— and were **not** revisited here. Volume 8's own 8-state internal-transfer model
+(REQUESTED→…→COMPLETED, Phase 9 §7) is richer than what `CareTransitionController` builds on top
+of the live bed-management pipeline; rebuilding that pipeline's state machine is out of scope for
+the same reason it was out of scope for Volume 8 — it would be a breaking rework of a live system,
+not a bug fix.
+
+The one clean, well-specified, genuinely uncovered gap: a structured, accountable **Handover
+Record** (§2/§4) for shift and service handover — the point the SRD makes explicitly is that a
+patient movement or a sent message is not proof that clinical responsibility actually transferred
+(CLN-P9-GOV-003).
+
+| Capability | Endpoints | Status |
+| --- | --- | --- |
+| Handover Record: prepare → send → acknowledge, with versioned amendment | `/clinical/handovers*` | Live |
+
+```http
+POST /api/v1/clinical/handovers
+{ "patient_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV", "encounter_id": "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+  "intended_receiver_id": "01ARZ3NDEKTSV4RRFFQ69G5FAX",
+  "content": { "situation": "Post-op day 1, stable", "plan": "Continue current management" } }
+→ 201 { "data": { "status": "DRAFT", "version_no": 1, ... } }
+
+POST /api/v1/clinical/handovers/{id}/send          {}
+→ { "data": { "status": "SENT", "sent_at": "..." } }   // sending is not acceptance (CLN-P9-GOV-003)
+
+POST /api/v1/clinical/handovers/{id}/acknowledge   { "note": "Reviewed, no questions." }
+→ { "data": { "acknowledged_by": "...", "acknowledged_at": "..." } }   // this is what actually transfers responsibility
+
+POST /api/v1/clinical/handovers/{id}/amend         { "content": { "situation": "Correction: afebrile" } }
+→ 201 { "data": { "version_no": 2, "supersedes_public_id": "<original id>", ... } }
+// the original is never edited in place (CLN-P9-HND-004) — only a DRAFT handover with nothing
+// sent yet can be edited by simply preparing a fresh one instead
+```
+
+This is distinct from the existing `GET /clinical/handover` (API_GUIDE.md §2.2) — that one is a
+live, stateless ward projection ("what does the outgoing shift need to know right now"), computed
+fresh on every call and never itself accepted by anyone. The Handover Record above is the
+accountable event: who prepared it, who it was sent to, and whether the receiver actually accepted
+it. Both stay in place, answering different questions.
+
+`clinical_handovers`/`clinical_handover_acknowledgements` are pre-existing EDD Volume 8 package
+tables that shipped with no Action ever touching them; `transition_public_id` was also NOT NULL in
+the shipped schema, which only fits a formal transfer/discharge — made nullable so a routine shift
+handover (no transition, no movement) doesn't need to fabricate one. Discharge summary/patient
+instructions versioning, external-transfer disclosure, and continuity-task survival past encounter
+closure (§9–§13) are not attempted this pass — each is a substantial capability in its own right,
+and the discharge-document half of it already has a start via `IssueDischargeDocument`
+([§1](#1-live-now-care-transitions-volume-8)).
+
+**Main-side UI:** a new `HandoverRecordsPanel`, distinct from the existing `ShiftHandoverBoard`
+(which stays exactly as-is against the older stateless projection).
+
+### Phase 10 — Specialty extensions, interoperability, reporting and release assurance
+
+No new code from this pass. Phase 10 is explicitly a consolidation chapter — its own Document
+Control table says so directly: **"Implementation: Functional specification only. Laravel
+migrations, policies, services, APIs, queues and deployment topology belong in the EDD"**, and its
+"Consolidation rule" states it "may strengthen cross-cutting controls but shall not create
+alternate authorization, signature, correction, unit, order, medication, result or transition
+semantics" beyond Phases 1–9. Its 24 sections (specialty-extension governance, FHIR/interoperability
+conformance, reporting/analytics, privacy, zero-trust security, audit/observability, performance,
+resilience/DR, data retention, change governance, deployment/release gates, migration, testing
+strategy, accessibility, operations/incident management, final permissions, traceability) describe
+*properties the whole system must have*, not a discrete feature to add — and every one of them is
+already satisfied by something that exists:
+
+- The architectural discipline every phase above already follows: tenant scoping (`BelongsToTenant`
+  + `TenantScope` on every model), permission checks (`ClinicalIdentity::hasPermission()`),
+  tamper-evident hash-chained audit (`AuditEntry`/`AuditTrailService`), idempotent writes
+  (`EnforceIdempotency`), opaque identifiers (ULID for EDD-package records, tenant-scoped
+  auto-increment elsewhere — never a bare sequential ID used as an authorization boundary), and
+  versioned/effective-dated configuration (`ManagesDictionaryEntries`, `HasActivationStatus`).
+- The EDD Volumes already completed earlier in this engagement that this Phase's sections map onto
+  almost one-to-one: Volume 9 (Assurance — break-glass, consent, downtime), Volume 10 (Release
+  Assurance — deployment gates, migration rehearsal), Volume 11 (Operations — AI use-case
+  governance), Volume 12 (Interoperability — FHIR exchange, cohorts, quality measures), Volume 14
+  (Content Governance — versioning, promotion, localization, accessibility), Volume 15 (DHIS2 —
+  public-health reporting).
+- Its own "Registered Phase 10 Gaps" table — like every prior phase's gap register — marks its
+  items (approve the specialty-extension catalogue, approve interoperability profiles, ...) as
+  requiring organizational governance sign-off, not code, and "Blocking" in the same sense as
+  every other phase's deferred items: a decision for the PM/governance body, not a bug.
+
+This closes the phase-by-phase SRD v6.1 audit (Phases 1–10).
 
 ---
 

@@ -18,6 +18,10 @@ use App\Contracts\Clinical\EncounterSectionGateway;
 use App\Contracts\Clinical\EntitlementGateway;
 use App\Contracts\Clinical\FhirExportGateway;
 use App\Contracts\Clinical\HandoverGateway;
+use App\Contracts\Clinical\HandoverRecordGateway;
+use App\Contracts\Clinical\DiagnosticReportStatusGateway;
+use App\Contracts\Clinical\MedicationAdverseEventGateway;
+use App\Contracts\Clinical\MedicationReconciliationGateway;
 use App\Contracts\Clinical\TriageGateway;
 use App\Contracts\Clinical\DiagnosesGateway;
 use App\Contracts\Clinical\MarGateway;
@@ -47,6 +51,10 @@ use App\Services\Clinical\Gateways\Api\ApiEncounterSectionGateway;
 use App\Services\Clinical\Gateways\Api\ApiEntitlementGateway;
 use App\Services\Clinical\Gateways\Api\ApiFhirExportGateway;
 use App\Services\Clinical\Gateways\Api\ApiHandoverGateway;
+use App\Services\Clinical\Gateways\Api\ApiHandoverRecordGateway;
+use App\Services\Clinical\Gateways\Api\ApiDiagnosticReportStatusGateway;
+use App\Services\Clinical\Gateways\Api\ApiMedicationAdverseEventGateway;
+use App\Services\Clinical\Gateways\Api\ApiMedicationReconciliationGateway;
 use App\Services\Clinical\Gateways\Api\ApiTriageGateway;
 use App\Services\Clinical\Gateways\Api\ApiDiagnosesGateway;
 use App\Services\Clinical\Gateways\Api\ApiDictionaryGateway;
@@ -77,6 +85,10 @@ use App\Services\Clinical\Gateways\Local\LocalEncounterSectionGateway;
 use App\Services\Clinical\Gateways\Local\LocalEntitlementGateway;
 use App\Services\Clinical\Gateways\Local\LocalFhirExportGateway;
 use App\Services\Clinical\Gateways\Local\LocalHandoverGateway;
+use App\Services\Clinical\Gateways\Local\LocalHandoverRecordGateway;
+use App\Services\Clinical\Gateways\Local\LocalDiagnosticReportStatusGateway;
+use App\Services\Clinical\Gateways\Local\LocalMedicationAdverseEventGateway;
+use App\Services\Clinical\Gateways\Local\LocalMedicationReconciliationGateway;
 use App\Services\Clinical\Gateways\Local\LocalTriageGateway;
 use App\Services\Clinical\Gateways\Local\LocalDiagnosesGateway;
 use App\Services\Clinical\Gateways\Local\LocalDictionaryGateway;
@@ -201,6 +213,22 @@ class ClinicalGatewayServiceProvider extends ServiceProvider
         HandoverGateway::class => [
             'local' => LocalHandoverGateway::class,
             'api' => ApiHandoverGateway::class,
+        ],
+        HandoverRecordGateway::class => [
+            'local' => LocalHandoverRecordGateway::class,
+            'api' => ApiHandoverRecordGateway::class,
+        ],
+        MedicationReconciliationGateway::class => [
+            'local' => LocalMedicationReconciliationGateway::class,
+            'api' => ApiMedicationReconciliationGateway::class,
+        ],
+        MedicationAdverseEventGateway::class => [
+            'local' => LocalMedicationAdverseEventGateway::class,
+            'api' => ApiMedicationAdverseEventGateway::class,
+        ],
+        DiagnosticReportStatusGateway::class => [
+            'local' => LocalDiagnosticReportStatusGateway::class,
+            'api' => ApiDiagnosticReportStatusGateway::class,
         ],
         TriageGateway::class => [
             'local' => LocalTriageGateway::class,

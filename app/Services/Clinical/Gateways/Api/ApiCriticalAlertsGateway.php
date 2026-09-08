@@ -65,4 +65,31 @@ class ApiCriticalAlertsGateway implements CriticalAlertsGateway
             ],
         );
     }
+
+    public function review(ClinicalActor $actor, int|string $alertId, string $reviewNotes): array
+    {
+        return $this->client->post(
+            "clinical/critical-alerts/{$alertId}/review",
+            ['review_notes' => $reviewNotes],
+            ['business_id' => $actor->businessId],
+        );
+    }
+
+    public function action(ClinicalActor $actor, int|string $alertId, string $actionTaken): array
+    {
+        return $this->client->post(
+            "clinical/critical-alerts/{$alertId}/action",
+            ['action_taken' => $actionTaken],
+            ['business_id' => $actor->businessId],
+        );
+    }
+
+    public function close(ClinicalActor $actor, int|string $alertId, string $closureReason): array
+    {
+        return $this->client->post(
+            "clinical/critical-alerts/{$alertId}/close",
+            ['closure_reason' => $closureReason],
+            ['business_id' => $actor->businessId],
+        );
+    }
 }

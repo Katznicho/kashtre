@@ -98,4 +98,25 @@ interface ObservationsGateway
         array $inputs,
         ?string $version = null,
     ): array;
+
+    /**
+     * SRD v6.1 Phase 7 — the 8-state clinical-standing lifecycle
+     * (REGISTERED/PRELIMINARY/FINAL/AMENDED/CORRECTED/CANCELLED/
+     * ENTERED_IN_ERROR/UNKNOWN), layered on top of capture() above, which is
+     * unchanged and still always lands FINAL. The original observation is
+     * never rewritten: correct() preserves it (marked AMENDED) and creates a
+     * new CORRECTED row superseding it. Every one of these three is
+     * terminal — a second status change on an already-terminal observation
+     * refuses (OBSERVATION_STATUS_TERMINAL).
+     *
+     * @param  array<string, mixed>  $correctedValues  e.g. value_numeric
+     * @return ObservationRecord the new CORRECTED observation
+     *
+     * @throws \App\Services\Clinical\Api\Exceptions\ClinicalRuleRefusedException on the API driver
+     */
+    public function correct(ClinicalActor $actor, string $observationId, string $reason, array $correctedValues = []): ObservationRecord;
+
+    public function markEnteredInError(ClinicalActor $actor, string $observationId, string $reason): ObservationRecord;
+
+    public function cancel(ClinicalActor $actor, string $observationId, string $reason): ObservationRecord;
 }

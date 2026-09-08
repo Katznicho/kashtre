@@ -65,6 +65,19 @@ class CaptureObservations extends Component
     /** @var array<int, string> error messages from the last save attempt */
     public array $captureErrors = [];
 
+    /** SRD v6.1 Phase 7 — the observation currently being corrected/marked/cancelled. */
+    public int|string|null $correctingObservationId = null;
+
+    public string $correctionAction = 'correct';
+
+    public string $correctionReason = '';
+
+    public string $correctionValue = '';
+
+    public ?string $correctionError = null;
+
+    public ?string $correctionMessage = null;
+
     public function mount(string $clientId, ?string $visitId = null): void
     {
         abort_unless(in_array('View Clinical Observations', Auth::user()->permissions ?? []), 403);
@@ -168,6 +181,74 @@ class CaptureObservations extends Component
         if ($captured > 0 && $this->captureErrors === []) {
             $this->values = [];
         }
+    }
+
+    /**
+     * SRD v6.1 Phase 7. Opens the small correction form for one row of the
+     * flowsheet rendered by render() above — correct()/markEnteredInError()/
+     * cancel() are each terminal (a second attempt on an already-terminal
+     * observation is refused server-side), so this is a one-shot action per
+     * row, not an editable state.
+     */
+    public function beginCorrection(int|string $observationId, string $action): void
+    {
+        abort_unless(in_array('Add Clinical Observations', Auth::user()->permissions ?? []), 403);
+        abort_unless(in_array($action, ['correct', 'entered-in-error', 'cancel'], true), 422);
+
+        $this->correctingObservationId = $observationId;
+        $this->correctionAction = $action;
+        $this->correctionReason = '';
+        $this->correctionValue = '';
+        $this->correctionError = null;
+    }
+
+    public function cancelCorrection(): void
+    {
+        $this->correctingObservationId = null;
+    }
+
+    public function submitCorrection(): void
+    {
+        abort_unless(in_array('Add Clinical Observations', Auth::user()->permissions ?? []), 403);
+
+        $this->validate(['correctionReason' => ['required', 'string', 'min:3']], [], ['correctionReason' => 'reason']);
+
+        if ($this->correctingObservationId === null) {
+            return;
+        }
+
+        $gateway = $this->gateway();
+        $actor = $this->actor();
+        $this->correctionError = null;
+
+        try {
+            match ($this->correctionAction) {
+                'correct' => $gateway->correct(
+                    $actor,
+                    (string) $this->correctingObservationId,
+                    $this->correctionReason,
+                    $this->correctionValue !== '' ? ['value_numeric' => (float) $this->correctionValue] : [],
+                ),
+                'entered-in-error' => $gateway->markEnteredInError($actor, (string) $this->correctingObservationId, $this->correctionReason),
+                'cancel' => $gateway->cancel($actor, (string) $this->correctingObservationId, $this->correctionReason),
+            };
+        } catch (ClinicalApiException $e) {
+            $this->correctionError = $e->getMessage();
+
+            return;
+        } catch (Exception $e) {
+            $this->correctionError = $e->getMessage();
+
+            return;
+        }
+
+        $this->correctionMessage = match ($this->correctionAction) {
+            'correct' => 'Correction recorded — the original is preserved and marked amended.',
+            'entered-in-error' => 'Observation marked entered-in-error.',
+            'cancel' => 'Observation cancelled.',
+            default => 'Done.',
+        };
+        $this->correctingObservationId = null;
     }
 
     public function claim(string $role): void

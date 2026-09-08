@@ -39,24 +39,49 @@
             </div>
         @endif
 
+        @if ($stepError)
+            <div class="mb-2 bg-red-50 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 text-[11px] rounded p-2">{{ $stepError }}</div>
+        @endif
+
         <div class="space-y-1 max-h-80 overflow-y-auto">
             @foreach ($feed['alerts'] as $alert)
-                <div wire:key="alert-{{ $alert['id'] }}" class="flex items-center justify-between text-xs py-1.5 border-t border-gray-50 dark:border-gray-700
-                    {{ ($alert['severity_tier'] ?? '') === 'CRITICAL_PANIC' ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300' }}">
-                    <div>
-                        <span class="font-medium">{{ $alert['alert_label'] ?? '' }}</span>
-                        — {{ $alert['patient_id'] ?? '' }}
-                        @if (isset($alert['observed_value']))
-                            ({{ $alert['observed_value'] }}{{ $alert['unit_label'] ?? '' }})
+                <div wire:key="alert-{{ $alert['id'] }}" class="text-xs py-1.5 border-t border-gray-50 dark:border-gray-700">
+                    <div class="flex items-center justify-between
+                        {{ ($alert['severity_tier'] ?? '') === 'CRITICAL_PANIC' ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300' }}">
+                        <div>
+                            <span class="font-medium">{{ $alert['alert_label'] ?? '' }}</span>
+                            — {{ $alert['patient_id'] ?? '' }}
+                            @if (isset($alert['observed_value']))
+                                ({{ $alert['observed_value'] }}{{ $alert['unit_label'] ?? '' }})
+                            @endif
+                            <span class="text-gray-400">{{ $alert['created_at'] ?? '' }}</span>
+                        </div>
+                        @if (empty($alert['acknowledged_at']))
+                            <button wire:click="acknowledge('{{ $alert['id'] }}')" class="text-blue-700 dark:text-blue-300 hover:underline whitespace-nowrap ml-2">
+                                Acknowledge
+                            </button>
+                        @else
+                            {{-- v6.1 Phase 8 closed-loop follow-up: acknowledged is only
+                                 the first step — review, action and close each get their
+                                 own recorded state, not implied by this one flag. --}}
+                            <div class="flex items-center gap-2 whitespace-nowrap ml-2">
+                                <span class="text-gray-400">Acknowledged</span>
+                                <button wire:click="openStep('{{ $alert['id'] }}', 'review')" class="text-blue-700 dark:text-blue-300 hover:underline">Review</button>
+                                <button wire:click="openStep('{{ $alert['id'] }}', 'action')" class="text-blue-700 dark:text-blue-300 hover:underline">Action</button>
+                                <button wire:click="openStep('{{ $alert['id'] }}', 'close')" class="text-green-700 dark:text-green-300 hover:underline">Close</button>
+                            </div>
                         @endif
-                        <span class="text-gray-400">{{ $alert['created_at'] ?? '' }}</span>
                     </div>
-                    @if (empty($alert['acknowledged_at']))
-                        <button wire:click="acknowledge('{{ $alert['id'] }}')" class="text-blue-700 dark:text-blue-300 hover:underline whitespace-nowrap ml-2">
-                            Acknowledge
-                        </button>
-                    @else
-                        <span class="text-gray-400 whitespace-nowrap ml-2">Acknowledged</span>
+
+                    @if ($openAlertId == $alert['id'])
+                        <div class="mt-1.5 flex items-center gap-2 bg-gray-50 dark:bg-gray-900/40 rounded p-2">
+                            <span class="text-[10px] text-gray-500 uppercase w-14">{{ $openAlertStep }}</span>
+                            <input type="text" wire:model="stepInput"
+                                placeholder="{{ $openAlertStep === 'review' ? 'Review notes…' : ($openAlertStep === 'action' ? 'Action taken…' : 'Closure reason…') }}"
+                                class="flex-1 text-[11px] rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600" />
+                            <button wire:click="submitStep" class="text-[11px] text-white bg-blue-600 hover:bg-blue-700 rounded px-2 py-1">Save</button>
+                            <button wire:click="closeStep" class="text-[11px] text-gray-500 hover:underline">Cancel</button>
+                        </div>
                     @endif
                 </div>
             @endforeach

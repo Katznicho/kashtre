@@ -45,4 +45,30 @@ interface CriticalAlertsGateway
      * cosmetic.
      */
     public function acknowledge(ClinicalActor $actor, int|string $alertId): void;
+
+    /**
+     * SRD v6.1 Phase 8 — the closed-loop follow-up chain: acknowledge (above,
+     * pre-existing) → review → action → close, each a distinct, separately
+     * recorded state rather than one flag. review() refuses
+     * (ALERT_NOT_ACKNOWLEDGED) before acknowledgement — technical receipt is
+     * not clinical review.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws \App\Services\Clinical\Api\Exceptions\ClinicalRuleRefusedException on the API driver
+     */
+    public function review(ClinicalActor $actor, int|string $alertId, string $reviewNotes): array;
+
+    /** @return array<string, mixed> */
+    public function action(ClinicalActor $actor, int|string $alertId, string $actionTaken): array;
+
+    /**
+     * Refuses (ALERT_NOT_REVIEWED) before review() — closure always needs a
+     * documented rationale, not just an action.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws \App\Services\Clinical\Api\Exceptions\ClinicalRuleRefusedException on the API driver
+     */
+    public function close(ClinicalActor $actor, int|string $alertId, string $closureReason): array;
 }

@@ -150,6 +150,39 @@ class ApiObservationsGateway implements ObservationsGateway
         );
     }
 
+    public function correct(ClinicalActor $actor, string $observationId, string $reason, array $correctedValues = []): ObservationRecord
+    {
+        $data = $this->client->post(
+            "clinical/observations/{$observationId}/correct",
+            $correctedValues + ['reason' => $reason],
+            ['business_id' => $actor->businessId],
+        );
+
+        return ObservationRecord::fromStatusChangeApi($data);
+    }
+
+    public function markEnteredInError(ClinicalActor $actor, string $observationId, string $reason): ObservationRecord
+    {
+        $data = $this->client->post(
+            "clinical/observations/{$observationId}/entered-in-error",
+            ['reason' => $reason],
+            ['business_id' => $actor->businessId],
+        );
+
+        return ObservationRecord::fromStatusChangeApi($data);
+    }
+
+    public function cancel(ClinicalActor $actor, string $observationId, string $reason): ObservationRecord
+    {
+        $data = $this->client->post(
+            "clinical/observations/{$observationId}/cancel",
+            ['reason' => $reason],
+            ['business_id' => $actor->businessId],
+        );
+
+        return ObservationRecord::fromStatusChangeApi($data);
+    }
+
     /**
      * Collection endpoints return `data` as a bare array; a few nest it under
      * a named key. Tolerating both keeps us honest about §2's instruction to
